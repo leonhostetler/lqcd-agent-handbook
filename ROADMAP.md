@@ -1,9 +1,10 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slice 0b is accepted; all six Claude Code and Codex cold-session cases passed.
+**Status:** Slice 0b is accepted. Slice 1 is in progress; the Perlmutter machine profile
+and detector are committed and published.
 
-**NEXT ACTION:** Begin Slice 1 by building QUDA on Perlmutter and recording the first
-validated stack.
+**NEXT ACTION:** Add the QUDA project record, build guidance, and the single build profile
+for the first Perlmutter build.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -12,17 +13,24 @@ This document owns mutable build state, acceptance evidence, pending decisions, 
 
 Slice 0 was committed and published at `1352ba5`. Slice 0b was committed and published at
 `b06c7d1` on 2026-08-15, and the zero-argument startup repair was committed and published
-at `fa9001a`. Latest automated evidence:
+at `fa9001a`. Slice 1 began with the Perlmutter machine profile, operational notes, machine
+detector, and focused tests committed and published at `b116b8f` on 2026-08-15.
 
-- `python3 tools/validate-knowledge.py`: two schemas valid, one provenance record complete,
+Latest automated evidence:
+
+- `python3 tools/validate-knowledge.py`: three schema objects valid, two provenance records complete,
   two frontend adapters valid, 202 long-document references resolved, no deny-list match,
   and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest discover -s tests -p 'test_*.py' -v`: all nineteen checks pass,
+- `python3 -m unittest discover -s tests -p 'test_*.py' -v`: all twenty-three checks pass,
   including frontend-manifest consistency, exact entrypoint mirroring, mirror repair, both
   launcher contracts and drift stops, shared zero-argument startup prompting, preserved
-  working directory, additive Codex bootstrap, and conflict-safe installer behavior;
-- `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills`,
+  working directory, additive Codex bootstrap, conflict-safe installer behavior, machine
+  schema conformance, and Perlmutter detection behavior;
+- `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
+  tools/detect-machine.sh`,
   `python3 tools/sync-agent-entrypoints.py --check`, and `git diff --check` complete cleanly.
+- `tools/detect-machine.sh` resolves the live Perlmutter login environment to `perlmutter`
+  from the documented NERSC machine marker.
 
 Accepted on 2026-08-15 by operator report: the Claude launcher in user mode, the Claude
 launcher in developer mode, Claude invoked without the launcher, the Codex launcher in user
