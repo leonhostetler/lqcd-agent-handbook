@@ -19,6 +19,7 @@ launcher:
   handbook_env: LQCD_HANDBOOK
   launched_env: LQCD_HANDBOOK_LAUNCHED
   frontend_env: LQCD_HANDBOOK_FRONTEND
+  startup_prompt: playbooks/start-session-prompt.txt
   frontends:
     claude:
       executable: tools/lqcd-claude

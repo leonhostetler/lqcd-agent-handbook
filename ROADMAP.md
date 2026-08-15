@@ -10,22 +10,27 @@ This document owns mutable build state, acceptance evidence, pending decisions, 
 <a id="current-slice-state"></a>
 ## Current slice state
 
-Slice 0 was committed and published at `1352ba5`. Slice 0b was implemented locally on
-2026-08-15. Latest automated evidence:
+Slice 0 was committed and published at `1352ba5`. Slice 0b was committed and published at
+`b06c7d1` on 2026-08-15. Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py`: two schemas valid, one provenance record complete,
   two frontend adapters valid, 202 long-document references resolved, no deny-list match,
   and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest discover -s tests -p 'test_*.py' -v`: all seventeen checks pass,
+- `python3 -m unittest discover -s tests -p 'test_*.py' -v`: all nineteen checks pass,
   including frontend-manifest consistency, exact entrypoint mirroring, mirror repair, both
-  launcher contracts and drift stops, preserved working directory, additive Codex bootstrap,
-  and conflict-safe installer behavior;
+  launcher contracts and drift stops, shared zero-argument startup prompting, preserved
+  working directory, additive Codex bootstrap, and conflict-safe installer behavior;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills`,
   `python3 tools/sync-agent-entrypoints.py --check`, and `git diff --check` complete cleanly.
 
 Not yet accepted: the six interactive cold-session cases in Slice 0b remain pending. Those
 cases verify behavior inside the actual Claude Code and Codex frontends rather than wrapper
 construction alone. Do not advance to Slice 1 until they are recorded here.
+
+The first Claude user-mode attempt on 2026-08-15 opened an idle prompt because the launcher
+loaded passive instructions but supplied no initial turn. Both launchers now inject the same
+manifest-declared startup prompt only when called with zero arguments. The case remains
+pending until it is rerun against that repair.
 
 <a id="build-order"></a>
 ## 9. Build order
@@ -77,13 +82,13 @@ This compatibility slice establishes one handbook behavior behind Claude Code an
 - canonical Tier 0 is `AGENTS.md`; `CLAUDE.md` is an exact generated mirror enforced by
   `tools/sync-agent-entrypoints.py` and the validator;
 - `handbook.yaml` declares the canonical entrypoint, mirrors, common launcher markers, and
-  both frontend adapters;
+  both frontend adapters, plus the shared zero-argument startup prompt;
 - `playbooks/start-session.md` owns shared behavior, while
   `start-session-{claude,codex}.md` own only complete-loading preflights;
 - matching `.claude/skills/` and `.agents/skills/` adapters remain thin;
 - `tools/lqcd-claude` and `tools/lqcd-codex` preserve the caller's working directory and
-  project instructions. Codex uses additive `developer_instructions`, never
-  `model_instructions_file`;
+  project instructions, and inject the shared startup prompt when no caller arguments are
+  present. Codex uses additive `developer_instructions`, never `model_instructions_file`;
 - `tools/install-codex-skills` optionally exposes the Codex skill through a conflict-safe,
   idempotent user symlink with documented duplicate-discovery and relocation tradeoffs. The
   launcher does not depend on installation.
@@ -91,8 +96,8 @@ This compatibility slice establishes one handbook behavior behind Claude Code an
 *Automated acceptance:* the validator rejects frontend-manifest and entrypoint drift;
 mirror synchronization is checkable and repairable; both launchers fail actionably without
 `LQCD_HANDBOOK`; wrapper tests verify forwarded arguments, common and frontend markers,
-preserved working directory, and Codex's additive bootstrap; installer tests cover first
-install, idempotence, and conflict refusal.
+shared zero-argument prompting, preserved working directory, and Codex's additive bootstrap;
+installer tests cover first install, idempotence, and conflict refusal.
 
 *Cold-session acceptance matrix:*
 

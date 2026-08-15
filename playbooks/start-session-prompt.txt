@@ -1,0 +1,1 @@
+Run the lqcd-start-session workflow now. Do not begin project work until orientation completes.

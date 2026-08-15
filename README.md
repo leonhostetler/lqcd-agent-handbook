@@ -17,9 +17,11 @@ export LQCD_HANDBOOK=/path/to/lqcd-agent-handbook
 ```
 
 Both launchers intentionally have no default path. They preserve the working project's
-own instructions while loading the same handbook Tier 0 and startup workflow. The Codex
-launcher works without installation; `tools/install-codex-skills` may optionally expose
-the startup skill in Codex's user skill directory.
+own instructions while loading the same handbook Tier 0 and startup workflow. When called
+without arguments, both supply the same neutral initial prompt so orientation begins
+immediately; caller-supplied arguments pass through unchanged. The Codex launcher works
+without installation; `tools/install-codex-skills` may optionally expose the startup skill
+in Codex's user skill directory.
 
 The optional Codex link is intended for sessions in other repositories. Inside this
 handbook repository, Codex may show both the repository skill and the same user-scoped

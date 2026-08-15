@@ -45,6 +45,7 @@ class SliceZeroTests(unittest.TestCase):
             "playbooks/start-session.md",
             "playbooks/start-session-claude.md",
             "playbooks/start-session-codex.md",
+            "playbooks/start-session-prompt.txt",
             "inbox/proposals/.gitkeep",
             "inbox/rejections/.gitkeep",
         ]
@@ -256,6 +257,35 @@ class SliceZeroTests(unittest.TestCase):
                 result.stdout,
             )
 
+    def test_validator_rejects_startup_prompt_manifest_drift(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            handbook_copy = Path(temp_dir) / "handbook"
+            shutil.copytree(
+                ROOT,
+                handbook_copy,
+                ignore=shutil.ignore_patterns(
+                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ),
+            )
+            manifest = handbook_copy / "handbook.yaml"
+            config = yaml.safe_load(manifest.read_text())
+            config["launcher"]["startup_prompt"] = "playbooks/missing-prompt.txt"
+            manifest.write_text(yaml.safe_dump(config, sort_keys=False))
+
+            result = subprocess.run(
+                [sys.executable, str(handbook_copy / "tools/validate-knowledge.py")],
+                cwd=handbook_copy,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn(
+                "launcher.startup_prompt does not exist: playbooks/missing-prompt.txt",
+                result.stdout,
+            )
+
     def test_validator_rejects_entrypoint_mirror_drift(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             handbook_copy = Path(temp_dir) / "handbook"
@@ -350,7 +380,10 @@ class SliceZeroTests(unittest.TestCase):
                     self.assertIn("not synchronized", result.stdout)
 
     def run_launcher_with_fake_frontend(
-        self, launcher_name: str, executable_name: str
+        self,
+        launcher_name: str,
+        executable_name: str,
+        launcher_args: tuple[str, ...] = ("--test-forwarded",),
     ) -> dict[str, object]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp = Path(temp_dir)
@@ -384,7 +417,7 @@ class SliceZeroTests(unittest.TestCase):
             env["LQCD_LAUNCH_CAPTURE"] = str(capture)
             env["PATH"] = f"{fake_bin}{os.pathsep}{env['PATH']}"
             result = subprocess.run(
-                [str(ROOT / "tools" / launcher_name), "--test-forwarded"],
+                [str(ROOT / "tools" / launcher_name), *launcher_args],
                 cwd=ROOT,
                 env=env,
                 text=True,
@@ -418,6 +451,24 @@ class SliceZeroTests(unittest.TestCase):
         self.assertIn("$LQCD_HANDBOOK/AGENTS.md", bootstrap)
         self.assertNotIn("model_instructions_file", bootstrap)
         self.assertNotIn("-C", codex["argv"])
+
+    def test_zero_argument_launchers_inject_shared_startup_prompt(self):
+        startup_prompt = (
+            ROOT / "playbooks/start-session-prompt.txt"
+        ).read_text().strip()
+
+        claude = self.run_launcher_with_fake_frontend(
+            "lqcd-claude", "claude", ()
+        )
+        self.assertEqual(
+            claude["argv"],
+            ["--add-dir", str(ROOT), "--", startup_prompt],
+        )
+
+        codex = self.run_launcher_with_fake_frontend("lqcd-codex", "codex", ())
+        self.assertEqual(codex["argv"][-2:], ["--", startup_prompt])
+        config_index = codex["argv"].index("--config") + 1
+        self.assertIn("developer_instructions=", codex["argv"][config_index])
 
     def test_codex_skill_installer_is_idempotent_and_conflict_safe(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -722,7 +722,10 @@ instructions differently.
 1. A frontend launcher resolves `LQCD_HANDBOOK`, adds that directory for file access, and
    exports `LQCD_HANDBOOK_LAUNCHED=1` plus
    `LQCD_HANDBOOK_FRONTEND=<claude|codex>`. There is no path fallback; see
-   [§locating-handbook](#locating-handbook).
+   [§locating-handbook](#locating-handbook). On a zero-argument launch, it passes the shared,
+   manifest-declared `playbooks/start-session-prompt.txt` as the initial user prompt so the
+   workflow begins without operator prompting. Caller-supplied arguments pass through
+   unchanged.
 2. The canonical Tier-0 rules live in **`AGENTS.md`**. Claude Code loads the validated,
    byte-identical `CLAUDE.md` mirror through its additional-directory memory flag. Codex
    receives an additive `developer_instructions` pointer to canonical `AGENTS.md`; the

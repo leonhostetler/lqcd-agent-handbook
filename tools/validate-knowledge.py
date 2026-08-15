@@ -230,6 +230,30 @@ def validate_frontends(root: Path, errors: list[str]) -> int:
         else:
             common_fields[field] = value
 
+    startup_prompt_value = launcher.get("startup_prompt")
+    startup_prompt_path: Path | None = None
+    if not isinstance(startup_prompt_value, str) or not startup_prompt_value:
+        errors.append("handbook.yaml: launcher.startup_prompt must be a non-empty string")
+    else:
+        startup_prompt_relative = Path(startup_prompt_value)
+        if startup_prompt_relative.is_absolute() or ".." in startup_prompt_relative.parts:
+            errors.append(
+                "handbook.yaml: launcher.startup_prompt must stay inside the repository"
+            )
+        else:
+            candidate = root / startup_prompt_relative
+            if not candidate.is_file():
+                errors.append(
+                    "handbook.yaml: launcher.startup_prompt does not exist: "
+                    f"{startup_prompt_value}"
+                )
+            elif not candidate.read_text().strip():
+                errors.append(
+                    f"{startup_prompt_value}: launcher startup prompt must not be empty"
+                )
+            else:
+                startup_prompt_path = candidate
+
     frontends = launcher.get("frontends")
     if not isinstance(frontends, dict) or not frontends:
         errors.append("handbook.yaml: launcher.frontends must be a non-empty mapping")
@@ -304,6 +328,7 @@ def validate_frontends(root: Path, errors: list[str]) -> int:
                 common_fields.get("frontend_env"),
                 spec["complete_loading_env"],
                 f"{common_fields.get('frontend_env')}={frontend}",
+                startup_prompt_value if isinstance(startup_prompt_value, str) else None,
                 spec["entrypoint"],
                 spec["skill"],
             ],
@@ -334,6 +359,12 @@ def validate_frontends(root: Path, errors: list[str]) -> int:
             errors.append(
                 f"playbooks/start-session.md: missing {frontend} preflight "
                 f"{spec['preflight']!r}"
+            )
+    if startup_prompt_path is not None:
+        prompt_text = startup_prompt_path.read_text()
+        if "lqcd-start-session" not in prompt_text:
+            errors.append(
+                f"{startup_prompt_value}: startup prompt must invoke lqcd-start-session"
             )
     return checked
 

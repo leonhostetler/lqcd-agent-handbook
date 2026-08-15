@@ -16,6 +16,7 @@ fi
 if [[ ! -f "$handbook_root/handbook.yaml" ||
       ! -f "$handbook_root/AGENTS.md" ||
       ! -f "$handbook_root/CLAUDE.md" ||
+      ! -s "$handbook_root/playbooks/start-session-prompt.txt" ||
       ! -f "$handbook_root/.agents/skills/lqcd-start-session/SKILL.md" ]]; then
   printf 'LQCD_HANDBOOK does not identify a complete LQCD handbook: %s\n' \
     "$handbook_root" >&2
@@ -32,4 +33,8 @@ export LQCD_HANDBOOK="$handbook_root"
 export LQCD_HANDBOOK_LAUNCHED=1
 export LQCD_HANDBOOK_FRONTEND=codex
 export LQCD_HANDBOOK_CODEX_BOOTSTRAP=1
+if (( $# == 0 )); then
+  startup_prompt=$(<"$handbook_root/playbooks/start-session-prompt.txt")
+  exec codex --add-dir "$handbook_root" --config "$codex_bootstrap" -- "$startup_prompt"
+fi
 exec codex --add-dir "$handbook_root" --config "$codex_bootstrap" "$@"
