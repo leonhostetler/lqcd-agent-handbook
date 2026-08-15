@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -z "${LQCD_HANDBOOK:-}" ]]; then
+  printf '%s
+'     'LQCD_HANDBOOK is not set.'     'Set it to this handbook clone, for example:'     '  export LQCD_HANDBOOK=/path/to/lqcd-agent-handbook' >&2
+  exit 2
+fi
+
+if ! handbook_root=$(realpath "$LQCD_HANDBOOK"); then
+  printf 'Cannot resolve LQCD_HANDBOOK: %s
+' "$LQCD_HANDBOOK" >&2
+  exit 2
+fi
+if [[ ! -f "$handbook_root/handbook.yaml" || ! -d "$handbook_root/.claude/skills/lqcd-start-session" ]]; then
+  printf 'LQCD_HANDBOOK does not identify an LQCD handbook: %s
+' "$handbook_root" >&2
+  exit 2
+fi
+
+export LQCD_HANDBOOK="$handbook_root"
+export LQCD_HANDBOOK_LAUNCHED=1
+export CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1
+exec claude --add-dir "$handbook_root" "$@"

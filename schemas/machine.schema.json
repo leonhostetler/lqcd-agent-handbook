@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/lqcd-agent-handbook/schemas/machine.schema.json",
+  "title": "LQCD machine capability record",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "name",
+    "summary",
+    "scheduler",
+    "node_types",
+    "evidence",
+    "observed",
+    "observed_on"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "public_login_hosts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "scheduler": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "slurm",
+            "pbs",
+            "lsf",
+            "flux",
+            "other"
+          ]
+        },
+        "submit_command": {
+          "type": "string"
+        },
+        "query_command": {
+          "type": "string"
+        },
+        "queues_command": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "filesystems": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "purpose"
+        ],
+        "properties": {
+          "purpose": {
+            "type": "string"
+          },
+          "environment_variable": {
+            "type": "string"
+          },
+          "purge_policy": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "site_policy": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "build_environment": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "node_types": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/node_type"
+      }
+    },
+    "evidence": {
+      "type": "string",
+      "enum": [
+        "source",
+        "docs",
+        "observed",
+        "reproduced",
+        "experiment",
+        "operator",
+        "inferred"
+      ]
+    },
+    "observations": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "observed": {
+      "type": "string",
+      "format": "date"
+    },
+    "observed_on": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Conditions actually observed; never an inferred validity range.",
+      "additionalProperties": true
+    },
+    "review_by": {
+      "type": "string",
+      "format": "date"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "evidence": {
+            "const": "reproduced"
+          }
+        },
+        "required": [
+          "evidence"
+        ]
+      },
+      "then": {
+        "required": [
+          "observations"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "node_type": {
+      "type": "object",
+      "required": [
+        "cpu",
+        "accelerator",
+        "queues"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "cpu": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": true
+        },
+        "accelerator": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "vendor",
+                "arch",
+                "per_node",
+                "memory_gb"
+              ],
+              "properties": {
+                "vendor": {
+                  "type": "string"
+                },
+                "arch": {
+                  "type": "string"
+                },
+                "per_node": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "memory_gb": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "interconnect": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            }
+          ]
+        },
+        "queues": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            ]
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "build_constraints": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "sizing": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

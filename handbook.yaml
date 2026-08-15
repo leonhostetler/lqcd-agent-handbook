@@ -1,0 +1,17 @@
+name: lqcd-agent-handbook
+phase: bootstrap
+schema_versions:
+  machine: 1
+  project: 1
+tier_0:
+  files:
+    - CLAUDE.md
+    - INDEX.md
+  max_combined_bytes: 6144
+  max_claude_md_bytes: 5120
+repository:
+  name: lqcd-agent-handbook
+  canonical_remote: https://github.com/leonhostetler/lqcd-agent-handbook.git
+launcher:
+  handbook_env: LQCD_HANDBOOK
+  memory_env: CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD

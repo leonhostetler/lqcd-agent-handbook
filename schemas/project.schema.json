@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/lqcd-agent-handbook/schemas/project.schema.json",
+  "title": "LQCD software-intrinsic project record",
+  "description": "Describes software capabilities without a branch, commit, or local checkout pin.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "name",
+    "summary",
+    "repository",
+    "build_systems",
+    "evidence",
+    "observed",
+    "observed_on"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repository": {
+      "type": "string",
+      "format": "uri"
+    },
+    "documentation": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "uniqueItems": true
+    },
+    "build_systems": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "build_options": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "meaning"
+        ],
+        "properties": {
+          "meaning": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "boolean",
+              "string",
+              "integer",
+              "list",
+              "path"
+            ]
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "evidence": {
+      "type": "string",
+      "enum": [
+        "source",
+        "docs",
+        "observed",
+        "reproduced",
+        "experiment",
+        "operator",
+        "inferred"
+      ]
+    },
+    "observations": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "observed": {
+      "type": "string",
+      "format": "date"
+    },
+    "observed_on": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Conditions actually observed; never an inferred validity range.",
+      "additionalProperties": true
+    },
+    "review_by": {
+      "type": "string",
+      "format": "date"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "evidence": {
+            "const": "reproduced"
+          }
+        },
+        "required": [
+          "evidence"
+        ]
+      },
+      "then": {
+        "required": [
+          "observations"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,4 @@
+session_*.log
+__pycache__/
+*.py[cod]
+.pytest_cache/

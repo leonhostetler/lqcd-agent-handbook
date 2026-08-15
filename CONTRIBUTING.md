@@ -1,0 +1,37 @@
+# Contributing
+
+The handbook currently assumes one operator and direct commits to `main` in explicit
+developer mode. Additional contributors are a documented trigger to revisit that policy.
+
+## User-mode proposals
+
+User mode may create, but never edit, one uniquely named YAML file under `inbox/proposals/`
+or `inbox/rejections/`:
+
+```text
+<ISO8601>-<machine>-<uuid>.yaml
+```
+
+Include `created`, `machine`, `base_handbook_commit`, proposed scope, evidence, observation
+context, and why the fact changes an action. Do not put mined raw evidence in the inbox.
+Every inbox file is public repository content and must be screened according to
+`PRIVACY.md` before creation. A conforming new file may remain untracked between sessions;
+startup reports it as pending intake.
+
+## Developer flow
+
+1. Require current HEAD and a clean tracked tree, then read `ARCHITECTURE.md` plus
+   `ROADMAP.md`. Qualifying new untracked inbox entries are the sole exception: report
+   them as pending intake and compare each `base_handbook_commit` with current HEAD.
+2. Follow the operator-approval gate in `ARCHITECTURE.md` §7.5a. Do not write until the
+   exact proposed diff has been approved.
+3. Leave approved changes uncommitted for the operator. An agent may commit only when the
+   operator explicitly requests that specific commit.
+4. Classify durability, scope, mechanism, actionability, evidence, and publishability.
+5. Keep each knowledge file atomic and each commit limited to one fact class.
+6. Run `python3 tools/validate-knowledge.py`.
+7. At a slice boundary, record acceptance evidence and exactly one next action in
+   `ROADMAP.md`; update the architecture decision log only when a decision changed.
+
+Automated validation reports what it checked. The operator remains responsible for
+publication clearance.
