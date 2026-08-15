@@ -3,28 +3,26 @@
 Use this playbook before any project action. Report each stage concisely and stop on a hard
 gate rather than guessing.
 
-## 1. Verify complete loading
+## 1. Verify the frontend preflight
 
-Require all of:
+Require `LQCD_HANDBOOK_FRONTEND` to identify a supported adapter, then follow its preflight:
 
-```bash
-test "${LQCD_HANDBOOK_LAUNCHED:-}" = 1
-test "${CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD:-}" = 1
-test -n "${LQCD_HANDBOOK:-}"
-test -f "$LQCD_HANDBOOK/handbook.yaml"
-test -f "$LQCD_HANDBOOK/.claude/skills/lqcd-start-session/SKILL.md"
-```
+- `claude`: `playbooks/start-session-claude.md`
+- `codex`: `playbooks/start-session-codex.md`
 
-A missing launcher marker means skills may have loaded without root `CLAUDE.md`. Report
-partial loading and stop. Never repair it by assuming the rules.
+A missing or unknown frontend marker means handbook loading is unverified. Report partial
+loading and stop. Never repair it by assuming that another frontend's loading rules apply.
 
 ## 2. Validate identity and freshness
 
 Resolve `LQCD_HANDBOOK` with `realpath`. Confirm `handbook.yaml` names
-`lqcd-agent-handbook` and the start skill exists. If `repository.canonical_remote` is set,
-require `origin` to match it exactly. During bootstrap, when it is unset, report that exact
-remote identity cannot yet be checked; if `origin` exists, its repository basename must
-still be `lqcd-agent-handbook`.
+`lqcd-agent-handbook`, canonical `AGENTS.md` exists, and the active frontend's entrypoint
+and skill named in `launcher.frontends` exist. Confirm every declared entrypoint mirror is
+byte-for-byte equal to `AGENTS.md`.
+
+If `repository.canonical_remote` is set, require `origin` to match it exactly. During
+bootstrap, when it is unset, report that exact remote identity cannot yet be checked; if
+`origin` exists, its repository basename must still be `lqcd-agent-handbook`.
 
 Inspect `git status --porcelain=v1 --untracked-files=all`. Classify a path as pending
 intake only when Git reports `??`, the path is directly under `inbox/proposals/` or
@@ -62,5 +60,6 @@ benchmarking, tuning, or production? State it after the operator answers. A mode
 only on another explicit declaration. If its mode document has not landed during bootstrap,
 report that limitation and use no unrecorded conventions.
 
-End with a compact orientation report: handbook identity/freshness, handbook mode, work
-mode, machine, software/commit, node type, nearest stack, and any staleness warning.
+End with a compact orientation report: frontend, handbook identity/freshness, handbook
+mode, work mode, machine, software/commit, node type, nearest stack, and any staleness
+warning.

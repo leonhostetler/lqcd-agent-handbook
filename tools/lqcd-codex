@@ -16,7 +16,7 @@ fi
 if [[ ! -f "$handbook_root/handbook.yaml" ||
       ! -f "$handbook_root/AGENTS.md" ||
       ! -f "$handbook_root/CLAUDE.md" ||
-      ! -f "$handbook_root/.claude/skills/lqcd-start-session/SKILL.md" ]]; then
+      ! -f "$handbook_root/.agents/skills/lqcd-start-session/SKILL.md" ]]; then
   printf 'LQCD_HANDBOOK does not identify a complete LQCD handbook: %s\n' \
     "$handbook_root" >&2
   exit 2
@@ -26,8 +26,10 @@ if ! cmp -s "$handbook_root/AGENTS.md" "$handbook_root/CLAUDE.md"; then
   exit 2
 fi
 
+codex_bootstrap='developer_instructions="The LQCD handbook launcher is active. Before project work, read and follow $LQCD_HANDBOOK/AGENTS.md, then follow $LQCD_HANDBOOK/playbooks/start-session-codex.md and $LQCD_HANDBOOK/playbooks/start-session.md. Keep all working-project AGENTS.md instructions active."'
+
 export LQCD_HANDBOOK="$handbook_root"
 export LQCD_HANDBOOK_LAUNCHED=1
-export LQCD_HANDBOOK_FRONTEND=claude
-export CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1
-exec claude --add-dir "$handbook_root" "$@"
+export LQCD_HANDBOOK_FRONTEND=codex
+export LQCD_HANDBOOK_CODEX_BOOTSTRAP=1
+exec codex --add-dir "$handbook_root" --config "$codex_bootstrap" "$@"

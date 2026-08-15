@@ -36,7 +36,7 @@ and the next action.
 
 ## Slice boundary
 
-Re-read `CLAUDE.md` and `INDEX.md` cold. Confirm routing is unambiguous, measure the
+Re-read canonical `AGENTS.md` and `INDEX.md` cold. Confirm routing is unambiguous, measure the
 Tier-0 byte budget, update slice status and acceptance evidence in `ROADMAP.md`, and set
 exactly one next action there. Update the architecture decision log only when a decision
 was added, changed, or deliberately reopened. Record rejected imports as well as accepted

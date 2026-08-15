@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -z "${LQCD_HANDBOOK:-}" ]]; then
+  printf '%s\n' \
+    'LQCD_HANDBOOK is not set.' \
+    'Set it to this handbook clone before installing the optional Codex skill link.' >&2
+  exit 2
+fi
+
+if ! handbook_root=$(realpath "$LQCD_HANDBOOK"); then
+  printf 'Cannot resolve LQCD_HANDBOOK: %s\n' "$LQCD_HANDBOOK" >&2
+  exit 2
+fi
+skill_source="$handbook_root/.agents/skills/lqcd-start-session"
+if [[ ! -f "$skill_source/SKILL.md" ]]; then
+  printf 'Codex startup skill is missing from the handbook: %s\n' "$skill_source" >&2
+  exit 2
+fi
+
+target_root="$HOME/.agents/skills"
+target="$target_root/lqcd-start-session"
+mkdir -p "$target_root"
+
+print_usage_notes() {
+  printf '%s\n' \
+    'Note: inside the handbook repository, Codex may show both the repository skill and this user-scoped skill.' \
+    'This absolute link must be removed and reinstalled if the handbook clone moves.'
+}
+
+if [[ -L "$target" ]]; then
+  linked_source=$(realpath "$target" 2>/dev/null || true)
+  if [[ "$linked_source" == "$skill_source" ]]; then
+    printf 'Codex startup skill link is already installed: %s\n' "$target"
+    print_usage_notes
+    exit 0
+  fi
+  printf 'Refusing to replace a different or dangling Codex skill link: %s\n' "$target" >&2
+  printf 'Remove it manually if obsolete, then rerun this installer.\n' >&2
+  exit 2
+fi
+if [[ -e "$target" ]]; then
+  printf 'Refusing to replace existing Codex skill path: %s\n' "$target" >&2
+  printf 'Review or remove it manually if obsolete, then rerun this installer.\n' >&2
+  exit 2
+fi
+
+ln -s "$skill_source" "$target"
+printf 'Installed optional Codex startup skill link: %s -> %s\n' "$target" "$skill_source"
+print_usage_notes

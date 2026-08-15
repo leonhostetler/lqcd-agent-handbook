@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class SliceZeroTests(unittest.TestCase):
     def test_required_scaffold_exists(self):
         required = [
+            "AGENTS.md",
             "CLAUDE.md",
             "INDEX.md",
             "ARCHITECTURE.md",
@@ -35,8 +37,14 @@ class SliceZeroTests(unittest.TestCase):
             "schemas/project.schema.json",
             "tools/validate-knowledge.py",
             "tools/lqcd-claude",
+            "tools/lqcd-codex",
+            "tools/install-codex-skills",
+            "tools/sync-agent-entrypoints.py",
             ".claude/skills/lqcd-start-session/SKILL.md",
+            ".agents/skills/lqcd-start-session/SKILL.md",
             "playbooks/start-session.md",
+            "playbooks/start-session-claude.md",
+            "playbooks/start-session-codex.md",
             "inbox/proposals/.gitkeep",
             "inbox/rejections/.gitkeep",
         ]
@@ -46,9 +54,13 @@ class SliceZeroTests(unittest.TestCase):
     def test_tier_zero_budget(self):
         config = yaml.safe_load((ROOT / "handbook.yaml").read_text())
         tier = config["tier_0"]
+        canonical = ROOT / tier["canonical_entrypoint"]
         total = sum((ROOT / name).stat().st_size for name in tier["files"])
+        self.assertIn(tier["canonical_entrypoint"], tier["files"])
         self.assertLessEqual(total, tier["max_combined_bytes"])
-        self.assertLessEqual((ROOT / "CLAUDE.md").stat().st_size, tier["max_claude_md_bytes"])
+        self.assertLessEqual(canonical.stat().st_size, tier["max_entrypoint_bytes"])
+        for mirror_name in tier["mirrors"]:
+            self.assertEqual(canonical.read_bytes(), (ROOT / mirror_name).read_bytes())
 
     def test_planning_state_has_one_home(self):
         architecture = (ROOT / "ARCHITECTURE.md").read_text()
@@ -195,22 +207,285 @@ class SliceZeroTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_launcher_fails_actionably_without_interface(self):
-        env = os.environ.copy()
-        env.pop("LQCD_HANDBOOK", None)
-        result = subprocess.run(
-            [str(ROOT / "tools/lqcd-claude")],
+    def test_launchers_fail_actionably_without_interface(self):
+        for launcher in ("lqcd-claude", "lqcd-codex"):
+            with self.subTest(launcher=launcher):
+                env = os.environ.copy()
+                env.pop("LQCD_HANDBOOK", None)
+                result = subprocess.run(
+                    [str(ROOT / "tools" / launcher)],
+                    cwd=ROOT,
+                    env=env,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 2, result.stdout)
+                self.assertIn("LQCD_HANDBOOK is not set", result.stdout)
+                self.assertIn("export LQCD_HANDBOOK=", result.stdout)
+
+    def test_validator_rejects_frontend_manifest_drift(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            handbook_copy = Path(temp_dir) / "handbook"
+            shutil.copytree(
+                ROOT,
+                handbook_copy,
+                ignore=shutil.ignore_patterns(
+                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ),
+            )
+            manifest = handbook_copy / "handbook.yaml"
+            config = yaml.safe_load(manifest.read_text())
+            config["launcher"]["frontends"]["codex"]["complete_loading_env"] = (
+                "LQCD_HANDBOOK_WRONG_BOOTSTRAP"
+            )
+            manifest.write_text(yaml.safe_dump(config, sort_keys=False))
+
+            result = subprocess.run(
+                [sys.executable, str(handbook_copy / "tools/validate-knowledge.py")],
+                cwd=handbook_copy,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn(
+                "missing manifest token 'LQCD_HANDBOOK_WRONG_BOOTSTRAP' for codex",
+                result.stdout,
+            )
+
+    def test_validator_rejects_entrypoint_mirror_drift(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            handbook_copy = Path(temp_dir) / "handbook"
+            shutil.copytree(
+                ROOT,
+                handbook_copy,
+                ignore=shutil.ignore_patterns(
+                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ),
+            )
+            with (handbook_copy / "CLAUDE.md").open("a") as mirror:
+                mirror.write("\nfrontend-only drift\n")
+
+            result = subprocess.run(
+                [sys.executable, str(handbook_copy / "tools/validate-knowledge.py")],
+                cwd=handbook_copy,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn(
+                "CLAUDE.md differs from canonical entrypoint AGENTS.md", result.stdout
+            )
+
+    def test_entrypoint_sync_check_and_repair(self):
+        check = subprocess.run(
+            [sys.executable, str(ROOT / "tools/sync-agent-entrypoints.py"), "--check"],
             cwd=ROOT,
-            env=env,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             check=False,
         )
-        self.assertEqual(result.returncode, 2, result.stdout)
-        self.assertIn("LQCD_HANDBOOK is not set", result.stdout)
-        self.assertIn("export LQCD_HANDBOOK=", result.stdout)
+        self.assertEqual(check.returncode, 0, check.stdout)
 
+        with tempfile.TemporaryDirectory() as temp_dir:
+            handbook_copy = Path(temp_dir) / "handbook"
+            shutil.copytree(
+                ROOT,
+                handbook_copy,
+                ignore=shutil.ignore_patterns(
+                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ),
+            )
+            (handbook_copy / "CLAUDE.md").write_text("stale\n")
+            repaired = subprocess.run(
+                [
+                    sys.executable,
+                    str(handbook_copy / "tools/sync-agent-entrypoints.py"),
+                ],
+                cwd=handbook_copy,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(repaired.returncode, 0, repaired.stdout)
+            self.assertEqual(
+                (handbook_copy / "AGENTS.md").read_bytes(),
+                (handbook_copy / "CLAUDE.md").read_bytes(),
+            )
+
+    def test_launchers_reject_entrypoint_mirror_drift(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            handbook_copy = Path(temp_dir) / "handbook"
+            shutil.copytree(
+                ROOT,
+                handbook_copy,
+                ignore=shutil.ignore_patterns(
+                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ),
+            )
+            with (handbook_copy / "CLAUDE.md").open("a") as mirror:
+                mirror.write("\nfrontend-only drift\n")
+            env = os.environ.copy()
+            env["LQCD_HANDBOOK"] = str(handbook_copy)
+
+            for launcher in ("lqcd-claude", "lqcd-codex"):
+                with self.subTest(launcher=launcher):
+                    result = subprocess.run(
+                        [str(handbook_copy / "tools" / launcher)],
+                        cwd=handbook_copy,
+                        env=env,
+                        text=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode, 2, result.stdout)
+                    self.assertIn("not synchronized", result.stdout)
+
+    def run_launcher_with_fake_frontend(
+        self, launcher_name: str, executable_name: str
+    ) -> dict[str, object]:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            fake_bin = temp / "bin"
+            fake_bin.mkdir()
+            capture = temp / "capture.json"
+            fake_executable = fake_bin / executable_name
+            fake_executable.write_text(
+                f"#!{sys.executable}\n"
+                "import json\n"
+                "import os\n"
+                "import sys\n"
+                "from pathlib import Path\n"
+                "keys = [\n"
+                "    'LQCD_HANDBOOK',\n"
+                "    'LQCD_HANDBOOK_LAUNCHED',\n"
+                "    'LQCD_HANDBOOK_FRONTEND',\n"
+                "    'CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD',\n"
+                "    'LQCD_HANDBOOK_CODEX_BOOTSTRAP',\n"
+                "]\n"
+                "payload = {\n"
+                "    'argv': sys.argv[1:],\n"
+                "    'cwd': os.getcwd(),\n"
+                "    'env': {key: os.environ.get(key) for key in keys},\n"
+                "}\n"
+                "Path(os.environ['LQCD_LAUNCH_CAPTURE']).write_text(json.dumps(payload))\n"
+            )
+            fake_executable.chmod(0o755)
+            env = os.environ.copy()
+            env["LQCD_HANDBOOK"] = str(ROOT)
+            env["LQCD_LAUNCH_CAPTURE"] = str(capture)
+            env["PATH"] = f"{fake_bin}{os.pathsep}{env['PATH']}"
+            result = subprocess.run(
+                [str(ROOT / "tools" / launcher_name), "--test-forwarded"],
+                cwd=ROOT,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout)
+            return json.loads(capture.read_text())
+
+    def test_frontend_launchers_preserve_cwd_and_set_contract(self):
+        claude = self.run_launcher_with_fake_frontend("lqcd-claude", "claude")
+        self.assertEqual(claude["cwd"], str(ROOT))
+        self.assertEqual(
+            claude["argv"], ["--add-dir", str(ROOT), "--test-forwarded"]
+        )
+        self.assertEqual(claude["env"]["LQCD_HANDBOOK_FRONTEND"], "claude")
+        self.assertEqual(
+            claude["env"]["CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD"], "1"
+        )
+
+        codex = self.run_launcher_with_fake_frontend("lqcd-codex", "codex")
+        self.assertEqual(codex["cwd"], str(ROOT))
+        self.assertEqual(codex["argv"][:2], ["--add-dir", str(ROOT)])
+        self.assertEqual(codex["argv"][-1], "--test-forwarded")
+        self.assertEqual(codex["env"]["LQCD_HANDBOOK_FRONTEND"], "codex")
+        self.assertEqual(codex["env"]["LQCD_HANDBOOK_CODEX_BOOTSTRAP"], "1")
+        config_index = codex["argv"].index("--config") + 1
+        bootstrap = codex["argv"][config_index]
+        self.assertIn("developer_instructions=", bootstrap)
+        self.assertIn("$LQCD_HANDBOOK/AGENTS.md", bootstrap)
+        self.assertNotIn("model_instructions_file", bootstrap)
+        self.assertNotIn("-C", codex["argv"])
+
+    def test_codex_skill_installer_is_idempotent_and_conflict_safe(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            env = os.environ.copy()
+            env["HOME"] = str(temp / "home")
+            env["LQCD_HANDBOOK"] = str(ROOT)
+            command = [str(ROOT / "tools/install-codex-skills")]
+
+            first = subprocess.run(
+                command,
+                cwd=ROOT,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(first.returncode, 0, first.stdout)
+            self.assertIn("inside the handbook repository", first.stdout)
+            target = temp / "home/.agents/skills/lqcd-start-session"
+            self.assertTrue(target.is_symlink())
+            self.assertEqual(
+                target.resolve(),
+                (ROOT / ".agents/skills/lqcd-start-session").resolve(),
+            )
+
+            second = subprocess.run(
+                command,
+                cwd=ROOT,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(second.returncode, 0, second.stdout)
+            self.assertIn("already installed", second.stdout)
+
+            target.unlink()
+            target.write_text("operator-owned skill\n")
+            conflict = subprocess.run(
+                command,
+                cwd=ROOT,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(conflict.returncode, 2, conflict.stdout)
+            self.assertIn("Refusing to replace", conflict.stdout)
+            self.assertIn("Review or remove it manually", conflict.stdout)
+
+            target.unlink()
+            target.symlink_to(temp / "missing-skill")
+            dangling = subprocess.run(
+                command,
+                cwd=ROOT,
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(dangling.returncode, 2, dangling.stdout)
+            self.assertIn("different or dangling", dangling.stdout)
+            self.assertTrue(target.is_symlink())
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,17 +3,17 @@ name: lqcd-start-session
 description: Orient an LQCD session by validating handbook loading and freshness, detecting machine and software state, and establishing modes. Use at the start of every session using this handbook.
 ---
 
-# Start an LQCD session in Claude Code
+# Start an LQCD session in Codex
 
 Before project work, follow `$LQCD_HANDBOOK/playbooks/start-session.md` exactly. It routes
-first through `$LQCD_HANDBOOK/playbooks/start-session-claude.md`.
+first through `$LQCD_HANDBOOK/playbooks/start-session-codex.md`.
 
 ## Preconditions and independent safeguards
 
-The session must have been started through `$LQCD_HANDBOOK/tools/lqcd-claude`. If
-`LQCD_HANDBOOK_LAUNCHED=1`, `LQCD_HANDBOOK_FRONTEND=claude`, or
-`CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` is absent, report partial loading and stop;
-do not proceed under procedures without Tier-0 rules.
+The session must have been started through `$LQCD_HANDBOOK/tools/lqcd-codex`. If
+`LQCD_HANDBOOK_LAUNCHED=1`, `LQCD_HANDBOOK_FRONTEND=codex`, or
+`LQCD_HANDBOOK_CODEX_BOOTSTRAP=1` is absent, report partial loading and stop; do not proceed
+under procedures without Tier-0 rules.
 
 Until orientation completes:
 

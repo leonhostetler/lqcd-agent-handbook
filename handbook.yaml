@@ -4,14 +4,31 @@ schema_versions:
   machine: 1
   project: 1
 tier_0:
-  files:
+  canonical_entrypoint: AGENTS.md
+  mirrors:
     - CLAUDE.md
+  files:
+    - AGENTS.md
     - INDEX.md
   max_combined_bytes: 6144
-  max_claude_md_bytes: 5120
+  max_entrypoint_bytes: 5120
 repository:
   name: lqcd-agent-handbook
   canonical_remote: https://github.com/leonhostetler/lqcd-agent-handbook.git
 launcher:
   handbook_env: LQCD_HANDBOOK
-  memory_env: CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD
+  launched_env: LQCD_HANDBOOK_LAUNCHED
+  frontend_env: LQCD_HANDBOOK_FRONTEND
+  frontends:
+    claude:
+      executable: tools/lqcd-claude
+      entrypoint: CLAUDE.md
+      skill: .claude/skills/lqcd-start-session/SKILL.md
+      preflight: playbooks/start-session-claude.md
+      complete_loading_env: CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD
+    codex:
+      executable: tools/lqcd-codex
+      entrypoint: AGENTS.md
+      skill: .agents/skills/lqcd-start-session/SKILL.md
+      preflight: playbooks/start-session-codex.md
+      complete_loading_env: LQCD_HANDBOOK_CODEX_BOOTSTRAP

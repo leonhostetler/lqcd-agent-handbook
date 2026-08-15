@@ -215,18 +215,171 @@ def validate_references(root: Path, errors: list[str]) -> int:
     return checked
 
 
+def validate_frontends(root: Path, errors: list[str]) -> int:
+    config = load_yaml(root / "handbook.yaml")
+    launcher = config.get("launcher", {}) if isinstance(config, dict) else {}
+    if not isinstance(launcher, dict):
+        errors.append("handbook.yaml: launcher must be a mapping")
+        return 0
+
+    common_fields: dict[str, str] = {}
+    for field in ("handbook_env", "launched_env", "frontend_env"):
+        value = launcher.get(field)
+        if not isinstance(value, str) or not value:
+            errors.append(f"handbook.yaml: launcher.{field} must be a non-empty string")
+        else:
+            common_fields[field] = value
+
+    frontends = launcher.get("frontends")
+    if not isinstance(frontends, dict) or not frontends:
+        errors.append("handbook.yaml: launcher.frontends must be a non-empty mapping")
+        return 0
+
+    tier = config.get("tier_0", {}) if isinstance(config, dict) else {}
+    canonical = tier.get("canonical_entrypoint") if isinstance(tier, dict) else None
+    mirrors = tier.get("mirrors", []) if isinstance(tier, dict) else []
+    allowed_entrypoints = {
+        value for value in [canonical, *mirrors] if isinstance(value, str)
+    }
+    shared_playbook = root / "playbooks/start-session.md"
+    try:
+        shared_text = shared_playbook.read_text()
+    except OSError as exc:
+        errors.append(f"playbooks/start-session.md cannot be read: {exc}")
+        shared_text = ""
+
+    required = (
+        "executable",
+        "entrypoint",
+        "skill",
+        "preflight",
+        "complete_loading_env",
+    )
+    checked = 0
+    for frontend, raw_spec in sorted(frontends.items(), key=lambda item: str(item[0])):
+        checked += 1
+        prefix = f"launcher.frontends.{frontend}"
+        if not isinstance(frontend, str) or not frontend:
+            errors.append("handbook.yaml: frontend names must be non-empty strings")
+            continue
+        if not isinstance(raw_spec, dict):
+            errors.append(f"handbook.yaml: {prefix} must be a mapping")
+            continue
+
+        spec: dict[str, str] = {}
+        for field in required:
+            value = raw_spec.get(field)
+            if not isinstance(value, str) or not value:
+                errors.append(f"handbook.yaml: {prefix}.{field} must be a non-empty string")
+            else:
+                spec[field] = value
+        if len(spec) != len(required):
+            continue
+
+        paths: dict[str, Path] = {}
+        for field in ("executable", "entrypoint", "skill", "preflight"):
+            relative = Path(spec[field])
+            if relative.is_absolute() or ".." in relative.parts:
+                errors.append(f"handbook.yaml: {prefix}.{field} must stay inside the repository")
+                continue
+            path = root / relative
+            if not path.is_file():
+                errors.append(f"handbook.yaml: {prefix}.{field} does not exist: {spec[field]}")
+                continue
+            paths[field] = path
+
+        executable = paths.get("executable")
+        if executable is not None and executable.stat().st_mode & 0o111 == 0:
+            errors.append(f"{spec['executable']}: frontend launcher is not executable")
+        if spec["entrypoint"] not in allowed_entrypoints:
+            errors.append(
+                f"handbook.yaml: {prefix}.entrypoint is not the canonical entrypoint "
+                "or a declared mirror"
+            )
+
+        expected_by_file = {
+            "executable": [
+                common_fields.get("handbook_env"),
+                common_fields.get("launched_env"),
+                common_fields.get("frontend_env"),
+                spec["complete_loading_env"],
+                f"{common_fields.get('frontend_env')}={frontend}",
+                spec["entrypoint"],
+                spec["skill"],
+            ],
+            "preflight": [
+                common_fields.get("launched_env"),
+                common_fields.get("frontend_env"),
+                spec["complete_loading_env"],
+                spec["entrypoint"],
+                spec["skill"],
+            ],
+            "skill": [
+                spec["executable"],
+                spec["complete_loading_env"],
+                spec["preflight"],
+            ],
+        }
+        for field, tokens in expected_by_file.items():
+            path = paths.get(field)
+            if path is None:
+                continue
+            text = path.read_text()
+            for token in tokens:
+                if token and token not in text:
+                    errors.append(
+                        f"{spec[field]}: missing manifest token {token!r} for {frontend}"
+                    )
+        if spec["preflight"] not in shared_text:
+            errors.append(
+                f"playbooks/start-session.md: missing {frontend} preflight "
+                f"{spec['preflight']!r}"
+            )
+    return checked
+
+
 def validate_tier_zero(root: Path, errors: list[str]) -> tuple[int, int]:
     config = load_yaml(root / "handbook.yaml")
     tier = config.get("tier_0", {}) if isinstance(config, dict) else {}
+    canonical_name = tier.get("canonical_entrypoint")
+    mirror_names = tier.get("mirrors", [])
     names = tier.get("files", [])
+    if not isinstance(canonical_name, str):
+        raise ValueError("tier_0.canonical_entrypoint must be a path")
+    if not isinstance(mirror_names, list) or not all(
+        isinstance(name, str) for name in mirror_names
+    ):
+        raise ValueError("tier_0.mirrors must be a list of paths")
+    if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+        raise ValueError("tier_0.files must be a list of paths")
+
+    canonical = root / canonical_name
+    canonical_bytes = canonical.read_bytes()
+    if canonical_name not in names:
+        errors.append(f"canonical entrypoint {canonical_name} is not a Tier-0 file")
+    for mirror_name in mirror_names:
+        mirror = root / mirror_name
+        try:
+            mirror_bytes = mirror.read_bytes()
+        except OSError as exc:
+            errors.append(f"entrypoint mirror {mirror_name} cannot be read: {exc}")
+            continue
+        if mirror_bytes != canonical_bytes:
+            errors.append(
+                f"{mirror_name} differs from canonical entrypoint {canonical_name}; "
+                "run tools/sync-agent-entrypoints.py"
+            )
+
     total = sum((root / name).stat().st_size for name in names)
     maximum = int(tier.get("max_combined_bytes", 0))
-    claude_size = (root / "CLAUDE.md").stat().st_size
-    claude_max = int(tier.get("max_claude_md_bytes", 0))
+    entrypoint_size = len(canonical_bytes)
+    entrypoint_max = int(tier.get("max_entrypoint_bytes", 0))
     if total > maximum:
         errors.append(f"Tier 0 is {total} bytes; limit is {maximum}")
-    if claude_size > claude_max:
-        errors.append(f"CLAUDE.md is {claude_size} bytes; limit is {claude_max}")
+    if entrypoint_size > entrypoint_max:
+        errors.append(
+            f"{canonical_name} is {entrypoint_size} bytes; limit is {entrypoint_max}"
+        )
     return total, maximum
 
 
@@ -242,6 +395,7 @@ def main() -> int:
     provenance_count = validate_provenance(root, errors, warnings)
     privacy_count = validate_privacy(root, errors)
     reference_count = validate_references(root, errors)
+    frontend_count = validate_frontends(root, errors)
     try:
         tier_bytes, tier_limit = validate_tier_zero(root, errors)
     except Exception as exc:
@@ -255,7 +409,8 @@ def main() -> int:
             print(f"error: {error}", file=sys.stderr)
         print(
             f"checked: {schema_count} schema objects · {provenance_count} knowledge files · "
-            f"{privacy_count} text files · {reference_count} references · "
+            f"{privacy_count} text files · {frontend_count} frontend adapters · "
+            f"{reference_count} references · "
             f"Tier 0 {tier_bytes}/{tier_limit} bytes · publishability NOT checked",
             file=sys.stderr,
         )
@@ -263,7 +418,8 @@ def main() -> int:
 
     print(
         f"no deny-list matches · {schema_count} schema objects valid · "
-        f"{provenance_count} provenance records complete · {reference_count} references resolved · "
+        f"{provenance_count} provenance records complete · "
+        f"{frontend_count} frontend adapters valid · {reference_count} references resolved · "
         f"Tier 0 {tier_bytes}/{tier_limit} bytes · publishability NOT checked"
     )
     return 0

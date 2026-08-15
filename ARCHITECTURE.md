@@ -16,7 +16,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | Decision | Choice | Reopen when |
 |---|---|---|
 | **Repo split** | Single public repo. No private overlay, no `local/`. Non-transferable knowledge stays in the working directory ([§no-escape-hatch](#no-escape-hatch)) | The operator needs a *durable* fact to travel that cannot be published — the working directory has been shown to cover every case so far |
-| **Loading** | `--add-dir` per session, via a launcher that sets the complete-loading markers `LQCD_HANDBOOK_LAUNCHED=1` and `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` ([§loading-chain](#loading-chain)) | Playbook routing costs more than a per-machine plugin install would, or hooks/agents become load-bearing ([§loading-invariants](#loading-invariants)). Slice 7 revisits regardless |
+| **Loading** | One shared contract behind frontend launchers. Both set common launch/frontend markers and preserve working-project instructions; Claude loads an exact `CLAUDE.md` mirror, while Codex receives an additive pointer to canonical `AGENTS.md` ([§loading-chain](#loading-chain)) | Playbook routing costs more than a per-machine plugin install would, or hooks/agents become load-bearing ([§loading-invariants](#loading-invariants)). Slice 7 revisits regardless |
 | **Encoding** | Schema-validated YAML for facts a script consumes; Markdown prose beside it for mechanism ([§knowledge-atom](#knowledge-atom)) | — |
 | **Build order** | One vertical slice end to end. Slice 1 is "build QUDA on Perlmutter" ([§build-order](ROADMAP.md#build-order)) | — |
 
@@ -61,7 +61,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | An agent should submit unattended — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
-| **Session logging** | The handbook ships the operator's `Stop`-hook logger, **copied into `~/.claude/`**, offered never auto-installed. The logs are an **operator-facing provenance backup, not an agent-readable source** ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
+| **Session logging** | One frontend-neutral provenance contract, offered never auto-installed. The currently verified adapter is Claude Code's `Stop` hook copied into `~/.claude/`; Codex needs its own slice-7 adapter. Logs remain an **operator-facing provenance backup, not an agent-readable source** ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
 | **Repo name** | `lqcd-agent-handbook` ([§locating-handbook](#locating-handbook)) | — |
 | **Locating the handbook** | `LQCD_HANDBOOK` is the sole interface; **the launcher fails fast if it is unset** — no `$HOME` fallback. No canonical path, and no clone path recorded anywhere in the repo: [§deny-list](#deny-list) denies it. Validation is **identity by content**, not by path ([§locating-handbook](#locating-handbook)) | — |
 
@@ -75,11 +75,12 @@ A handbook that gets read in full costs more tokens than it saves. Three tiers, 
 
 | Tier | Content | Budget | Loaded |
 |---|---|---|---|
-| 0 | `CLAUDE.md` (≤ 5 KB) + `INDEX.md` (a few hundred bytes) | **≤ 6 KB combined** | auto-loaded by the launcher ([§loading-chain](#loading-chain)) |
+| 0 | canonical `AGENTS.md` (≤ 5 KB) + `INDEX.md` (a few hundred bytes) | **≤ 6 KB combined** | loaded directly by Codex or through Claude's exact `CLAUDE.md` mirror ([§loading-chain](#loading-chain)) |
 | 1 | one mode doc + one `machine.yaml` + one `project.yaml` + the nearest `stack.yaml` | ~10–15 KB | once machine and software are **detected** and the mode is stated ([§work-mode-currency](#work-mode-currency)) |
 | 2 | everything else | unbounded | on demand, by name, from `INDEX.md` |
 
-If `CLAUDE.md` starts accumulating facts instead of pointers, the design has failed.
+If canonical `AGENTS.md` starts accumulating facts instead of pointers, the design has failed.
+`CLAUDE.md` is a generated compatibility mirror and may never diverge from it.
 A prior deep-dive investigation grew a very long entry document. That is appropriate
 for an investigation read by long sessions and completely wrong for a handbook read by
 dozens of short ones.
@@ -144,9 +145,10 @@ nowhere else in the repo, even under auto-accept permissions ([§modes](#modes))
 
 ```
 lqcd-agent-handbook/
-├── CLAUDE.md                  # THE entry point, auto-loaded (§loading-chain). ≤5 KB —
-│                              #   measured in bytes because the Tier-0 budget is (P1).
-│                              #   Router + standing rules. NOT a place for facts.
+├── AGENTS.md                  # CANONICAL Tier-0 entrypoint (§loading-chain). ≤5 KB;
+│                              #   router + standing rules, never a place for facts.
+├── CLAUDE.md                  # exact generated mirror of AGENTS.md for Claude Code;
+│                              #   validator-enforced and never edited independently.
 ├── INDEX.md                   # ROUTING TABLE ONLY (§indexing): ~a dozen lines, one per
 │                              #   domain. Never one line per file — that does not scale.
 ├── ARCHITECTURE.md            # the durable design: this document's §decisions-locked
@@ -222,27 +224,32 @@ lqcd-agent-handbook/
 │   │   └── incidents/
 │   └── notes.md               # cross-ensemble trends
 │
-├── .claude/skills/            # AUTO-LOADED from --add-dir (§session-start). Thin:
-│   ├── lqcd-start-session/    #   preconditions, procedure, pointers. Never the only
-│   │                          #   copy of a fact.
+├── .claude/skills/            # Claude Code adapters; thin procedures and pointers.
+│   ├── lqcd-start-session/    #   auto-loaded from --add-dir; never owns facts.
 │   ├── lqcd-build-stack/      #   `lqcd-` prefix is mandatory — trap T3.
 │   ├── lqcd-run-benchmark/
 │   ├── lqcd-tune-solver/
 │   ├── lqcd-analyze-profile/
 │   └── lqcd-capture-learning/
-│                              # NOT loaded from an added dir: commands, output styles,
-│                              #   agents, hooks. Do not put anything load-bearing there.
+│                              # Hooks and agents still require frontend installation.
+│
+├── .agents/skills/           # Codex adapters; same names and shared playbooks.
+│   └── lqcd-start-session/    #   optional user symlink source; never owns facts.
 │
 ├── playbooks/                 # the durable procedure text each skill points at, in plain
-│   ├── start-session.md       #   Markdown so every loading mechanism can reach
-│   │                          #   it (§loading-invariants).
+│   ├── start-session.md       #   shared workflow every frontend executes.
+│   ├── start-session-claude.md #  Claude Code complete-loading preflight.
+│   ├── start-session-codex.md #   Codex complete-loading preflight.
 │   ├── build-lqcd-stack.md    #   One file per skill, same stem without the `lqcd-` prefix.
 │   ├── run-benchmark.md
 │   ├── tune-solver.md
 │   ├── analyze-profile.md
 │   └── capture-learning.md
 │
-├── tools/                     # reusable, tested, no side effects on the repo
+├── tools/                     # reusable and tested; installers are offer-only
+│   ├── lqcd-claude, lqcd-codex # frontend launchers preserving the caller's cwd
+│   ├── install-codex-skills   # optional, conflict-safe user skill symlink
+│   ├── sync-agent-entrypoints.py # regenerates CLAUDE.md from canonical AGENTS.md
 │   ├── detect-machine.sh
 │   ├── collect-environment.sh
 │   ├── log-session.sh             # the operator's Stop-hook logger (§session-logging)
@@ -291,7 +298,7 @@ to learn: *duplicating mutable state across two files guarantees they drift.* So
   never contain one; if a "next step" appears there, it is a bug, and deleting it is the fix.
 - **`handbook.yaml` is the only machine-readable statement of `phase`.** `ROADMAP.md`
   references it; it does not restate it. One field, one home.
-- **`CLAUDE.md` restates neither.** It routes: *if developer mode, read
+- **Canonical `AGENTS.md` restates neither.** Its exact `CLAUDE.md` mirror routes identically: *if developer mode, read
   `ARCHITECTURE.md` and `ROADMAP.md` before acting; if user mode, never open them.*
 
 That last line is what keeps the Tier-0 budget intact (P1). The plan is substantial and it
@@ -424,7 +431,7 @@ editing fixes a scaling contradiction. So the index splits in two:
 
 **Tier 0: `INDEX.md` is a routing table**, roughly a dozen lines, one per domain — what
 lives there and when to open it. A few hundred bytes, which leaves the 6 KB budget almost
-entirely to `CLAUDE.md`'s standing rules. (It currently does not; this is what makes the
+entirely to canonical `AGENTS.md`'s standing rules. (It currently does not; this is what makes the
 budget comfortable rather than tight.)
 
 **Tier 2: each domain carries its own `INDEX.md`, generated** by `tools/build-index.py`
@@ -684,74 +691,76 @@ same as any run. Worth saying explicitly, because "the budget rule is about runs
 natural assumption and it is wrong.
 
 <a id="session-start"></a>
-## 4. How a session actually starts, given `--add-dir`
+## 4. How a session starts across frontends
+
+The handbook presents one session-start contract through frontend-specific adapters.
+Verified loading facts are kept explicit because Claude Code and Codex discover external
+instructions differently.
 
 `[verified]` against the Claude Code documentation, 2026-08-12:
 
-- **`.claude/skills/` inside an `--add-dir` directory loads automatically.** Skills are an
-  explicit exception to the rule that added directories grant file access rather than
-  configuration discovery.
-- **A root `CLAUDE.md` in an added directory loads only with
-  `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1`.** Off by default.
-- **Nothing else in `.claude/` crosses the boundary** — not commands, output styles,
-  agents, or hooks.
-- **Live change detection covers added directories**: edits to a skill are picked up
-  mid-session without a restart. (Creating a *new* top-level skills directory mid-session
-  does need one.)
+- `.claude/skills/` inside an `--add-dir` directory loads automatically;
+- a root `CLAUDE.md` there loads only with
+  `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1`;
+- other `.claude/` configuration, including hooks and agents, does not cross that boundary.
+
+`[verified]` against the Codex documentation, 2026-08-15:
+
+- Codex builds its `AGENTS.md` instruction chain from the working-project root toward the
+  current directory; adding another writable directory does not add that directory to the
+  chain;
+- project skills are discovered from `.agents/skills/` between the current directory and
+  repository root, while user skills live in `$HOME/.agents/skills`; symlinked skill
+  directories are supported;
+- the `developer_instructions` configuration field is additive, while
+  `model_instructions_file` replaces the normal instructions and therefore must not be used
+  for this integration.
 
 <a id="loading-chain"></a>
-### 4.1. The chain
+### 4.1. The shared contract and adapter chains
 
-1. A launcher, identical on every system, resolves the handbook and adds it:
-   ```bash
-   #!/usr/bin/env bash
-   set -euo pipefail
-   : "${LQCD_HANDBOOK:?set LQCD_HANDBOOK to your handbook clone, e.g.
-        echo 'export LQCD_HANDBOOK=/path/to/lqcd-agent-handbook' >> ~/.bashrc}"
-   LQCD_HANDBOOK="$(realpath "$LQCD_HANDBOOK")"
-   export LQCD_HANDBOOK
-   export LQCD_HANDBOOK_LAUNCHED=1
-   export CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1
-   exec claude --add-dir "$LQCD_HANDBOOK" "$@"
-   ```
-   **`LQCD_HANDBOOK` is the contract, and there is no fallback** — see [§locating-handbook](#locating-handbook) for why, and
-   for what the launcher's normalize-and-re-export buys.
-2. The handbook's root **`CLAUDE.md`** (Tier 0) loads automatically: standing rules, the
-   mode contract, the privacy rule, the budget rule, and the pointer to `INDEX.md`.
-   *No operator instruction is needed.*
-3. `.claude/skills/lqcd-start-session/` loads automatically and is invoked — it runs
-   `tools/detect-machine.sh`, loads the matching `machine.yaml`, the declared
-   `modes/<mode>.md`, and the relevant `software/<name>/project.yaml`. It then **resolves
-   the stack** ([§node-types](#node-types)): the machine alone does not fix the node type, the queues, the
-   available solvers, or whether device memory is in play. No matching stack is a
-   reportable state, not an error. That is Tier 1.
-4. Everything after that is Tier 2, pulled by name from `INDEX.md`.
+1. A frontend launcher resolves `LQCD_HANDBOOK`, adds that directory for file access, and
+   exports `LQCD_HANDBOOK_LAUNCHED=1` plus
+   `LQCD_HANDBOOK_FRONTEND=<claude|codex>`. There is no path fallback; see
+   [§locating-handbook](#locating-handbook).
+2. The canonical Tier-0 rules live in **`AGENTS.md`**. Claude Code loads the validated,
+   byte-identical `CLAUDE.md` mirror through its additional-directory memory flag. Codex
+   receives an additive `developer_instructions` pointer to canonical `AGENTS.md`; the
+   working project's own `AGENTS.md` chain remains active.
+3. The active adapter runs the same `playbooks/start-session.md`, which first routes to
+   `start-session-claude.md` or `start-session-codex.md` for complete-loading checks. The
+   Claude skill is auto-discovered from the added directory. Codex can start directly from
+   the injected pointer; `.agents/skills/lqcd-start-session/` is also the source for an
+   optional user-scoped skill symlink.
+4. The shared playbook detects machine and software, loads the applicable mode and nearest
+   stack, and reports `no matching validated stack` when none exists. That is Tier 1;
+   everything later is Tier 2, pulled by name from `INDEX.md`.
 
-This removes the plan's most fragile property — that the operator had to remember to point
-the agent at an entry file. A bootstrap procedure that must itself be bootstrapped defeats
-the purpose of the handbook.
+The launchers deliberately preserve the caller's current directory. The handbook augments a
+working project; it never becomes the working project and never replaces that project's
+instructions.
 
 <a id="loading-traps"></a>
 ### 4.2. Three traps this creates
 
-**T1 — the skills exception is `--add-dir` only.** `permissions.additionalDirectories` in
-`settings.json` grants file access and **does not load skills**. The natural instinct —
-"make the handbook path permanent in settings instead of typing a flag" — silently breaks
-skill loading while appearing to work. The launcher must use the CLI flag, and
-`ARCHITECTURE.md` records *why*, or someone will helpfully "improve" it later.
+**T1 — file access is not instruction discovery.** Claude Code needs both `--add-dir` and
+its additional-directory memory flag for the mirror, while Codex does not add an external
+`AGENTS.md` or `.agents/skills/` directory to the working project's discovery chain.
+Consequently each launcher must use the frontend's explicit bootstrap mechanism; a generic
+`--add-dir` wrapper is insufficient.
 
-**T2 — skills and memory load independently, so partial loading is a live failure mode.**
-Skills load from the flag alone; `CLAUDE.md` additionally needs the env var. A session
-started with plain `claude --add-dir …`, or on a system where the launcher is missing, gets
-**the procedures without the standing rules** — no mode contract, no privacy rule, no
-budget rule. That is worse than loading nothing, because the agent looks oriented.
-Therefore: **every skill states its own preconditions and re-asserts the rules it depends
-on**, rather than assuming the root `CLAUDE.md` was loaded. `lqcd-start-session` explicitly
-checks that Tier 0 is in context and says so if it is not.
+**T2 — partial loading remains a live failure mode.** A skill, an added directory, or an
+instruction pointer can be present while the Tier-0 rules or the correct adapter are absent.
+Every adapter therefore carries independent safeguards, checks the shared launcher and
+frontend markers, and stops with `partial loading` rather than reconstructing missing rules.
 
-**T3 — name collisions are silent.** Handbook skills load at project level, and personal
-skills in `~/.claude/skills/` take precedence over them. All handbook skills therefore
-carry an `lqcd-` prefix, so nothing in a home directory can shadow one unnoticed.
+**T3 — user- and repository-scoped skills with the same name are not merged.** All
+handbook skills carry the `lqcd-` prefix. The Codex installer is offer-only, creates a
+symlink to the versioned skill, is idempotent for that exact link, and refuses to replace
+any existing file, directory, or different symlink. When Codex runs inside the handbook
+repository, both the repository skill and optional user link may appear; the user link is
+intended for sessions in other repositories. Because it is an absolute symlink, moving the
+handbook clone requires removing the obsolete link and reinstalling it.
 
 <a id="freshness-model"></a>
 ### 4.3. Many machines, many sessions: a freshness model, not a merge model
@@ -801,20 +810,18 @@ the handbook gains other contributors.
 <a id="loading-invariants"></a>
 ### 4.4. What this does *not* change
 
-**Knowledge still lives in plain Markdown and YAML, and skills stay thin.** The reason is
-now stronger than the original one: since *only* skills cross the `--add-dir` boundary, the
-durable content must sit in ordinary files that any loading mechanism — a plugin, a
-symlink, a bare `--add-dir`, a human with a text editor — can reach. A skill is a procedure
-plus pointers; it is never the only copy of a fact.
+**Knowledge still lives in plain Markdown and YAML, and skills stay thin.** Frontend discovery rules differ, so durable content must remain in ordinary files that every adapter — or a human with a text editor — can reach. A skill is a procedure plus pointers; it is never the only copy of a fact.
 
-**Hooks and subagents cannot ship inside the handbook.** They are not loaded from an added
-directory, so anything relying on them — notably technical enforcement of the user-mode
+**Hooks and subagents cannot be assumed to activate merely because the handbook is added.** Anything relying on them — notably technical enforcement of the user-mode
 write restriction (P6, [§handbook-modes](#handbook-modes)) — needs an installer that writes into user settings, and is a
 separate artifact from the repo's own contents. Deferred to slice 7 ([§deferred-decisions](ROADMAP.md#deferred-decisions)) and noted here so
 it is not assumed.
 
 <a id="session-logging"></a>
 ### 4.5. Session logging: provenance for the operator, invisible to the agent
+
+The session-logging contract is frontend-neutral, but the only currently verified adapter
+is Claude Code; a Codex equivalent belongs to slice 7.
 
 `[verified]` The operator runs `~/.claude/log_session.sh` as a **global `Stop` hook**. On
 every turn boundary it re-renders the session transcript to
@@ -823,7 +830,7 @@ with **tool calls and tool outputs excluded**. It is idempotent, pins to the lau
 directory rather than the live `cwd` so a mid-session `cd` cannot split one log across two
 places, and waits for the transcript to stop growing before rendering. Pure bash + `jq`.
 
-**The handbook ships it** as `tools/log-session.sh` plus an installer. It cannot arrive via
+**In slice 7 the handbook will ship it** as `tools/log-session.sh` plus an installer. It cannot arrive via
 `--add-dir` — hooks do not load from an added directory ([§loading-invariants](#loading-invariants)), and this one is global
 anyway, applying to every session on the machine including those with nothing to do with
 LQCD. So it is **copied into `~/.claude/`, not pointed at inside the repo**: invoking it
@@ -907,18 +914,12 @@ build paths from.
 
 **What `lqcd-start-session` verifies, and what "correctly" can mean.** Not "matches an
 expected path" — nothing knows what that is, which is the point. **Identity by content:**
-`$LQCD_HANDBOOK` resolves to a directory containing `handbook.yaml` and
-`.claude/skills/lqcd-start-session/`, and — to distinguish *the* handbook from a stray copy
-— its `git remote` matches the canonical upstream. Checkable from inside, with no external
-knowledge, identically on every machine.
+`$LQCD_HANDBOOK` resolves to a directory containing `handbook.yaml`, canonical
+`AGENTS.md`, its declared mirrors, and the active frontend skill; to distinguish *the*
+handbook from a stray copy, its `git remote` matches the canonical upstream. Checkable
+from inside, with no external knowledge, identically on every machine.
 
-**The residual failure mode.** `--add-dir` and `$LQCD_HANDBOOK` can still diverge: a bare
-`claude --add-dir /some/other/clone`, or the variable reset mid-session. The agent then
-reads files from a different tree than the one in its context — stale and fresh knowledge
-interleaved, with nothing appearing wrong. This is trap T2's sibling and takes the same
-response as [§freshness-model](#freshness-model): **report and stop, never guess.** Whether the loaded tree's path is
-directly recoverable from the invoked skill's own location is worth verifying at slice 0;
-if it is, the check becomes exact rather than heuristic.
+**The residual failure mode.** Launcher arguments, environment variables, and the loaded adapter can still identify different clones, or a marker can be reset mid-session. The frontend preflight validates the normalized root, declared entrypoint, adapter skill, and common markers together. Any disagreement is trap T2's sibling and takes the same response as [§freshness-model](#freshness-model): **report and stop, never guess.**
 
 ---
 
@@ -1109,7 +1110,7 @@ everything, and they are the durable/episode distinction of [§admission-test](#
 | **the session** | the current environment | discovered at runtime, never stored |
 
 The operator does not work *inside* the handbook. They work in a project directory that has
-its own `CLAUDE.md`, its own logs, and its own outputs — and **anything that fails the [§deny-list](#deny-list)
+its own frontend instruction file, its own logs, and its own outputs — and **anything that fails the [§deny-list](#deny-list)
 screening simply accumulates there instead.** It was never handbook material.
 
 Each candidate for the old `local/` dissolves on inspection:
@@ -1317,7 +1318,7 @@ decides what the agent may *write*; the work mode decides what it is *doing*.
   the handbook. Full specification in [§developer-mode-spec](#developer-mode-spec), because this is the mode the project lives in
   for its first several months and the only one with write access to a public repo.
 
-Declared in the opening exchange; `CLAUDE.md` states the default is user mode.
+Declared in the opening exchange; canonical `AGENTS.md` states the default is user mode.
 A wrong guess in user mode wastes a turn; a wrong guess in developer mode is a bad commit
 to a public repository, so the default is never inferred from context.
 
@@ -1381,7 +1382,7 @@ qualifying new untracked inbox entries as the sole exception.
    staleness, privacy deny-list. Developer mode is the only mode that can violate the
    privacy rule, so it carries the check.
 7. **One fact-class per commit**, so a bad import is revertible without collateral.
-8. **Re-read as a stranger at every slice boundary.** Open `CLAUDE.md` with no prior
+8. **Re-read as a stranger at every slice boundary.** Open canonical `AGENTS.md` with no prior
    context: is the next action unambiguous, is anything stale, does every new file have an
    `INDEX.md` line? This check caught six defects in a prior investigation.
 9. **Measure the tier budgets at every slice boundary** (P1). If Tier 0 grew, content
@@ -1505,7 +1506,7 @@ about how far a fact travels, not about whether it is true.
 An agent may submit to a scheduler **only** when a node-hour or GPU-hour ceiling has been
 stated explicitly by the operator. It tracks consumption against that ceiling and stops at
 it. No ceiling stated ⇒ the agent prepares the job and hands the submit command to the
-operator. This lives in `conventions/running.md` and is restated in `CLAUDE.md` because it
+operator. This lives in `conventions/running.md` and is restated in canonical `AGENTS.md` because it
 is the one rule with irreversible consequences.
 
 **Granted in the opening message; scoped to the campaign; tracked in the working

@@ -1,37 +1,37 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slice 0 is implemented; cold-session acceptance is pending.
+**Status:** Slice 0b agent-neutral frontend implementation is complete; dual-frontend cold-session acceptance is pending.
 
-**NEXT ACTION:** Create and publish the initial Slice 0 commit, then run the cold-session
-acceptance matrix through the launcher and with bare `claude --add-dir`.
+**NEXT ACTION:** Run and record the six-case Claude Code/Codex cold-session acceptance
+matrix in Slice 0b; do not advance to Slice 1 until every case is accepted.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
 <a id="current-slice-state"></a>
 ## Current slice state
 
-Slice 0 implementation was completed locally on 2026-08-14. Latest automated evidence
-(2026-08-15):
+Slice 0 was committed and published at `1352ba5`. Slice 0b was implemented locally on
+2026-08-15. Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py`: two schemas valid, one provenance record complete,
-  205 long-document references resolved, no deny-list match, and Tier 0 at 2,884/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all eleven checks pass, covering the
-  required scaffold, schema meta-validation, Tier-0 and planning-state ownership, transcript
-  ignoring, inbox visibility, frontmatter-date typing, privacy-scan scope, validator
-  wording, and actionable launcher failure without `LQCD_HANDBOOK`;
-- semantic screening replaced source-corpus paths, identifiers, and empirical examples
-  with public-safe descriptions or placeholders.
+  two frontend adapters valid, 202 long-document references resolved, no deny-list match,
+  and Tier 0 at 2,908/6,144 bytes;
+- `python3 -m unittest discover -s tests -p 'test_*.py' -v`: all seventeen checks pass,
+  including frontend-manifest consistency, exact entrypoint mirroring, mirror repair, both
+  launcher contracts and drift stops, preserved working directory, additive Codex bootstrap,
+  and conflict-safe installer behavior;
+- `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills`,
+  `python3 tools/sync-agent-entrypoints.py --check`, and `git diff --check` complete cleanly.
 
-Not yet accepted: the repository has no initial commit or upstream branch, so tracked-tree
-freshness behavior cannot yet be exercised. The four cold agent cases also remain: launcher in
-user mode, launcher in developer mode, bare `--add-dir` partial loading, and an unset
-`LQCD_HANDBOOK`. Do not advance to Slice 1 until those checks are recorded here.
+Not yet accepted: the six interactive cold-session cases in Slice 0b remain pending. Those
+cases verify behavior inside the actual Claude Code and Codex frontends rather than wrapper
+construction alone. Do not advance to Slice 1 until they are recorded here.
 
 <a id="build-order"></a>
 ## 9. Build order
 
-Each slice has a **cold-session acceptance test**: a fresh agent, given only
-`--add-dir <handbook>` and the task, completes it without the operator re-teaching
+Each slice has a **cold-session acceptance test**: a fresh agent, started through the
+frontend launcher and given only the task, completes it without the operator re-teaching
 anything. That test is the deliverable, not the file count.
 
 ### Slice 0 — rules and skeleton *(small; slice 1 writes YAML that needs a schema)*
@@ -69,9 +69,50 @@ actionable message when `LQCD_HANDBOOK` is unset**, and `lqcd-start-session` val
 handbook by content rather than by path. Verify here whether the invoked skill's own
 location is recoverable — that decides whether the divergence check is exact or heuristic.
 
+<a id="codex-frontend"></a>
+### Slice 0b — agent-neutral frontends
+
+This compatibility slice establishes one handbook behavior behind Claude Code and Codex:
+
+- canonical Tier 0 is `AGENTS.md`; `CLAUDE.md` is an exact generated mirror enforced by
+  `tools/sync-agent-entrypoints.py` and the validator;
+- `handbook.yaml` declares the canonical entrypoint, mirrors, common launcher markers, and
+  both frontend adapters;
+- `playbooks/start-session.md` owns shared behavior, while
+  `start-session-{claude,codex}.md` own only complete-loading preflights;
+- matching `.claude/skills/` and `.agents/skills/` adapters remain thin;
+- `tools/lqcd-claude` and `tools/lqcd-codex` preserve the caller's working directory and
+  project instructions. Codex uses additive `developer_instructions`, never
+  `model_instructions_file`;
+- `tools/install-codex-skills` optionally exposes the Codex skill through a conflict-safe,
+  idempotent user symlink with documented duplicate-discovery and relocation tradeoffs. The
+  launcher does not depend on installation.
+
+*Automated acceptance:* the validator rejects frontend-manifest and entrypoint drift;
+mirror synchronization is checkable and repairable; both launchers fail actionably without
+`LQCD_HANDBOOK`; wrapper tests verify forwarded arguments, common and frontend markers,
+preserved working directory, and Codex's additive bootstrap; installer tests cover first
+install, idempotence, and conflict refusal.
+
+*Cold-session acceptance matrix:*
+
+| Frontend/case | Expected behavior | State |
+|---|---|---|
+| Claude launcher, user mode | Tier 0 and shared startup load; only work mode is asked | pending |
+| Claude launcher, developer mode | Architecture and roadmap load after explicit declaration | pending |
+| Codex launcher, user mode in a project with `AGENTS.md` | Project instructions remain active; Tier 0 and shared startup load | pending |
+| Codex launcher, developer mode | Same developer gate and orientation report as Claude | pending |
+| Claude without launcher | Partial loading is reported and work stops | pending |
+| Codex user skill explicitly invoked without launcher/bootstrap | Skill preflight reports partial loading and work stops | pending |
+
+Do not advance to Slice 1 until these six cold cases are recorded. Functional parity means
+the orientation, safeguards, routing, and stop conditions match; the frontend-specific
+loading mechanism is allowed to differ.
+
 ### Slice 1 — the vertical slice: build QUDA on Perlmutter
 `machines/perlmutter/{machine.yaml,notes.md}`, `software/quda/{project.yaml,README.md,
-build.md}`, `.claude/skills/lqcd-build-stack/` + `playbooks/build-lqcd-stack.md`,
+build.md}`, matching `.claude/skills/lqcd-build-stack/` and
+`.agents/skills/lqcd-build-stack/` adapters + `playbooks/build-lqcd-stack.md`,
 `tools/detect-machine.sh`, and **the first stack record**,
 `machines/perlmutter/stacks/quda-cuda<v>-<profile>-2026q3/stack.yaml` — written as the
 natural output of the build that actually succeeded.
@@ -194,10 +235,8 @@ in `lqcd-start-session` ([§session-logging](ARCHITECTURE.md#session-logging)); 
 **The `.gitignore` entry that logging makes necessary does not wait for this slice** — the
 hazard exists from the first developer-mode session, so it lands in slice 0.
 
-**All three need an installer, not a repo file.** Hooks and subagents are not loaded from
-an `--add-dir` directory ([§loading-invariants](ARCHITECTURE.md#loading-invariants)), so anything enforcing rather than instructing has to be
-written into user settings by `tools/install-guards.sh` and versioned here separately from
-the knowledge. Revisit the loading decision at this point too — a plugin would carry hooks
+**All three need frontend-specific installers, not only repo files.** Hooks and subagents
+are not activated merely by adding the handbook ([§loading-invariants](ARCHITECTURE.md#loading-invariants)), so anything enforcing rather than instructing has to be written into user settings by offer-only installers and versioned here separately from the knowledge. Revisit the loading decision at this point too — a plugin would carry hooks
 and agents natively, and by now there is usage data to judge whether that is worth the
 install step per machine.
 
@@ -206,7 +245,7 @@ install step per machine.
 <a id="open-questions"></a>
 ## 10. Open questions for the operator
 
-Nothing here blocks slice 0. New questions land in this section as they arise.
+Nothing here blocks Slice 0b acceptance. New questions land in this section as they arise.
 
 ---
 
@@ -228,26 +267,10 @@ column is the test. On the move into the repo ([§plan-ships-with-handbook](ARCH
 | **Whether session logging should also archive the raw transcript JSONL** for full provenance, tool I/O included ([§session-logging](ARCHITECTURE.md#session-logging)) | **Prose-only.** The shipped logger stays as the operator wrote it; the JSONL under `~/.claude/projects/` is the true last resort where it survives | The prose record proves insufficient to reconstruct an episode the operator needed back — or a machine rebuild/scratch purge destroys a JSONL that was wanted. Note the cost before adopting: much larger files in the working directory, and a far bigger privacy surface, since the JSONL contains every file read and every command run |
 | **Whether the handbook is measurably cheaper than the rediscovery it replaces** | No measurement. Cold-session tests stay qualitative | The handbook becomes big enough to feel slow to navigate. **If implemented, it is the lightweight version** (below) — not an A/B harness |
 | **How upstream sample scripts relate to the handbook** — whether they are a declared canonical source, a field on a stack, or not represented at all; and how much build knowledge the handbook owns as a result | None. The handbook's build knowledge is written as needed | **When a slice puts a real build in front of us** — slice 1 or slice 3. The design questions here are open and merit their own discussion; deciding them from a description rather than a build would be guessing |
-| **Codex frontend support** — add a Codex adapter without duplicating the handbook’s canonical knowledge | Continue with the Claude-only frontend. Keep shared knowledge and playbooks agent-neutral where practical; do not add per-project bridge files | Before the first intended Codex-backed handbook session, or when the operator explicitly schedules Slice 0b. Reopen the Loading and session-start decisions before implementation |
 
 
-<a id="codex-frontend"></a>
-### Parked implementation — Codex frontend
+### Notes on deferred decisions
 
-When un-parked, create **Slice 0b** before adding further agent-specific behavior:
-
-- add a small `AGENTS.md` Codex entry point;
-- add `.agents/skills/lqcd-start-session/`;
-- add `tools/lqcd-codex`;
-- inject an additive bootstrap instruction while preserving each working project’s own
-  `AGENTS.md`;
-- refactor session startup into shared and frontend-specific playbooks;
-- provide an offer-only installer for user-scoped `lqcd-*` skill symlinks;
-- define Tier-0 budgets separately for Claude and Codex;
-- run a Codex cold-session acceptance matrix.
-
-Do not use `model_instructions_file` as the integration mechanism because it would replace
- the working project’s normal `AGENTS.md` instructions.
 
 `[operator]` The one input already on the record for that discussion: `milc_qcd/systems/`
 holds **sample** QUDA and MILC build and run scripts per system. They are incomplete — they

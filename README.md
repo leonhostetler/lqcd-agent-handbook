@@ -12,10 +12,19 @@ Clone the repository, set `LQCD_HANDBOOK` to the clone, and launch through:
 ```bash
 export LQCD_HANDBOOK=/path/to/lqcd-agent-handbook
 "$LQCD_HANDBOOK/tools/lqcd-claude"
+# or
+"$LQCD_HANDBOOK/tools/lqcd-codex"
 ```
 
-The launcher intentionally has no default path. It enables root `CLAUDE.md` loading and
-adds the handbook directory so `/lqcd-start-session` is available.
+Both launchers intentionally have no default path. They preserve the working project's
+own instructions while loading the same handbook Tier 0 and startup workflow. The Codex
+launcher works without installation; `tools/install-codex-skills` may optionally expose
+the startup skill in Codex's user skill directory.
+
+The optional Codex link is intended for sessions in other repositories. Inside this
+handbook repository, Codex may show both the repository skill and the same user-scoped
+skill because same-named skills are not merged. The link records the clone's absolute path;
+if the clone moves, remove the obsolete link and rerun the installer.
 
 ## Development status
 
