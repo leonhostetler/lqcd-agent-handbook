@@ -1,0 +1,132 @@
+schema_version: 1
+name: perlmutter
+aliases:
+  - saul
+summary: NERSC HPE Cray EX system with CPU-only and NVIDIA A100 GPU compute nodes.
+public_login_hosts:
+  - perlmutter.nersc.gov
+  - saul.nersc.gov
+scheduler:
+  type: slurm
+  submit_command: sbatch
+  query_command: squeue
+  queues_command: sinfo
+filesystems:
+  scratch:
+    purpose: High-performance temporary storage for active Perlmutter jobs.
+    environment_variable: PSCRATCH
+    purge_policy: Files not accessed within 8 weeks are eligible for deletion.
+site_policy:
+  scheduling:
+    model: single_queue_with_qos
+    default_qos: debug
+    common_qos:
+      - regular
+      - debug
+      - interactive
+      - shared
+  accounting:
+    unit: node-hour
+    separate_cpu_and_gpu_pools: true
+build_environment:
+  login:
+    intended_for:
+      - editing
+      - limited compilation
+      - job submission
+    recommended_max_parallel_build_jobs: 8
+    aggregate_memory_limit_gb: 30
+    aggregate_cpu_limit_percent: 12.5
+  compute:
+    use_for:
+      - long builds
+      - CPU-intensive builds
+      - memory-intensive builds
+  compilers:
+    recommended_wrappers:
+      c: cc
+      cxx: CC
+      fortran: ftn
+    cuda_module: cudatoolkit
+node_types:
+  cpu:
+    description: CPU-only compute node.
+    cpu:
+      vendor: AMD
+      model: EPYC 7763
+      sockets: 2
+      cores_per_socket: 64
+    accelerator: null
+    queues:
+      - name: slurm
+        constraint: cpu
+    build_constraints:
+      target: cpu
+    sizing:
+      physical_cpu_cores: 128
+      host_memory_gb: 512
+      network: HPE Slingshot 11
+      network_interfaces_per_node: 1
+  gpu-a100-40:
+    description: GPU compute node with 40 GB A100 accelerators.
+    cpu:
+      vendor: AMD
+      model: EPYC 7763
+      sockets: 1
+      cores_per_socket: 64
+    accelerator:
+      vendor: NVIDIA
+      arch: sm_80
+      per_node: 4
+      memory_gb: 40
+      interconnect: third-generation NVLink
+    queues:
+      - name: slurm
+        constraint: "gpu&hbm40g"
+    build_constraints:
+      target: gpu
+      gpu_arch: sm_80
+    sizing:
+      physical_cpu_cores: 64
+      host_memory_gb: 256
+      network: HPE Slingshot 11
+      network_interfaces_per_node: 4
+  gpu-a100-80:
+    description: GPU compute node with 80 GB A100 accelerators.
+    cpu:
+      vendor: AMD
+      model: EPYC 7763
+      sockets: 1
+      cores_per_socket: 64
+    accelerator:
+      vendor: NVIDIA
+      arch: sm_80
+      per_node: 4
+      memory_gb: 80
+      interconnect: third-generation NVLink
+    queues:
+      - name: slurm
+        constraint: "gpu&hbm80g"
+    limits:
+      maximum_nodes_with_memory_specific_constraint: 256
+    build_constraints:
+      target: gpu
+      gpu_arch: sm_80
+    sizing:
+      physical_cpu_cores: 64
+      host_memory_gb: 256
+      network: HPE Slingshot 11
+      network_interfaces_per_node: 4
+evidence: docs
+observed: "2026-08-15"
+observed_on:
+  machine: perlmutter
+review_by: "2027-02-15"
+sources:
+  - https://docs.nersc.gov/systems/perlmutter/architecture/
+  - https://docs.nersc.gov/connect/
+  - https://docs.nersc.gov/jobs/policy/
+  - https://docs.nersc.gov/policies/resource-usage/
+  - https://docs.nersc.gov/filesystems/perlmutter-scratch/
+  - https://docs.nersc.gov/development/compilers/
+  - https://docs.nersc.gov/development/compilers/wrappers/
