@@ -1,10 +1,9 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slice 0b implementation is complete; all three Claude Code cold-session cases
-are accepted and all three Codex cases remain pending.
+**Status:** Slice 0b is accepted; all six Claude Code and Codex cold-session cases passed.
 
-**NEXT ACTION:** Rerun and record the Codex launcher user-mode case after the permission-
-boundary repair; do not advance to the remaining Codex cases until it is accepted.
+**NEXT ACTION:** Begin Slice 1 by building QUDA on Perlmutter and recording the first
+validated stack.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -26,10 +25,9 @@ at `fa9001a`. Latest automated evidence:
   `python3 tools/sync-agent-entrypoints.py --check`, and `git diff --check` complete cleanly.
 
 Accepted on 2026-08-15 by operator report: the Claude launcher in user mode, the Claude
-launcher in developer mode, and Claude invoked without the launcher all behaved as their
-acceptance cases require. The three Codex cases remain pending; they verify behavior inside
-the actual Codex frontend rather than wrapper construction alone. Do not advance to Slice 1
-until they are recorded here.
+launcher in developer mode, Claude invoked without the launcher, the Codex launcher in user
+mode, the Codex launcher in developer mode, and the Codex user skill invoked without the
+launcher/bootstrap all behaved as their acceptance cases require.
 
 The first Claude user-mode attempt on 2026-08-15 opened an idle prompt because the launcher
 loaded passive instructions but supplied no initial turn. Both launchers now inject the same
@@ -40,6 +38,7 @@ The first Codex launcher user-mode attempt on 2026-08-15 stopped before startup 
 launcher passed `--add-dir`, which Codex treats as a request for another writable root and
 the effective permissions rejected. The Codex adapter now relies only on its additive
 absolute-path instruction pointer and does not widen or override the caller's permissions.
+The repaired launcher rerun and both other Codex cases were accepted on 2026-08-15.
 
 <a id="build-order"></a>
 ## 9. Build order
@@ -116,12 +115,12 @@ install, idempotence, and conflict refusal.
 |---|---|---|
 | Claude launcher, user mode | Tier 0 and shared startup load; only work mode is asked | accepted 2026-08-15 |
 | Claude launcher, developer mode | Architecture and roadmap load after explicit declaration | accepted 2026-08-15 |
-| Codex launcher, user mode in a project with `AGENTS.md` | Project instructions remain active; Tier 0 and shared startup load | pending rerun after permission repair |
-| Codex launcher, developer mode | Same developer gate and orientation report as Claude | pending |
+| Codex launcher, user mode in a project with `AGENTS.md` | Project instructions remain active; Tier 0 and shared startup load | accepted 2026-08-15 |
+| Codex launcher, developer mode | Same developer gate and orientation report as Claude | accepted 2026-08-15 |
 | Claude without launcher | Partial loading is reported and work stops | accepted 2026-08-15 |
-| Codex user skill explicitly invoked without launcher/bootstrap | Skill preflight reports partial loading and work stops | pending |
+| Codex user skill explicitly invoked without launcher/bootstrap | Skill preflight reports partial loading and work stops | accepted 2026-08-15 |
 
-Do not advance to Slice 1 until these six cold cases are recorded. Functional parity means
+All six cold cases are recorded and accepted. Functional parity means
 the orientation, safeguards, routing, and stop conditions match; the frontend-specific
 loading mechanism is allowed to differ.
 
