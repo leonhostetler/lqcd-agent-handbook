@@ -16,7 +16,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | Decision | Choice | Reopen when |
 |---|---|---|
 | **Repo split** | Single public repo. No private overlay, no `local/`. Non-transferable knowledge stays in the working directory ([§no-escape-hatch](#no-escape-hatch)) | The operator needs a *durable* fact to travel that cannot be published — the working directory has been shown to cover every case so far |
-| **Loading** | One shared contract behind frontend launchers. Both set common launch/frontend markers and preserve working-project instructions; Claude loads an exact `CLAUDE.md` mirror, while Codex receives an additive pointer to canonical `AGENTS.md` ([§loading-chain](#loading-chain)) | Playbook routing costs more than a per-machine plugin install would, or hooks/agents become load-bearing ([§loading-invariants](#loading-invariants)). Slice 7 revisits regardless |
+| **Loading** | One shared contract behind frontend launchers. Both set common launch/frontend markers and preserve working-project instructions; Claude loads an exact `CLAUDE.md` mirror, while Codex receives an additive pointer to canonical `AGENTS.md` without another writable root ([§loading-chain](#loading-chain)) | Playbook routing costs more than a per-machine plugin install would, or hooks/agents become load-bearing ([§loading-invariants](#loading-invariants)). Slice 7 revisits regardless |
 | **Encoding** | Schema-validated YAML for facts a script consumes; Markdown prose beside it for mechanism ([§knowledge-atom](#knowledge-atom)) | — |
 | **Build order** | One vertical slice end to end. Slice 1 is "build QUDA on Perlmutter" ([§build-order](ROADMAP.md#build-order)) | — |
 
@@ -75,7 +75,7 @@ A handbook that gets read in full costs more tokens than it saves. Three tiers, 
 
 | Tier | Content | Budget | Loaded |
 |---|---|---|---|
-| 0 | canonical `AGENTS.md` (≤ 5 KB) + `INDEX.md` (a few hundred bytes) | **≤ 6 KB combined** | loaded directly by Codex or through Claude's exact `CLAUDE.md` mirror ([§loading-chain](#loading-chain)) |
+| 0 | canonical `AGENTS.md` (≤ 5 KB) + `INDEX.md` (a few hundred bytes) | **≤ 6 KB combined** | loaded by Codex through its additive pointer or through Claude's exact `CLAUDE.md` mirror ([§loading-chain](#loading-chain)) |
 | 1 | one mode doc + one `machine.yaml` + one `project.yaml` + the nearest `stack.yaml` | ~10–15 KB | once machine and software are **detected** and the mode is stated ([§work-mode-currency](#work-mode-currency)) |
 | 2 | everything else | unbounded | on demand, by name, from `INDEX.md` |
 
@@ -307,9 +307,9 @@ a user-mode session pays two lines of routing for it, not two documents.
 
 **The decision log is [§decisions-locked](#decisions-locked)**, which already carries every settled decision with its reopen
 trigger. It is a section, not a directory, and it travels with `ARCHITECTURE.md`. What it
-must keep as it grows is the *rationale* alongside the trigger: in six months "why is this
-`--add-dir` and not a plugin?" will be asked again, and the answer should not have to be
-reconstructed from the section it points at.
+must keep as it grows is the *rationale* alongside the trigger: in six months "why does
+Claude use `--add-dir` while Codex deliberately does not?" will be asked again, and the
+answer should not have to be reconstructed from the section it points at.
 
 **Between [§decisions-locked](#decisions-locked), [§open-questions](ROADMAP.md#open-questions) and [§deferred-decisions](ROADMAP.md#deferred-decisions) the state is complete.** [§decisions-locked](#decisions-locked) is what is settled, [§open-questions](ROADMAP.md#open-questions) what the
 operator still owes an answer on, [§deferred-decisions](ROADMAP.md#deferred-decisions) what is parked with a trigger. A reader asking "is
@@ -707,8 +707,9 @@ instructions differently.
 `[verified]` against the Codex documentation, 2026-08-15:
 
 - Codex builds its `AGENTS.md` instruction chain from the working-project root toward the
-  current directory; adding another writable directory does not add that directory to the
-  chain;
+  current directory; `--add-dir` grants another writable root but does not add that
+  directory to the instruction chain, and it is rejected when effective permissions do
+  not allow additional writable roots;
 - project skills are discovered from `.agents/skills/` between the current directory and
   repository root, while user skills live in `$HOME/.agents/skills`; symlinked skill
   directories are supported;
@@ -719,13 +720,15 @@ instructions differently.
 <a id="loading-chain"></a>
 ### 4.1. The shared contract and adapter chains
 
-1. A frontend launcher resolves `LQCD_HANDBOOK`, adds that directory for file access, and
-   exports `LQCD_HANDBOOK_LAUNCHED=1` plus
+1. A frontend launcher resolves `LQCD_HANDBOOK` and exports
+   `LQCD_HANDBOOK_LAUNCHED=1` plus
    `LQCD_HANDBOOK_FRONTEND=<claude|codex>`. There is no path fallback; see
    [§locating-handbook](#locating-handbook). On a zero-argument launch, it passes the shared,
    manifest-declared `playbooks/start-session-prompt.txt` as the initial user prompt so the
    workflow begins without operator prompting. Caller-supplied arguments pass through
-   unchanged.
+   unchanged. Claude adds the handbook through its additional-directory mechanism. Codex
+   points to the absolute handbook path in additive instructions without requesting an
+   additional writable root or overriding the caller's permission profile.
 2. The canonical Tier-0 rules live in **`AGENTS.md`**. Claude Code loads the validated,
    byte-identical `CLAUDE.md` mirror through its additional-directory memory flag. Codex
    receives an additive `developer_instructions` pointer to canonical `AGENTS.md`; the
@@ -747,10 +750,11 @@ instructions.
 ### 4.2. Three traps this creates
 
 **T1 — file access is not instruction discovery.** Claude Code needs both `--add-dir` and
-its additional-directory memory flag for the mirror, while Codex does not add an external
-`AGENTS.md` or `.agents/skills/` directory to the working project's discovery chain.
+its additional-directory memory flag for the mirror. Codex does not add an external
+`AGENTS.md` or `.agents/skills/` directory to the working project's discovery chain, and
+its `--add-dir` flag is a write grant rather than a read-only loading mechanism.
 Consequently each launcher must use the frontend's explicit bootstrap mechanism; a generic
-`--add-dir` wrapper is insufficient.
+`--add-dir` wrapper is both insufficient and too permissive for Codex.
 
 **T2 — partial loading remains a live failure mode.** A skill, an added directory, or an
 instruction pointer can be present while the Tier-0 rules or the correct adapter are absent.
@@ -907,8 +911,8 @@ at a moment when you have just cloned the repo and know exactly where it is.
 
 **Most of the checking is replaced by construction.** The launcher resolves the variable
 with `realpath` and re-exports it before `exec`, so inside the session it is guaranteed
-set, absolute, symlink-resolved, and naming the *same tree* `--add-dir` loaded. Detection
-is a poor substitute for making two values agree at their source.
+set, absolute, symlink-resolved, and naming the *same tree* the active frontend adapter
+identifies. Detection is a poor substitute for making two values agree at their source.
 
 **The variable is needed in-session** — not only by the launcher — because the agent
 constructs paths to invoke `tools/*.py` and read `playbooks/*.md`. "It is already in

@@ -35,6 +35,6 @@ export LQCD_HANDBOOK_FRONTEND=codex
 export LQCD_HANDBOOK_CODEX_BOOTSTRAP=1
 if (( $# == 0 )); then
   startup_prompt=$(<"$handbook_root/playbooks/start-session-prompt.txt")
-  exec codex --add-dir "$handbook_root" --config "$codex_bootstrap" -- "$startup_prompt"
+  exec codex --config "$codex_bootstrap" -- "$startup_prompt"
 fi
-exec codex --add-dir "$handbook_root" --config "$codex_bootstrap" "$@"
+exec codex --config "$codex_bootstrap" "$@"

@@ -1,9 +1,10 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slice 0b agent-neutral frontend implementation is complete; dual-frontend cold-session acceptance is pending.
+**Status:** Slice 0b implementation is complete; all three Claude Code cold-session cases
+are accepted and all three Codex cases remain pending.
 
-**NEXT ACTION:** Run and record the six-case Claude Code/Codex cold-session acceptance
-matrix in Slice 0b; do not advance to Slice 1 until every case is accepted.
+**NEXT ACTION:** Rerun and record the Codex launcher user-mode case after the permission-
+boundary repair; do not advance to the remaining Codex cases until it is accepted.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -11,7 +12,8 @@ This document owns mutable build state, acceptance evidence, pending decisions, 
 ## Current slice state
 
 Slice 0 was committed and published at `1352ba5`. Slice 0b was committed and published at
-`b06c7d1` on 2026-08-15. Latest automated evidence:
+`b06c7d1` on 2026-08-15, and the zero-argument startup repair was committed and published
+at `fa9001a`. Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py`: two schemas valid, one provenance record complete,
   two frontend adapters valid, 202 long-document references resolved, no deny-list match,
@@ -23,14 +25,21 @@ Slice 0 was committed and published at `1352ba5`. Slice 0b was committed and pub
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills`,
   `python3 tools/sync-agent-entrypoints.py --check`, and `git diff --check` complete cleanly.
 
-Not yet accepted: the six interactive cold-session cases in Slice 0b remain pending. Those
-cases verify behavior inside the actual Claude Code and Codex frontends rather than wrapper
-construction alone. Do not advance to Slice 1 until they are recorded here.
+Accepted on 2026-08-15 by operator report: the Claude launcher in user mode, the Claude
+launcher in developer mode, and Claude invoked without the launcher all behaved as their
+acceptance cases require. The three Codex cases remain pending; they verify behavior inside
+the actual Codex frontend rather than wrapper construction alone. Do not advance to Slice 1
+until they are recorded here.
 
 The first Claude user-mode attempt on 2026-08-15 opened an idle prompt because the launcher
 loaded passive instructions but supplied no initial turn. Both launchers now inject the same
-manifest-declared startup prompt only when called with zero arguments. The case remains
-pending until it is rerun against that repair.
+manifest-declared startup prompt only when called with zero arguments. The rerun and both
+other Claude cases were accepted.
+
+The first Codex launcher user-mode attempt on 2026-08-15 stopped before startup because the
+launcher passed `--add-dir`, which Codex treats as a request for another writable root and
+the effective permissions rejected. The Codex adapter now relies only on its additive
+absolute-path instruction pointer and does not widen or override the caller's permissions.
 
 <a id="build-order"></a>
 ## 9. Build order
@@ -88,7 +97,8 @@ This compatibility slice establishes one handbook behavior behind Claude Code an
 - matching `.claude/skills/` and `.agents/skills/` adapters remain thin;
 - `tools/lqcd-claude` and `tools/lqcd-codex` preserve the caller's working directory and
   project instructions, and inject the shared startup prompt when no caller arguments are
-  present. Codex uses additive `developer_instructions`, never `model_instructions_file`;
+  present. Codex uses additive `developer_instructions`, never `model_instructions_file`,
+  and does not request an additional writable root or override the caller's permissions;
 - `tools/install-codex-skills` optionally exposes the Codex skill through a conflict-safe,
   idempotent user symlink with documented duplicate-discovery and relocation tradeoffs. The
   launcher does not depend on installation.
@@ -97,17 +107,18 @@ This compatibility slice establishes one handbook behavior behind Claude Code an
 mirror synchronization is checkable and repairable; both launchers fail actionably without
 `LQCD_HANDBOOK`; wrapper tests verify forwarded arguments, common and frontend markers,
 shared zero-argument prompting, preserved working directory, and Codex's additive bootstrap;
-installer tests cover first install, idempotence, and conflict refusal.
+the Codex wrapper test also rejects `--add-dir` and `--sandbox`. Installer tests cover first
+install, idempotence, and conflict refusal.
 
 *Cold-session acceptance matrix:*
 
 | Frontend/case | Expected behavior | State |
 |---|---|---|
-| Claude launcher, user mode | Tier 0 and shared startup load; only work mode is asked | pending |
-| Claude launcher, developer mode | Architecture and roadmap load after explicit declaration | pending |
-| Codex launcher, user mode in a project with `AGENTS.md` | Project instructions remain active; Tier 0 and shared startup load | pending |
+| Claude launcher, user mode | Tier 0 and shared startup load; only work mode is asked | accepted 2026-08-15 |
+| Claude launcher, developer mode | Architecture and roadmap load after explicit declaration | accepted 2026-08-15 |
+| Codex launcher, user mode in a project with `AGENTS.md` | Project instructions remain active; Tier 0 and shared startup load | pending rerun after permission repair |
 | Codex launcher, developer mode | Same developer gate and orientation report as Claude | pending |
-| Claude without launcher | Partial loading is reported and work stops | pending |
+| Claude without launcher | Partial loading is reported and work stops | accepted 2026-08-15 |
 | Codex user skill explicitly invoked without launcher/bootstrap | Skill preflight reports partial loading and work stops | pending |
 
 Do not advance to Slice 1 until these six cold cases are recorded. Functional parity means

@@ -441,8 +441,9 @@ class SliceZeroTests(unittest.TestCase):
 
         codex = self.run_launcher_with_fake_frontend("lqcd-codex", "codex")
         self.assertEqual(codex["cwd"], str(ROOT))
-        self.assertEqual(codex["argv"][:2], ["--add-dir", str(ROOT)])
         self.assertEqual(codex["argv"][-1], "--test-forwarded")
+        self.assertNotIn("--add-dir", codex["argv"])
+        self.assertNotIn("--sandbox", codex["argv"])
         self.assertEqual(codex["env"]["LQCD_HANDBOOK_FRONTEND"], "codex")
         self.assertEqual(codex["env"]["LQCD_HANDBOOK_CODEX_BOOTSTRAP"], "1")
         config_index = codex["argv"].index("--config") + 1
@@ -467,6 +468,8 @@ class SliceZeroTests(unittest.TestCase):
 
         codex = self.run_launcher_with_fake_frontend("lqcd-codex", "codex", ())
         self.assertEqual(codex["argv"][-2:], ["--", startup_prompt])
+        self.assertNotIn("--add-dir", codex["argv"])
+        self.assertNotIn("--sandbox", codex["argv"])
         config_index = codex["argv"].index("--config") + 1
         self.assertIn("developer_instructions=", codex["argv"][config_index])
 

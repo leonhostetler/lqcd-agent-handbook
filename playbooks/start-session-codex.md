@@ -13,9 +13,11 @@ test -f "$LQCD_HANDBOOK/AGENTS.md"
 test -f "$LQCD_HANDBOOK/.agents/skills/lqcd-start-session/SKILL.md"
 ```
 
-Codex does not discover an added directory's `AGENTS.md` through the working project's
-instruction chain. The launcher therefore supplies an additive instruction pointing to the
-handbook entrypoint while preserving the working project's own `AGENTS.md` files. A failed
+Codex builds its `AGENTS.md` instruction chain from the working project; an external
+handbook does not enter that chain automatically. The launcher therefore supplies an
+additive instruction pointing to the handbook entrypoint while preserving the working
+project's own `AGENTS.md` files. It deliberately does not use Codex's `--add-dir`, which
+grants another writable root and is rejected by read-only permission profiles. A failed
 check means that complete loading is unverified; report partial loading and stop.
 
 The optional user-skill symlink created by `tools/install-codex-skills` is a convenience,
