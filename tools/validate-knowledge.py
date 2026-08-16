@@ -68,6 +68,76 @@ def has_version_anchor(value: Any, key: str = "") -> bool:
     return False
 
 
+def validate_observed_on(
+    value: Any,
+    rel: Path,
+    errors: list[str],
+    *,
+    scope: Any = None,
+    expected_machine: str | None = None,
+    expected_software: str | None = None,
+) -> None:
+    if not isinstance(value, dict) or not value:
+        errors.append(f"{rel}: observed_on must be a non-empty mapping")
+        return
+
+    scoped_machines: set[str] = set()
+    scoped_software: set[str] = set()
+    if isinstance(scope, list):
+        for item in scope:
+            if not isinstance(item, str) or ":" not in item:
+                continue
+            axis, name = item.split(":", 1)
+            if axis == "machine" and name:
+                scoped_machines.add(name)
+            elif axis == "software" and name:
+                scoped_software.add(name)
+
+    if expected_machine:
+        scoped_machines.add(expected_machine)
+    if expected_software:
+        scoped_software.add(expected_software)
+
+    for machine in sorted(scoped_machines):
+        if value.get("machine") != machine:
+            errors.append(
+                f"{rel}: observed_on.machine must equal scoped machine {machine!r}"
+            )
+
+    software = value.get("software")
+    if scoped_software and not isinstance(software, dict):
+        errors.append(f"{rel}: observed_on.software must be a mapping")
+        return
+    if not isinstance(software, dict):
+        return
+
+    for name in sorted(scoped_software):
+        if name not in software:
+            errors.append(f"{rel}: observed_on.software is missing {name!r}")
+
+    for name, context in sorted(software.items(), key=lambda item: str(item[0])):
+        if not isinstance(name, str) or not isinstance(context, dict):
+            errors.append(f"{rel}: observed_on.software entries must be named mappings")
+            continue
+        commit = context.get("commit")
+        branch = context.get("branch")
+        if not isinstance(commit, str) or not commit:
+            errors.append(
+                f"{rel}: observed_on.software.{name}.commit must be a non-empty string"
+            )
+        if not isinstance(branch, str) or not branch:
+            errors.append(
+                f"{rel}: observed_on.software.{name}.branch must be a non-empty string"
+            )
+        elif branch != "develop":
+            fork = context.get("forked_from_develop")
+            if not isinstance(fork, str) or not fork:
+                errors.append(
+                    f"{rel}: observed_on.software.{name}.forked_from_develop "
+                    "is required off develop"
+                )
+
+
 def validate_iso_date(
     value: Any, field: str, rel: Path, errors: list[str]
 ) -> dt.date | None:
@@ -122,6 +192,22 @@ def validate_schemas(root: Path, errors: list[str]) -> int:
             for problem in sorted(validator.iter_errors(instance), key=lambda item: list(item.absolute_path)):
                 where = ".".join(str(part) for part in problem.absolute_path) or "<root>"
                 errors.append(f"{path.relative_to(root)}:{where}: {problem.message}")
+            if isinstance(instance, dict):
+                rel = path.relative_to(root)
+                if schema_name == "machine.schema.json":
+                    validate_observed_on(
+                        instance.get("observed_on"),
+                        rel,
+                        errors,
+                        expected_machine=instance.get("name"),
+                    )
+                elif schema_name == "project.schema.json":
+                    validate_observed_on(
+                        instance.get("observed_on"),
+                        rel,
+                        errors,
+                        expected_software=instance.get("name"),
+                    )
     return len(loaded) + checked
 
 
@@ -161,8 +247,9 @@ def validate_provenance(root: Path, errors: list[str], warnings: list[str]) -> i
             if kind == "observed" and "incidents" not in rel.parts:
                 errors.append(f"{rel}: evidence observed is allowed only under incidents/")
             observed_on = meta.get("observed_on")
-            if not isinstance(observed_on, dict) or not observed_on:
-                errors.append(f"{rel}: observed_on must be a non-empty mapping")
+            validate_observed_on(
+                observed_on, rel, errors, scope=meta.get("scope")
+            )
             anchored = has_version_anchor(observed_on)
             review = meta.get("review_by")
             if not anchored and review is None:

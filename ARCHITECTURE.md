@@ -535,6 +535,29 @@ Therefore **every commit reference records its branch context**, in `stack.yaml`
 recovered is weaker evidence, and [§evidence-vocabulary](#evidence-vocabulary) should grade it accordingly rather than let a
 precise-looking SHA imply a precision that is not there.
 
+<a id="observed-on-completeness"></a>
+#### Complete observation predicates
+
+Slice 1 supplies the first machine and software records, so `observed_on` completeness can
+now be stated from real instances instead of guessed in a schema:
+
+- every `machine:<name>` scope requires `observed_on.machine: <name>`;
+- every `software:<name>` scope requires an `observed_on.software.<name>` mapping with both
+  `commit` and `branch`; a `project.yaml` record imposes the same requirement for its
+  `name`, even though the record itself carries no version pin;
+- a software observation on a branch other than `develop` also records the commit where
+  that branch forked from `develop`, as `forked_from_develop`;
+- claims whose behavior depends on a compiler, accelerator toolkit, or other toolchain
+  component name the observed component under `observed_on.toolchain`; and
+- `universal` facts and requirement-owned policy use a truthful non-version predicate and
+  `review_by`, rather than inventing a machine or software context.
+
+These are minimum predicates: an atom may include a more specific node type or toolchain
+without widening its scope. Stack records apply the same software commit-and-branch rule
+under `tested_software` and join validation to the machine through `validated_on`. The
+validator enforces the mechanically decidable machine/software portion; developer review
+decides whether a claim is toolchain-dependent.
+
 <a id="node-types"></a>
 ### 3.6. Node types — one machine, several targets
 
@@ -1087,7 +1110,8 @@ exception with a landing slice. The completed validator enforces:
    [§evidence-vocabulary](#evidence-vocabulary)** — `evidence: observed` is allowed only
    under an `incidents/` path. Semantic classification remains a developer-review
    obligation;
-4. **`observed_on` present and complete** — it is the staleness predicate ([§staleness](#staleness)), not
+4. **`observed_on` present and complete** according to
+   [§observed-on-completeness](#observed-on-completeness) — it is the staleness predicate ([§staleness](#staleness)), not
    documentation, so an absent one disables the mismatch check silently;
 5. `review_by` present **iff** the fact has no version anchor, and not in the past
    (warn, don't fail — staleness is a signal, not an error);

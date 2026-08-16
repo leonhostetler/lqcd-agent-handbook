@@ -1,0 +1,51 @@
+software: quda
+profiles:
+  milc-cg:
+    summary: Staggered CG library build for use by MILC, with QMP communication and QIO enabled but multigrid omitted.
+    options:
+      QUDA_DIRAC_DEFAULT_OFF: true
+      QUDA_DIRAC_STAGGERED: true
+      QUDA_INTERFACE_MILC: true
+      QUDA_INTERFACE_QDP: true
+      QUDA_QMP: true
+      QUDA_MPI: false
+      QUDA_QIO: true
+      QUDA_MULTIGRID: false
+      QUDA_USE_EIGEN: true
+      QUDA_DOWNLOAD_EIGEN: true
+      QUDA_DOWNLOAD_USQCD: true
+      QUDA_BUILD_ALL_TESTS: false
+      QUDA_INSTALL_ALL_TESTS: false
+    capabilities:
+      dirac:
+        - staggered
+        - improved-staggered
+      solvers:
+        - cg
+      application_interfaces:
+        - milc
+        - qdp
+      communication:
+        - qmp
+      io:
+        - qio
+    excludes:
+      - multigrid
+    notes:
+      - QDP remains enabled because the native staggered dslash and inverter tests construct QDP-ordered host gauge fields.
+      - QMP and QIO are dependencies of this MILC-facing build, not separate profile-name components.
+evidence: source
+observed: "2026-08-15"
+observed_on:
+  software:
+    quda:
+      commit: 7733f60bb744204576f82574ece8d8bd454fbcfd
+      branch: develop
+    milc:
+      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      branch: develop
+sources:
+  - https://github.com/lattice/quda/blob/7733f60bb744204576f82574ece8d8bd454fbcfd/CMakeLists.txt
+  - https://github.com/lattice/quda/blob/7733f60bb744204576f82574ece8d8bd454fbcfd/tests/staggered_dslash_test_utils.h
+  - https://github.com/lattice/quda/blob/7733f60bb744204576f82574ece8d8bd454fbcfd/tests/staggered_invert_test.cpp
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Perlmutter_GPU/compile_quda.sh

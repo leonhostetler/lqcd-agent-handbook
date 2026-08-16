@@ -1,0 +1,99 @@
+schema_version: 1
+name: quda
+summary: GPU-accelerated lattice-QCD library providing Dirac operators, solvers, and application interfaces.
+repository: https://github.com/lattice/quda.git
+documentation:
+  - https://lattice.github.io/quda/
+  - https://github.com/lattice/quda/wiki
+build_systems:
+  - CMake
+dependencies:
+  - name: CUDA, HIP, or SYCL toolchain
+    purpose: Compiles QUDA for the selected accelerator target.
+    required: true
+  - name: QMP or MPI
+    purpose: Provides multi-GPU communication when the corresponding backend is enabled.
+    required: false
+  - name: QIO
+    purpose: Provides USQCD binary I/O when QUDA_QIO is enabled; this path requires QMP.
+    required: false
+  - name: Eigen
+    purpose: Supplies host linear algebra used by optional solver paths.
+    required: false
+interfaces:
+  - MILC
+  - QDP
+  - QDP-JIT
+  - OpenQCD
+  - CPS
+  - BQCD
+  - TIFR
+capabilities:
+  - Wilson, clover, twisted-mass, staggered, improved-staggered, domain-wall, and Mobius Dirac operators
+  - Mixed-precision Krylov solvers
+  - Multi-GPU execution through QMP or MPI
+  - Optional QIO binary I/O
+  - Optional adaptive multigrid for supported Wilson-type operators
+build_options:
+  QUDA_TARGET_TYPE:
+    meaning: Selects the accelerator backend; accepted values at the observed commit are CUDA, HIP, and SYCL.
+    type: string
+  QUDA_GPU_ARCH:
+    meaning: Selects the accelerator architecture instantiated by the build.
+    type: string
+  QUDA_DIRAC_DEFAULT_OFF:
+    meaning: Makes individual QUDA_DIRAC_* operators opt-in, reducing a specialized build's compile surface.
+    type: boolean
+  QUDA_DIRAC_STAGGERED:
+    meaning: Builds staggered and improved-staggered Dirac operators.
+    type: boolean
+    capabilities:
+      - staggered
+      - improved-staggered
+  QUDA_INTERFACE_MILC:
+    meaning: Builds the MILC application interface and MILC field ordering.
+    type: boolean
+    capabilities:
+      - MILC interface
+  QUDA_INTERFACE_QDP:
+    meaning: Builds the QDP field ordering; QUDA's native staggered validation executables exercise this ordering.
+    type: boolean
+    capabilities:
+      - QDP interface
+      - native staggered-test compatibility
+  QUDA_QMP:
+    meaning: Builds the QMP multi-GPU communication backend.
+    type: boolean
+    capabilities:
+      - QMP communication
+  QUDA_MPI:
+    meaning: Builds the direct MPI multi-GPU backend; do not enable it together with QUDA_QMP.
+    type: boolean
+    capabilities:
+      - MPI communication
+  QUDA_QIO:
+    meaning: Builds QIO binary-I/O support and requires QUDA_QMP.
+    type: boolean
+    capabilities:
+      - QIO
+  QUDA_MULTIGRID:
+    meaning: Builds adaptive multigrid solvers for the supported Dirac operators.
+    type: boolean
+    capabilities:
+      - multigrid
+  QUDA_DOWNLOAD_USQCD:
+    meaning: Downloads and builds the selected USQCD dependencies, including QMP and QIO.
+    type: boolean
+  QUDA_DOWNLOAD_EIGEN:
+    meaning: Downloads Eigen during configuration.
+    type: boolean
+evidence: source
+observed: "2026-08-15"
+observed_on:
+  software:
+    quda:
+      commit: 7733f60bb744204576f82574ece8d8bd454fbcfd
+      branch: develop
+sources:
+  - https://github.com/lattice/quda/blob/7733f60bb744204576f82574ece8d8bd454fbcfd/README.md
+  - https://github.com/lattice/quda/blob/7733f60bb744204576f82574ece8d8bd454fbcfd/CMakeLists.txt
