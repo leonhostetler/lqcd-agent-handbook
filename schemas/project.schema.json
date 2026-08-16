@@ -2,13 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/lqcd-agent-handbook/schemas/project.schema.json",
   "title": "LQCD software-intrinsic project record",
-  "description": "Describes software capabilities without a branch, commit, or local checkout pin.",
+  "description": "Describes software capabilities and source-acquisition defaults without a commit or local checkout pin.",
   "type": "object",
   "required": [
     "schema_version",
     "name",
     "summary",
     "repository",
+    "default_branch",
     "build_systems",
     "evidence",
     "observed",
@@ -16,7 +17,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 1
+      "const": 2
     },
     "name": {
       "type": "string",
@@ -29,6 +30,11 @@
     "repository": {
       "type": "string",
       "format": "uri"
+    },
+    "default_branch": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\s]+$"
     },
     "documentation": {
       "type": "array",

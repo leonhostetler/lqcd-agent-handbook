@@ -492,16 +492,20 @@ records of builds that happened; the handbook describes software, not checkouts.
 checkout, find the nearest validated stack, and *report the gap*. But the gap is **not a
 distance** —
 
-`[operator]` There is **no branch policy.** Depending on the work, QUDA and MILC are built
-from `develop`, from a specific feature branch, or from the operator's own fork — both
-projects, and the choice is per-episode. **Tagged releases are explicitly not used:** neither
-project releases on a regular schedule and releases run years out of date.
+`[operator]` **Each `project.yaml` owns the software's `default_branch`. A newly cloned
+checkout selects the remote tip of that branch unless the operator requests another branch
+or commit.** This is a source-acquisition default, not a universal branch policy or a claim
+that one revision is supported everywhere. An explicit request to reproduce a validated
+stack selects that stack's tested commit instead; merely finding a nearby stack does not.
+Existing checkouts are never moved to the default branch automatically. **Tagged releases
+are explicitly not used for QUDA or MILC:** neither project releases on a regular schedule
+and releases run years out of date.
 
-So "40 commits behind" is the wrong report, because with no stable branch the checkout in
-front of you need not be an ancestor *or* a descendant of the stack's commit. Feature
-branches and `develop` diverge, and a commit count between diverged histories is not
-misleading in the mild sense — it is meaningless. The check is **ancestry, and the third
-case is the one that matters**:
+So "40 commits behind" remains the wrong report: an existing or explicitly selected
+checkout need not be an ancestor *or* a descendant of the stack's commit. Feature branches
+and `develop` diverge, and a commit count between diverged histories is not misleading in
+the mild sense — it is meaningless. The check is **ancestry, and the third case is the one
+that matters**:
 
 | `git merge-base --is-ancestor` | Report |
 |---|---|

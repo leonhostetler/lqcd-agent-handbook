@@ -1,7 +1,8 @@
-schema_version: 1
+schema_version: 2
 name: quda
 summary: GPU-accelerated lattice-QCD library providing Dirac operators, solvers, and application interfaces.
 repository: https://github.com/lattice/quda.git
+default_branch: develop
 documentation:
   - https://lattice.github.io/quda/
   - https://github.com/lattice/quda/wiki

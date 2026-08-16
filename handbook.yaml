@@ -2,7 +2,7 @@ name: lqcd-agent-handbook
 phase: bootstrap
 schema_versions:
   machine: 1
-  project: 1
+  project: 2
 tier_0:
   canonical_entrypoint: AGENTS.md
   mirrors:

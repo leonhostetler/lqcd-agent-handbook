@@ -76,12 +76,21 @@ class SliceOneKnowledgeTests(unittest.TestCase):
     def test_quda_project_matches_project_schema(self):
         schema = json.loads((ROOT / "schemas/project.schema.json").read_text())
         project = yaml.safe_load((ROOT / "software/quda/project.yaml").read_text())
+        manifest = yaml.safe_load((ROOT / "handbook.yaml").read_text())
         problems = list(
             Draft202012Validator(
                 schema, format_checker=FormatChecker()
             ).iter_errors(project)
         )
         self.assertEqual(problems, [])
+        self.assertEqual(project["default_branch"], "develop")
+        self.assertEqual(
+            manifest["schema_versions"]["project"], project["schema_version"]
+        )
+        self.assertEqual(
+            schema["properties"]["schema_version"]["const"],
+            project["schema_version"],
+        )
 
     def test_slice_one_has_exactly_one_quda_profile(self):
         profiles = yaml.safe_load(
@@ -121,6 +130,34 @@ class SliceOneKnowledgeTests(unittest.TestCase):
                     ROOT / frontend / "skills/lqcd-build-stack/SKILL.md"
                 ).read_text()
                 self.assertIn(token, skill)
+
+    def test_build_playbook_offers_canonical_full_clone_when_source_is_missing(self):
+        playbook = (ROOT / "playbooks/build-lqcd-stack.md").read_text()
+        normalized = " ".join(playbook.split())
+        project = yaml.safe_load((ROOT / "software/quda/project.yaml").read_text())
+        self.assertEqual(project["repository"], "https://github.com/lattice/quda.git")
+        self.assertEqual(project["default_branch"], "develop")
+        required = (
+            "read its canonical repository URL and `default_branch`",
+            "Offer to clone it before performing any network or filesystem write",
+            "require that it does not already exist",
+            "git clone --branch <default-branch> -- <repository-url> <destination>",
+            "Only select a tested stack commit when the operator specifically asks",
+            "the existence of a nearest stack is not such a request",
+            "git clone -- <repository-url> <destination>",
+            "git -C <destination> checkout --detach <tested-commit>",
+            "Do not use a shallow clone",
+            "never inside the handbook",
+        )
+        for token in required:
+            with self.subTest(token=token):
+                self.assertIn(token, normalized)
+
+        self.assertNotIn("git clone --branch develop", normalized)
+
+        self.assertLess(
+            normalized.index("Offer to clone"), normalized.index("git clone --")
+        )
 
 
 class ObservedOnCompletenessTests(unittest.TestCase):
