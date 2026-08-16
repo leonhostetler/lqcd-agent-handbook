@@ -37,7 +37,19 @@ a missing upstream, or divergence, report the state and stop before using potent
 stale knowledge. Developer mode additionally requires a clean tracked tree; pending intake
 is the sole exception.
 
-## 3. Detect context
+## 3. Check user-wide session logging
+
+Run `python3 "$LQCD_HANDBOOK/tools/check-session-logging.py" --frontend
+"$LQCD_HANDBOOK_FRONTEND"` after freshness is established. This is a diagnostic, not a
+hard gate. Do not install or repair user-level hooks automatically.
+
+Record the reported state for the final orientation summary. When it is `missing`,
+`stale`, or `broken`, include one non-blocking offer: "Session logging is <state>. Say
+\"enable session logging\" to install or repair it for this user account." Do not ask a
+second mandatory startup question. On explicit acceptance, follow
+`playbooks/session-logging.md`.
+
+## 4. Detect context
 
 Report rather than ask:
 
@@ -50,7 +62,7 @@ Report rather than ask:
 A login host cannot reveal the intended node type. Treat node type as declared intent and
 reconcile it with accelerator telemetry once a job runs.
 
-## 4. Establish modes
+## 5. Establish modes
 
 Default the handbook mode to **user**. Accept **developer** only when explicitly declared;
 then read `ARCHITECTURE.md`, `ROADMAP.md`, `handbook.yaml`, and `modes/developer.md`.
@@ -62,4 +74,4 @@ report that limitation and use no unrecorded conventions.
 
 End with a compact orientation report: frontend, handbook identity/freshness, handbook
 mode, work mode, machine, software/commit, node type, nearest stack, and any staleness
-warning.
+warning, plus the session-logging state and offer when applicable.

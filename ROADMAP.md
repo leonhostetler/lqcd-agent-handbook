@@ -1,10 +1,11 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slice 0b is accepted. Slice 1 is in progress; the Perlmutter machine profile
-and detector are committed and published.
+**Status:** Slice 0c session-logging implementation is complete in the working tree and
+awaits cold-session acceptance. Slice 1 is paused after the published Perlmutter machine
+profile and detector.
 
-**NEXT ACTION:** Add the QUDA project record, build guidance, and the single build profile
-for the first Perlmutter build.
+**NEXT ACTION:** Run the Slice 0c Claude and Codex cold-session acceptance matrix, then
+resume the QUDA project record and build-profile work in Slice 1.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -16,19 +17,27 @@ Slice 0 was committed and published at `1352ba5`. Slice 0b was committed and pub
 at `fa9001a`. Slice 1 began with the Perlmutter machine profile, operational notes, machine
 detector, and focused tests committed and published at `b116b8f` on 2026-08-15.
 
+On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
+Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
+Claude and Codex loggers, an offer-only user-config installer, manifest validation, and
+focused tests. The remaining Slice-7 enforcement and capture mechanisms stay deferred.
+
 Latest automated evidence:
 
-- `python3 tools/validate-knowledge.py`: three schema objects valid, two provenance records complete,
-  two frontend adapters valid, 202 long-document references resolved, no deny-list match,
-  and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest discover -s tests -p 'test_*.py' -v`: all twenty-three checks pass,
+- `python3 tools/validate-knowledge.py`: three schema objects valid, two provenance
+  records complete, two frontend adapters and five session-logging assets valid, 202
+  long-document references resolved, no deny-list match, and Tier 0 at 2,908/6,144 bytes;
+- `python3 -m unittest discover -s tests -p 'test_*.py' -v`: all thirty-four checks pass,
   including frontend-manifest consistency, exact entrypoint mirroring, mirror repair, both
   launcher contracts and drift stops, shared zero-argument startup prompting, preserved
   working directory, additive Codex bootstrap, conflict-safe installer behavior, machine
-  schema conformance, and Perlmutter detection behavior;
+  schema conformance, Perlmutter detection behavior, both session loggers, JSON/TOML hook
+  preservation, idempotent installation, malformed-config refusal, and startup offers;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
-  tools/detect-machine.sh`,
-  `python3 tools/sync-agent-entrypoints.py --check`, and `git diff --check` complete cleanly.
+  tools/detect-machine.sh tools/log-session-claude.sh`,
+  Python compilation of the validator, logging tools, and logging tests,
+  `python3 tools/sync-agent-entrypoints.py --check`, and `git diff --check` complete
+  cleanly.
 - `tools/detect-machine.sh` resolves the live Perlmutter login environment to `perlmutter`
   from the documented NERSC machine marker.
 
@@ -131,6 +140,38 @@ install, idempotence, and conflict refusal.
 All six cold cases are recorded and accepted. Functional parity means
 the orientation, safeguards, routing, and stop conditions match; the frontend-specific
 loading mechanism is allowed to differ.
+
+### Slice 0c — user-wide session logging adapters
+
+Pull only the already-designed session-logging mechanism forward from Slice 7:
+`playbooks/session-logging.md`,
+`tools/{check-session-logging.py,install-session-logging.py,session_logging.py,
+log-session-claude.sh,log-session-codex.py}`, the detect-and-offer step in
+`playbooks/start-session.md`, manifest/validator bindings, and focused tests.
+
+The contract is shared and installation is frontend-specific. Startup checks after
+freshness, reports `enabled`, `configured`, `missing`, `stale`, or `broken`, and
+includes a non-blocking offer for repairable states without adding a second mandatory
+question. Installation is never automatic: explicit consent precedes any user-config
+write, existing hooks are preserved, changed files are backed up, Claude reloads hooks,
+and Codex requires review and trust through `/hooks`.
+
+*Automated acceptance:* both loggers retain user/assistant text while excluding tool I/O,
+pin output to the launch directory, and write atomically at mode `0600`; checker fixtures
+cover absent, current, stale, disabled, duplicate, JSON, and TOML states; installer
+fixtures cover idempotence, backups, unrelated-hook preservation, malformed-config refusal,
+and Claude-to-Codex replacement; the validator rejects missing or non-executable declared
+assets.
+
+*Cold-session acceptance matrix:*
+
+| Frontend/case | Expected behavior | State |
+|---|---|---|
+| Claude, logger absent | Orientation offers installation without blocking or a second mandatory question | pending |
+| Claude, install accepted | Existing settings survive; reload plus next turn creates and updates a mode-600 log | pending |
+| Codex, logger absent | Orientation offers installation without blocking or a second mandatory question | pending |
+| Codex, install accepted | Existing hooks survive; `/hooks` trust plus next turn creates and updates a mode-600 log | pending |
+| Either frontend, logger current | Orientation reports current state and does not offer reinstallation | pending |
 
 ### Slice 1 — the vertical slice: build QUDA on Perlmutter
 `machines/perlmutter/{machine.yaml,notes.md}`, `software/quda/{project.yaml,README.md,
@@ -253,8 +294,9 @@ that is the check that narrow knowledge was filed rather than inlined.
 `modes/performance.md`, `playbooks/analyze-profile.md`, harvested from the operator's PerfAdvisor working tree after screening.
 
 ### Slice 7 — automation and enforcement
-`tools/log-session.sh` + `tools/install-session-logging.sh` and the detect-and-offer check
-in `lqcd-start-session` ([§session-logging](ARCHITECTURE.md#session-logging)); knowledge-capture hooks; the user-mode write guard.
+`tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check
+landed early in Slice 0c ([§session-logging](ARCHITECTURE.md#session-logging)). Slice 7 retains
+knowledge-capture hooks and the user-mode write guard.
 **The `.gitignore` entry that logging makes necessary does not wait for this slice** — the
 hazard exists from the first developer-mode session, so it lands in slice 0.
 

@@ -369,6 +369,108 @@ def validate_frontends(root: Path, errors: list[str]) -> int:
     return checked
 
 
+def validate_session_logging(root: Path, errors: list[str]) -> int:
+    config = load_yaml(root / "handbook.yaml")
+    logging = config.get("session_logging", {}) if isinstance(config, dict) else {}
+    if not isinstance(logging, dict):
+        errors.append("handbook.yaml: session_logging must be a mapping")
+        return 0
+
+    paths: dict[str, Path] = {}
+    for field in ("checker", "installer", "playbook"):
+        value = logging.get(field)
+        if not isinstance(value, str) or not value:
+            errors.append(
+                f"handbook.yaml: session_logging.{field} must be a non-empty string"
+            )
+            continue
+        relative = Path(value)
+        if relative.is_absolute() or ".." in relative.parts:
+            errors.append(
+                f"handbook.yaml: session_logging.{field} must stay inside the repository"
+            )
+            continue
+        path = root / relative
+        if not path.is_file():
+            errors.append(
+                f"handbook.yaml: session_logging.{field} does not exist: {value}"
+            )
+            continue
+        paths[field] = path
+
+    launcher = config.get("launcher", {}) if isinstance(config, dict) else {}
+    launcher_frontends = (
+        launcher.get("frontends", {}) if isinstance(launcher, dict) else {}
+    )
+    frontends = logging.get("frontends")
+    if not isinstance(frontends, dict) or not frontends:
+        errors.append(
+            "handbook.yaml: session_logging.frontends must be a non-empty mapping"
+        )
+        return len(paths)
+    if isinstance(launcher_frontends, dict) and set(frontends) != set(
+        launcher_frontends
+    ):
+        errors.append(
+            "handbook.yaml: session_logging.frontends must match launcher.frontends"
+        )
+
+    logger_paths: dict[str, Path] = {}
+    for frontend, spec in sorted(frontends.items(), key=lambda item: str(item[0])):
+        prefix = f"session_logging.frontends.{frontend}"
+        if not isinstance(spec, dict):
+            errors.append(f"handbook.yaml: {prefix} must be a mapping")
+            continue
+        value = spec.get("logger")
+        if not isinstance(value, str) or not value:
+            errors.append(f"handbook.yaml: {prefix}.logger must be a non-empty string")
+            continue
+        relative = Path(value)
+        if relative.is_absolute() or ".." in relative.parts:
+            errors.append(f"handbook.yaml: {prefix}.logger must stay inside the repository")
+            continue
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"handbook.yaml: {prefix}.logger does not exist: {value}")
+            continue
+        logger_paths[str(frontend)] = path
+
+    for field in ("checker", "installer"):
+        path = paths.get(field)
+        if path is not None and path.stat().st_mode & 0o111 == 0:
+            errors.append(f"{path.relative_to(root)}: session-logging tool is not executable")
+    for path in logger_paths.values():
+        if path.stat().st_mode & 0o111 == 0:
+            errors.append(f"{path.relative_to(root)}: session logger is not executable")
+
+    startup = root / "playbooks/start-session.md"
+    logging_playbook = paths.get("playbook")
+    if startup.is_file():
+        startup_text = startup.read_text()
+        for field in ("checker", "playbook"):
+            value = logging.get(field)
+            if isinstance(value, str) and value not in startup_text:
+                errors.append(
+                    f"playbooks/start-session.md: missing session_logging.{field} "
+                    f"token {value!r}"
+                )
+    if logging_playbook is not None:
+        playbook_text = logging_playbook.read_text()
+        tokens = [logging.get("installer")]
+        tokens.extend(
+            spec.get("logger")
+            for spec in frontends.values()
+            if isinstance(spec, dict)
+        )
+        for token in tokens:
+            if isinstance(token, str) and token not in playbook_text:
+                errors.append(
+                    f"{logging_playbook.relative_to(root)}: missing logging asset "
+                    f"token {token!r}"
+                )
+    return len(paths) + len(logger_paths)
+
+
 def validate_tier_zero(root: Path, errors: list[str]) -> tuple[int, int]:
     config = load_yaml(root / "handbook.yaml")
     tier = config.get("tier_0", {}) if isinstance(config, dict) else {}
@@ -427,6 +529,7 @@ def main() -> int:
     privacy_count = validate_privacy(root, errors)
     reference_count = validate_references(root, errors)
     frontend_count = validate_frontends(root, errors)
+    logging_count = validate_session_logging(root, errors)
     try:
         tier_bytes, tier_limit = validate_tier_zero(root, errors)
     except Exception as exc:
@@ -441,6 +544,7 @@ def main() -> int:
         print(
             f"checked: {schema_count} schema objects · {provenance_count} knowledge files · "
             f"{privacy_count} text files · {frontend_count} frontend adapters · "
+            f"{logging_count} session-logging assets · "
             f"{reference_count} references · "
             f"Tier 0 {tier_bytes}/{tier_limit} bytes · publishability NOT checked",
             file=sys.stderr,
@@ -450,7 +554,9 @@ def main() -> int:
     print(
         f"no deny-list matches · {schema_count} schema objects valid · "
         f"{provenance_count} provenance records complete · "
-        f"{frontend_count} frontend adapters valid · {reference_count} references resolved · "
+        f"{frontend_count} frontend adapters valid · "
+        f"{logging_count} session-logging assets valid · "
+        f"{reference_count} references resolved · "
         f"Tier 0 {tier_bytes}/{tier_limit} bytes · publishability NOT checked"
     )
     return 0

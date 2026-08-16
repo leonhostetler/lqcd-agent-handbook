@@ -16,9 +16,9 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | Decision | Choice | Reopen when |
 |---|---|---|
 | **Repo split** | Single public repo. No private overlay, no `local/`. Non-transferable knowledge stays in the working directory ([§no-escape-hatch](#no-escape-hatch)) | The operator needs a *durable* fact to travel that cannot be published — the working directory has been shown to cover every case so far |
-| **Loading** | One shared contract behind frontend launchers. Both set common launch/frontend markers and preserve working-project instructions; Claude loads an exact `CLAUDE.md` mirror, while Codex receives an additive pointer to canonical `AGENTS.md` without another writable root ([§loading-chain](#loading-chain)) | Playbook routing costs more than a per-machine plugin install would, or hooks/agents become load-bearing ([§loading-invariants](#loading-invariants)). Slice 7 revisits regardless |
+| **Loading** | One shared contract behind frontend launchers. Both set common launch/frontend markers and preserve working-project instructions; Claude loads an exact `CLAUDE.md` mirror, while Codex receives an additive pointer to canonical `AGENTS.md` without another writable root ([§loading-chain](#loading-chain)). Revisited for Slice 0c: user-wide session logging remains an offer-only installer because it must work outside LQCD projects, Codex plugin hooks still require trust, and Claude/Codex need different adapters | Playbook routing costs more than a per-machine plugin install would, or the Slice-7 enforcement hooks and agents become load-bearing ([§loading-invariants](#loading-invariants)) |
 | **Encoding** | Schema-validated YAML for facts a script consumes; Markdown prose beside it for mechanism ([§knowledge-atom](#knowledge-atom)) | — |
-| **Build order** | One vertical slice end to end. Slice 1 is "build QUDA on Perlmutter" ([§build-order](ROADMAP.md#build-order)) | — |
+| **Build order** | One vertical LQCD-knowledge slice end to end. Slice 1 remains "build QUDA on Perlmutter"; the explicitly scoped Slice 0c pulls the already-designed cross-frontend session-logging adapter forward without changing the knowledge order ([§build-order](ROADMAP.md#build-order)) | — |
 
 <a id="decisions-structure"></a>
 ### 1.2. Structure
@@ -55,13 +55,13 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | Decision | Choice | Reopen when |
 |---|---|---|
 | **Work mode** | Current, not permanent — may change mid-session, but only by explicit declaration ([§work-mode-currency](#work-mode-currency)) | — |
-| **Session start** | Machine and software are **detected**, not asked. Only the work mode is asked ([§work-mode-currency](#work-mode-currency)) | — |
+| **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; missing session logging produces a non-blocking offer in the orientation report ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
 | **Concurrency** | Unique filenames for every user-mode write; `base_handbook_commit` on proposals. No branches, no PRs, no curator ([§freshness-model](#freshness-model)) | The handbook gains contributors beyond the operator |
 | **Change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | An agent should submit unattended — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
-| **Session logging** | One frontend-neutral provenance contract, offered never auto-installed. The currently verified adapter is Claude Code's `Stop` hook copied into `~/.claude/`; Codex needs its own slice-7 adapter. Logs remain an **operator-facing provenance backup, not an agent-readable source** ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
+| **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared checker, and an offer-only installer. Adapters are copied into `~/.claude/` or `~/.codex/`; Codex still requires user trust. Logs remain an **operator-facing provenance backup, not an agent-readable source** ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
 | **Repo name** | `lqcd-agent-handbook` ([§locating-handbook](#locating-handbook)) | — |
 | **Locating the handbook** | `LQCD_HANDBOOK` is the sole interface; **the launcher fails fast if it is unset** — no `$HOME` fallback. No canonical path, and no clone path recorded anywhere in the repo: [§deny-list](#deny-list) denies it. Validation is **identity by content**, not by path ([§locating-handbook](#locating-handbook)) | — |
 
@@ -252,8 +252,11 @@ lqcd-agent-handbook/
 │   ├── sync-agent-entrypoints.py # regenerates CLAUDE.md from canonical AGENTS.md
 │   ├── detect-machine.sh
 │   ├── collect-environment.sh
-│   ├── log-session.sh             # the operator's Stop-hook logger (§session-logging)
-│   ├── install-session-logging.sh # copies it to ~/.claude/ + wires the hook. Offer-only.
+│   ├── check-session-logging.py   # startup diagnostic; never installs (§session-logging)
+│   ├── install-session-logging.py # shared offer-only installer and frontend dispatcher
+│   ├── session_logging.py         # shared configuration/merge helpers
+│   ├── log-session-claude.sh      # Claude Stop-hook logger copied into user config
+│   ├── log-session-codex.py       # Codex Stop-hook logger copied into user config
 │   ├── memory_model.py            # admitted from a validated source model
 │   ├── check_decomposition.py     # admitted from a validated source tool
 │   ├── extract-milc-timings.py
@@ -819,39 +822,53 @@ the handbook gains other contributors.
 
 **Knowledge still lives in plain Markdown and YAML, and skills stay thin.** Frontend discovery rules differ, so durable content must remain in ordinary files that every adapter — or a human with a text editor — can reach. A skill is a procedure plus pointers; it is never the only copy of a fact.
 
-**Hooks and subagents cannot be assumed to activate merely because the handbook is added.** Anything relying on them — notably technical enforcement of the user-mode
-write restriction (P6, [§handbook-modes](#handbook-modes)) — needs an installer that writes into user settings, and is a
-separate artifact from the repo's own contents. Deferred to slice 7 ([§deferred-decisions](ROADMAP.md#deferred-decisions)) and noted here so
-it is not assumed.
+**Hooks and subagents cannot be assumed to activate merely because the handbook is added.**
+Anything relying on them needs an installer that writes into user settings and remains a
+separate artifact from the repo's own contents. Session logging exercises that contract in
+Slice 0c with explicit consent and Codex trust; technical enforcement of the user-mode
+write restriction (P6, [§handbook-modes](#handbook-modes)) remains deferred to Slice 7
+([§deferred-decisions](ROADMAP.md#deferred-decisions)).
 
 <a id="session-logging"></a>
 ### 4.5. Session logging: provenance for the operator, invisible to the agent
 
-The session-logging contract is frontend-neutral, but the only currently verified adapter
-is Claude Code; a Codex equivalent belongs to slice 7.
+The contract is frontend-neutral and the adapters are not. On every assistant-turn
+boundary, a user-level **global `Stop` hook** re-renders the transcript to
+`<launch-dir>/session_<date>_<session-id>.log`: user prompts and visible assistant text,
+with tool calls and tool outputs excluded. The logger is idempotent, pins to the launch
+directory rather than the live `cwd`, waits for transcript flushing where needed, writes
+atomically, and sets mode `0600`.
 
-`[verified]` The operator runs `~/.claude/log_session.sh` as a **global `Stop` hook**. On
-every turn boundary it re-renders the session transcript to
-`<launch-dir>/session_<date>_<session-id>.log`: user prompts and assistant text replies,
-with **tool calls and tool outputs excluded**. It is idempotent, pins to the launch
-directory rather than the live `cwd` so a mid-session `cd` cannot split one log across two
-places, and waits for the transcript to stop growing before rendering. Pure bash + `jq`.
+`[verified]` Claude Code uses the Bash + `jq` adapter copied to
+`~/.claude/log_session.sh` and a `Stop` command merged into
+`~/.claude/settings.json`. `[verified]` Codex uses the Python adapter copied to
+`~/.codex/log_session.py` and a `Stop` command in user-level `hooks.json` or inline
+TOML. Codex supplies `transcript_path` and `last_assistant_message`, documents its
+transcript JSONL as unstable, and requires the operator to review and trust the exact
+non-managed hook definition through `/hooks`.
 
-**In slice 7 the handbook will ship it** as `tools/log-session.sh` plus an installer. It cannot arrive via
-`--add-dir` — hooks do not load from an added directory ([§loading-invariants](#loading-invariants)), and this one is global
-anyway, applying to every session on the machine including those with nothing to do with
-LQCD. So it is **copied into `~/.claude/`, not pointed at inside the repo**: invoking it
-from `$LQCD_HANDBOOK` would make every Claude session on the machine depend on a git
-checkout existing at a fixed path, and moving or removing the handbook would start throwing
-hook errors in unrelated work. Copies may drift between machines; that costs nothing until
-the script changes in a way that matters.
+**Startup checks and offers; it never auto-installs.** After handbook freshness is
+established, `lqcd-start-session` runs `tools/check-session-logging.py` for the active
+frontend. Missing, stale, or broken state produces a non-blocking offer in the orientation
+report rather than a second mandatory question. Codex trust is not inferred from config
+files: configured state is reported separately, and the operator completes trust in the
+frontend. Declining changes nothing and is not persisted.
 
-Script, installer and the detect-and-offer check all land in **slice 7**, with the rest of
-the enforcement machinery; the `.gitignore` entry below does not wait for them.
-`lqcd-start-session` may then detect the hook is absent and **offer** to install it. It must
-never install unprompted — that is an edit to the operator's global agent configuration, so
-explicit consent is required even under auto-permissions, on the same principle as the
-user-mode write restriction (P6, [§handbook-modes](#handbook-modes)).
+**Installation remains a user decision.** On explicit consent,
+`tools/install-session-logging.py` dispatches to the active frontend, backs up and merges
+user configuration, preserves unrelated hooks, and copies the adapter into that
+frontend's user directory. It refuses malformed or ambiguous configuration rather than
+guessing. It cannot arrive merely through `--add-dir` ([§loading-invariants](#loading-invariants)), and it
+must not point a global hook into `$LQCD_HANDBOOK`: unrelated sessions must not fail
+because a clone moved or disappeared. The startup checker compares the copy with the
+handbook and can offer repair when they drift.
+
+**The plugin question was reconsidered here and the launcher design remains.** This logger
+applies to every agent session on the account, not only projects that enable an LQCD
+plugin. Codex plugin hooks still require the same explicit trust, and a plugin would not
+provide the Claude adapter. The offer-only user installer is therefore the smaller common
+contract; Slice 7 may revisit plugins for enforcement hooks and agents with different
+scope.
 
 **What the logs are for.** `[operator]` They are a last-resort backup of the work and
 thinking a session contained — an **ultimate provenance record for the operator**, not a
@@ -877,13 +894,13 @@ usernames, paths, hostnames, and whatever was discussed. `session_*.log` goes in
 `.gitignore` **at slice 0**, and `PRIVACY.md` names it as a known hazard. A file nobody
 reads is exactly the file that gets committed by accident.
 
-**Prose-only, for now.** The current filter excludes tool I/O, which sits in mild tension
+**Prose-only, for now.** Both filters exclude tool I/O, which sits in mild tension
 with "a backup of the actual work": on a debugging session the build command and its error
 output *are* the work, and what survives is the narration about it. The raw transcript JSONL
-under `~/.claude/projects/` still holds everything, so it remains the true last resort —
-but it is keyed by session id, nowhere near the work, and the first thing lost when a
-machine is rebuilt or a scratch filesystem is purged. Archiving it alongside the log is
-parked in [§deferred-decisions](ROADMAP.md#deferred-decisions) rather than decided here.
+under each frontend's user state still holds everything, so it remains the true last
+resort — but it is keyed by session id, nowhere near the work, and the first thing lost
+when a machine is rebuilt or a scratch filesystem is purged. Archiving it alongside the
+log is parked in [§deferred-decisions](ROADMAP.md#deferred-decisions) rather than decided here.
 
 <a id="locating-handbook"></a>
 ### 4.6. Locating the handbook: `LQCD_HANDBOOK` is the contract
