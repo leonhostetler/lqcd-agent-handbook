@@ -490,6 +490,37 @@ class SessionLoggingTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout)
             self.assertEqual(result.stdout, "payload\n")
 
+    def test_runner_disables_nersc_python_monitoring(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            versioned = binary_dir / "python3.11"
+            versioned.write_text(
+                "#!/bin/sh\n"
+                "if [ \"${NERSC_PYMON_DISABLE:-0}\" != 1 ]; then\n"
+                "  echo 'ERROR: auth.munge: simulated monitoring diagnostic'\n"
+                "fi\n"
+                "if [ \"$1\" = -c ]; then\n"
+                "  if [ \"$2\" = 'print(\"payload\")' ]; then echo payload; fi\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 1\n"
+            )
+            versioned.chmod(0o700)
+            environment = os.environ.copy()
+            environment["PATH"] = str(binary_dir)
+            environment["NERSC_PYMON_DISABLE"] = "0"
+            result = subprocess.run(
+                ["/bin/bash", str(RUNNER), "-c", 'print("payload")'],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(result.stdout, "payload\n")
+
     def test_runner_fails_actionably_without_a_compatible_python(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             binary_dir = Path(temp_dir)

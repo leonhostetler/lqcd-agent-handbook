@@ -25,7 +25,9 @@ The handbook ships two adapters behind one contract:
 Both adapters write atomically with mode `0600`. The shared
 `tools/run-session-logging-python` dispatcher prefers a compatible versioned Python command
 over an ambiguous `python3`, requires PyYAML and TOML support, rejects interpreters that
-emit diagnostics during its capability probe, and never loads a module.
+emit diagnostics during its capability probe, disables NERSC PyMon for deterministic
+checker and installer output, and never loads a module. The monitoring-disable variable is
+inert on systems without NERSC PyMon and is scoped to the dispatcher's child process.
 The installer copies the adapters instead of linking into the handbook so unrelated agent
 sessions do not depend on a clone remaining at one path. For Codex it records the absolute
 interpreter that ran the installer in the hook command.

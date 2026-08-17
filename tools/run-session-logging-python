@@ -10,6 +10,12 @@ fi
 # selected script, which receives hook JSON through this channel.
 exec 3<&0
 
+# NERSC's site-injected Python monitor can sample at interpreter exit and append
+# scheduler-authentication diagnostics after otherwise valid JSON. Disable that
+# monitor for these deterministic checker and installer subprocesses. The variable
+# is inert on systems without NERSC PyMon.
+export NERSC_PYMON_DISABLE=1
+
 # Prefer versioned commands. On module-based systems, an unversioned python3 may
 # be the system Python or a module wrapper that emits site diagnostics on stdout.
 for name in python3.11 python3.12 python3.13 python3.14 python3.10 python3; do

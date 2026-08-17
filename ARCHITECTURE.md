@@ -890,11 +890,14 @@ non-managed hook definition through `/hooks`.
 **Interpreter selection is explicit and does not mutate modules.** A live Perlmutter
 startup exposed two independent hazards: the unversioned system `python3` was too old to
 parse the tools, while a module-provided Python emitted scheduler-authentication diagnostics
-into otherwise valid JSON. The shared dispatcher therefore prefers a compatible versioned
-command, verifies the required Python, YAML, and TOML capabilities, rejects candidates that
-emit diagnostics during the probe, and only then executes the checker or installer. The
-Codex installer records that selected absolute interpreter in the hook command, so later
-hooks do not depend on `PATH` or a module environment.
+into otherwise valid JSON. NERSC's site-injected Python monitor can also sample
+nondeterministically at interpreter exit, after an otherwise clean capability probe. The
+shared dispatcher therefore disables NERSC PyMon for its own subprocess, prefers a
+compatible versioned command, verifies the required Python, YAML, and TOML capabilities,
+rejects candidates that emit diagnostics during the probe, and only then executes the
+checker or installer. The disable variable is inert away from NERSC and does not alter the
+caller's module state. The Codex installer records the selected absolute interpreter in the
+hook command, so later hooks do not depend on `PATH` or a module environment.
 
 **Startup checks and offers; it never auto-installs.** After handbook freshness is
 established, `lqcd-start-session` runs `tools/check-session-logging.py` through the shared

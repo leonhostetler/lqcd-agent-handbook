@@ -1,9 +1,9 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slices 1 through 3 are accepted. Slice 0c's current-logger and Codex
-logger-absent cold-session cases passed, while its three remaining cases are pending.
+**Status:** Slices 1 through 3 are accepted. Slice 0c's current-logger and both Codex
+cold-session cases passed, while its two Claude cases are pending.
 
-**NEXT ACTION:** Complete Slice 0c's three remaining cold-session cases.
+**NEXT ACTION:** Complete Slice 0c's two remaining Claude cold-session cases.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -75,8 +75,8 @@ Latest automated evidence:
   schema objects valid, thirteen provenance records complete, four generated indices current,
   zero P2 advisories, two frontend adapters and six session-logging assets valid, 202
   long-document references resolved, no deny-list match, and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all seventy checks pass with both the
-  parent interpreter and subprocess `python3` resolved to Python 3.11, including thirteen
+- `python3 -m unittest discover -s tests -v`: all seventy-one checks pass with both the
+  parent interpreter and subprocess `python3` resolved to Python 3.11, including fourteen
   focused session-logging checks, thirteen focused Slice 1 checks, ten focused Slice 2
   checks, and eleven focused Slice 3 checks;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
@@ -105,9 +105,13 @@ A later Perlmutter Codex startup found that `tools/check-session-logging.py` was
 the system `python3` (3.6.15), which cannot parse its future-annotations import. A Python
 3.11 module runs the validator and focused Slice 1 tests, but loading that environment also
 injects MUNGE diagnostics into several session-logging subprocess outputs. The shared
-interpreter dispatcher now prefers a compatible versioned command without loading a module,
-and the Codex installer pins the selected executable. Slice 0c remains unaccepted until the
-baseline and module-altered JSON contracts and the cold-session matrix are rerun.
+interpreter dispatcher prefers a compatible versioned command without loading a module,
+and the Codex installer pins the selected executable. A later full-suite rerun exposed a
+second edge: NERSC PyMon samples nondeterministically at interpreter exit, so a clean probe
+could still be followed by MUNGE text appended to checker JSON. The dispatcher now disables
+that monitor for its child process before both probe and execution; a forced-monitoring
+regression covers the contract. Slice 0c remains unaccepted until the two Claude
+cold-session cases pass.
 
 On 2026-08-17, a cold Perlmutter Codex startup exercised Slice 0c's current-logger path
 through the interpreter dispatcher. Orientation reported the configuration as current
@@ -118,8 +122,10 @@ This accepts the current-logger matrix case, not the four absent/install cases.
 Also on 2026-08-17, the operator reported that the first cold Frontier Codex session began
 with the logger absent. Orientation offered installation without blocking or adding a
 second mandatory question, and the operator accepted the offer. This accepts the Codex
-logger-absent matrix case; the separate install-accepted case remains pending its full
-hook-preservation, trust, and log-update checks.
+logger-absent matrix case. Later that day, the operator reported the separate Codex
+install-accepted case accepted and verified: existing hooks survived, the exact Stop hook
+was reviewed and trusted through `/hooks`, and subsequent turns created and updated a
+mode-`0600` log. The agent did not read the protected session log.
 
 The same cold Codex developer-mode session reproduced the recorded Slice 1 stack without
 operator re-teaching. A full-history checkout detached at the tested QUDA commit configured
@@ -269,7 +275,7 @@ assets.
 | Claude, logger absent | Orientation offers installation without blocking or a second mandatory question | pending |
 | Claude, install accepted | Existing settings survive; reload plus next turn creates and updates a mode-600 log | pending |
 | Codex, logger absent | Orientation offers installation without blocking or a second mandatory question | accepted 2026-08-17 (Frontier, operator report) |
-| Codex, install accepted | Existing hooks survive; `/hooks` trust plus next turn creates and updates a mode-600 log | pending |
+| Codex, install accepted | Existing hooks survive; `/hooks` trust plus next turn creates and updates a mode-600 log | accepted 2026-08-17 (operator report) |
 | Either frontend, logger current | Orientation reports current state and does not offer reinstallation | accepted 2026-08-17 (Codex) |
 
 ### Slice 1 — the vertical slice: build QUDA on Perlmutter
