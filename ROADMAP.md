@@ -69,13 +69,19 @@ intervening fields present in the literal output; payload and wrapper outcomes a
 separately. QIO was linked but not exercised by the warm-gauge sample, and the fresh
 tunecache makes the run correctness rather than benchmark evidence.
 
+Also on 2026-08-17, DeltaAI became the first post-slice machine onboarded under the
+Slice 2 schema. Its documentation-backed profile records the four-way NVIDIA GH200 node,
+shared-node accounting, Slurm partitions, storage choices, Cray build environment, and
+public login aliases. Detection recognizes the DeltaAI login nodes without conflating
+them with Delta. No DeltaAI software stack is recorded until one is built and run.
+
 Latest automated evidence:
 
-- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: sixteen
-  schema objects valid, thirteen provenance records complete, four generated indices current,
+- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: seventeen
+  schema objects valid, fourteen provenance records complete, four generated indices current,
   zero P2 advisories, two frontend adapters and six session-logging assets valid, 202
   long-document references resolved, no deny-list match, and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all seventy-one checks pass with both the
+- `python3 -m unittest discover -s tests -v`: all seventy-five checks pass with both the
   parent interpreter and subprocess `python3` resolved to Python 3.11, including fourteen
   focused session-logging checks, thirteen focused Slice 1 checks, ten focused Slice 2
   checks, and eleven focused Slice 3 checks;

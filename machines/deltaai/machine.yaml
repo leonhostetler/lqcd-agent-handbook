@@ -1,0 +1,119 @@
+schema_version: 1
+name: deltaai
+summary: NCSA HPE Cray EX system with four-way NVIDIA GH200 Grace Hopper compute nodes.
+public_login_hosts:
+  - dtai-login.delta.ncsa.illinois.edu
+  - gh-login01.delta.ncsa.illinois.edu
+  - gh-login02.delta.ncsa.illinois.edu
+  - gh-login03.delta.ncsa.illinois.edu
+  - gh-login04.delta.ncsa.illinois.edu
+scheduler:
+  type: slurm
+  submit_command: sbatch
+  query_command: squeue
+  queues_command: sinfo
+filesystems:
+  home:
+    purpose: Software, scripts, and job files; not job I/O.
+    path: /u
+    snapshots: Daily snapshots retained for 30 days.
+    purge_policy: Not purged.
+  projects:
+    purpose: Shared project data, software, and results.
+    path: /projects
+    purge_policy: Not purged; no snapshots or backups.
+  work_hdd:
+    purpose: Large computational I/O and working data.
+    path: /work/hdd
+    purge_policy: Not purged; no snapshots or backups.
+  work_nvme:
+    purpose: Computational I/O with many small files.
+    path: /work/nvme
+    purge_policy: Not purged; no snapshots or backups.
+  node_local_tmp:
+    purpose: Job-scoped node-local storage for fast small-file I/O.
+    path: /tmp
+    purge_policy: Purged after each job.
+site_policy:
+  scheduling:
+    model: shared_nodes_with_partitions
+    default_partition: ghx4
+    common_partitions:
+      - ghx4
+      - ghx4-interactive
+    default_walltime_minutes: 30
+    interactive_limits:
+      maximum_nodes_per_job: 4
+      maximum_walltime_hours: 2
+      maximum_running_node_hours_per_user: 8
+  accounting:
+    unit: GH200-hour
+    charge_basis: Reserved GPU, CPU, or host-memory fraction, whichever is largest.
+build_environment:
+  login:
+    intended_for:
+      - editing
+      - compilation
+      - job submission
+      - interactive allocation requests
+    accelerator_available: false
+  compute:
+    use_for:
+      - GPU builds
+      - compute-intensive builds
+      - memory-intensive builds
+  compilers:
+    recommended_wrappers:
+      c: cc
+      cxx: CC
+      fortran: ftn
+    default_environment: PrgEnv-gnu
+  accelerator_toolchain:
+    cuda_module: cudatoolkit
+    target_module: craype-accel-nvidia90
+    gpu_arch: sm_90
+node_types:
+  gpu-gh200:
+    description: Four-way NVIDIA GH200 Grace Hopper compute node.
+    cpu:
+      vendor: NVIDIA
+      model: Grace
+      sockets: 4
+      cores_per_socket: 72
+      hardware_threads_per_core: 1
+    accelerator:
+      vendor: NVIDIA
+      model: H100
+      arch: sm_90
+      per_node: 4
+      memory_gb: 96
+      interconnect: NVIDIA NVLink
+    queues:
+      - name: ghx4
+      - name: ghx4-interactive
+    limits:
+      minimum_allocatable_fraction: one GH200 superchip
+      available_host_memory_gb_per_superchip: 110
+    build_constraints:
+      target: gpu
+      gpu_arch: sm_90
+      cpu_arch: aarch64
+    sizing:
+      physical_cpu_cores: 288
+      host_memory_gb: 480
+      accelerator_memory_gb_total: 384
+      network: HPE Slingshot 11, four 200 Gbps interfaces
+      network_interfaces_per_node: 4
+      local_storage_tb: 3.9
+evidence: docs
+observed: "2026-08-17"
+observed_on:
+  machine: deltaai
+review_by: "2027-02-17"
+sources:
+  - https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/login.html
+  - https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/architecture.html
+  - https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/running-jobs.html
+  - https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/job-accounting.html
+  - https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/data-mgmt.html
+  - https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/prog-env.html

@@ -3,6 +3,12 @@
 
 Entries are grouped by scoped machine.
 
+## deltaai
+
+| Knowledge | Summary | Load when |
+|---|---|---|
+| [Working on DeltaAI](deltaai/notes.md) | Compute-target declaration and Grace Hopper build and run prerequisites for DeltaAI. | Building software or preparing a job on DeltaAI. |
+
 ## frontier
 
 | Knowledge | Summary | Load when |

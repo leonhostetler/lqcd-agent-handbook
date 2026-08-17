@@ -11,6 +11,9 @@ esac
 
 detected_hostname="${LQCD_DETECT_HOSTNAME:-$(hostname -f 2>/dev/null || hostname 2>/dev/null || true)}"
 case "$detected_hostname" in
+  dtai-login.delta.ncsa.illinois.edu|gh-login0[1-4].delta.ncsa.illinois.edu)
+    printf '%s\n' deltaai
+    ;;
   perlmutter.nersc.gov|saul.nersc.gov)
     printf '%s\n' perlmutter
     ;;
