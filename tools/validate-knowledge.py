@@ -7,6 +7,7 @@ import argparse
 import datetime as dt
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ LONG_DOCS = ("ARCHITECTURE.md", "ROADMAP.md")
 ANCHOR_RE = re.compile(r'<a\s+id="([a-z0-9][a-z0-9-]*)"\s*></a>')
 LINK_RE = re.compile(r'\[([^\]]+)\]\((?:(ARCHITECTURE|ROADMAP)\.md)?#([a-z0-9][a-z0-9-]*)\)')
 BARE_SECTION_RE = re.compile(r'§([a-z][a-z0-9-]*)')
+NUMERIC_VALUE_RE = re.compile(r"(?<![A-Za-z0-9_.-])([0-9]+(?:\.[0-9]+)?)(?![A-Za-z0-9_.-])")
 
 DENY_PATTERNS = {
     "user-specific home path": re.compile(r"/(?:home|Users)/[A-Za-z0-9._-]+/"),
@@ -175,6 +177,7 @@ def validate_schemas(root: Path, errors: list[str]) -> int:
     bindings = [
         ("machines/**/machine.yaml", "machine.schema.json"),
         ("software/**/project.yaml", "project.schema.json"),
+        ("machines/*/stacks/*/stack.yaml", "stack.schema.json"),
     ]
     checked = 0
     for pattern, schema_name in bindings:
@@ -208,7 +211,151 @@ def validate_schemas(root: Path, errors: list[str]) -> int:
                         errors,
                         expected_software=instance.get("name"),
                     )
+                elif schema_name == "stack.schema.json":
+                    validate_observed_on(
+                        instance.get("observed_on"),
+                        rel,
+                        errors,
+                        expected_machine=instance.get("machine"),
+                        expected_software=instance.get("software"),
+                    )
+                    validate_stack_references(root, path, instance, errors)
     return len(loaded) + checked
+
+
+def validate_stack_references(
+    root: Path, path: Path, stack: dict[str, Any], errors: list[str]
+) -> None:
+    rel = path.relative_to(root)
+    machine = stack.get("machine")
+    software = stack.get("software")
+    profile = stack.get("profile")
+
+    if len(rel.parts) < 5 or rel.parts[0] != "machines":
+        errors.append(f"{rel}: stack must live under machines/<machine>/stacks/<name>")
+        return
+    if machine != rel.parts[1]:
+        errors.append(
+            f"{rel}: stack.machine {machine!r} must match parent machine {rel.parts[1]!r}"
+        )
+
+    machine_path = root / "machines" / str(machine) / "machine.yaml"
+    try:
+        machine_record = load_yaml(machine_path)
+    except (OSError, ValueError) as exc:
+        errors.append(f"{rel}: cannot load referenced machine profile: {exc}")
+        machine_record = None
+    if isinstance(machine_record, dict):
+        node_types = machine_record.get("node_types", {})
+        for node_type in stack.get("validated_on", []):
+            if node_type not in node_types:
+                errors.append(
+                    f"{rel}: validated_on node type {node_type!r} is absent from "
+                    f"machines/{machine}/machine.yaml"
+                )
+
+    profiles_path = root / "software" / str(software) / "build-profiles.yaml"
+    try:
+        profile_record = load_yaml(profiles_path)
+    except (OSError, ValueError) as exc:
+        errors.append(f"{rel}: cannot load referenced build profiles: {exc}")
+        profile_record = None
+    profiles = profile_record.get("profiles", {}) if isinstance(profile_record, dict) else {}
+    if profile not in profiles:
+        errors.append(
+            f"{rel}: profile {profile!r} is absent from "
+            f"software/{software}/build-profiles.yaml"
+        )
+
+    expected_pointer = f"software/{software}/build-profiles.yaml#{profile}"
+    actual_pointer = stack.get("build", {}).get("profile_options_from")
+    if actual_pointer != expected_pointer:
+        errors.append(
+            f"{rel}: build.profile_options_from must equal {expected_pointer!r}"
+        )
+
+
+def validate_generated_indices(root: Path, errors: list[str]) -> int:
+    tool = root / "tools/build-index.py"
+    if not tool.is_file():
+        errors.append("tools/build-index.py: generated-index checker is missing")
+        return 0
+    result = subprocess.run(
+        [sys.executable, str(tool), "--check", "--root", str(root)],
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    if result.returncode != 0:
+        messages = result.stdout.strip().splitlines() or ["unknown index-check failure"]
+        errors.extend(f"generated index: {message}" for message in messages)
+    return 4
+
+
+def numeric_yaml_values(value: Any, key: str = "") -> set[str]:
+    ignored_keys = {"schema_version", "observations"}
+    values: set[str] = set()
+    if isinstance(value, bool) or key in ignored_keys:
+        return values
+    if isinstance(value, (int, float)) and abs(value) >= 2:
+        values.add(str(int(value)) if float(value).is_integer() else str(value))
+    elif isinstance(value, dict):
+        for child_key, child_value in value.items():
+            values.update(numeric_yaml_values(child_value, str(child_key)))
+    elif isinstance(value, list):
+        for child in value:
+            values.update(numeric_yaml_values(child, key))
+    return values
+
+
+def canonical_yaml_for_markdown(root: Path, path: Path) -> list[Path]:
+    rel = path.relative_to(root)
+    if rel.parts[0] == "machines" and "stacks" in rel.parts:
+        return [path.with_name("stack.yaml")]
+    if rel.parts[0] == "machines" and len(rel.parts) > 2:
+        return [root / "machines" / rel.parts[1] / "machine.yaml"]
+    if rel.parts[0] == "software" and len(rel.parts) > 2:
+        base = root / "software" / rel.parts[1]
+        return [base / "project.yaml", base / "build-profiles.yaml"]
+    return []
+
+
+def has_canonical_pointer(text: str, source: Path) -> bool:
+    if source.name in text:
+        return True
+    lowered = text.casefold()
+    return source.name == "machine.yaml" and "machine profile is canonical" in lowered
+
+
+def validate_restatements(root: Path, warnings: list[str]) -> int:
+    checked = 0
+    for top in sorted(KNOWLEDGE_ROOTS):
+        base = root / top
+        if not base.exists():
+            continue
+        for path in base.rglob("*.md"):
+            if path.name == "INDEX.md":
+                continue
+            text = path.read_text()
+            for source in canonical_yaml_for_markdown(root, path):
+                if not source.is_file() or has_canonical_pointer(text, source):
+                    continue
+                try:
+                    values = numeric_yaml_values(load_yaml(source))
+                except ValueError:
+                    continue
+                for line_number, line in enumerate(text.splitlines(), start=1):
+                    present = set(NUMERIC_VALUE_RE.findall(line)) & values
+                    for value in sorted(present, key=lambda item: (len(item), item)):
+                        checked += 1
+                        warnings.append(
+                            f"{path.relative_to(root)}:{line_number}: P2 advisory: "
+                            f"numeric value {value} also occurs in "
+                            f"{source.relative_to(root)} without a canonical pointer"
+                        )
+    return checked
 
 
 def validate_provenance(root: Path, errors: list[str], warnings: list[str]) -> int:
@@ -613,6 +760,8 @@ def main() -> int:
 
     schema_count = validate_schemas(root, errors)
     provenance_count = validate_provenance(root, errors, warnings)
+    index_count = validate_generated_indices(root, errors)
+    restatement_count = validate_restatements(root, warnings)
     privacy_count = validate_privacy(root, errors)
     reference_count = validate_references(root, errors)
     frontend_count = validate_frontends(root, errors)
@@ -632,6 +781,8 @@ def main() -> int:
             f"checked: {schema_count} schema objects · {provenance_count} knowledge files · "
             f"{privacy_count} text files · {frontend_count} frontend adapters · "
             f"{logging_count} session-logging assets · "
+            f"{index_count} generated indices · "
+            f"{restatement_count} P2 advisories · "
             f"{reference_count} references · "
             f"Tier 0 {tier_bytes}/{tier_limit} bytes · publishability NOT checked",
             file=sys.stderr,
@@ -643,6 +794,8 @@ def main() -> int:
         f"{provenance_count} provenance records complete · "
         f"{frontend_count} frontend adapters valid · "
         f"{logging_count} session-logging assets valid · "
+        f"{index_count} generated indices current · "
+        f"{restatement_count} P2 advisories · "
         f"{reference_count} references resolved · "
         f"Tier 0 {tier_bytes}/{tier_limit} bytes · publishability NOT checked"
     )

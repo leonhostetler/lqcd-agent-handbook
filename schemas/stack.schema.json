@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/lqcd-agent-handbook/schemas/stack.schema.json",
+  "title": "Validated LQCD stack record",
+  "description": "One machine, software, toolchain, build profile, and runtime validation that were actually exercised together.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "machine",
+    "software",
+    "profile",
+    "validated_on",
+    "tested_software",
+    "tested_toolchain",
+    "build",
+    "validation",
+    "evidence",
+    "observed",
+    "observed_on",
+    "sources"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "machine": {
+      "$ref": "#/$defs/name"
+    },
+    "software": {
+      "$ref": "#/$defs/name"
+    },
+    "profile": {
+      "$ref": "#/$defs/name"
+    },
+    "validated_on": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/name"
+      }
+    },
+    "tested_software": {
+      "$ref": "#/$defs/nonempty_mapping"
+    },
+    "reference_sources": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": true
+      }
+    },
+    "tested_dependencies": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": true
+      }
+    },
+    "tested_toolchain": {
+      "$ref": "#/$defs/nonempty_mapping"
+    },
+    "build": {
+      "$ref": "#/$defs/build"
+    },
+    "validation": {
+      "$ref": "#/$defs/validation"
+    },
+    "evidence": {
+      "type": "string",
+      "enum": [
+        "source",
+        "docs",
+        "observed",
+        "reproduced",
+        "experiment",
+        "operator",
+        "inferred"
+      ]
+    },
+    "experiments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": true
+      }
+    },
+    "observations": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "observed": {
+      "type": "string",
+      "format": "date"
+    },
+    "observed_on": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": true
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "evidence": {
+            "const": "reproduced"
+          }
+        },
+        "required": [
+          "evidence"
+        ]
+      },
+      "then": {
+        "required": [
+          "observations"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "nonempty_mapping": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": true
+    },
+    "build": {
+      "type": "object",
+      "required": [
+        "type",
+        "target",
+        "generator",
+        "install_layout",
+        "profile_options_from",
+        "machine_options",
+        "dependency_acquisition",
+        "cost"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gpu_arch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "install_layout": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_options_from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "machine_options": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": true
+        },
+        "dependency_acquisition": {
+          "$ref": "#/$defs/nonempty_mapping"
+        },
+        "cost": {
+          "type": "object",
+          "required": [
+            "where",
+            "command",
+            "parallelism",
+            "wallclock",
+            "timing_scope",
+            "maximum_reported_rss_kib",
+            "memory_scope"
+          ],
+          "properties": {
+            "where": {
+              "enum": [
+                "login",
+                "interactive",
+                "batch"
+              ]
+            },
+            "command": {
+              "type": "string"
+            },
+            "parallelism": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "wallclock": {
+              "type": "string"
+            },
+            "timing_scope": {
+              "type": "string"
+            },
+            "maximum_reported_rss_kib": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "memory_scope": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "date",
+        "submitted_by",
+        "reviewed_by",
+        "result",
+        "resources",
+        "runtime",
+        "tests",
+        "scope_limits"
+      ],
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "submitted_by": {
+          "type": "string"
+        },
+        "reviewed_by": {
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail"
+          ]
+        },
+        "resources": {
+          "$ref": "#/$defs/nonempty_mapping"
+        },
+        "runtime": {
+          "$ref": "#/$defs/nonempty_mapping"
+        },
+        "tests": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "result"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "result": {
+                "enum": [
+                  "pass",
+                  "fail"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "scope_limits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

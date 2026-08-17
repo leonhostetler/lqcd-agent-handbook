@@ -34,7 +34,8 @@ if the clone moves, remove the obsolete link and rerun the installer.
 
 The project is in bootstrap phase. `ARCHITECTURE.md` contains durable design decisions;
 `ROADMAP.md` alone records slice state and the next action. Developer mode must be declared
-explicitly before editing. Run `python3 tools/validate-knowledge.py` before committing.
+explicitly before editing. Run `python3 tools/build-index.py`, review the generated indices,
+then run `python3 tools/validate-knowledge.py` before committing.
 
 This repository contains transferable knowledge only. Read `PRIVACY.md` before proposing
 content mined from another project.

@@ -28,10 +28,10 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Stacks** | Validated machine × software × toolchain × **build profile** records, filed **under the machine** ([§stacks](#stacks)). Never speculative — a stack exists only if it was built and run | — |
 | **Build profiles** | Named option sets with **capabilities** live in `software/<name>/build-profiles.yaml`; stacks reference a profile and record what it **cost** here. Where a build may run is machine knowledge; a compute-node build is a job under [§budget-rule](#budget-rule) ([§build-profiles](#build-profiles)) | — |
 | **Solver placement** | Solver availability and behavior are software-specific. Implementation knowledge lives in `software/<name>/solvers/`; build profiles declare enabled capabilities, and stacks record what was validated. Software-independent terminology belongs in `conventions/`, while `playbooks/tune-solver.md` owns the selection procedure | A body of actionable solver knowledge proves genuinely software-independent |
-| **Indexing** | Tier-0 `INDEX.md` is a ~dozen-line routing table; per-domain indices are **generated** from frontmatter and committed ([§indexing](#indexing)) | — |
+| **Indexing** | Tier-0 `INDEX.md` is a ~dozen-line routing table; per-domain indices are **generated**, committed, and grouped by scoped object ([§indexing](#indexing)) | A domain has enough objects that grouping obscures rather than improves cold reading |
 | **Version pins** | `project.yaml` carries **none**. Pins live in stacks; the checkout in front of you is session state ([§version-lifetimes](#version-lifetimes)) | — |
 | **Branch policy** | **There is none, deliberately.** QUDA and MILC are built from `develop`, a feature branch, or a fork, per episode; tagged releases are not used. So the branch is session state too, and the environment-vs-stack check reports **ancestry — including `diverged` — never a commit distance** ([§version-lifetimes](#version-lifetimes)) | Either project adopts a real release cadence |
-| **Node types** | One `machines/<name>/` per machine, with `node_types:` inside for CPU/GPU partitions *and* for heterogeneous accelerators — never `machine-gpu/` beside `machine-cpu/`. Node types carry build-determining fields separately from sizing-determining ones; stacks record `validated_on:` as a list, and shared-architecture compatibility is **reported as an inference, never as validation**. Node type is **declared, not detected** — but reconciled against `nvidia-smi` once a job runs ([§node-types](#node-types)) | — |
+| **Node types** | One `machines/<name>/` per machine, with `node_types:` inside for CPU/GPU partitions *and* for heterogeneous accelerators — never `machine-gpu/` beside `machine-cpu/`. Node types carry build-determining fields separately from sizing-determining ones; stacks record `validated_on:` as a list, and shared-architecture compatibility is **reported as an inference, never as validation**. Node type is **declared, not detected** — but reconciled against vendor runtime telemetry once a job runs ([§node-types](#node-types)) | — |
 | **Machine order** | Frontier → DeltaAI → Aurora, onboarded as needed rather than as slices. Scheduler and accelerator fields are **discriminated on type from slice 2** so PBS and non-NVIDIA arrive as values, not restructures ([§build-order](ROADMAP.md#build-order)) | — |
 | **The plan itself** | Ships in the repo as `ARCHITECTURE.md` (durable) + `ROADMAP.md` (state), developer-mode only ([§plan-ships-with-handbook](#plan-ships-with-handbook)) | — |
 | **Cross-references** | Stable `<a id="slug">` anchors, not section numbers; numbers stay in headings and may change freely. Validator-enforced. **Long documents only** — knowledge files are already addressed by path ([§stable-anchors](#stable-anchors)) | — |
@@ -47,6 +47,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Evidence** | One field, seven values, replacing `verified/operator/inferred`. `observations:` required for `reproduced`. No `confidence:` field ([§evidence-vocabulary](#evidence-vocabulary)) | — |
 | **Staleness** | `observed_on` compared against the detected environment. No `valid_when` predicate. `review_by` **only** for facts with no version anchor ([§staleness](#staleness)) | — |
 | **Mined material** | Staged **outside the repo**, in the working directory beside the corpus, and **defaults to staying out** absent an explicit publishability decision. Publishability is decided **per class, not per item**, during the import ([§validator-not-clearance](#validator-not-clearance), [§ensemble-numbers](#ensemble-numbers)) | — |
+| **Reference build scripts** | Public upstream sample scripts may be cited and version-pinned as stack `reference_sources`; they are evidence, not canonical instructions. The validated stack notes own the reproducible procedure and explicitly record deviations from the sample ([§stacks](#stacks)) | A project publishes a supported machine recipe whose contract should supersede handbook-owned reproduction notes |
 | **The validator** | Reports what it checked, **never "passed"** ([§validator-not-clearance](#validator-not-clearance)) | — |
 
 <a id="decisions-operation"></a>
@@ -167,6 +168,7 @@ lqcd-agent-handbook/
 │                              #   transcripts here (§session-logging). Not optional.
 │
 ├── conventions/
+│   ├── INDEX.md               # generated grouped projection from knowledge frontmatter
 │   ├── orientation.md         # HISQ is the default everywhere; vocabulary; units;
 │   │                          #   evidence tags; what "solve", "setup", "sweep" mean here;
 │   │                          #   the do-not-read rule for session_*.log (§session-logging)
@@ -186,6 +188,7 @@ lqcd-agent-handbook/
 │   └── developer.md           #  ┘ (default user; developer is declared, never inferred)
 │
 ├── machines/
+│   ├── INDEX.md               # generated; multi-axis stack notes appear here and below
 │   └── <name>/                # perlmutter, frontier, deltaai, aurora, vista,
 │   │                          #   big-red-200, … (§build-order has the order)
 │       ├── machine.yaml       # STABLE CAPABILITY only: what the site offers. Site-wide
@@ -200,6 +203,7 @@ lqcd-agent-handbook/
 │       └── incidents/         # one dated file per incident, co-located with its machine
 │
 ├── software/
+│   ├── INDEX.md               # generated; grouped by scoped software object
 │   └── <name>/                # milc, quda, grid, qmp, qio, qex
 │       ├── project.yaml       # SOFTWARE-INTRINSIC ONLY: what it is, its deps, which
 │       │                      #   build options exist and what they mean, which
@@ -216,6 +220,7 @@ lqcd-agent-handbook/
 │       └── incidents/         # unexplained occurrences, scoped to a commit range
 │
 ├── ensembles/
+│   ├── INDEX.md               # generated even before the first ensemble is published
 │   ├── milc-hisq.yaml         # one record per ensemble: volume, a, masses, beta,
 │   │                          #   spectrum characteristics, recommended stack, papers
 │   ├── <ensemble>/            # per-ensemble detail, loaded ONLY when that ensemble is
@@ -250,6 +255,7 @@ lqcd-agent-handbook/
 │   ├── lqcd-claude, lqcd-codex # frontend launchers preserving the caller's cwd
 │   ├── install-codex-skills   # optional, conflict-safe user skill symlink
 │   ├── sync-agent-entrypoints.py # regenerates CLAUDE.md from canonical AGENTS.md
+│   ├── build-index.py         # regenerates or checks grouped domain indices
 │   ├── detect-machine.sh
 │   ├── collect-environment.sh
 │   ├── check-session-logging.py   # startup diagnostic; never installs (§session-logging)
@@ -261,11 +267,11 @@ lqcd-agent-handbook/
 │   ├── check_decomposition.py     # admitted from a validated source tool
 │   ├── extract-milc-timings.py
 │   ├── summarize-slurm-job.py
-│   └── validate-knowledge.py      # schema, provenance, privacy, staleness, and
-│                                  #   cross-reference integrity (§validator-checks)
+│   └── validate-knowledge.py      # schema, provenance, privacy, staleness, generated
+│                                  #   indices, P2 advisories, and references (§validator-checks)
 │
-├── schemas/                   # stack.schema.json is written in slice 2, from two
-│   │                          #   instances rather than one (§stacks)
+├── schemas/                   # stack.schema.json is derived from the first CUDA and
+│   │                          #   HIP instances rather than from one (§stacks)
 │   ├── machine.schema.json, project.schema.json, ensemble.schema.json
 │   ├── build-profiles.schema.json, stack.schema.json
 │   └── incident.schema.json, prediction.schema.json
@@ -415,6 +421,12 @@ queue policy. `stack.yaml` holds **what this build used** — pinned versions. M
 will appear in both; that is a legitimate restatement, not a P2 violation, provided each
 side says which is canonical for what. Left unstated, they drift within two months.
 
+**Public upstream sample scripts are reference evidence, not canonical instructions.** A
+stack may pin them under `reference_sources` and cite them, but its notes own the tested
+procedure and state every material deviation. Sample coverage is intentionally incomplete
+and may describe only one narrow application profile; making it canonical would leave the
+handbook unable to distinguish a useful starting point from the combination actually run.
+
 **Stacks are also the handbook's cheapest rot detector.** They are its fastest-staling
 knowledge — a site module update invalidates one overnight with nobody touching the repo —
 and that same property makes the comparison *current environment vs. nearest validated
@@ -424,9 +436,8 @@ that a performance-prediction miss never will ([§predict-compare-loop](#predict
 <a id="indexing"></a>
 ### 3.4. Indexing: a routing table at Tier 0, generated indices per domain
 
-This section specifies the completed indexing contract. Until Slice 2, only the Tier-0
-routing table exists; `tools/build-index.py`, committed domain indices, and stale-index
-validation are not yet implemented.
+This contract is implemented by `tools/build-index.py`, four committed domain indices, and
+the stale-index check in `tools/validate-knowledge.py`.
 
 An exhaustive one-line-per-file index and a 6 KB Tier-0 budget are **incompatible at any
 realistic size** — 200 files at 60 characters is already 12 KB, and no amount of disciplined
@@ -459,10 +470,11 @@ not advertise **facts**. Nothing tells an agent that `machines/frontier/incident
 So [§session-start](#session-start)'s skill loading reduces the need for *playbook* routing, not for *knowledge* routing,
 and the domain indices stay load-bearing.
 
-> **Deferred:** whether a domain index is a flat file table or grouped by object is decided
-> in **slice 2**, when Frontier gives enough content to judge cold-reading. Slice 0 owes
-> only the frontmatter fields the generator will consume, so nothing needs retrofitting
-> later.
+**Slice 2 decision: group by scoped object.** A flat table was rejected because the first
+multi-axis stack notes already interleave machine and software facts when projected into
+both domains. Grouping gives a cold reader one stable heading per detected object while
+preserving a single metadata source. Empty domains still receive a committed generated
+index so routing never depends on whether the first fact has landed.
 
 ---
 
@@ -655,10 +667,10 @@ cache identity is keyed by node type. On a heterogeneous machine, "there is alre
 populated tunecache" is not a machine-level fact and must not be recorded as one.
 
 **And here detection *does* return, after the fact.** The declared node type is intent; once
-a job is running, `nvidia-smi` reports what it actually got. Reconciling the two is cheap
-and catches the case where a job landed on hardware other than the one planned for — which
-on a mixed-memory partition is easy to do and otherwise shows up only as an unexplained
-performance or OOM anomaly.
+a job is running, vendor runtime telemetry such as `nvidia-smi` or `rocm-smi` reports what
+it actually got. Reconciling the two is cheap and catches the case where a job landed on
+hardware other than the one planned for — which on a mixed-memory partition is easy to do
+and otherwise shows up only as an unexplained performance or OOM anomaly.
 
 <a id="build-profiles"></a>
 ### 3.7. Build profiles — what a build can do, versus what it cost to build

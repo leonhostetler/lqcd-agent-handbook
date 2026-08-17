@@ -1,9 +1,11 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slice 1 cold-session acceptance completed on 2026-08-17. Slice 0c's
-current-logger cold-session case also passed; its four absent/install cases remain pending.
+**Status:** Slice 1 is accepted. Slice 2 implementation and Frontier build/runtime evidence
+are complete; cold-session acceptance is pending. Slice 0c's current-logger cold-session
+case passed, while its four absent/install cases remain pending.
 
-**NEXT ACTION:** Complete Slice 0c's four remaining cold-session acceptance cases.
+**NEXT ACTION:** Run Slice 2 cold-session acceptance from a fresh launcher, then record the
+result and commit the integrated slice.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -29,24 +31,33 @@ double-precision CG residual verification, and double- and single-precision QIO 
 tests. This validates QUDA's native tests with the MILC interface compiled; it does not yet
 validate a linked MILC executable.
 
+On 2026-08-17 the second QUDA stack was built and run on Frontier. QUDA
+`7733f60bb744204576f82574ece8d8bd454fbcfd` on `develop` used ROCm 7.1.1, HIP 7.1.52802,
+`gfx90a`, Cray MPICH 9.1.0, and the same `milc-cg` profile. Its clean four-way login-node
+build and install completed in 14m10.22s. An operator-submitted eight-rank run on
+`gpu-mi250x` passed staggered dslash comparison, double-precision CG true-residual
+verification, and double- and single-precision QIO write/read checks. The run used a fresh
+tunecache and `QUDA_ENABLE_P2P=0`; it is correctness rather than benchmark evidence, and no
+linked MILC executable was run. The first submission also exposed a workflow defect:
+Slurm inherited the handbook submission directory. The reproduction notes now pin both
+`--chdir` and `--output` to the working project so scheduler output cannot land in the
+handbook merely because the operator submitted from there.
+
 Latest automated evidence:
 
-- `python3 tools/validate-knowledge.py` under the published Python 3.11 module: four schema
-  objects valid, five provenance records complete, two frontend adapters and six
-  session-logging assets valid, 203
+- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: eight
+  schema objects valid, seven provenance records complete, four generated indices current,
+  zero P2 advisories, two frontend adapters and six session-logging assets valid, 202
   long-document references resolved, no deny-list match, and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all forty-five checks pass under the
-  published Python 3.11 module, including thirteen focused session-logging checks and all
-  twelve focused Slice 1 checks. The dispatcher keeps the module's MUNGE diagnostics out
-  of captured logging-subprocess JSON; the parent module interpreter still emits those
-  diagnostics at test-runner shutdown;
+- `python3 -m unittest discover -s tests -v`: all fifty-eight checks pass with both the
+  parent interpreter and subprocess `python3` resolved to Python 3.11, including thirteen
+  focused session-logging checks, all twelve focused Slice 1 checks, and ten focused Slice
+  2 checks;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
-  tools/detect-machine.sh tools/log-session-claude.sh`,
-  Python compilation of the validator, logging tools, and logging tests,
-  `python3 tools/sync-agent-entrypoints.py --check`, and `git diff --check` complete
-  cleanly.
-- `tools/detect-machine.sh` resolves the live Perlmutter login environment to `perlmutter`
-  from the documented NERSC machine marker.
+  tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier
+  validation job, Python compilation of the validator, indexer, and Slice 2 tests,
+  `python3 tools/sync-agent-entrypoints.py --check`, `tools/build-index.py --check`, and
+  `git diff --check` complete cleanly.
 
 Accepted on 2026-08-15 by operator report: the Claude launcher in user mode, the Claude
 launcher in developer mode, Claude invoked without the launcher, the Codex launcher in user
@@ -251,6 +262,11 @@ the factoring before proceeding. Expect HIP/ROCm to stress it hardest, and expec
 record to be where the divergence actually shows up: a schema that survives both a CUDA and
 a ROCm stack without optional-field sprawl is the thing being validated here.
 
+*State:* implementation and live Frontier evidence complete 2026-08-17; cold-session
+acceptance pending. The shared build playbook required no machine-specific edit. Domain
+indices are grouped by scoped object; the stack schema is bound to both CUDA and HIP
+instances; and the P2 restatement heuristic is advisory with focused tests.
+
 #### Machine onboarding order, and the one piece of insurance it needs
 
 `[operator]` Live allocations: Perlmutter, Frontier, Aurora, Vista, DeltaAI, Big Red 200,
@@ -359,22 +375,14 @@ column is the test. On the move into the repo ([§plan-ships-with-handbook](ARCH
 |---|---|---|
 | **Enforcement of the job-submission budget** — agent instruction, a `lqcd-submit` wrapper, or a hook | [§budget-rule](ARCHITECTURE.md#budget-rule)'s default: **no budget stated ⇒ the agent prepares the job and hands the operator the submit command.** Zero machinery, cannot overspend | The first time an agent should submit **unattended**. Until then the conservative default costs nothing and the right mechanism is not yet obvious |
 | **Enforcement of user-mode write protection** — instruction, file permissions, worktree, or a `PreToolUse` hook | The P6 instruction of [§handbook-modes](ARCHITECTURE.md#handbook-modes), plus `lqcd-start-session` reporting an unclean handbook tree at session start so a stray edit surfaces the same day | The repo stops changing daily. Read-only permissions fight developer mode, which is *most* sessions during bootstrap. Hooks need an installer regardless ([§loading-invariants](ARCHITECTURE.md#loading-invariants)), so this rides with slice 7 |
-| **Domain index shape** — flat table or grouped by object ([§indexing](ARCHITECTURE.md#indexing)) | No generator; Tier-0 routing table only | Slice 2, when two machines make cold-reading legible |
 | **Sub-file provenance** — claim IDs with metadata stored separately, versus file-level frontmatter | File-level frontmatter ([§knowledge-atom](ARCHITECTURE.md#knowledge-atom)), and **knowledge files are kept small and atomic** so it stays adequate | A file starts accumulating claims from materially different dates, versions or evidence kinds. Not needed at slice 0, and the machinery costs more than the problem until then |
-| **`stacks/` schema** ([§stacks](ARCHITECTURE.md#stacks)) | Free-form YAML written from the slice-1 build | Slice 2, so the schema comes from two instances rather than one |
 | **Whether any part of the handbook should be served over MCP** rather than as files, skills and scripts | **None.** Knowledge stays as markdown and YAML read directly; procedures stay as skills plus `tools/` scripts. Works on every machine with no runtime | Any of three: (a) the handbook needs to reach data **too large to commit** — a cross-machine run database is plausible, and would be a *separate* server the handbook talks to, not handbook infrastructure; (b) something genuinely **remote** becomes necessary, such as live job status across machines from one session; (c) slice 6 finds **PerfAdvisor is already service-shaped**, making this a question about preserving an existing shape rather than adding one |
 | **Whether session logging should also archive the raw transcript JSONL** for full provenance, tool I/O included ([§session-logging](ARCHITECTURE.md#session-logging)) | **Prose-only.** The shipped logger stays as the operator wrote it; the JSONL under `~/.claude/projects/` is the true last resort where it survives | The prose record proves insufficient to reconstruct an episode the operator needed back — or a machine rebuild/scratch purge destroys a JSONL that was wanted. Note the cost before adopting: much larger files in the working directory, and a far bigger privacy surface, since the JSONL contains every file read and every command run |
 | **Whether the handbook is measurably cheaper than the rediscovery it replaces** | No measurement. Cold-session tests stay qualitative | The handbook becomes big enough to feel slow to navigate. **If implemented, it is the lightweight version** (below) — not an A/B harness |
-| **How upstream sample scripts relate to the handbook** — whether they are a declared canonical source, a field on a stack, or not represented at all; and how much build knowledge the handbook owns as a result | None. The handbook's build knowledge is written as needed | **When a slice puts a real build in front of us** — slice 1 or slice 3. The design questions here are open and merit their own discussion; deciding them from a description rather than a build would be guessing |
 
 
 ### Notes on deferred decisions
 
-
-`[operator]` The one input already on the record for that discussion: `milc_qcd/systems/`
-holds **sample** QUDA and MILC build and run scripts per system. They are incomplete — they
-may not cover a given machine, and they cover essentially one simple stack (QUDA + MILC for
-`ks_spectrum` running with CG), not, for example, the multigrid case.
 
 **On that last one, the form is already decided even though the timing is not.** A formal
 "same task with and without the handbook" comparison is not affordable or trustworthy here:
