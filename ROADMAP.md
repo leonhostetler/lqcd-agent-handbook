@@ -1,13 +1,9 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slice 0c session logging remains unaccepted. A live Perlmutter Codex startup
-exposed an unsupported system-Python path and module-injected MUNGE diagnostics; an
-interpreter-dispatch repair now awaits cold-session acceptance. Slice 1 now has the QUDA project record,
-one `milc-cg` profile, the first validated Perlmutter stack, and the shared build workflow;
-it awaits cold-session acceptance.
+**Status:** Slice 1 cold-session acceptance completed on 2026-08-17. Slice 0c's
+current-logger cold-session case also passed; its four absent/install cases remain pending.
 
-**NEXT ACTION:** Rerun the Slice 0c cold-session matrix with the interpreter dispatcher,
-then run Slice 1's cold-session QUDA build acceptance from the recorded stack.
+**NEXT ACTION:** Complete Slice 0c's four remaining cold-session acceptance cases.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -75,6 +71,23 @@ injects MUNGE diagnostics into several session-logging subprocess outputs. The s
 interpreter dispatcher now prefers a compatible versioned command without loading a module,
 and the Codex installer pins the selected executable. Slice 0c remains unaccepted until the
 baseline and module-altered JSON contracts and the cold-session matrix are rerun.
+
+On 2026-08-17, a cold Perlmutter Codex startup exercised Slice 0c's current-logger path
+through the interpreter dispatcher. Orientation reported the configuration as current
+without offering reinstallation, and the trusted Stop hook produced a launch-directory
+log at mode `0600`. Only metadata was inspected; the protected session log was not read.
+This accepts the current-logger matrix case, not the four absent/install cases.
+
+The same cold Codex developer-mode session reproduced the recorded Slice 1 stack without
+operator re-teaching. A full-history checkout detached at the tested QUDA commit configured
+and installed the recorded `milc-cg` profile with eight-way parallelism in 9m34.91s, then
+built the three focused validation executables. An operator-submitted four-rank, four-GPU
+run on `gpu-a100-40` completed successfully: all ranks saw all four 40 GB A100 devices,
+the dslash and true-residual CG checks reproduced the stack results, and double- and
+single-precision QIO returned status 0. The fresh tunecache makes this validation rather
+than benchmark evidence. Slice 1 is accepted; linked MILC execution remains outside its
+demonstrated scope. The slice-boundary reread found routing unchanged and Tier 0 within
+its declared budget.
 
 <a id="build-order"></a>
 ## 9. Build order
@@ -190,7 +203,7 @@ assets.
 | Claude, install accepted | Existing settings survive; reload plus next turn creates and updates a mode-600 log | pending |
 | Codex, logger absent | Orientation offers installation without blocking or a second mandatory question | pending |
 | Codex, install accepted | Existing hooks survive; `/hooks` trust plus next turn creates and updates a mode-600 log | pending |
-| Either frontend, logger current | Orientation reports current state and does not offer reinstallation | pending |
+| Either frontend, logger current | Orientation reports current state and does not offer reinstallation | accepted 2026-08-17 (Codex) |
 
 ### Slice 1 — the vertical slice: build QUDA on Perlmutter
 `machines/perlmutter/{machine.yaml,notes.md}`, `software/quda/{project.yaml,README.md,
@@ -219,6 +232,8 @@ ends in slice 2 and the build-profile exception in slice 3.
 *Accept:* a cold session builds QUDA correctly on Perlmutter with no re-teaching, and the
 stack record it produces is sufficient for a later session to reproduce that build without
 re-deriving anything.
+
+*State:* accepted 2026-08-17.
 
 ### Slice 2 — second machine, same software: QUDA on Frontier
 `machines/frontier/` including its first stack, plus **`schemas/stack.schema.json` and its
