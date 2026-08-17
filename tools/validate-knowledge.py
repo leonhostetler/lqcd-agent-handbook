@@ -464,7 +464,7 @@ def validate_session_logging(root: Path, errors: list[str]) -> int:
         return 0
 
     paths: dict[str, Path] = {}
-    for field in ("checker", "installer", "playbook"):
+    for field in ("runner", "checker", "installer", "playbook"):
         value = logging.get(field)
         if not isinstance(value, str) or not value:
             errors.append(
@@ -522,7 +522,7 @@ def validate_session_logging(root: Path, errors: list[str]) -> int:
             continue
         logger_paths[str(frontend)] = path
 
-    for field in ("checker", "installer"):
+    for field in ("runner", "checker", "installer"):
         path = paths.get(field)
         if path is not None and path.stat().st_mode & 0o111 == 0:
             errors.append(f"{path.relative_to(root)}: session-logging tool is not executable")
@@ -534,7 +534,7 @@ def validate_session_logging(root: Path, errors: list[str]) -> int:
     logging_playbook = paths.get("playbook")
     if startup.is_file():
         startup_text = startup.read_text()
-        for field in ("checker", "playbook"):
+        for field in ("runner", "checker", "playbook"):
             value = logging.get(field)
             if isinstance(value, str) and value not in startup_text:
                 errors.append(
@@ -543,7 +543,7 @@ def validate_session_logging(root: Path, errors: list[str]) -> int:
                 )
     if logging_playbook is not None:
         playbook_text = logging_playbook.read_text()
-        tokens = [logging.get("installer")]
+        tokens = [logging.get("runner"), logging.get("installer")]
         tokens.extend(
             spec.get("logger")
             for spec in frontends.values()

@@ -16,6 +16,7 @@ repository:
   name: lqcd-agent-handbook
   canonical_remote: https://github.com/leonhostetler/lqcd-agent-handbook.git
 session_logging:
+  runner: tools/run-session-logging-python
   checker: tools/check-session-logging.py
   installer: tools/install-session-logging.py
   playbook: playbooks/session-logging.md

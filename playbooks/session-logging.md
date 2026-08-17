@@ -22,16 +22,21 @@ The handbook ships two adapters behind one contract:
   `config.toml` requires Python 3.11+ or the `tomli` package. Codex's transcript JSONL
   is not a stable interface, so re-verify logging after major Codex upgrades.
 
-Both adapters write atomically with mode `0600`. The installer copies them instead of
-linking into the handbook so unrelated agent sessions do not depend on a clone remaining
-at one path.
+Both adapters write atomically with mode `0600`. The shared
+`tools/run-session-logging-python` dispatcher prefers a compatible versioned Python command
+over an ambiguous `python3`, requires PyYAML and TOML support, rejects interpreters that
+emit diagnostics during its capability probe, and never loads a module.
+The installer copies the adapters instead of linking into the handbook so unrelated agent
+sessions do not depend on a clone remaining at one path. For Codex it records the absolute
+interpreter that ran the installer in the hook command.
 
 ## Startup check and offer
 
 After handbook identity and freshness are established, run:
 
 ```bash
-python3 "$LQCD_HANDBOOK/tools/check-session-logging.py" \
+"$LQCD_HANDBOOK/tools/run-session-logging-python" \
+  "$LQCD_HANDBOOK/tools/check-session-logging.py" \
   --frontend "$LQCD_HANDBOOK_FRONTEND"
 ```
 
@@ -52,7 +57,8 @@ Installing changes user-level agent configuration outside the handbook. Never in
 automatically. After the operator explicitly agrees, run:
 
 ```bash
-python3 "$LQCD_HANDBOOK/tools/install-session-logging.py" \
+"$LQCD_HANDBOOK/tools/run-session-logging-python" \
+  "$LQCD_HANDBOOK/tools/install-session-logging.py" \
   --frontend "$LQCD_HANDBOOK_FRONTEND"
 ```
 

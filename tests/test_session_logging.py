@@ -14,6 +14,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+RUNNER = ROOT / "tools/run-session-logging-python"
 
 
 class SessionLoggingTests(unittest.TestCase):
@@ -21,7 +22,7 @@ class SessionLoggingTests(unittest.TestCase):
         self, name: str, *arguments: str, check: bool = True
     ) -> subprocess.CompletedProcess[str]:
         result = subprocess.run(
-            [sys.executable, str(ROOT / "tools" / name), *arguments],
+            [str(RUNNER), str(ROOT / "tools" / name), *arguments],
             cwd=ROOT,
             text=True,
             stdout=subprocess.PIPE,
@@ -60,6 +61,7 @@ class SessionLoggingTests(unittest.TestCase):
     def test_startup_playbook_checks_and_offers_without_auto_install(self):
         text = (ROOT / "playbooks/start-session.md").read_text()
         self.assertIn("tools/check-session-logging.py", text)
+        self.assertIn("tools/run-session-logging-python", text)
         self.assertIn("playbooks/session-logging.md", text)
         self.assertIn("Do not install or repair user-level hooks automatically", text)
         self.assertIn("second mandatory startup question", text)
@@ -168,6 +170,20 @@ class SessionLoggingTests(unittest.TestCase):
             self.assertIn("true", commands)
             self.assertEqual(
                 sum(".codex/log_session.py" in command for command in commands), 1
+            )
+            selected = subprocess.run(
+                [str(RUNNER), "-c", "import sys; print(sys.executable)"],
+                cwd=ROOT,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=True,
+            ).stdout.strip()
+            logger_command = next(
+                command for command in commands if ".codex/log_session.py" in command
+            )
+            self.assertEqual(
+                logger_command, f'{selected} "$HOME/.codex/log_session.py"'
             )
             installed = user_root / ".codex/log_session.py"
             self.assertEqual(
@@ -423,7 +439,7 @@ class SessionLoggingTests(unittest.TestCase):
                 "last_assistant_message": "final response",
             }
             result = subprocess.run(
-                [sys.executable, str(ROOT / "tools/log-session-codex.py")],
+                [str(RUNNER), str(ROOT / "tools/log-session-codex.py")],
                 cwd=temp,
                 input=json.dumps(hook),
                 text=True,
@@ -443,6 +459,56 @@ class SessionLoggingTests(unittest.TestCase):
             self.assertNotIn("PRIVATE_CONTEXT", text)
             self.assertNotIn("SECRET_TOOL", text)
             self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
+
+    def test_runner_prefers_a_compatible_versioned_command(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            generic = binary_dir / "python3"
+            generic.write_text("#!/bin/sh\necho generic-python-was-used\nexit 1\n")
+            generic.chmod(0o700)
+            versioned = binary_dir / "python3.11"
+            versioned.write_text(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = -c ]; then\n"
+                "  if [ \"$2\" = 'print(\"payload\")' ]; then echo payload; fi\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 1\n"
+            )
+            versioned.chmod(0o700)
+            environment = os.environ.copy()
+            environment["PATH"] = str(binary_dir)
+            result = subprocess.run(
+                ["/bin/bash", str(RUNNER), "-c", 'print("payload")'],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(result.stdout, "payload\n")
+
+    def test_runner_fails_actionably_without_a_compatible_python(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            binary_dir = Path(temp_dir)
+            generic = binary_dir / "python3"
+            generic.write_text("#!/bin/sh\nexit 1\n")
+            generic.chmod(0o700)
+            environment = os.environ.copy()
+            environment["PATH"] = str(binary_dir)
+            result = subprocess.run(
+                ["/bin/bash", str(RUNNER), "ignored.py"],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 2, result.stdout)
+            self.assertIn("requires Python 3.10+", result.stdout)
 
     def test_validator_rejects_missing_declared_logger(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -98,9 +98,9 @@ def install_claude(
 def install_codex(
     user_root: Path, source: Path
 ) -> tuple[bool, list[tuple[Path, Path | None]]]:
-    python_path = shutil.which("python3")
-    if python_path is None or not os.path.isabs(python_path):
-        raise SessionLoggingError("an absolute python3 executable is required")
+    python_path = sys.executable
+    if not python_path or not os.path.isabs(python_path):
+        raise SessionLoggingError("an absolute Python executable is required")
     handler = expected_handler("codex", python_path)
     hooks_json = user_root / ".codex/hooks.json"
     config_toml = user_root / ".codex/config.toml"

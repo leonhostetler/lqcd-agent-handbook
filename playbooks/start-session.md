@@ -39,8 +39,10 @@ is the sole exception.
 
 ## 3. Check user-wide session logging
 
-Run `python3 "$LQCD_HANDBOOK/tools/check-session-logging.py" --frontend
-"$LQCD_HANDBOOK_FRONTEND"` after freshness is established. This is a diagnostic, not a
+Run `"$LQCD_HANDBOOK/tools/run-session-logging-python"
+"$LQCD_HANDBOOK/tools/check-session-logging.py" --frontend
+"$LQCD_HANDBOOK_FRONTEND"` after freshness is established. The runner selects a compatible
+versioned interpreter without changing the module environment. This is a diagnostic, not a
 hard gate. Do not install or repair user-level hooks automatically.
 
 Record the reported state for the final orientation summary. When it is `missing`,

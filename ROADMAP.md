@@ -1,13 +1,13 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slice 0c session logging remains unaccepted after a live Perlmutter Codex
-startup exposed an unsupported system-Python path. Slice 1 now has the QUDA project record,
+**Status:** Slice 0c session logging remains unaccepted. A live Perlmutter Codex startup
+exposed an unsupported system-Python path and module-injected MUNGE diagnostics; an
+interpreter-dispatch repair now awaits cold-session acceptance. Slice 1 now has the QUDA project record,
 one `milc-cg` profile, the first validated Perlmutter stack, and the shared build workflow;
 it awaits cold-session acceptance.
 
-**NEXT ACTION:** Repair or explicitly route around Perlmutter's Python 3.6 session-logging
-path and rerun the Slice 0c cold-session matrix, then run Slice 1's cold-session QUDA build
-acceptance from the recorded stack.
+**NEXT ACTION:** Rerun the Slice 0c cold-session matrix with the interpreter dispatcher,
+then run Slice 1's cold-session QUDA build acceptance from the recorded stack.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -36,15 +36,14 @@ validate a linked MILC executable.
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` under the published Python 3.11 module: four schema
-  objects valid, five provenance records complete, two frontend adapters and five
+  objects valid, five provenance records complete, two frontend adapters and six
   session-logging assets valid, 203
   long-document references resolved, no deny-list match, and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest tests.test_slice1 -v`: all twelve focused Slice 1 checks pass,
-  including machine and project schema conformance, Perlmutter detection, exact single
-  profile, stack/profile/node joins, shared-playbook routing, and `observed_on`
-  completeness. The full forty-two-test discovery run is not clean in the current
-  environment: thirty-seven checks pass and five session-logging checks receive MUNGE
-  diagnostics on captured JSON output;
+- `python3 -m unittest discover -s tests -v`: all forty-five checks pass under the
+  published Python 3.11 module, including thirteen focused session-logging checks and all
+  twelve focused Slice 1 checks. The dispatcher keeps the module's MUNGE diagnostics out
+  of captured logging-subprocess JSON; the parent module interpreter still emits those
+  diagnostics at test-runner shutdown;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
   tools/detect-machine.sh tools/log-session-claude.sh`,
   Python compilation of the validator, logging tools, and logging tests,
@@ -69,12 +68,13 @@ the effective permissions rejected. The Codex adapter now relies only on its add
 absolute-path instruction pointer and does not widen or override the caller's permissions.
 The repaired launcher rerun and both other Codex cases were accepted on 2026-08-15.
 
-A later Perlmutter Codex startup found that `tools/check-session-logging.py` is invoked by
+A later Perlmutter Codex startup found that `tools/check-session-logging.py` was invoked by
 the system `python3` (3.6.15), which cannot parse its future-annotations import. A Python
 3.11 module runs the validator and focused Slice 1 tests, but loading that environment also
-injects MUNGE diagnostics into several session-logging subprocess outputs. Slice 0c remains
-unaccepted until the baseline interpreter path and clean JSON-output contract are repaired
-and rerun cold.
+injects MUNGE diagnostics into several session-logging subprocess outputs. The shared
+interpreter dispatcher now prefers a compatible versioned command without loading a module,
+and the Codex installer pins the selected executable. Slice 0c remains unaccepted until the
+baseline and module-altered JSON contracts and the cold-session matrix are rerun.
 
 <a id="build-order"></a>
 ## 9. Build order

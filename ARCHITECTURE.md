@@ -61,7 +61,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | An agent should submit unattended — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
-| **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared checker, and an offer-only installer. Adapters are copied into `~/.claude/` or `~/.codex/`; Codex still requires user trust. Logs remain an **operator-facing provenance backup, not an agent-readable source** ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
+| **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared interpreter dispatcher and checker, and an offer-only installer. The dispatcher selects a compatible versioned Python without loading a module; adapters are copied into `~/.claude/` or `~/.codex/`, and Codex still requires user trust. Logs remain an **operator-facing provenance backup, not an agent-readable source** ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
 | **Repo name** | `lqcd-agent-handbook` ([§locating-handbook](#locating-handbook)) | — |
 | **Locating the handbook** | `LQCD_HANDBOOK` is the sole interface; **the launcher fails fast if it is unset** — no `$HOME` fallback. No canonical path, and no clone path recorded anywhere in the repo: [§deny-list](#deny-list) denies it. Validation is **identity by content**, not by path ([§locating-handbook](#locating-handbook)) | — |
 
@@ -874,9 +874,18 @@ TOML. Codex supplies `transcript_path` and `last_assistant_message`, documents i
 transcript JSONL as unstable, and requires the operator to review and trust the exact
 non-managed hook definition through `/hooks`.
 
+**Interpreter selection is explicit and does not mutate modules.** A live Perlmutter
+startup exposed two independent hazards: the unversioned system `python3` was too old to
+parse the tools, while a module-provided Python emitted scheduler-authentication diagnostics
+into otherwise valid JSON. The shared dispatcher therefore prefers a compatible versioned
+command, verifies the required Python, YAML, and TOML capabilities, rejects candidates that
+emit diagnostics during the probe, and only then executes the checker or installer. The
+Codex installer records that selected absolute interpreter in the hook command, so later
+hooks do not depend on `PATH` or a module environment.
+
 **Startup checks and offers; it never auto-installs.** After handbook freshness is
-established, `lqcd-start-session` runs `tools/check-session-logging.py` for the active
-frontend. Missing, stale, or broken state produces a non-blocking offer in the orientation
+established, `lqcd-start-session` runs `tools/check-session-logging.py` through the shared
+interpreter dispatcher for the active frontend. Missing, stale, or broken state produces a non-blocking offer in the orientation
 report rather than a second mandatory question. Codex trust is not inferred from config
 files: configured state is reported separately, and the operator completes trust in the
 frontend. Declining changes nothing and is not persisted.

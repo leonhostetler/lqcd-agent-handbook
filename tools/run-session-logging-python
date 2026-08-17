@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -eu
+
+if (( $# == 0 )); then
+    echo "usage: run-session-logging-python <script> [args ...]" >&2
+    exit 2
+fi
+
+# Candidate discovery uses a redirected loop; preserve the caller's stdin for the
+# selected script, which receives hook JSON through this channel.
+exec 3<&0
+
+# Prefer versioned commands. On module-based systems, an unversioned python3 may
+# be the system Python or a module wrapper that emits site diagnostics on stdout.
+for name in python3.11 python3.12 python3.13 python3.14 python3.10 python3; do
+    while IFS= read -r candidate; do
+        [[ -x "$candidate" ]] || continue
+        probe_output=""
+        if probe_output=$("$candidate" -c '
+import sys
+if sys.version_info < (3, 10):
+    raise SystemExit(1)
+import yaml
+try:
+    import tomllib
+except ImportError:
+    import tomli
+' </dev/null 2>&1) && [[ -z "$probe_output" ]]; then
+            exec "$candidate" "$@" <&3 3<&-
+        fi
+    done < <(type -a -p "$name" 2>/dev/null || true)
+done
+
+echo "session logging requires Python 3.10+ with PyYAML and tomllib or tomli" >&2
+exit 2
