@@ -1,9 +1,9 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slices 1 through 3 are accepted. Slice 0c's current-logger and both Codex
-cold-session cases passed, while its two Claude cases are pending.
+**Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
+matrix, including both Claude cases, has passed.
 
-**NEXT ACTION:** Complete Slice 0c's two remaining Claude cold-session cases.
+**NEXT ACTION:** Begin Slice 4 — modes, benchmarking conventions, and the prediction loop.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -110,8 +110,15 @@ and the Codex installer pins the selected executable. A later full-suite rerun e
 second edge: NERSC PyMon samples nondeterministically at interpreter exit, so a clean probe
 could still be followed by MUNGE text appended to checker JSON. The dispatcher now disables
 that monitor for its child process before both probe and execution; a forced-monitoring
-regression covers the contract. Slice 0c remains unaccepted until the two Claude
-cold-session cases pass.
+regression covers the contract.
+
+On 2026-08-17 the operator reported both remaining Claude cold-session cases accepted:
+the logger-absent case, in which orientation offers installation without blocking or
+adding a second mandatory question, and the install-accepted case, in which existing
+settings survive and the next turn creates and updates a mode-`0600` log. Slice 0c is
+accepted; its full cold-session matrix has now passed on both frontends. The
+slice-boundary reread found routing unambiguous and Tier 0 unchanged at 2,908/6,144
+bytes.
 
 On 2026-08-17, a cold Perlmutter Codex startup exercised Slice 0c's current-logger path
 through the interpreter dispatcher. Orientation reported the configuration as current
@@ -272,8 +279,8 @@ assets.
 
 | Frontend/case | Expected behavior | State |
 |---|---|---|
-| Claude, logger absent | Orientation offers installation without blocking or a second mandatory question | pending |
-| Claude, install accepted | Existing settings survive; reload plus next turn creates and updates a mode-600 log | pending |
+| Claude, logger absent | Orientation offers installation without blocking or a second mandatory question | accepted 2026-08-17 (operator report) |
+| Claude, install accepted | Existing settings survive; reload plus next turn creates and updates a mode-600 log | accepted 2026-08-17 (operator report) |
 | Codex, logger absent | Orientation offers installation without blocking or a second mandatory question | accepted 2026-08-17 (Frontier, operator report) |
 | Codex, install accepted | Existing hooks survive; `/hooks` trust plus next turn creates and updates a mode-600 log | accepted 2026-08-17 (operator report) |
 | Either frontend, logger current | Orientation reports current state and does not offer reinstallation | accepted 2026-08-17 (Codex) |
