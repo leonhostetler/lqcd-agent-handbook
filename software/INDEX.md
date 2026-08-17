@@ -9,6 +9,7 @@ Entries are grouped by scoped software project.
 |---|---|---|
 | [Building MILC ks_spectrum_hisq with QUDA](milc/build.md) | Software-specific build and validation procedure for the composed MILC ks_spectrum_hisq and QUDA profile. | Compiling, linking, or validating the QUDA-enabled MILC ks_spectrum_hisq application. |
 | [MILC](milc/README.md) | Role, application selection, QUDA composition, and routing guidance for the MILC application suite. | Selecting a MILC application, build profile, or accelerator interface. |
+| [MILC CUDA 12 QUDA ks_spectrum stack on Perlmutter](../machines/perlmutter/stacks/milc-cuda12-quda-ks-spectrum-2026q3/notes.md) | Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack. | Rebuilding or validating the Perlmutter MILC ks_spectrum_hisq stack with QUDA. |
 | [MILC ROCm 7 QUDA ks_spectrum stack on Frontier](../machines/frontier/stacks/milc-rocm7-quda-ks-spectrum-2026q3/notes.md) | Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack. | Rebuilding or validating the Frontier MILC ks_spectrum_hisq stack with QUDA. |
 
 ## qio
@@ -29,6 +30,7 @@ Entries are grouped by scoped software project.
 |---|---|---|
 | [Building MILC ks_spectrum_hisq with QUDA](milc/build.md) | Software-specific build and validation procedure for the composed MILC ks_spectrum_hisq and QUDA profile. | Compiling, linking, or validating the QUDA-enabled MILC ks_spectrum_hisq application. |
 | [Building QUDA](quda/build.md) | Software-specific configure, build, and validation procedure for a selected QUDA profile. | Configuring, compiling, installing, or validating QUDA. |
+| [MILC CUDA 12 QUDA ks_spectrum stack on Perlmutter](../machines/perlmutter/stacks/milc-cuda12-quda-ks-spectrum-2026q3/notes.md) | Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack. | Rebuilding or validating the Perlmutter MILC ks_spectrum_hisq stack with QUDA. |
 | [MILC ROCm 7 QUDA ks_spectrum stack on Frontier](../machines/frontier/stacks/milc-rocm7-quda-ks-spectrum-2026q3/notes.md) | Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack. | Rebuilding or validating the Frontier MILC ks_spectrum_hisq stack with QUDA. |
 | [QUDA](quda/README.md) | Role, interfaces, and routing guidance for the QUDA accelerator library. | Selecting QUDA capabilities, interfaces, or build guidance. |
 | [QUDA CUDA 12 milc-cg stack on Perlmutter](../machines/perlmutter/stacks/quda-cuda12-milc-cg-2026q3/notes.md) | Reproduction commands and two required runtime/build corrections for the validated stack. | Rebuilding or validating the quda-cuda12-milc-cg-2026q3 stack. |

@@ -103,7 +103,7 @@ class SliceThreeFrontierStackTests(unittest.TestCase):
     def test_composed_stack_cross_references_are_complete(self):
         errors: list[str] = []
         count = VALIDATOR.validate_schemas(ROOT, errors)
-        self.assertEqual(count, 15)
+        self.assertEqual(count, 16)
         self.assertEqual(errors, [])
         self.assertIn("quda", self.stack["tested_software"])
 
@@ -140,6 +140,50 @@ class SliceThreeFrontierStackTests(unittest.TestCase):
         self.assertIn("`total_iters` is not an acceptance signal", build)
         self.assertIn("Do not require positive MILC `total_iters`", notes)
         self.assertIn("payload exited zero", self.stack["validation"]["scope_limits"][-1])
+
+
+class SliceThreePerlmutterStackTests(unittest.TestCase):
+    def setUp(self):
+        self.stack_path = (
+            ROOT
+            / "machines/perlmutter/stacks/"
+            "milc-cuda12-quda-ks-spectrum-2026q3/stack.yaml"
+        )
+        self.stack = yaml.safe_load(self.stack_path.read_text())
+
+    def test_perlmutter_payload_and_quda_solves_pass(self):
+        self.assertEqual(self.stack["validation"]["result"], "pass")
+        runtime = self.stack["validation"]["runtime"]
+        self.assertEqual(runtime["application_payload_exit_code"], 0)
+        self.assertEqual(runtime["outer_harness_exit_code"], 1)
+        cg = next(
+            test
+            for test in self.stack["validation"]["tests"]
+            if test["name"] == "quda_cg_convergence"
+        )
+        self.assertEqual(cg["solves"], 24)
+        self.assertEqual(cg["convergence_markers"], cg["solves"])
+        self.assertLessEqual(
+            float(cg["maximum_true_residual"]),
+            float(cg["requested_true_residual"]),
+        )
+
+    def test_perlmutter_runtime_scope_is_explicit(self):
+        limits = " ".join(self.stack["validation"]["scope_limits"]).casefold()
+        self.assertIn("did not exercise qio", limits)
+        self.assertIn("smearing", limits)
+        self.assertIn("reference correlator values", limits)
+        self.assertIn("gauge-fixing", limits)
+        self.assertIn("p2p-enabled", limits)
+        self.assertIn("not benchmark evidence", limits)
+        self.assertIn("no runtime memory measurement", limits)
+
+    def test_perlmutter_harness_false_negative_is_documented(self):
+        notes = self.stack_path.with_name("notes.md").read_text()
+        runtime = self.stack["validation"]["runtime"]
+        self.assertIn("`FLTIME: ... (HISQ QUDA D)`", notes)
+        self.assertIn("wrapper false negative", notes)
+        self.assertIn("non-literal FLTIME marker", runtime["outer_harness_result"])
 
 
 if __name__ == "__main__":

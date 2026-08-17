@@ -1,8 +1,7 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slices 1 and 2 are accepted. The Frontier half of Slice 3 is recorded and its
-Perlmutter half remains pending. Slice 0c's current-logger and Codex logger-absent
-cold-session cases passed, while its three remaining cases are pending.
+**Status:** Slices 1 through 3 are accepted. Slice 0c's current-logger and Codex
+logger-absent cold-session cases passed, while its three remaining cases are pending.
 
 **NEXT ACTION:** Complete Slice 0c's three remaining cold-session cases.
 
@@ -57,16 +56,29 @@ by the warm-gauge application sample, P2P remained disabled, and the fresh tunec
 the run correctness rather than benchmark evidence. Slice 3 remains in progress until the
 corresponding Perlmutter MILC stack is built and validated.
 
+Later on 2026-08-17, the Perlmutter half of Slice 3 built and ran the corresponding MILC
+application stack. A full-history MILC checkout at
+`6b9b8a06eec5746187bbfd197eac2629ab8d8e72` on `develop` built `ks_spectrum_hisq`
+against the validated Perlmutter QUDA `milc-cg` installation. The fresh single-job
+login-node build completed in 41.16s. An operator-submitted four-rank run on one
+`gpu-a100-40` node completed its application payload, exercised P2P, constructed HISQ
+links through QUDA, and produced the expected correlator structure. All 24 QUDA CG solves
+reported convergence and their maximum true residual remained below the requested `1e-8`.
+The outer harness then false-failed because its HISQ marker pattern omitted punctuation and
+intervening fields present in the literal output; payload and wrapper outcomes are recorded
+separately. QIO was linked but not exercised by the warm-gauge sample, and the fresh
+tunecache makes the run correctness rather than benchmark evidence.
+
 Latest automated evidence:
 
-- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: fifteen
-  schema objects valid, twelve provenance records complete, four generated indices current,
+- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: sixteen
+  schema objects valid, thirteen provenance records complete, four generated indices current,
   zero P2 advisories, two frontend adapters and six session-logging assets valid, 202
   long-document references resolved, no deny-list match, and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all sixty-seven checks pass with both the
+- `python3 -m unittest discover -s tests -v`: all seventy checks pass with both the
   parent interpreter and subprocess `python3` resolved to Python 3.11, including thirteen
   focused session-logging checks, thirteen focused Slice 1 checks, ten focused Slice 2
-  checks, and eight focused Slice 3 checks;
+  checks, and eleven focused Slice 3 checks;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
   tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier
   validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,
@@ -119,6 +131,17 @@ single-precision QIO returned status 0. The fresh tunecache makes this validatio
 than benchmark evidence. Slice 1 is accepted; linked MILC execution remains outside its
 demonstrated scope. The slice-boundary reread found routing unchanged and Tier 0 within
 its declared budget.
+
+A cold Perlmutter Codex developer-mode session completed the recorded Slice 3 work without
+operator re-teaching. It cloned the recorded MILC default branch with full history, found
+the tip identical to the Frontier-tested commit, composed the `ks-spectrum-hisq-quda`
+profile with the validated local QUDA stack, and built the application in a disposable
+checkout. An operator-submitted four-rank run confirmed four 40 GB A100 devices and
+all-device visibility, completed the application payload, exercised the P2P-enabled path,
+ran HISQ link construction through QUDA, converged all 24 solves below `1e-8`, and produced
+the complete correlator structure. The batch wrapper's post-run literal-marker defect did
+not overwrite the successful payload result. Slice 3 is accepted. The slice-boundary
+reread found routing unambiguous and Tier 0 unchanged at 2,908/6,144 bytes.
 
 A cold Frontier Codex developer-mode session reproduced the recorded Slice 2 stack without
 operator re-teaching. The existing clean QUDA checkout at the tested commit configured and
@@ -339,10 +362,9 @@ profiles must compose. Adds `software/{qmp,qio}/` as dependencies, plus
 `schemas/build-profiles.schema.json` and its validator binding, now derived from profiles
 in two software contexts.
 
-**State:** In progress. The Frontier `ks_spectrum_hisq` stack, composed MILC and QUDA
-profiles, QMP and QIO project records, profile schema, validator binding, and focused tests
-are recorded from the 2026-08-17 validation. The corresponding Perlmutter MILC build and
-one-node application validation remain pending before Slice 3 acceptance.
+**State:** Accepted 2026-08-17. The Frontier and Perlmutter `ks_spectrum_hisq` stacks,
+composed MILC and QUDA profiles, QMP and QIO project records, profile schema, validator
+binding, and focused tests are recorded from their one-node application validations.
 
 ### Slice 4 — modes, benchmarking, and the prediction loop
 All five `modes/*.md`, `conventions/{running,measurement}.md`,
