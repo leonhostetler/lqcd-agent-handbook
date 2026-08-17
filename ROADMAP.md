@@ -408,6 +408,17 @@ All five `modes/*.md`, `conventions/{running,measurement}.md`,
 the **budget-ledger format** of [§budget-rule](ARCHITECTURE.md#budget-rule) (append-only, debit-at-submit),
 `tools/{extract-milc-timings.py,summarize-slurm-job.py,collect-environment.sh}`.
 Admit `memory_model.py` and `check_decomposition.py` from validated source versions after screening.
+
+Slice 4 must also make scheduler placement explicit in `conventions/running.md` and
+`modes/debugging.md`. Before every submission, assess whether the job is appropriate for
+debug/interactive placement by comparing its purpose, node count, walltime, and concurrency
+against the selected machine profile's policy. When appropriate, prefer that partition or
+QOS because its shorter queue waits give debugging and other short jobs faster turnaround.
+Debugging mode makes the suitability check mandatory, not selection of the
+debug/interactive class. The submission plan records the suitability decision, selected
+class, and reason. Machine profiles remain canonical for names and limits, and this
+directive never bypasses site policy or the explicit campaign budget rule.
+
 *Accept:* a benchmarking session predicts runtime and memory before submitting, writes the
 record **into the working directory**, and files the comparison — and a deliberately stale
 fact gets caught by its metric's tolerance ([§tolerances](ARCHITECTURE.md#tolerances)) while ordinary fabric noise does not
