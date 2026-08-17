@@ -1,11 +1,9 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slice 1 is accepted. Slice 2 implementation and Frontier build/runtime evidence
-are complete; cold-session acceptance is pending. Slice 0c's current-logger cold-session
-case passed, while its four absent/install cases remain pending.
+**Status:** Slices 1 and 2 are accepted. Slice 0c's current-logger and Codex logger-absent
+cold-session cases passed, while its three remaining cases are pending.
 
-**NEXT ACTION:** Run Slice 2 cold-session acceptance from a fresh launcher, then record the
-result and commit the integrated slice.
+**NEXT ACTION:** Complete Slice 0c's three remaining cold-session cases.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -89,6 +87,12 @@ without offering reinstallation, and the trusted Stop hook produced a launch-dir
 log at mode `0600`. Only metadata was inspected; the protected session log was not read.
 This accepts the current-logger matrix case, not the four absent/install cases.
 
+Also on 2026-08-17, the operator reported that the first cold Frontier Codex session began
+with the logger absent. Orientation offered installation without blocking or adding a
+second mandatory question, and the operator accepted the offer. This accepts the Codex
+logger-absent matrix case; the separate install-accepted case remains pending its full
+hook-preservation, trust, and log-update checks.
+
 The same cold Codex developer-mode session reproduced the recorded Slice 1 stack without
 operator re-teaching. A full-history checkout detached at the tested QUDA commit configured
 and installed the recorded `milc-cg` profile with eight-way parallelism in 9m34.91s, then
@@ -99,6 +103,19 @@ single-precision QIO returned status 0. The fresh tunecache makes this validatio
 than benchmark evidence. Slice 1 is accepted; linked MILC execution remains outside its
 demonstrated scope. The slice-boundary reread found routing unchanged and Tier 0 within
 its declared budget.
+
+A cold Frontier Codex developer-mode session reproduced the recorded Slice 2 stack without
+operator re-teaching. The existing clean QUDA checkout at the tested commit configured and
+installed the `milc-cg` profile in a new build directory with four-way parallelism in
+13m28.75s, then built the three focused validation executables. An operator-submitted
+eight-rank run on one `gpu-mi250x` node completed successfully: telemetry enumerated all
+eight 64 GiB MI250X GCDs, every rank retained all-device visibility, the staggered dslash
+check reproduced the recorded deviations, double-precision CG converged in 182 iterations
+with a true residual below `1e-6`, and double- and single-precision QIO returned status 0.
+The fresh tunecache and P2P-disabled path make this validation rather than benchmark
+evidence; linked MILC execution remains outside the demonstrated scope. Slice 2 is
+accepted. The slice-boundary reread found routing unchanged and Tier 0 at 2,908/6,144
+bytes.
 
 <a id="build-order"></a>
 ## 9. Build order
@@ -212,7 +229,7 @@ assets.
 |---|---|---|
 | Claude, logger absent | Orientation offers installation without blocking or a second mandatory question | pending |
 | Claude, install accepted | Existing settings survive; reload plus next turn creates and updates a mode-600 log | pending |
-| Codex, logger absent | Orientation offers installation without blocking or a second mandatory question | pending |
+| Codex, logger absent | Orientation offers installation without blocking or a second mandatory question | accepted 2026-08-17 (Frontier, operator report) |
 | Codex, install accepted | Existing hooks survive; `/hooks` trust plus next turn creates and updates a mode-600 log | pending |
 | Either frontend, logger current | Orientation reports current state and does not offer reinstallation | accepted 2026-08-17 (Codex) |
 
@@ -262,10 +279,9 @@ the factoring before proceeding. Expect HIP/ROCm to stress it hardest, and expec
 record to be where the divergence actually shows up: a schema that survives both a CUDA and
 a ROCm stack without optional-field sprawl is the thing being validated here.
 
-*State:* implementation and live Frontier evidence complete 2026-08-17; cold-session
-acceptance pending. The shared build playbook required no machine-specific edit. Domain
-indices are grouped by scoped object; the stack schema is bound to both CUDA and HIP
-instances; and the P2 restatement heuristic is advisory with focused tests.
+*State:* accepted 2026-08-17. The shared build playbook required no machine-specific edit.
+Domain indices are grouped by scoped object; the stack schema is bound to both CUDA and
+HIP instances; and the P2 restatement heuristic is advisory with focused tests.
 
 #### Machine onboarding order, and the one piece of insurance it needs
 
