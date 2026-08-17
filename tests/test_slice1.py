@@ -27,12 +27,37 @@ class SliceOneMachineTests(unittest.TestCase):
         profile = yaml.safe_load(
             (ROOT / "machines/perlmutter/machine.yaml").read_text()
         )
+        manifest = yaml.safe_load((ROOT / "handbook.yaml").read_text())
         problems = list(
             Draft202012Validator(
                 schema, format_checker=FormatChecker()
             ).iter_errors(profile)
         )
         self.assertEqual(problems, [])
+        self.assertEqual(
+            manifest["schema_versions"]["machine"], profile["schema_version"]
+        )
+        self.assertEqual(
+            schema["properties"]["schema_version"]["const"],
+            profile["schema_version"],
+        )
+
+    def test_perlmutter_profile_records_installed_nodes_by_type(self):
+        profile = yaml.safe_load(
+            (ROOT / "machines/perlmutter/machine.yaml").read_text()
+        )
+        counts = {
+            name: node["sizing"]["installed_nodes"]
+            for name, node in profile["node_types"].items()
+        }
+        self.assertEqual(
+            counts,
+            {
+                "cpu": 3072,
+                "gpu-a100-40": 1536,
+                "gpu-a100-80": 256,
+            },
+        )
 
     def run_detector(self, *, nersc_host: str, hostname: str) -> str:
         env = os.environ.copy()

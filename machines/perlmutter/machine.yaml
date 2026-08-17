@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 name: perlmutter
 aliases:
   - saul
@@ -63,6 +63,7 @@ node_types:
     build_constraints:
       target: cpu
     sizing:
+      installed_nodes: 3072
       physical_cpu_cores: 128
       host_memory_gb: 512
       network: HPE Slingshot 11
@@ -87,6 +88,7 @@ node_types:
       target: gpu
       gpu_arch: sm_80
     sizing:
+      installed_nodes: 1536
       physical_cpu_cores: 64
       host_memory_gb: 256
       network: HPE Slingshot 11
@@ -113,6 +115,7 @@ node_types:
       target: gpu
       gpu_arch: sm_80
     sizing:
+      installed_nodes: 256
       physical_cpu_cores: 64
       host_memory_gb: 256
       network: HPE Slingshot 11

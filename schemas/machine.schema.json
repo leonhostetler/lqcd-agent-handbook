@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 1
+      "const": 2
     },
     "name": {
       "type": "string",
@@ -166,7 +166,8 @@
       "required": [
         "cpu",
         "accelerator",
-        "queues"
+        "queues",
+        "sizing"
       ],
       "properties": {
         "description": {
@@ -245,6 +246,16 @@
         },
         "sizing": {
           "type": "object",
+          "required": [
+            "installed_nodes"
+          ],
+          "properties": {
+            "installed_nodes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Documented installed inventory for this node type; not live schedulable or allocation-eligible capacity."
+            }
+          },
           "additionalProperties": true
         }
       },

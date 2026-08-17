@@ -75,16 +75,23 @@ shared-node accounting, Slurm partitions, storage choices, Cray build environmen
 public login aliases. Detection recognizes the DeltaAI login nodes without conflating
 them with Delta. No DeltaAI software stack is recorded until one is built and run.
 
+The same developer session advanced the machine schema to version 2 and made documented
+`sizing.installed_nodes` mandatory for every node type. Perlmutter now distinguishes its
+CPU, 40 GB A100, and 80 GB A100 inventories; Frontier and DeltaAI record their respective
+accelerator-node inventories. These values are upper-bound planning context, not live
+scheduler capacity.
+
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: seventeen
   schema objects valid, fourteen provenance records complete, four generated indices current,
   zero P2 advisories, two frontend adapters and six session-logging assets valid, 202
   long-document references resolved, no deny-list match, and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all seventy-five checks pass with both the
+- `python3 -m unittest discover -s tests -v`: all seventy-seven checks pass with both the
   parent interpreter and subprocess `python3` resolved to Python 3.11, including fourteen
-  focused session-logging checks, thirteen focused Slice 1 checks, ten focused Slice 2
-  checks, and eleven focused Slice 3 checks;
+  focused session-logging checks, four focused DeltaAI machine checks, four focused Frontier
+  machine checks, fourteen focused Slice 1 checks, ten focused Slice 2 checks, and eleven
+  focused Slice 3 checks;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
   tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier
   validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,

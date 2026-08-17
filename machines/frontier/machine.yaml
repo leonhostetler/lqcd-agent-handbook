@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 name: frontier
 summary: OLCF HPE Cray EX system with AMD EPYC CPUs and MI250X accelerators.
 public_login_hosts:
@@ -96,6 +96,7 @@ node_types:
       target: gpu
       gpu_arch: gfx90a
     sizing:
+      installed_nodes: 9856
       physical_cpu_cores: 64
       allocatable_cpu_cores_default: 56
       hardware_threads: 128

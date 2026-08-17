@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 name: deltaai
 summary: NCSA HPE Cray EX system with four-way NVIDIA GH200 Grace Hopper compute nodes.
 public_login_hosts:
@@ -99,6 +99,7 @@ node_types:
       gpu_arch: sm_90
       cpu_arch: aarch64
     sizing:
+      installed_nodes: 152
       physical_cpu_cores: 288
       host_memory_gb: 480
       accelerator_memory_gb_total: 384

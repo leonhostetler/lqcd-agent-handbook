@@ -64,6 +64,7 @@ class DeltaAIMachineTests(unittest.TestCase):
             (ROOT / "machines/deltaai/machine.yaml").read_text()
         )
         node = profile["node_types"]["gpu-gh200"]
+        self.assertEqual(node["sizing"]["installed_nodes"], 152)
         self.assertEqual(node["cpu"]["cores_per_socket"], 72)
         self.assertEqual(node["accelerator"]["per_node"], 4)
         self.assertEqual(node["accelerator"]["memory_gb"], 96)

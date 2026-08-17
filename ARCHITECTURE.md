@@ -31,7 +31,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Indexing** | Tier-0 `INDEX.md` is a ~dozen-line routing table; per-domain indices are **generated**, committed, and grouped by scoped object ([§indexing](#indexing)) | A domain has enough objects that grouping obscures rather than improves cold reading |
 | **Version pins** | `project.yaml` carries **none**. Pins live in stacks; the checkout in front of you is session state ([§version-lifetimes](#version-lifetimes)) | — |
 | **Branch policy** | **There is none, deliberately.** QUDA and MILC are built from `develop`, a feature branch, or a fork, per episode; tagged releases are not used. So the branch is session state too, and the environment-vs-stack check reports **ancestry — including `diverged` — never a commit distance** ([§version-lifetimes](#version-lifetimes)) | Either project adopts a real release cadence |
-| **Node types** | One `machines/<name>/` per machine, with `node_types:` inside for CPU/GPU partitions *and* for heterogeneous accelerators — never `machine-gpu/` beside `machine-cpu/`. Node types carry build-determining fields separately from sizing-determining ones; stacks record `validated_on:` as a list, and shared-architecture compatibility is **reported as an inference, never as validation**. Node type is **declared, not detected** — but reconciled against vendor runtime telemetry once a job runs ([§node-types](#node-types)) | — |
+| **Node types** | One `machines/<name>/` per machine, with `node_types:` inside for CPU/GPU partitions *and* for heterogeneous accelerators — never `machine-gpu/` beside `machine-cpu/`. Node types carry build-determining fields separately from sizing-determining ones, including documented installed inventory per type; stacks record `validated_on:` as a list, and shared-architecture compatibility is **reported as an inference, never as validation**. Node type is **declared, not detected** — but reconciled against vendor runtime telemetry once a job runs ([§node-types](#node-types)) | — |
 | **Machine order** | Frontier → DeltaAI → Aurora, onboarded as needed rather than as slices. Scheduler and accelerator fields are **discriminated on type from slice 2** so PBS and non-NVIDIA arrive as values, not restructures ([§build-order](ROADMAP.md#build-order)) | — |
 | **The plan itself** | Ships in the repo as `ARCHITECTURE.md` (durable) + `ROADMAP.md` (state), developer-mode only ([§plan-ships-with-handbook](#plan-ships-with-handbook)) | — |
 | **Cross-references** | Stable `<a id="slug">` anchors, not section numbers; numbers stay in headings and may change freely. Validator-enforced. **Long documents only** — knowledge files are already addressed by path ([§stable-anchors](#stable-anchors)) | — |
@@ -598,15 +598,26 @@ node_types:
     cpu: {...}
     queues: [...]
     limits: {...}
+    sizing: {installed_nodes: <documented-count>, ...}
   cpu:
     accelerator: null
     cpu: {...}
     queues: [...]
     limits: {...}
+    sizing: {installed_nodes: <documented-count>, ...}
 ```
 
 The alternative — `machines/perlmutter-gpu/` beside `machines/perlmutter-cpu/` — duplicates
 every shared fact, and duplicated knowledge is the stated failure mode (P2).
+
+**Installed inventory belongs to the node type.** Every node type records
+`sizing.installed_nodes` from public site documentation. A machine-wide total is derived
+only when the types are exhaustive and disjoint; storing only that total would hide the
+capacity distinction that determines whether a CPU- or accelerator-specific request is
+plausible. The value is documented installed inventory, not current idle, schedulable, or
+allocation-eligible capacity. Use it as an upper-bound sanity check, then query the scheduler
+for live eligible capacity before judging queue feasibility. A request for a large fraction
+of installed nodes triggers a warning and live inspection, not an automatic rejection.
 
 **The build side needs nothing new.** A CPU build is already expressible: it is simply
 another stack ([§stacks](#stacks)), and the stack's `validated_on:` list is the join back to

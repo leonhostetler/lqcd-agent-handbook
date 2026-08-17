@@ -27,6 +27,15 @@ class FrontierMachineTests(unittest.TestCase):
         )
         self.assertEqual(problems, [])
 
+    def test_profile_records_installed_nodes(self):
+        profile = yaml.safe_load(
+            (ROOT / "machines/frontier/machine.yaml").read_text()
+        )
+        self.assertEqual(
+            profile["node_types"]["gpu-mi250x"]["sizing"]["installed_nodes"],
+            9856,
+        )
+
     def run_detector(self, hostname: str) -> str:
         env = os.environ.copy()
         env.pop("NERSC_HOST", None)
