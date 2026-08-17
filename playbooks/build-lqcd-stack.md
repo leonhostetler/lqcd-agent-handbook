@@ -9,9 +9,11 @@ Do not start here until `lqcd-start-session` has verified handbook identity and 
 detected the machine and checkout state, and established the current work mode. Preserve
 all instructions from the working project.
 
-Require the operator to declare the intended compute-node type. A login host cannot supply
-it. Load the matching machine profile, software `project.yaml`, `build-profiles.yaml`, and
-the nearest stack when one exists.
+Resolve the intended compute-node type before continuing. An explicit operator declaration
+wins; without one, use the sole `node_types` entry in the matching machine profile as the
+default. If the profile has multiple entries, require the operator to select one. A login
+host alone cannot supply a node type. Load the matching machine profile, software
+`project.yaml`, `build-profiles.yaml`, and the nearest stack when one exists.
 
 ## 2. Acquire missing source deliberately
 
@@ -79,10 +81,10 @@ memory measurement. Do not describe maximum per-process RSS as aggregate build m
 Build only the focused validation executables required by the selected profile after the
 library and install target succeed.
 
-## 6. Validate on the declared node type
+## 6. Validate on the resolved node type
 
 Prepare the smallest run that exercises the profile's claimed capabilities. Reconcile the
-declared node type with in-job accelerator telemetry. Record the rank/GPU mapping,
+resolved node type with in-job accelerator telemetry. Record the rank/GPU mapping,
 decomposition, tunecache state, test filters, numerical tolerances and residuals, I/O
 statuses where applicable, and terminal result.
 

@@ -7,7 +7,7 @@ Entries are grouped by scoped machine.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
-| [Working on DeltaAI](deltaai/notes.md) | Compute-target declaration and Grace Hopper build and run prerequisites for DeltaAI. | Building software or preparing a job on DeltaAI. |
+| [Working on DeltaAI](deltaai/notes.md) | Compute-target resolution and Grace Hopper build and run prerequisites for DeltaAI. | Building software or preparing a job on DeltaAI. |
 
 ## frontier
 
@@ -15,7 +15,7 @@ Entries are grouped by scoped machine.
 |---|---|---|
 | [MILC ROCm 7 QUDA ks_spectrum stack on Frontier](frontier/stacks/milc-rocm7-quda-ks-spectrum-2026q3/notes.md) | Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack. | Rebuilding or validating the Frontier MILC ks_spectrum_hisq stack with QUDA. |
 | [QUDA ROCm 7 milc-cg stack on Frontier](frontier/stacks/quda-rocm7-milc-cg-2026q3/notes.md) | Reproduction commands and runtime safeguards for the validated Frontier HIP stack. | Rebuilding or validating the quda-rocm7-milc-cg-2026q3 stack. |
-| [Working on Frontier](frontier/notes.md) | Compute-target declaration and HIP build and run prerequisites for Frontier. | Building software or preparing a job on Frontier. |
+| [Working on Frontier](frontier/notes.md) | Compute-target resolution and HIP build and run prerequisites for Frontier. | Building software or preparing a job on Frontier. |
 
 ## perlmutter
 

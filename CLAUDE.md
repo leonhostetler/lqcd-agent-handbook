@@ -10,7 +10,9 @@ Run the `lqcd-start-session` workflow before doing project work. The active fron
 adapter must verify complete loading, validate handbook identity and freshness, detect the
 machine and software state, report the nearest validated stack when one exists, and ask
 only for the current work mode.
-Do not infer a node type from a login host.
+Do not infer a node type from a login host. If the matched machine profile has exactly one
+`node_types` entry, use that sole type as the default; otherwise require explicit operator
+declaration.
 
 Exactly one work mode is current: debugging, performance, benchmarking, tuning, or
 production. It changes only when the operator explicitly declares a change.

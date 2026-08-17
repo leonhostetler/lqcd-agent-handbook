@@ -1,6 +1,6 @@
 ---
 title: Working on Frontier
-summary: Compute-target declaration and HIP build and run prerequisites for Frontier.
+summary: Compute-target resolution and HIP build and run prerequisites for Frontier.
 scope: [machine:frontier]
 load_when: Building software or preparing a job on Frontier.
 evidence: docs
@@ -17,15 +17,17 @@ review_by: "2027-02-17"
 
 The machine profile is canonical for hardware, scheduler, filesystem, and policy values.
 
-## Declare the compute target
+## Resolve the compute target
 
-A login node identifies Frontier, not the intended compute-node type. Select
-`gpu-mi250x` explicitly before resolving a build or stack.
+A login node identifies Frontier but does not itself establish a compute target. Because
+the machine profile currently contains exactly one `node_types` entry, `gpu-mi250x` is
+the default when the operator has not made an explicit selection. No separate operator
+declaration is needed.
 
 Each compute node has four MI250X packages, but Slurm, `ROCR_VISIBLE_DEVICES`, and the
 ROCr runtime expose their eight GCDs as eight separate GPU devices with 64 GB each. Do
 not treat one MI250X package as one schedulable device. Once a job starts, reconcile the
-declared node type with the runtime device count and accelerator telemetry before treating
+resolved node type with the runtime device count and accelerator telemetry before treating
 the run as validation.
 
 ## Place builds deliberately

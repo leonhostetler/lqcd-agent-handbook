@@ -61,8 +61,11 @@ Report rather than ask:
   recognizable project files;
 - the nearest validated stack, or explicitly `no matching validated stack`.
 
-A login host cannot reveal the intended node type. Treat node type as declared intent and
-reconcile it with accelerator telemetry once a job runs.
+A login host alone cannot reveal the intended node type. An explicit operator declaration
+wins; without one, resolve the sole `node_types` entry in a matching machine profile as
+the default. If the profile has multiple entries, leave node type undeclared until the
+operator selects one. Reconcile the resolved type with accelerator telemetry once a job
+runs.
 
 ## 5. Establish modes
 

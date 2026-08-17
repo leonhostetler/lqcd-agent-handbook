@@ -31,7 +31,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Indexing** | Tier-0 `INDEX.md` is a ~dozen-line routing table; per-domain indices are **generated**, committed, and grouped by scoped object ([§indexing](#indexing)) | A domain has enough objects that grouping obscures rather than improves cold reading |
 | **Version pins** | `project.yaml` carries **none**. Pins live in stacks; the checkout in front of you is session state ([§version-lifetimes](#version-lifetimes)) | — |
 | **Branch policy** | **There is none, deliberately.** QUDA and MILC are built from `develop`, a feature branch, or a fork, per episode; tagged releases are not used. So the branch is session state too, and the environment-vs-stack check reports **ancestry — including `diverged` — never a commit distance** ([§version-lifetimes](#version-lifetimes)) | Either project adopts a real release cadence |
-| **Node types** | One `machines/<name>/` per machine, with `node_types:` inside for CPU/GPU partitions *and* for heterogeneous accelerators — never `machine-gpu/` beside `machine-cpu/`. Node types carry build-determining fields separately from sizing-determining ones, including documented installed inventory per type; stacks record `validated_on:` as a list, and shared-architecture compatibility is **reported as an inference, never as validation**. Node type is **declared, not detected** — but reconciled against vendor runtime telemetry once a job runs ([§node-types](#node-types)) | — |
+| **Node types** | One `machines/<name>/` per machine, with `node_types:` inside for CPU/GPU partitions *and* for heterogeneous accelerators — never `machine-gpu/` beside `machine-cpu/`. Node types carry build-determining fields separately from sizing-determining ones, including documented installed inventory per type; stacks record `validated_on:` as a list, and shared-architecture compatibility is **reported as an inference, never as validation**. An explicit operator declaration selects the node type; without one, exactly one profiled node type is the unambiguous default, while multiple profiled types require a declaration. A login host alone never selects it. The resolved type is reconciled against vendor runtime telemetry once a job runs ([§node-types](#node-types)) | — |
 | **Machine order** | Frontier → DeltaAI → Aurora, onboarded as needed rather than as slices. Scheduler and accelerator fields are **discriminated on type from slice 2** so PBS and non-NVIDIA arrive as values, not restructures ([§build-order](ROADMAP.md#build-order)) | — |
 | **The plan itself** | Ships in the repo as `ARCHITECTURE.md` (durable) + `ROADMAP.md` (state), developer-mode only ([§plan-ships-with-handbook](#plan-ships-with-handbook)) | — |
 | **Cross-references** | Stable `<a id="slug">` anchors, not section numbers; numbers stay in headings and may change freely. Validator-enforced. **Long documents only** — knowledge files are already addressed by path ([§stable-anchors](#stable-anchors)) | — |
@@ -639,10 +639,12 @@ one lookup. [§loading-chain](#loading-chain) step 3 resolves it accordingly.
   as unvalidated territory and continue. It *is* mode-sensitive, though: in production mode
   running against no validated stack deserves a loud warning; in debugging mode it is the
   expected state.
-- **Node type is declared, not detected.** [§work-mode-currency](#work-mode-currency)'s "detect, don't ask" does not extend here.
-  `detect-machine.sh` reads a hostname, but a login node tells you nothing about which
-  partition a job will land on — and on many systems the login node matches neither. Node
-  type is part of the operator's intent, carried by the stack.
+- **Node-type resolution is deterministic, not guessed.** An explicit operator declaration
+  wins. Without one, a machine profile containing exactly one `node_types` entry supplies
+  that sole type as the default; a profile with multiple entries remains unresolved until
+  the operator declares one. `detect-machine.sh` reads a hostname, but a login node alone
+  never selects a partition or node type. This removes a redundant prompt on single-target
+  machines without inventing intent on heterogeneous ones.
 
 #### Heterogeneous accelerators, and the distinction that matters
 
@@ -678,9 +680,9 @@ precede benchmarking, and a cache tuned on one accelerator does not carry to ano
 cache identity is keyed by node type. On a heterogeneous machine, "there is already a
 populated tunecache" is not a machine-level fact and must not be recorded as one.
 
-**And here detection *does* return, after the fact.** The declared node type is intent; once
-a job is running, vendor runtime telemetry such as `nvidia-smi` or `rocm-smi` reports what
-it actually got. Reconciling the two is cheap and catches the case where a job landed on
+**And here detection *does* return, after the fact.** The resolved node type is the planned
+target; once a job is running, vendor runtime telemetry such as `nvidia-smi` or `rocm-smi`
+reports what it actually got. Reconciling the two is cheap and catches the case where a job landed on
 hardware other than the one planned for — which on a mixed-memory partition is easy to do
 and otherwise shows up only as an unexplained performance or OOM anomaly.
 

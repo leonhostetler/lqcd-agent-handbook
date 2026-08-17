@@ -1,6 +1,6 @@
 ---
 title: Working on DeltaAI
-summary: Compute-target declaration and Grace Hopper build and run prerequisites for DeltaAI.
+summary: Compute-target resolution and Grace Hopper build and run prerequisites for DeltaAI.
 scope: [machine:deltaai]
 load_when: Building software or preparing a job on DeltaAI.
 evidence: docs
@@ -19,16 +19,17 @@ review_by: "2027-02-17"
 
 The machine profile is canonical for hardware, scheduler, filesystem, and policy values.
 
-## Declare the compute target
+## Resolve the compute target
 
-A DeltaAI login node has no GPU and does not establish a compute target. Select
-`gpu-gh200` explicitly before resolving a build or stack. DeltaAI currently has one
-compute-node type, but validation remains specific to the node type actually run.
+A DeltaAI login node has no GPU and does not itself establish a compute target. Because the
+machine profile currently contains exactly one `node_types` entry, `gpu-gh200` is the
+default when the operator has not made an explicit selection. No separate operator
+declaration is needed. Validation remains specific to the node type actually run.
 
 A full node contains four GH200 superchips. Each combines one 72-core Grace CPU NUMA
 domain with one 96 GB H100 GPU, and the smallest allocatable unit is one superchip.
 Requesting CPU cores or host memory beyond one superchip's share can increase the charged
-GPU fraction even when fewer GPUs are requested. Once a job starts, reconcile the declared
+GPU fraction even when fewer GPUs are requested. Once a job starts, reconcile the resolved
 node type and requested fraction with accelerator and NUMA telemetry before treating the
 run as validation.
 
