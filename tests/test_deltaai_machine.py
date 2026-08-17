@@ -70,6 +70,47 @@ class DeltaAIMachineTests(unittest.TestCase):
         self.assertEqual(node["accelerator"]["memory_gb"], 96)
         self.assertEqual(node["build_constraints"]["cpu_arch"], "aarch64")
 
+    def test_quda_stack_records_runtime_evidence_and_scope_limits(self):
+        stack = yaml.safe_load(
+            (
+                ROOT
+                / "machines/deltaai/stacks/quda-cuda12-milc-cg-2026q3/stack.yaml"
+            ).read_text()
+        )
+        self.assertEqual(stack["validated_on"], ["gpu-gh200"])
+        self.assertEqual(
+            stack["tested_software"]["quda"]["commit"],
+            "b6998853f6b605e22d67ea2ddfa3cab0d752679a",
+        )
+        self.assertEqual(stack["build"]["gpu_arch"], "sm_90")
+        self.assertEqual(
+            stack["validation"]["resources"]["partition"],
+            "ghx4-interactive",
+        )
+        self.assertEqual(
+            [test["result"] for test in stack["validation"]["tests"]],
+            ["pass", "pass", "pass"],
+        )
+        self.assertLessEqual(
+            stack["validation"]["tests"][1]["true_l2_relative_residual"],
+            stack["validation"]["tests"][1]["requested_l2_relative_residual"],
+        )
+        self.assertTrue(
+            any(
+                "no MILC executable" in limit
+                for limit in stack["validation"]["scope_limits"]
+            )
+        )
+
+    def test_quda_stack_notes_preserve_tested_interactive_placement(self):
+        notes = (
+            ROOT
+            / "machines/deltaai/stacks/quda-cuda12-milc-cg-2026q3/notes.md"
+        ).read_text()
+        self.assertIn("#SBATCH --partition=ghx4-interactive", notes)
+        self.assertIn("#SBATCH --gpu-bind=none", notes)
+        self.assertIn("tuning-candidate regression warning", notes)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,6 +7,7 @@ Entries are grouped by scoped machine.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
+| [QUDA CUDA 12 milc-cg stack on DeltaAI](deltaai/stacks/quda-cuda12-milc-cg-2026q3/notes.md) | Reproduction commands and GH200 runtime safeguards for the validated DeltaAI CUDA stack. | Rebuilding or validating the quda-cuda12-milc-cg-2026q3 stack on DeltaAI. |
 | [Working on DeltaAI](deltaai/notes.md) | Compute-target resolution and Grace Hopper build and run prerequisites for DeltaAI. | Building software or preparing a job on DeltaAI. |
 
 ## frontier

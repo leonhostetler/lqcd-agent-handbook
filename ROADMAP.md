@@ -73,7 +73,17 @@ Also on 2026-08-17, DeltaAI became the first post-slice machine onboarded under 
 Slice 2 schema. Its documentation-backed profile records the four-way NVIDIA GH200 node,
 shared-node accounting, Slurm partitions, storage choices, Cray build environment, and
 public login aliases. Detection recognizes the DeltaAI login nodes without conflating
-them with Delta. No DeltaAI software stack is recorded until one is built and run.
+them with Delta.
+
+Later on 2026-08-17, the first DeltaAI software stack was built and run. QUDA
+`b6998853f6b605e22d67ea2ddfa3cab0d752679a` on `develop` used CUDA 12.9.41, `sm_90`,
+Cray MPICH 9.0.1, and the `milc-cg` profile. Its clean eight-way login-node build and
+install completed in 7m50.59s. An operator-submitted four-rank run on one `gpu-gh200` node
+in `ghx4-interactive` passed staggered dslash comparison, double-precision CG L2-residual
+verification, and double- and single-precision QIO write/read checks. The run populated a
+fresh tunecache and emitted a tuning-candidate regression warning, so it is correctness
+rather than benchmark evidence. The MILC interface was compiled, but no MILC executable
+was linked or run.
 
 The same developer session advanced the machine schema to version 2 and made documented
 `sizing.installed_nodes` mandatory for every node type. Perlmutter now distinguishes its
@@ -83,17 +93,17 @@ scheduler capacity.
 
 Latest automated evidence:
 
-- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: seventeen
-  schema objects valid, fourteen provenance records complete, four generated indices current,
-  zero P2 advisories, two frontend adapters and six session-logging assets valid, 202
-  long-document references resolved, no deny-list match, and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all seventy-seven checks pass with both the
+- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: eighteen
+  schema objects valid, fifteen provenance records complete, four generated indices current,
+  zero P2 advisories, two frontend adapters and six session-logging assets valid, 201
+  long-document references resolved, no deny-list match, and Tier 0 at 3,059/6,144 bytes;
+- `python3 -m unittest discover -s tests -v`: all eighty checks pass with both the
   parent interpreter and subprocess `python3` resolved to Python 3.11, including fourteen
-  focused session-logging checks, four focused DeltaAI machine checks, four focused Frontier
+  focused session-logging checks, six focused DeltaAI checks, four focused Frontier
   machine checks, fourteen focused Slice 1 checks, ten focused Slice 2 checks, and eleven
   focused Slice 3 checks;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
-  tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier
+  tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier and DeltaAI
   validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,
   `python3 tools/sync-agent-entrypoints.py --check`, `tools/build-index.py --check`, and
   `git diff --check` complete cleanly.
