@@ -78,6 +78,7 @@ def validate_observed_on(
     scope: Any = None,
     expected_machine: str | None = None,
     expected_software: str | None = None,
+    default_branches: dict[str, str] | None = None,
 ) -> None:
     if not isinstance(value, dict) or not value:
         errors.append(f"{rel}: observed_on must be a non-empty mapping")
@@ -131,13 +132,29 @@ def validate_observed_on(
             errors.append(
                 f"{rel}: observed_on.software.{name}.branch must be a non-empty string"
             )
-        elif branch != "develop":
-            fork = context.get("forked_from_develop")
+        else:
+            default_branch = (default_branches or {}).get(name, "develop")
+            if branch == default_branch:
+                continue
+            fork = context.get("forked_from_default")
             if not isinstance(fork, str) or not fork:
                 errors.append(
-                    f"{rel}: observed_on.software.{name}.forked_from_develop "
-                    "is required off develop"
+                    f"{rel}: observed_on.software.{name}.forked_from_default "
+                    f"is required off default branch {default_branch!r}"
                 )
+
+
+def software_default_branches(root: Path, names: set[str]) -> dict[str, str]:
+    defaults: dict[str, str] = {}
+    for name in sorted(names):
+        try:
+            project = load_yaml(root / "software" / name / "project.yaml")
+        except (OSError, ValueError):
+            continue
+        branch = project.get("default_branch") if isinstance(project, dict) else None
+        if isinstance(branch, str) and branch:
+            defaults[name] = branch
+    return defaults
 
 
 def validate_iso_date(
@@ -177,6 +194,7 @@ def validate_schemas(root: Path, errors: list[str]) -> int:
     bindings = [
         ("machines/**/machine.yaml", "machine.schema.json"),
         ("software/**/project.yaml", "project.schema.json"),
+        ("software/**/build-profiles.yaml", "build-profiles.schema.json"),
         ("machines/*/stacks/*/stack.yaml", "stack.schema.json"),
     ]
     checked = 0
@@ -205,22 +223,120 @@ def validate_schemas(root: Path, errors: list[str]) -> int:
                         expected_machine=instance.get("name"),
                     )
                 elif schema_name == "project.schema.json":
+                    name = instance.get("name")
                     validate_observed_on(
                         instance.get("observed_on"),
                         rel,
                         errors,
-                        expected_software=instance.get("name"),
+                        expected_software=name,
+                        default_branches=(
+                            {name: instance.get("default_branch")}
+                            if isinstance(name, str)
+                            and isinstance(instance.get("default_branch"), str)
+                            else None
+                        ),
                     )
+                elif schema_name == "build-profiles.schema.json":
+                    software = instance.get("software")
+                    validate_observed_on(
+                        instance.get("observed_on"),
+                        rel,
+                        errors,
+                        expected_software=software,
+                        default_branches=software_default_branches(
+                            root, {software} if isinstance(software, str) else set()
+                        ),
+                    )
+                    validate_build_profile_references(root, path, instance, errors)
                 elif schema_name == "stack.schema.json":
+                    observed_software = instance.get("observed_on", {}).get(
+                        "software", {}
+                    )
                     validate_observed_on(
                         instance.get("observed_on"),
                         rel,
                         errors,
                         expected_machine=instance.get("machine"),
                         expected_software=instance.get("software"),
+                        default_branches=software_default_branches(
+                            root,
+                            {
+                                name
+                                for name in observed_software
+                                if isinstance(name, str)
+                            }
+                            if isinstance(observed_software, dict)
+                            else set(),
+                        ),
                     )
                     validate_stack_references(root, path, instance, errors)
     return len(loaded) + checked
+
+
+def validate_build_profile_references(
+    root: Path, path: Path, record: dict[str, Any], errors: list[str]
+) -> None:
+    rel = path.relative_to(root)
+    software = record.get("software")
+    if len(rel.parts) != 3 or rel.parts[0] != "software":
+        errors.append(f"{rel}: build profiles must live at software/<name>/build-profiles.yaml")
+        return
+    if software != rel.parts[1]:
+        errors.append(
+            f"{rel}: build profile software {software!r} must match parent "
+            f"software {rel.parts[1]!r}"
+        )
+
+    for profile_name, profile in record.get("profiles", {}).items():
+        if not isinstance(profile, dict):
+            continue
+        compositions = profile.get("composes", {})
+        if not isinstance(compositions, dict):
+            continue
+        for dependency, composition in compositions.items():
+            if not isinstance(dependency, str) or not isinstance(composition, dict):
+                continue
+            pointer = f"software/{dependency}/build-profiles.yaml"
+            try:
+                dependency_record = load_yaml(root / pointer)
+            except (OSError, ValueError) as exc:
+                errors.append(
+                    f"{rel}: profile {profile_name!r} cannot load composed profiles "
+                    f"from {pointer}: {exc}"
+                )
+                continue
+            dependency_profile = composition.get("profile")
+            available_profiles = (
+                dependency_record.get("profiles", {})
+                if isinstance(dependency_record, dict)
+                else {}
+            )
+            if dependency_profile not in available_profiles:
+                errors.append(
+                    f"{rel}: profile {profile_name!r} composes missing profile "
+                    f"{dependency!r}/{dependency_profile!r}"
+                )
+                continue
+            selected_dependency_profile = available_profiles[dependency_profile]
+            available_capabilities = (
+                selected_dependency_profile.get("capabilities", {})
+                if isinstance(selected_dependency_profile, dict)
+                else {}
+            )
+            required_capabilities = composition.get("required_capabilities", {})
+            if not isinstance(required_capabilities, dict):
+                continue
+            for capability, required_values in required_capabilities.items():
+                if not isinstance(required_values, list):
+                    continue
+                available_values = available_capabilities.get(capability, [])
+                missing = sorted(set(required_values) - set(available_values))
+                if missing:
+                    errors.append(
+                        f"{rel}: profile {profile_name!r} requires unavailable "
+                        f"{dependency!r}/{dependency_profile!r} capability "
+                        f"{capability!r}: {', '.join(missing)}"
+                    )
 
 
 def validate_stack_references(
@@ -266,6 +382,14 @@ def validate_stack_references(
             f"{rel}: profile {profile!r} is absent from "
             f"software/{software}/build-profiles.yaml"
         )
+
+    selected_profile = profiles.get(profile, {}) if isinstance(profiles, dict) else {}
+    tested_software = stack.get("tested_software", {})
+    for dependency in selected_profile.get("composes", {}):
+        if dependency not in tested_software:
+            errors.append(
+                f"{rel}: composed software {dependency!r} must be present in tested_software"
+            )
 
     expected_pointer = f"software/{software}/build-profiles.yaml#{profile}"
     actual_pointer = stack.get("build", {}).get("profile_options_from")
@@ -394,8 +518,19 @@ def validate_provenance(root: Path, errors: list[str], warnings: list[str]) -> i
             if kind == "observed" and "incidents" not in rel.parts:
                 errors.append(f"{rel}: evidence observed is allowed only under incidents/")
             observed_on = meta.get("observed_on")
+            scoped_software = {
+                item.split(":", 1)[1]
+                for item in meta.get("scope", [])
+                if isinstance(item, str)
+                and item.startswith("software:")
+                and item.split(":", 1)[1]
+            }
             validate_observed_on(
-                observed_on, rel, errors, scope=meta.get("scope")
+                observed_on,
+                rel,
+                errors,
+                scope=meta.get("scope"),
+                default_branches=software_default_branches(root, scoped_software),
             )
             anchored = has_version_anchor(observed_on)
             review = meta.get("review_by")

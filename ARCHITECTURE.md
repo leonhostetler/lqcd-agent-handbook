@@ -546,10 +546,11 @@ cites can cease to exist, or reappear as a different SHA with the same content. 
 `observed on <commit-a>` is then unresolvable by the next reader, and silently so.
 
 Therefore **every commit reference records its branch context**, in `stack.yaml`'s
-`tested_software` and in `observed_on.software` alike: the branch, and where it forked from
-`develop`. Where even that is unstable, say so — an observation whose code state cannot be
-recovered is weaker evidence, and [§evidence-vocabulary](#evidence-vocabulary) should grade it accordingly rather than let a
-precise-looking SHA imply a precision that is not there.
+`tested_software` and in `observed_on.software` alike: the branch, and, when that is not the
+project's recorded default branch, where it forked from that default. Where even that is
+unstable, say so — an observation whose code state cannot be recovered is weaker evidence,
+and [§evidence-vocabulary](#evidence-vocabulary) should grade it accordingly rather than let
+a precise-looking SHA imply a precision that is not there.
 
 <a id="observed-on-completeness"></a>
 #### Complete observation predicates
@@ -561,8 +562,8 @@ now be stated from real instances instead of guessed in a schema:
 - every `software:<name>` scope requires an `observed_on.software.<name>` mapping with both
   `commit` and `branch`; a `project.yaml` record imposes the same requirement for its
   `name`, even though the record itself carries no version pin;
-- a software observation on a branch other than `develop` also records the commit where
-  that branch forked from `develop`, as `forked_from_develop`;
+- a software observation on a branch other than the project's recorded `default_branch`
+  also records the commit where it forked from that default, as `forked_from_default`;
 - claims whose behavior depends on a compiler, accelerator toolkit, or other toolchain
   component name the observed component under `observed_on.toolchain`; and
 - `universal` facts and requirement-owned policy use a truthful non-version predicate and

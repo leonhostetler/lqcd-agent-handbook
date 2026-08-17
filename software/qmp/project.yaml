@@ -1,0 +1,41 @@
+schema_version: 2
+name: qmp
+summary: USQCD message-passing API implementation with MPI and single-node communication backends.
+repository: https://github.com/usqcd-software/qmp.git
+default_branch: master
+documentation:
+  - https://github.com/usqcd-software/qmp
+build_systems:
+  - CMake
+  - Autotools
+dependencies:
+  - name: MPI
+    purpose: Supplies the multi-rank communication backend when QMP_MPI is enabled.
+    required: false
+interfaces:
+  - QMP C API
+capabilities:
+  - MPI-backed message passing
+  - Single-node communication
+  - Logical process topology
+build_options:
+  QMP_MPI:
+    meaning: Selects the MPI communication backend instead of the single-node backend.
+    type: boolean
+    capabilities: [MPI-backed message passing]
+  QMP_TESTING:
+    meaning: Builds QMP example and test programs.
+    type: boolean
+  QMP_BUILD_DOCS:
+    meaning: Builds the Doxygen documentation.
+    type: boolean
+evidence: source
+observed: "2026-08-17"
+observed_on:
+  software:
+    qmp:
+      commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+      branch: master
+sources:
+  - https://github.com/usqcd-software/qmp/blob/3010fef5b5784b3e6eeec9fff38cb9954a28ad42/CMakeLists.txt
+  - https://github.com/usqcd-software/qmp/blob/3010fef5b5784b3e6eeec9fff38cb9954a28ad42/include/qmp.h

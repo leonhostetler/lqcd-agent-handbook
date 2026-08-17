@@ -1,6 +1,7 @@
 # LQCD Agent Handbook — Roadmap
 
-**Status:** Slices 1 and 2 are accepted. Slice 0c's current-logger and Codex logger-absent
+**Status:** Slices 1 and 2 are accepted. The Frontier half of Slice 3 is recorded and its
+Perlmutter half remains pending. Slice 0c's current-logger and Codex logger-absent
 cold-session cases passed, while its three remaining cases are pending.
 
 **NEXT ACTION:** Complete Slice 0c's three remaining cold-session cases.
@@ -41,19 +42,34 @@ Slurm inherited the handbook submission directory. The reproduction notes now pi
 `--chdir` and `--output` to the working project so scheduler output cannot land in the
 handbook merely because the operator submitted from there.
 
+Also on 2026-08-17, the Frontier half of Slice 3 built and ran the first composed MILC
+application stack. MILC `6b9b8a06eec5746187bbfd197eac2629ab8d8e72` on `develop` built
+`ks_spectrum_hisq` against the validated QUDA `milc-cg` installation in a fresh disposable
+checkout. The single-job login-node build completed in 25.97s. An operator-submitted
+eight-rank run on one `gpu-mi250x` node completed its application payload, constructed HISQ
+links through QUDA, and produced the expected correlator structure. All 24 QUDA CG solves
+reported convergence and their maximum true residual remained below the requested
+`1e-8`. The outer wrapper then false-failed because it required positive MILC `total_iters`;
+at this MILC commit that local counter is returned without being incremented even though
+QUDA reports the real iterations. The stack therefore records the application payload and
+wrapper outcomes separately and accepts the numerical run. QIO was linked but not exercised
+by the warm-gauge application sample, P2P remained disabled, and the fresh tunecache makes
+the run correctness rather than benchmark evidence. Slice 3 remains in progress until the
+corresponding Perlmutter MILC stack is built and validated.
+
 Latest automated evidence:
 
-- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: eight
-  schema objects valid, seven provenance records complete, four generated indices current,
+- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: fifteen
+  schema objects valid, twelve provenance records complete, four generated indices current,
   zero P2 advisories, two frontend adapters and six session-logging assets valid, 202
   long-document references resolved, no deny-list match, and Tier 0 at 2,908/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all fifty-eight checks pass with both the
+- `python3 -m unittest discover -s tests -v`: all sixty-seven checks pass with both the
   parent interpreter and subprocess `python3` resolved to Python 3.11, including thirteen
-  focused session-logging checks, all twelve focused Slice 1 checks, and ten focused Slice
-  2 checks;
+  focused session-logging checks, thirteen focused Slice 1 checks, ten focused Slice 2
+  checks, and eight focused Slice 3 checks;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
   tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier
-  validation job, Python compilation of the validator, indexer, and Slice 2 tests,
+  validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,
   `python3 tools/sync-agent-entrypoints.py --check`, `tools/build-index.py --check`, and
   `git diff --check` complete cleanly.
 
@@ -322,6 +338,11 @@ scheduler. The same applies to `accelerator.vendor`, which Frontier exercises di
 profiles must compose. Adds `software/{qmp,qio}/` as dependencies, plus
 `schemas/build-profiles.schema.json` and its validator binding, now derived from profiles
 in two software contexts.
+
+**State:** In progress. The Frontier `ks_spectrum_hisq` stack, composed MILC and QUDA
+profiles, QMP and QIO project records, profile schema, validator binding, and focused tests
+are recorded from the 2026-08-17 validation. The corresponding Perlmutter MILC build and
+one-node application validation remain pending before Slice 3 acceptance.
 
 ### Slice 4 — modes, benchmarking, and the prediction loop
 All five `modes/*.md`, `conventions/{running,measurement}.md`,

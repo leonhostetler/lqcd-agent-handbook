@@ -1,0 +1,155 @@
+schema_version: 1
+machine: frontier
+software: milc
+profile: ks-spectrum-hisq-quda
+validated_on:
+  - gpu-mi250x
+tested_software:
+  milc:
+    commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    branch: develop
+  quda:
+    commit: 7733f60bb744204576f82574ece8d8bd454fbcfd
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch: master
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch: master
+tested_toolchain:
+  environment: Core/25.03
+  programming_environment: PrgEnv-amd/8.6.0
+  amd:
+    module: amd/7.1.1
+  hip:
+    compiler: hipcc
+    version: 7.1.52802
+    clang_version: 20.0.0git
+  rocm:
+    module: rocm/7.1.1
+  mpi:
+    module: cray-mpich/9.1.0
+build:
+  type: optimized double precision with debug and profiling instrumentation
+  target: HIP
+  gpu_arch: gfx90a
+  generator: GNU Make
+  install_layout: <build-dir>/install/bin/ks_spectrum_hisq
+  profile_options_from: software/milc/build-profiles.yaml#ks-spectrum-hisq-quda
+  machine_options:
+    OFFLOAD: HIP
+    MY_CC: hipcc
+    MY_CXX: hipcc
+    COMPILER: gnu
+    OPT: -I${MPICH_DIR}/include -g -pg -ggdb -O3 -Ofast --offload-arch=gfx90a
+    LDFLAGS: --verbose -g -Wl,-rpath=${MPICH_DIR}/lib -L${MPICH_DIR}/lib -lmpi
+    QUDA_HOME: <quda-install-prefix>
+    QMPPAR: <quda-install-prefix>
+    QIOPAR: <quda-install-prefix>
+    LIBQUDA: -Wl,-rpath,<quda-install-prefix>/lib -L<quda-install-prefix>/lib -lquda -D__gfx90a --amdgpu-target=gfx90a -Wl,-rpath,/opt/rocm-7.1.1/lib -L/opt/rocm-7.1.1/lib -lhiprand -lrocfft -lhipblas -lrocblas -g -pg
+  dependency_acquisition:
+    mode: existing validated QUDA stack installation
+    composed_profile: software/quda/build-profiles.yaml#milc-cg
+    network_required: false
+  cost:
+    where: login
+    command: make -j1 ks_spectrum_hisq
+    parallelism: 1
+    wallclock: 25.97s
+    timing_scope: Fresh disposable checkout; application objects, dependent MILC libraries, and final link.
+    maximum_reported_rss_kib: 234496
+    memory_scope: Maximum RSS reported by GNU time for the make command, not aggregate build-process memory.
+validation:
+  date: "2026-08-17"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 1
+    mpi_ranks: 8
+    cpus_per_rank: 7
+    gpus_per_rank: 1
+    visible_gpu_devices: 8
+    accelerator: AMD Instinct MI250X GCD
+    accelerator_memory_bytes: 68702699520
+    constraint: nvme
+    global_lattice: [16, 16, 16, 32]
+    rank_grid: [1, 2, 2, 2]
+    local_lattice_per_rank: [16, 8, 8, 16]
+  runtime:
+    communication: QMP over Cray MPICH
+    QUDA_ENABLE_P2P: 0
+    QUDA_ENABLE_GDR: 1
+    MPICH_GPU_SUPPORT_ENABLED: 1
+    QUDA_MILC_HISQ_RECONSTRUCT: 13
+    QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY: 9
+    gpu_binding: All eight devices remained visible so QUDA could select by local rank.
+    cpu_binding: Seven physical cores per rank with Frontier NUMA-aware masks.
+    quda_resource_path: Fresh writable tunecache directory.
+    application_payload_exit_code: 0
+    application_step_elapsed: 45s
+    milc_reported_time_seconds: 40.64254
+    quda_reported_total_time_seconds: 39.951
+    scheduler_application_step_max_rss_kib: 1633608
+    scheduler_memory_scope: Scheduler-reported application-step task maximum, not aggregate rank memory.
+    outer_harness_exit_code: 1
+    outer_harness_result: False negative after payload completion because it required positive MILC total_iters.
+  tests:
+    - name: application_completion
+      input: upstream systems/Frontier/sample.in
+      terminal_marker: RUNNING COMPLETED
+      payload_exit_code: 0
+      result: pass
+    - name: hisq_fermion_link_construction
+      implementation_marker: FLTIME HISQ QUDA D
+      result: pass
+    - name: quda_cg_convergence
+      solves: 24
+      requested_true_residual: 1.0e-8
+      maximum_true_residual: 9.996404e-9
+      minimum_iterations: 73
+      maximum_iterations: 4267
+      total_reported_quda_iterations: 42571
+      convergence_markers: 24
+      result: pass
+    - name: correlator_output_structure
+      correlator_records: 12
+      time_slices_per_record: 32
+      data_rows: 384
+      output_bytes: 24015
+      result: pass
+  scope_limits:
+    - QIO was linked, but the upstream warm-gauge sample did not exercise QIO file read or write through the MILC application.
+    - Gaussian smearing, gauge-force, and fermion-force paths were compiled but not exercised by this sample.
+    - The gauge-fixing path executed, but acceptance did not assert that its final reported delta met the configured tolerance.
+    - Correlator validation checked file structure and completeness, not agreement with reference correlator values.
+    - Validation covers the P2P-disabled workaround path only.
+    - The run populated a fresh tunecache and is not benchmark evidence.
+    - Root-rank output confirmed local-rank selection and all-device visibility but did not enumerate every selected device ordinal.
+    - The outer validation harness false-failed only after the application payload exited zero; MILC total_iters is not a valid acceptance marker at the tested commit.
+evidence: experiment
+observed: "2026-08-17"
+observed_on:
+  machine: frontier
+  node_type: gpu-mi250x
+  software:
+    milc:
+      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      branch: develop
+    quda:
+      commit: 7733f60bb744204576f82574ece8d8bd454fbcfd
+      branch: develop
+  toolchain:
+    rocm: 7.1.1
+    hip: 7.1.52802
+    host_compiler: AMD clang 20.0.0git through hipcc
+sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Frontier/compile_ks_spectrum_hisq.sh
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Frontier/sample.in
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/make_prop.c
+  - https://github.com/lattice/quda/blob/7733f60bb744204576f82574ece8d8bd454fbcfd/CMakeLists.txt
+  - operator-submitted validation run reviewed in the working directory; raw scheduler output is not committed

@@ -193,7 +193,7 @@ class ObservedOnCompletenessTests(unittest.TestCase):
         self.assertTrue(any(".commit" in error for error in errors))
         self.assertTrue(any(".branch" in error for error in errors))
 
-    def test_feature_branch_requires_develop_fork_point(self):
+    def test_feature_branch_requires_default_fork_point(self):
         errors = self.validate(
             {
                 "software": {
@@ -201,8 +201,17 @@ class ObservedOnCompletenessTests(unittest.TestCase):
                 }
             },
             expected_software="quda",
+            default_branches={"quda": "develop"},
         )
-        self.assertTrue(any("forked_from_develop" in error for error in errors))
+        self.assertTrue(any("forked_from_default" in error for error in errors))
+
+    def test_project_default_branch_does_not_require_fork_point(self):
+        errors = self.validate(
+            {"software": {"qmp": {"commit": "abc123", "branch": "master"}}},
+            expected_software="qmp",
+            default_branches={"qmp": "master"},
+        )
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

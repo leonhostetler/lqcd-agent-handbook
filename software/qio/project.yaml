@@ -1,0 +1,51 @@
+schema_version: 2
+name: qio
+summary: USQCD portable lattice-data I/O library with scalar and QMP-enabled parallel builds.
+repository: https://github.com/usqcd-software/qio.git
+default_branch: master
+documentation:
+  - https://github.com/usqcd-software/qio
+build_systems:
+  - CMake
+  - Autotools
+dependencies:
+  - name: QMP
+    purpose: Supplies communication for a parallel-architecture QIO build.
+    required: false
+  - name: C-LIME
+    purpose: Supplies the LIME record layer; QIO builds its bundled copy unless an external installation is selected.
+    required: true
+interfaces:
+  - QIO C API
+capabilities:
+  - USQCD lattice-field file I/O
+  - Scalar and parallel-architecture builds
+  - Optional parallel read and write
+build_options:
+  QIO_ENABLE_PARALLEL_BUILD:
+    meaning: Selects the parscalar architecture and requires QMP.
+    type: boolean
+    capabilities: [QMP-enabled parallel architecture]
+  QIO_ENABLE_PARALLEL_IO:
+    meaning: Enables parallel read and write paths.
+    type: boolean
+    capabilities: [parallel file I/O]
+  QIO_ENABLE_QMP_ROUTE:
+    meaning: Enables routing through QMP.
+    type: boolean
+  QIO_ENABLE_OUTPUT_BUFFERING:
+    meaning: Enables QIO output buffering.
+    type: boolean
+  QIO_DML_BUF_BYTES:
+    meaning: Sets the maximum data-movement-layer buffer size in bytes.
+    type: integer
+evidence: source
+observed: "2026-08-17"
+observed_on:
+  software:
+    qio:
+      commit: 273841537392f9465d229c957228755e923408eb
+      branch: master
+sources:
+  - https://github.com/usqcd-software/qio/blob/273841537392f9465d229c957228755e923408eb/CMakeLists.txt
+  - https://github.com/usqcd-software/qio/blob/273841537392f9465d229c957228755e923408eb/README

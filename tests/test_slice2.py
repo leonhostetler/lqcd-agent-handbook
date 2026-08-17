@@ -28,14 +28,14 @@ class SliceTwoStackTests(unittest.TestCase):
         self.schema = json.loads((ROOT / "schemas/stack.schema.json").read_text())
         self.stack_paths = sorted(ROOT.glob("machines/*/stacks/*/stack.yaml"))
 
-    def test_schema_is_bound_and_both_vendor_stacks_validate(self):
+    def test_schema_is_bound_and_all_recorded_stacks_validate(self):
         manifest = yaml.safe_load((ROOT / "handbook.yaml").read_text())
         validator = Draft202012Validator(
             self.schema, format_checker=FormatChecker()
         )
         self.assertEqual(manifest["schema_versions"]["stack"], 1)
         self.assertEqual(self.schema["properties"]["schema_version"]["const"], 1)
-        self.assertEqual(len(self.stack_paths), 2)
+        self.assertGreaterEqual(len(self.stack_paths), 2)
         for path in self.stack_paths:
             with self.subTest(path=path):
                 problems = list(validator.iter_errors(yaml.safe_load(path.read_text())))
@@ -51,7 +51,7 @@ class SliceTwoStackTests(unittest.TestCase):
     def test_stack_cross_references_are_complete(self):
         errors: list[str] = []
         count = VALIDATOR.validate_schemas(ROOT, errors)
-        self.assertEqual(count, 8)
+        self.assertGreaterEqual(count, 8)
         self.assertEqual(errors, [])
 
     def test_frontier_stack_records_runtime_evidence_and_limits(self):

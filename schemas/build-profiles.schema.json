@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/lqcd-agent-handbook/schemas/build-profiles.schema.json",
+  "title": "LQCD software build profiles",
+  "description": "Named, version-scoped option sets and the capabilities they produce, including composition with another software profile.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "software",
+    "profiles",
+    "evidence",
+    "observed",
+    "observed_on",
+    "sources"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "software": {
+      "$ref": "#/$defs/name"
+    },
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "evidence": {
+      "type": "string",
+      "enum": [
+        "source",
+        "docs",
+        "observed",
+        "reproduced",
+        "experiment",
+        "operator",
+        "inferred"
+      ]
+    },
+    "observations": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "observed": {
+      "type": "string",
+      "format": "date"
+    },
+    "observed_on": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": true
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "evidence": {
+            "const": "reproduced"
+          }
+        },
+        "required": [
+          "evidence"
+        ]
+      },
+      "then": {
+        "required": [
+          "observations"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "string_list": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "profile": {
+      "type": "object",
+      "required": [
+        "summary",
+        "options",
+        "capabilities"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "options": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/option_value"
+          }
+        },
+        "capabilities": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/field_name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/string_list"
+          }
+        },
+        "targets": {
+          "$ref": "#/$defs/string_list"
+        },
+        "composes": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/composition"
+          }
+        },
+        "excludes": {
+          "$ref": "#/$defs/string_list"
+        },
+        "notes": {
+          "$ref": "#/$defs/string_list"
+        },
+        "build_cost": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "composition": {
+      "type": "object",
+      "required": [
+        "profile"
+      ],
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/name"
+        },
+        "required_capabilities": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/field_name"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/string_list"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "field_name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "option_value": {
+      "anyOf": [
+        {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

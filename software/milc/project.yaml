@@ -1,0 +1,104 @@
+schema_version: 2
+name: milc
+summary: Lattice-QCD application suite for gauge generation, spectroscopy, and related calculations, with optional QUDA acceleration.
+repository: https://github.com/milc-qcd/milc_qcd.git
+default_branch: develop
+documentation:
+  - https://github.com/milc-qcd/milc_qcd
+build_systems:
+  - GNU Make
+dependencies:
+  - name: QUDA
+    purpose: Accelerates staggered solves, fermion links, gauge fixing, smearing, and force paths selected by the build.
+    required: false
+  - name: QMP
+    purpose: Provides message passing for the tested multi-rank build.
+    required: false
+  - name: QIO
+    purpose: Provides USQCD-format file I/O when enabled.
+    required: false
+  - name: MPI
+    purpose: Provides distributed-memory execution when MPP is enabled.
+    required: false
+interfaces:
+  - QUDA MILC interface
+  - QMP
+  - QIO
+capabilities:
+  - Gauge generation and measurement applications
+  - Staggered and HISQ spectroscopy applications
+  - Optional QUDA acceleration
+  - Multi-rank execution
+build_options:
+  WANTQUDA:
+    meaning: Enables the MILC-to-QUDA interface.
+    type: boolean
+    capabilities: [QUDA interface]
+  WANT_FN_CG_GPU:
+    meaning: Enables QUDA staggered conjugate-gradient solves.
+    type: boolean
+    capabilities: [QUDA staggered CG]
+  WANT_FL_GPU:
+    meaning: Enables QUDA fermion-link construction.
+    type: boolean
+    capabilities: [QUDA fermion links]
+  WANT_GF_GPU:
+    meaning: Enables QUDA gauge-force support.
+    type: boolean
+    capabilities: [QUDA gauge force]
+  WANT_FF_GPU:
+    meaning: Enables QUDA fermion-force support.
+    type: boolean
+    capabilities: [QUDA fermion force]
+  WANT_GAUGEFIX_OVR_GPU:
+    meaning: Enables QUDA over-relaxation gauge fixing.
+    type: boolean
+    capabilities: [QUDA gauge fixing]
+  WANT_GSMEAR_GPU:
+    meaning: Enables QUDA Gaussian smearing.
+    type: boolean
+    capabilities: [QUDA Gaussian smearing]
+  WANT_MIXED_PRECISION_GPU:
+    meaning: Selects the accelerator mixed-precision policy; value 2 is double-single for a double-precision build.
+    type: integer
+  PRECISION:
+    meaning: Selects MILC floating-point precision; value 2 builds double precision.
+    type: integer
+  MPP:
+    meaning: Enables distributed-memory parallel execution.
+    type: boolean
+    capabilities: [multi-rank execution]
+  OMP:
+    meaning: Enables OpenMP compilation.
+    type: boolean
+    capabilities: [OpenMP]
+  WANTQMP:
+    meaning: Enables QMP communication.
+    type: boolean
+    capabilities: [QMP communication]
+  WANTQIO:
+    meaning: Enables QIO linkage and requires QMP.
+    type: boolean
+    capabilities: [QIO linkage]
+  CGEOM:
+    meaning: Supplies compile-time fixed node and I/O geometry definitions.
+    type: string
+    capabilities: [fixed runtime geometry input]
+  KSCGMULTI:
+    meaning: Selects the staggered multimass solver implementation policy.
+    type: string
+    capabilities: [hybrid staggered multimass dispatch]
+  CTIME:
+    meaning: Supplies compile-time timing and reporting definitions.
+    type: string
+    capabilities: [application timing reports]
+evidence: source
+observed: "2026-08-17"
+observed_on:
+  software:
+    milc:
+      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      branch: develop
+sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Frontier/compile_ks_spectrum_hisq.sh
