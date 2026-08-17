@@ -1,0 +1,114 @@
+schema_version: 1
+name: frontier
+summary: OLCF HPE Cray EX system with AMD EPYC CPUs and MI250X accelerators.
+public_login_hosts:
+  - frontier.olcf.ornl.gov
+scheduler:
+  type: slurm
+  submit_command: sbatch
+  query_command: squeue
+  queues_command: sinfo
+filesystems:
+  orion:
+    purpose: High-performance temporary storage for active Frontier jobs.
+    environment_variables:
+      member: MEMBERWORK
+      project: PROJWORK
+      world: WORLDWORK
+    purge_policy: Files older than 90 days are purged.
+  node_local_nvme:
+    purpose: Job-scoped local storage for I/O-intensive work.
+    scheduler_constraint: nvme
+site_policy:
+  scheduling:
+    model: partitions_with_qos
+    default_partition: batch
+    common_partitions:
+      - batch
+      - extended
+    default_qos: normal
+    common_qos:
+      - normal
+      - debug
+    partition_limits:
+      extended:
+        maximum_nodes: 64
+        maximum_walltime_hours: 24
+    qos_limits:
+      debug:
+        purpose: Short non-production debugging.
+        maximum_walltime_hours: 2
+        maximum_jobs_per_user: 1
+  accounting:
+    unit: node-hour
+    partial_node_charged_as_full_node: true
+build_environment:
+  login:
+    intended_for:
+      - editing
+      - compilation
+      - data management
+      - job submission
+    avoid:
+      - parallel jobs
+      - threaded jobs
+      - long builds
+      - compute-intensive builds
+      - memory-intensive builds
+  compute:
+    use_for:
+      - long builds
+      - compute-intensive builds
+      - memory-intensive builds
+  compilers:
+    recommended_wrappers:
+      c: cc
+      cxx: CC
+      fortran: ftn
+  accelerator_toolchain:
+    rocm_module: rocm
+    target_module: craype-accel-amd-gfx90a
+    gpu_arch: gfx90a
+node_types:
+  gpu-mi250x:
+    description: Compute node with four MI250X packages exposed as eight GCD devices.
+    cpu:
+      vendor: AMD
+      model: Optimized 3rd Gen EPYC
+      sockets: 1
+      cores_per_socket: 64
+      hardware_threads_per_core: 2
+    accelerator:
+      vendor: AMD
+      model: MI250X GCD
+      arch: gfx90a
+      per_node: 8
+      memory_gb: 64
+      packages_per_node: 4
+      gcds_per_package: 2
+      interconnect: AMD Infinity Fabric
+    queues:
+      - name: batch
+      - name: extended
+    limits:
+      default_core_specialization: 8
+    build_constraints:
+      target: gpu
+      gpu_arch: gfx90a
+    sizing:
+      physical_cpu_cores: 64
+      allocatable_cpu_cores_default: 56
+      hardware_threads: 128
+      host_memory_gb: 512
+      network: HPE Slingshot, four 200 Gbps interfaces
+      network_interfaces_per_node: 4
+      local_nvme_devices: 2
+      local_nvme_tb_each: 1.92
+evidence: docs
+observed: "2026-08-17"
+observed_on:
+  machine: frontier
+review_by: "2027-02-17"
+sources:
+  - https://docs.olcf.ornl.gov/systems/frontier_user_guide.html
+  - https://docs.olcf.ornl.gov/data/index.html
