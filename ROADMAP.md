@@ -1,9 +1,10 @@
 # LQCD Agent Handbook — Roadmap
 
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
-matrix, including both Claude cases, has passed.
+matrix, including both Claude cases, has passed. Slice 4 is in progress.
 
-**NEXT ACTION:** Begin Slice 4 — modes, benchmarking conventions, and the prediction loop.
+**NEXT ACTION:** Complete Slice 4's shared running and measurement conventions, benchmark
+playbook, prediction record, and extraction/accounting tools.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -14,6 +15,14 @@ Slice 0 was committed and published at `1352ba5`. Slice 0b was committed and pub
 `b06c7d1` on 2026-08-15, and the zero-argument startup repair was committed and published
 at `fa9001a`. Slice 1 began with the Perlmutter machine profile, operational notes, machine
 detector, and focused tests committed and published at `b116b8f` on 2026-08-15.
+
+On 2026-08-18 Slice 4 began by defining tuning and benchmarking as consecutive rather than
+hybrid modes: tuning adaptively selects a candidate setup, and benchmarking confirms a frozen
+candidate and workload. MILC application guides now keep `ks_spectrum`, `ks_measure`, and
+`ks_imp_rhmc` input/output and timing semantics out of the software-independent modes. The
+`ks_spectrum` guide incorporates screened operational lessons; the other two begin with
+source-backed structure and retain explicit production-benchmark coverage gaps. MILC timing
+instrumentation is required for tuning and benchmarking builds and normally remains enabled.
 
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
@@ -407,6 +416,9 @@ All five `modes/*.md`, `conventions/{running,measurement}.md`,
 `playbooks/{run-benchmark,capture-learning}.md`, `schemas/prediction.schema.json`,
 the **budget-ledger format** of [§budget-rule](ARCHITECTURE.md#budget-rule) (append-only, debit-at-submit),
 `tools/{extract-milc-timings.py,summarize-slurm-job.py,collect-environment.sh}`.
+MILC-specific application semantics live under `software/milc/applications/`, with shared
+build-time instrumentation guidance in `software/milc/timing.md`; neither is duplicated in the
+generic modes or conventions.
 Admit `memory_model.py` and `check_decomposition.py` from validated source versions after screening.
 
 Slice 4 must also make scheduler placement explicit in `conventions/running.md` and

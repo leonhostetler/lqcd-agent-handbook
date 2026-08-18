@@ -31,3 +31,15 @@ Use `project.yaml` for intrinsic MILC capabilities and option meanings,
 `build-profiles.yaml` for the canonical option set and its composed QUDA requirements, and
 `build.md` for the software-local build and acceptance procedure. A machine stack owns the
 toolchain, paths, build cost, scheduler resources, and demonstrated runtime scope.
+
+MILC applications do not share one input grammar or output interpretation. Load the matching
+application guide before preparing or analyzing a run:
+
+- `applications/ks-spectrum.md` for source, propagator, and correlator workflows;
+- `applications/ks-measure.md` for staggered observable measurements; and
+- `applications/ks-imp-rhmc.md` for RHMC trajectories and gauge generation.
+
+These are application guides, not build profiles. They define work units, input/output
+boundaries, and completion semantics; the selected build profile still owns which executable,
+instrumentation, and accelerator capabilities exist. Use `timing.md` for the MILC-wide timing
+macro policy and output-layer hierarchy.

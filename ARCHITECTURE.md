@@ -27,6 +27,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 |---|---|---|
 | **Stacks** | Validated machine × software × toolchain × **build profile** records, filed **under the machine** ([§stacks](#stacks)). Never speculative — a stack exists only if it was built and run | — |
 | **Build profiles** | Named option sets with **capabilities** live in `software/<name>/build-profiles.yaml`; stacks reference a profile and record what it **cost** here. Where a build may run is machine knowledge; a compute-node build is a job under [§budget-rule](#budget-rule) ([§build-profiles](#build-profiles)) | — |
+| **Application guides** | A suite's version-scoped input grammar, work units, output structure, timing-marker semantics, and completion/correctness signals live in `software/<name>/applications/`. They are application guides, not build profiles: work modes own the experimental method, build profiles own compiled capabilities and instrumentation, and stacks own the exact combinations validated on a machine ([§application-guides](#application-guides)) | Several suites expose a stable, useful application schema that is better represented as validated structured data than as prose |
 | **Development conventions** | Software-specific code-change and contribution rules live in `software/<name>/development.md`. Because they vary by project and cut across work modes, they load whenever that software is modified or prepared for review; modes and playbooks point there rather than duplicate them. Only software-independent rules belong in `conventions/`. When a rule is executable, its project-specific helper stays centrally discoverable in `tools/`, carries the software name, and is routed only from that development leaf ([§directory-layout](#directory-layout)) | — |
 | **Solver placement** | Solver availability and behavior are software-specific. Implementation knowledge lives in `software/<name>/solvers/`; build profiles declare enabled capabilities, and stacks record what was validated. Software-independent terminology belongs in `conventions/`, while `playbooks/tune-solver.md` owns the selection procedure | A body of actionable solver knowledge proves genuinely software-independent |
 | **Indexing** | Tier-0 `INDEX.md` is a ~dozen-line routing table; per-domain indices are **generated**, committed, and grouped by scoped object ([§indexing](#indexing)) | A domain has enough objects that grouping obscures rather than improves cold reading |
@@ -218,6 +219,8 @@ lqcd-agent-handbook/
 │       ├── build.md           # the software-specific half of building it
 │       ├── development.md     # software-specific code-change and contribution rules;
 │       │                      #   loaded when editing source or preparing a change for review
+│       ├── applications/      # application-family input/output and work-unit semantics;
+│       │   └── <application>.md # version-scoped; never a campaign ledger or build profile
 │       ├── solvers/           # implementation-specific solver mechanisms and tuning
 │       │   ├── <solver>.md    # parameters, limitations, and enabling-profile links
 │       │   └── <solver>/      # deeper tuning and memory-model docs when needed
@@ -753,6 +756,39 @@ note from the site.
 consumes allocation and therefore falls under [§budget-rule](#budget-rule) — a stated ceiling, a ledger debit, the
 same as any run. Worth saying explicitly, because "the budget rule is about runs" is the
 natural assumption and it is wrong.
+
+<a id="application-guides"></a>
+### 3.8. Application guides — how one executable describes work
+
+Some software projects are suites whose applications accept different input grammars, perform
+different repeated work, and emit outputs with different timing and correctness semantics. A
+software-level statement such as "parse the MILC output" is therefore too broad to act on, while
+putting those details in benchmarking mode would make a software-independent method depend on
+one application.
+
+Application-family knowledge lives in
+`software/<name>/applications/<application>.md`. Call these **application guides**, not bare
+"profiles": a build profile already means a named option set and capability claim. An application
+guide:
+
+- names the application family and the executable variants actually covered;
+- describes the ordered input sections and the count fields that delimit repeated records;
+- defines the meaningful work units and how they map to input sets, output blocks, and artifacts;
+- identifies normal-completion, correctness, convergence, and rejection signals;
+- maps application, library, and backend timing markers to their semantic and recurrence scope;
+- distinguishes unconditional output from build-time instrumentation and backend diagnostics;
+- states the observed software revision and every important coverage gap.
+
+The guide interprets an output; it does not own a campaign's inputs, outputs, measurements, or
+selected parameters. Those remain in the working directory. It also does not claim that a marker
+was compiled or exercised: build profiles own the enabled instrumentation and capabilities, while
+stacks own the executable revision and paths actually validated on a machine.
+
+Work modes compose with these guides. Tuning and benchmarking define how candidates are selected
+or frozen, while the relevant application guide defines what a solve, trajectory, input set,
+completion marker, or timer means for that executable. When an application lacks a guide, the
+session must characterize those boundaries from source and representative output before treating
+an extracted number as comparable evidence.
 
 <a id="session-start"></a>
 ## 4. How a session starts across frontends

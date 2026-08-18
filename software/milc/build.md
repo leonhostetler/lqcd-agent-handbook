@@ -30,6 +30,11 @@ Resolve the canonical application options and composed QUDA capability requireme
 `build-profiles.yaml`. Resolve compilers, accelerator target, dependency prefixes, flags,
 and build placement from the selected machine stack.
 
+Keep the timing definitions described in `timing.md` enabled. They are required for tuning and
+benchmarking builds and are the normal recommendation for other builds. Export the exact
+profile-owned `CTIME` value rather than an empty or assumed default, and record it with the
+executable identity.
+
 ## Build the application
 
 Starting from a clean disposable checkout at the selected commit:

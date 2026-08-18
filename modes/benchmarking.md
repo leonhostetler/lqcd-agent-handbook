@@ -148,9 +148,9 @@ starts cold each time, include the cold cost.
 ## Tools and routing
 
 Use the working project's instructions, detected software profile, selected machine profile,
-nearest validated stack, build profile, and relevant solver documents. Prefer reusable timing,
-environment-capture, memory, and decomposition tools when present. Use the shared prediction
-record and keep all run-specific data outside the handbook.
+nearest validated stack, build profile, relevant application guide, and relevant solver
+documents. Prefer reusable timing, environment-capture, memory, and decomposition tools when
+present. Use the shared prediction record and keep all run-specific data outside the handbook.
 
 Route reusable measurement rules to `conventions/`; software mechanisms to
 `software/<name>/`; machine-specific behavior to `machines/<name>/`; and validated combinations
