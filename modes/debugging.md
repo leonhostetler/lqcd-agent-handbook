@@ -12,8 +12,9 @@ Before editing, building, or running anything:
    and observed behavior. Detect repository and build state rather than asking for facts already
    available from the working directory.
 2. If the operator has not already said, ask whether the task is **analysis-only** or
-   **hands-on**. Hands-on means permission to edit, build, recompile, or run within the stated
-   project scope; it does not authorize commits, pushes, pull requests, or scheduler submission.
+   **hands-on**. Hands-on means permission to edit, build, recompile, or run within the
+   stated project scope; under the standing safeguards in canonical `AGENTS.md`, it does not
+   authorize commits, pushes, pull requests, or scheduler submission.
 3. Record the exact commit and branch, working-tree changes, build capabilities, runtime
    parameters, defaults, overrides, and relevant project instructions. Treat persistent notes
    as leads until reconciled with the current source and environment.

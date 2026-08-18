@@ -28,6 +28,10 @@ Exactly one handbook mode is current:
 
 - Never submit a scheduler job without an explicit campaign-scoped node-hour or GPU-hour
   ceiling. Without one, prepare the job and hand the submit command to the operator.
+- Authorization to change project code does not authorize commits or publication. Unless
+  the operator explicitly requests the specific action, do not commit, push, or open or
+  update a pull or merge request. After implementing and validating changes, leave the
+  working tree uncommitted, summarize the validation, and suggest a commit message.
 - Never commit allocation codes, usernames, user-specific paths, internal hostnames,
   email addresses, secrets, private-repository material, embargoed data, unpublished
   ensemble results, job IDs, or live campaign state. See `PRIVACY.md`.

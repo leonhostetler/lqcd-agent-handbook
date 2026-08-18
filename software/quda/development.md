@@ -35,15 +35,17 @@ operator-selected checkout and pull-request target are session state.
 
 ## Prepare a reviewable diff
 
-Use a pull request for changes intended for upstream review. Before formatting or final
-validation, compare the complete change against the current intended target. Keep the diff
-limited to the requested change; leave unrelated refactoring and repository-wide formatting
-out of it.
+For changes intended for upstream review, prepare a diff suitable for a pull request. The
+Git-authorization safeguard in canonical `AGENTS.md` remains in force: preparing the change
+does not authorize committing it, pushing it, or opening or updating the pull request.
+Before formatting or final validation, compare the complete change against the current
+intended target. Keep the diff limited to the requested change; leave unrelated refactoring
+and repository-wide formatting out of it.
 
 ## Format only changed lines
 
-Before opening or updating a pull request, always clang-format the changed C, C++, and CUDA
-lines using the repository-root `.clang-format`.
+Before a pull request is opened or updated, always clang-format the changed C, C++, and
+CUDA lines using the repository-root `.clang-format`.
 
 - Apply formatting to the diff relative to the intended target, not to every line of each
   touched file. When using a diff-formatting helper, ensure its file selection includes
