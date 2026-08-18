@@ -51,6 +51,11 @@ build_options:
     capabilities:
       - staggered
       - improved-staggered
+  QUDA_DIRAC_COVDEV:
+    meaning: Builds the covariant-derivative operator used by shift and spin-taste interface paths.
+    type: boolean
+    capabilities:
+      - covariant derivative
   QUDA_INTERFACE_MILC:
     meaning: Builds the MILC application interface and MILC field ordering.
     type: boolean

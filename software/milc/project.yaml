@@ -34,6 +34,14 @@ build_options:
     meaning: Enables the MILC-to-QUDA interface.
     type: boolean
     capabilities: [QUDA interface]
+  WANT_SHIFT_GPU:
+    meaning: Routes generic KS covariant shifts through the QUDA MILC interface.
+    type: boolean
+    capabilities: [QUDA covariant shifts]
+  WANT_SPIN_TASTE_GPU:
+    meaning: Routes generic KS spin-taste operators through the QUDA MILC interface.
+    type: boolean
+    capabilities: [QUDA spin-taste operators]
   WANT_FN_CG_GPU:
     meaning: Enables QUDA staggered conjugate-gradient solves.
     type: boolean

@@ -42,6 +42,11 @@ Compile-time features can add current, susceptibility, chemical-potential, eigen
 other controls. Use the current `setup.c` and executable's printed options to establish the
 actual grammar. Count fields delimit repeated records; comments and sample-file layout do not.
 
+When `WANT_SHIFT_GPU` or `WANT_SPIN_TASTE_GPU` is enabled, load
+`../../quda/internals/milc-shift-interface.md` before treating current or spin-taste observables
+as validated. These switches select separate interface paths with selector and resident-gauge
+contracts beyond ordinary solver validation.
+
 ## Output and work-unit boundaries
 
 Each successful input set emits observable records such as `PBP` and `FACTION`, followed by
