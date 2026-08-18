@@ -72,7 +72,11 @@ verification begins.
 
 Run on the declared compute-node type and capture accelerator telemetry before accepting
 the result. Use a writable, node-type-specific `QUDA_RESOURCE_PATH`; a first run populates
-the tunecache and is validation, not a benchmark.
+the tunecache and is validation, not a benchmark. Before reusing a tunecache across a source,
+build, or runtime change, apply the benchmark-scoped compatibility test in
+[`internals/autotuning.md`](internals/autotuning.md). QUDA's Git mismatch is a conservative screen,
+not proof that retuning is necessary. Bypass it only when every tuning problem exercised by the
+measured workload is demonstrably unchanged; otherwise populate a fresh cache before measurement.
 
 For a multi-GPU run, exercise at least one staggered dslash comparison, one CG solve with a
 checked host residual, and QIO write/read tests when QIO is part of the profile. Building
