@@ -43,6 +43,8 @@ Exactly one handbook mode is current:
 - Do not read `session_*.log` unless the operator explicitly requests it. Even then,
   treat the transcript as private evidence, not canonical knowledge.
 - Prefer a tool over prose when a durable rule can be executed.
+- When modifying software, load `software/<name>/development.md` when present and
+  complete its required formatting and post-edit checks before handoff.
 
 Use `INDEX.md` only to route to the smallest relevant document. Developer-only planning
 must not be opened in user mode.

@@ -27,7 +27,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 |---|---|---|
 | **Stacks** | Validated machine × software × toolchain × **build profile** records, filed **under the machine** ([§stacks](#stacks)). Never speculative — a stack exists only if it was built and run | — |
 | **Build profiles** | Named option sets with **capabilities** live in `software/<name>/build-profiles.yaml`; stacks reference a profile and record what it **cost** here. Where a build may run is machine knowledge; a compute-node build is a job under [§budget-rule](#budget-rule) ([§build-profiles](#build-profiles)) | — |
-| **Development conventions** | Software-specific code-change and contribution rules live in `software/<name>/development.md`. Because they vary by project and cut across work modes, they load whenever that software is modified or prepared for review; modes and playbooks point there rather than duplicate them. Only software-independent rules belong in `conventions/` ([§directory-layout](#directory-layout)) | — |
+| **Development conventions** | Software-specific code-change and contribution rules live in `software/<name>/development.md`. Because they vary by project and cut across work modes, they load whenever that software is modified or prepared for review; modes and playbooks point there rather than duplicate them. Only software-independent rules belong in `conventions/`. When a rule is executable, its project-specific helper stays centrally discoverable in `tools/`, carries the software name, and is routed only from that development leaf ([§directory-layout](#directory-layout)) | — |
 | **Solver placement** | Solver availability and behavior are software-specific. Implementation knowledge lives in `software/<name>/solvers/`; build profiles declare enabled capabilities, and stacks record what was validated. Software-independent terminology belongs in `conventions/`, while `playbooks/tune-solver.md` owns the selection procedure | A body of actionable solver knowledge proves genuinely software-independent |
 | **Indexing** | Tier-0 `INDEX.md` is a ~dozen-line routing table; per-domain indices are **generated**, committed, and grouped by scoped object ([§indexing](#indexing)) | A domain has enough objects that grouping obscures rather than improves cold reading |
 | **Version pins** | `project.yaml` carries **none**. Pins live in stacks; the checkout in front of you is session state ([§version-lifetimes](#version-lifetimes)) | — |
@@ -255,13 +255,16 @@ lqcd-agent-handbook/
 │   ├── analyze-profile.md
 │   └── capture-learning.md
 │
-├── tools/                     # reusable and tested; installers are offer-only
+├── tools/                     # tested executable helpers; software-specific tools carry
+│   │                          #   the software name; installers are offer-only
 │   ├── lqcd-claude, lqcd-codex # frontend launchers preserving the caller's cwd
 │   ├── install-codex-skills   # optional, conflict-safe user skill symlink
 │   ├── sync-agent-entrypoints.py # regenerates CLAUDE.md from canonical AGENTS.md
 │   ├── build-index.py         # regenerates or checks grouped domain indices
 │   ├── detect-machine.sh
 │   ├── collect-environment.sh
+│   ├── clang-format-quda.py   # QUDA-only changed-line formatter: named worktree files
+│   │                          #   or the full merge-base branch diff
 │   ├── check-session-logging.py   # startup diagnostic; never installs (§session-logging)
 │   ├── install-session-logging.py # shared offer-only installer and frontend dispatcher
 │   ├── session_logging.py         # shared configuration/merge helpers

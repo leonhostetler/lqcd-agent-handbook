@@ -18,6 +18,7 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/CMakeLists.txt
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/enum_quda_fortran.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/quda_fortran.F90
+  - https://github.com/llvm/llvm-project/blob/main/clang/tools/clang-format/git-clang-format
 observed: "2026-08-18"
 observed_on:
   software:
@@ -44,16 +45,43 @@ and repository-wide formatting out of it.
 
 ## Format only changed lines
 
-Before a pull request is opened or updated, always clang-format the changed C, C++, and
-CUDA lines using the repository-root `.clang-format`.
+Use `$LQCD_HANDBOOK/tools/clang-format-quda.py`. It requires `clang-format` and
+`git-clang-format` on `PATH`, uses the repository-root `.clang-format`, includes CUDA
+extensions, and excludes `tests/googletest/` and `lib/generate/`. It checks for its
+dependencies and never installs, fetches, stages, commits, pushes, or opens a pull request.
 
-- Apply formatting to the diff relative to the intended target, not to every line of each
-  touched file. When using a diff-formatting helper, ensure its file selection includes
-  `.cu` and `.cuh`.
-- Exclude vendored and generated sources unless they are the intended subject of the change.
-- Reinspect the resulting diff. Do not treat a formatter version or helper recipe quoted by
-  the wiki as a durable pin; it must be compatible with the checked-out style file and
-  current project instructions.
+After every hands-on QUDA source edit, format only the explicit repository-relative files
+changed by the current task before final validation and handoff:
+
+```bash
+"$LQCD_HANDBOOK/tools/clang-format-quda.py" \
+  --scope worktree --apply -- <changed-file>...
+"$LQCD_HANDBOOK/tools/clang-format-quda.py" \
+  --scope worktree -- <changed-file>...
+```
+
+Worktree scope compares the selected tracked files with `HEAD`; explicitly named untracked
+source files are formatted in full. Pass literal file paths, not directories or globs. If a
+selected file was already dirty before the task, run check mode first and do not apply
+formatting to hunks the task does not own. Check mode is the default: exit 0 means clean,
+1 means formatting changes are required, and 2 means the tool failed.
+
+When the operator says **“please clang-format”** without a narrower scope, treat it as an
+explicit request to apply formatting to the full QUDA branch diff. Refresh or otherwise
+verify the intended pull-request target ref separately—the tool never fetches—then run:
+
+```bash
+"$LQCD_HANDBOOK/tools/clang-format-quda.py" \
+  --scope branch --base <target-ref> --apply
+"$LQCD_HANDBOOK/tools/clang-format-quda.py" \
+  --scope branch --base <target-ref>
+```
+
+Branch scope computes the merge base with the named target and includes committed, staged,
+and unstaged changed lines. It excludes untracked files unless they are explicitly named
+after `--`. Reinspect the resulting `git diff`. Do not treat a formatter version or helper
+recipe quoted by the wiki as a durable pin; it must be compatible with the checked-out
+style file and current project instructions.
 
 ## Match validation to the impact
 
