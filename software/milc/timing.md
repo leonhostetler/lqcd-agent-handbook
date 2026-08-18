@@ -10,6 +10,10 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_measure/ks_measure_includes.h#L25-L31
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/ks_imp_includes.h#L37-L43
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/gauss_smear_ks_QUDA.c#L73-L130
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/setup.c#L78-L100
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_measure/setup.c#L55-L75
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/setup.c#L162-L182
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic/com_mpi.c#L612-L626
 observed: "2026-08-18"
 observed_on:
   software:
@@ -59,10 +63,12 @@ the executable and library revisions.
 Use the narrowest timer that answers the declared question, but retain its enclosing clocks:
 
 1. scheduler elapsed time and allocated resources establish job cost;
-2. an application's top-level `Time = ... seconds` record establishes only the interval bracketed
+2. a valid application `exit - start` timestamp difference supplies a whole-application
+   envelope cross-check, not allocation cost;
+3. an application's top-level `Time = ... seconds` record establishes only the interval bracketed
    by that application's control code;
-3. `PRTIME` records divide application work into named phases; and
-4. component timers such as `CONGRAD5`, `FFTIME`, `FLTIME`, and `GFTIME` characterize individual
+4. `PRTIME` records divide application work into named phases; and
+5. component timers such as `CONGRAD5`, `FFTIME`, `FLTIME`, and `GFTIME` characterize individual
    implementations or calls.
 
 These layers can overlap. Never add a parent phase to its child component timers, and do not
@@ -75,6 +81,25 @@ later input sets. Load the relevant application guide before deciding whether a 
 includes setup, gauge-field I/O, ending-lattice output, or work inherited from an adjacent input
 set.
 
+## Whole-application timestamps
+
+At the observed revision, `ks_spectrum`, `ks_measure`, and `ks_imp_rhmc` print
+`start: <date/time>` early in application setup. The shared normal-exit routine prints
+`exit: <date/time>` immediately before its final MPI barrier and `MPI_Finalize`. The
+shared abnormal path prints `termination:` instead; an output with `start:` but no normal
+`exit:` does not provide a complete whole-application duration.
+
+Subtract `start` from `exit` as a seconds-resolution application wall-clock cross-check.
+Retain the literal timestamps, timezone interpretation, and derived duration. This clock begins
+after process launch and machine initialization and ends before the final MPI barrier and
+finalization, so scheduler job or step elapsed time remains the authoritative allocation clock.
+These timestamps are application lifecycle markers, not `CTIME` phase instrumentation.
+
+For an application with multiple top-level `Time` records, compare their compatible sum with
+the timestamp-derived duration. Record the difference as an application-envelope residual only
+when the output is complete and the timer boundaries are understood. A large difference is a
+diagnostic to investigate, not a value to distribute across phases automatically.
+
 ## Build and analysis record
 
 For a tuning or benchmark result, capture:
@@ -82,6 +107,7 @@ For a tuning or benchmark result, capture:
 - the resolved `CTIME` value and other timing-related definitions;
 - the application executable, MILC revision, linked backend revisions, and build profile;
 - which expected marker families actually appeared;
+- any `start:`, `exit:`, or `termination:` markers and the valid derived duration;
 - the parser or aggregation rule used for each reported quantity; and
 - any missing, overlapping, excluded, or unaccounted interval.
 

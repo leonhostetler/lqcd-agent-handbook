@@ -7,4 +7,5 @@ Entries are grouped by scoped convention.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
+| [LQCD measurement and workflow cost accounting](measurement.md) | Shared rules for steady-state solve measurements, per-run workflow ledgers, and production-cost projections. | Planning, measuring, comparing, or projecting the cost of tuning and benchmarking runs. |
 | [LQCD orientation and vocabulary](orientation.md) | Default HISQ convention and shared meanings used throughout the handbook | beginning any LQCD handbook session |

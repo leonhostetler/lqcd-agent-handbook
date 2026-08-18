@@ -3,8 +3,8 @@
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
 matrix, including both Claude cases, has passed. Slice 4 is in progress.
 
-**NEXT ACTION:** Complete Slice 4's shared running and measurement conventions, benchmark
-playbook, prediction record, and extraction/accounting tools.
+**NEXT ACTION:** Complete Slice 4's shared running convention, benchmark playbook, prediction
+record, and extraction/accounting tools.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -23,6 +23,12 @@ candidate and workload. MILC application guides now keep `ks_spectrum`, `ks_meas
 `ks_spectrum` guide incorporates screened operational lessons; the other two begin with
 source-backed structure and retain explicit production-benchmark coverage gaps. MILC timing
 instrumentation is required for tuning and benchmarking builds and normally remains enabled.
+
+Also on 2026-08-18, the shared measurement convention defined one observed workflow-cost ledger
+per run and a separate production projection, with explicit timer boundaries, accounting roles,
+recurrence scopes, resource cost, and residual rules. The MILC timing guide now treats
+`exit - start` as a whole-application cross-check between scheduler elapsed time and
+application input-set totals.
 
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific

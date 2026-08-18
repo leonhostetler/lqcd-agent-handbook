@@ -59,12 +59,13 @@ Record four cost classes separately whenever they exist:
    the declared warm state is reached; and
 4. **recurring workflow cost** — the end-to-end work that each production unit or job pays.
 
-For a solver or component comparison, populate the required tunecache before the measured
-series and exclude the first occurrence by default. Continue excluding occurrences that still
-perform tuning or other one-time initialization; the literal first solve is not sufficient
-when a later precision, solver, or right-hand-side shape activates new kernels. Report excluded
-work and setup separately. When cold-start performance is the target, measure it as its own
-declared series instead.
+For a steady-state solver comparison, populate the required tunecache and run multiple
+homogeneous solves under the same solver and candidate setup, differing only in source or
+right-hand-side content. Exclude the first solve by default because it may contain allocation,
+initialization, or autotuning overhead, and summarize the remaining solves. A single solve is
+not representative steady-state evidence. A material solver, precision, batching, decomposition,
+or other solve change begins another homogeneous series. Report excluded work and setup
+separately. When cold-start performance is the target, measure it as its own declared series.
 
 For workflow-cost estimation, reproduce the state that production will actually have. Do not
 discard a cost that recurs once per gauge configuration or job merely because it appears in the
@@ -88,8 +89,10 @@ starts cold each time, include the cold cost.
    metric that remains meaningful near zero.
 5. Measure the declared work unit and component boundaries. Record elapsed time, node- or
    GPU-hours, memory, solve and iteration counts, setup, I/O, contractions, and excluded time as
-   applicable. Do not use operation rate alone to compare algorithms that perform different
-   work.
+   applicable. Write one observed workflow ledger per run using
+   `conventions/measurement.md`; retain parent clocks and mark nested diagnostics so they are
+   not double counted. Do not use operation rate alone to compare algorithms that perform
+   different work.
 6. Run the predeclared repetitions and preserve failures and anomalous placements. Do not drop
    a slow run without a recorded, evidence-backed exclusion reason.
 7. Complete the predict → run → compare record for every allocation-consuming run. Diagnose
@@ -116,6 +119,9 @@ starts cold each time, include the cold cost.
 
 ## Workflow-cost estimation
 
+- Keep one observed ledger per run and build the production projection separately from accepted
+  runs. Assign every term a boundary, accounting role, recurrence scope, and evidence source
+  before scaling it.
 - Use the full production-shaped payload when affordable. A truncated workflow must name the
   truncated dimensions and classify each extrapolated component as fixed, proportional,
   empirically modeled, or not safely extrapolatable.
@@ -149,8 +155,10 @@ starts cold each time, include the cold cost.
 
 Use the working project's instructions, detected software profile, selected machine profile,
 nearest validated stack, build profile, relevant application guide, and relevant solver
-documents. Prefer reusable timing, environment-capture, memory, and decomposition tools when
-present. Use the shared prediction record and keep all run-specific data outside the handbook.
+documents. Load `conventions/measurement.md` for the steady-state solve series, observed
+workflow ledger, and production projection. Prefer reusable timing, environment-capture,
+memory, and decomposition tools when present. Use the shared prediction record and keep all
+run-specific data outside the handbook.
 
 Route reusable measurement rules to `conventions/`; software mechanisms to
 `software/<name>/`; machine-specific behavior to `machines/<name>/`; and validated combinations
@@ -161,7 +169,8 @@ privacy, and publishability review.
 
 Benchmarking is done when the frozen contract and environment are recorded; the required
 correctness checks and repetitions are complete; warm, setup, recurring, and excluded costs are
-distinguished; prediction misses and uncertainty are explained; and the result answers the
-declared comparison or workflow-cost question without claiming beyond the measured scope. Any
-adaptive follow-up requires an explicit transition to tuning, performance, debugging, or
-production mode.
+distinguished; accepted runs have observed ledgers; any production projection is separate and
+states its recurrence model; prediction misses and uncertainty are explained; and the result
+answers the declared comparison or workflow-cost question without claiming beyond the measured
+scope. Any adaptive follow-up requires an explicit transition to tuning, performance, debugging,
+or production mode.

@@ -54,6 +54,11 @@ the emitted solver records.
 
 ## Output and work-unit boundaries
 
+One normally exiting process emits one `start: <date/time>` and `exit: <date/time>` pair
+around the application run. Their difference is a whole-application wall-clock cross-check; it
+is not scheduler allocation time and the `exit:` marker precedes final MPI finalization. See
+`../timing.md` for its relationship to the application and component clocks.
+
 One successful pass through `readin()` emits one `RUNNING COMPLETED` marker followed by a
 top-level `Time = ... seconds` record and `total_iters`. A file may contain many such blocks.
 One block is an **input set**, not automatically one gauge configuration: a workflow may split
@@ -116,7 +121,8 @@ Accept an output block for performance analysis only when:
 - all required solves report convergence under the frozen correctness contract;
 - executed solver, batching, precision, and backend records match the intended candidate setup;
 - every required correlator or other output artifact exists with the expected structure; and
-- the application and scheduler exit states are successful.
+- a normal `exit:` marker is present and the application and scheduler exit states are
+  successful.
 
 A truncated output, missing artifact, nonconverged solve, or automatically substituted runtime
 path remains useful debugging or tuning evidence, but it is not a valid confirmatory benchmark.

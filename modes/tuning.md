@@ -110,7 +110,8 @@ relabeled as confirmatory after the fact.
 Use the detected machine profile, software profile, nearest stack, build profile, relevant
 application guide, and relevant solver documents when present. Use the working project's own
 instructions throughout. Prefer executable memory and decomposition checks to informal scaling,
-and use the shared prediction record for every trial.
+use `conventions/measurement.md` for per-run observed ledgers, and use the shared prediction
+record for every trial.
 
 Route reusable software mechanisms to `software/<name>/`; machine-specific placement and
 runtime behavior to `machines/<name>/`; and durable measurement rules to `conventions/`.
