@@ -30,6 +30,12 @@ recurrence scopes, resource cost, and residual rules. The MILC timing guide now 
 `exit - start` as a whole-application cross-check between scheduler elapsed time and
 application input-set totals.
 
+The same Slice 4 convention now requires a predeclared expected-artifact manifest, isolated
+run-owned outputs, exact missing and unexpected set comparison, and separate structural,
+numerical, and scientific validity. The `ks_spectrum` guide specializes the rule for inline and
+FNAL correlator output, repeated destinations, grouped meson records, append-only writers, and
+writer-error fallback.
+
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
 Claude and Codex loggers, an offer-only user-config installer, manifest validation, and

@@ -1,12 +1,16 @@
 ---
 title: MILC ks_spectrum application guide
-summary: Input-set structure, output boundaries, timing records, and benchmark checks for the MILC ks_spectrum family.
+summary: Input-set structure, output boundaries, artifact validation, timing records, and benchmark checks for the MILC ks_spectrum family.
 scope: [software:milc]
 load_when: Preparing, tuning, benchmarking, or interpreting a ks_spectrum-family run.
 evidence: source
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/setup.c#L78-L260
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/setup.c#L994-L1390
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/control.c#L76-L1200
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/spectrum_ks.c#L644-L1255
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/spectrum_ks.c#L1360-L1665
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic/io_helpers.c#L664-L705
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/ks_spectrum_includes.h#L33-L40
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/test/ks_spectrum_hisq.fpi.2.sample-in
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/test/ks_spectrum_hisq.fpi.2.sample-out
@@ -89,6 +93,57 @@ Do not add `Aggregate time to compute propagators` to its constituent `CONGRAD5`
 parent for workflow accounting and the child records for solver attribution, then report any
 compatible residual against the top-level or scheduler clock.
 
+## Artifact prediction and exact validation
+
+Derive the expected artifacts from the final generated input submitted to `ks_spectrum`, not
+only from the input generator or a previous run. Walk every input set using its count fields,
+record every active output directive, and resolve relative destinations against the captured
+application working directory. For the single-file correlator output described below, the
+expected file set is the set of unique resolved destinations; the manifest must separately
+retain every contribution expected within each destination.
+
+For meson, baryon, and build-enabled extended-baryon correlators:
+
+- `forget_corr` requests inline correlator records delimited by `STARTPROP` and `ENDPROP`; it does
+  not declare an external correlator-file artifact;
+- `save_corr_fnal <path>` declares an external FNAL-format correlator destination; and
+- several pairs, triplets, input sets, or correlator requests may name the same destination, so
+  neither the save-directive count nor `number_of_correlators` is the external file count.
+
+Within a meson pair, repeated input lines with the same correlator-label/momentum-label pair are
+combined into one reported correlator. Predict the persisted record multiset with that grouping
+rule rather than treating every input line as a distinct record. Baryon and optional extended-
+baryon sections have their own count fields and record identities; do not reuse the meson rule
+without checking the enabled application path.
+
+At the observed revision, external FNAL meson, baryon, and build-enabled extended-baryon writers
+open their destinations in append mode. Each reported correlator contains delimited metadata, a
+correlator identity, and `nt` indexed real/imaginary samples. Therefore:
+
+1. create a new run-owned correlator root, or verify before launch that every planned target is
+   absent;
+2. compare the unique resolved target paths with the observed files in both directions;
+3. parse every expected file and verify the frozen input `JobID`, lattice dimensions, expected
+   correlator identities and multiplicities, complete time-index coverage, and finite numeric
+   fields; and
+4. reject stale appended records, missing records, and unexpected records even when the file
+   count is correct.
+
+Do not use nonzero values as a structural criterion: symmetry channels or individual components
+may legitimately vanish. Structural validation establishes that the requested records were
+written; numerical comparison and scientific approval remain separate checks.
+
+If an external FNAL file cannot be opened, the observed implementation prints an error, switches
+that correlator path to the inline `forget_corr` behavior, and can continue. A normal `exit:`, a
+`RUNNING COMPLETED` marker, or the presence of inline correlators therefore does not prove that a
+requested external artifact was created. Require the requested output route, absence of writer
+errors, and the exact manifest checks above.
+
+Apply the same manifest discipline to any other active `ks_spectrum` save directives, including
+saved gauge fields, eigenvectors, sources, propagators, or derived quarks. Their format-specific
+structure is outside this correlator section and must be validated with the corresponding MILC
+I/O semantics rather than inferred from the FNAL correlator format.
+
 ## Tuning and benchmarking interpretation
 
 For a solver or component comparison, classify occurrences by the executed backend and solver,
@@ -100,7 +155,8 @@ declared warm-state contract in benchmarking mode.
 For workflow-cost estimation:
 
 - define how many input sets constitute one gauge-configuration workload;
-- verify expected source, propagator, quark, correlator, and output-file cardinalities;
+- freeze and verify the exact expected source, propagator, quark, correlator-record, and output-
+  file sets from the final generated input;
 - separate gauge-field I/O, setup, solves, sink operations, contractions, and output;
 - normalize elapsed time and resource cost by the declared production unit rather than by the
   number of `RUNNING COMPLETED` markers; and
@@ -120,7 +176,9 @@ Accept an output block for performance analysis only when:
 - the expected `RUNNING COMPLETED` count is present;
 - all required solves report convergence under the frozen correctness contract;
 - executed solver, batching, precision, and backend records match the intended candidate setup;
-- every required correlator or other output artifact exists with the expected structure; and
+- the requested output route was used, no artifact-writer error occurred, and the exact expected
+  artifact paths and internal records pass structural validation with no unresolved missing or
+  unexpected entries; and
 - a normal `exit:` marker is present and the application and scheduler exit states are
   successful.
 

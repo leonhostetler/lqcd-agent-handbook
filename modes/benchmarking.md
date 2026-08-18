@@ -75,8 +75,10 @@ starts cold each time, include the cold cost.
 
 ## Measurement method
 
-1. Create isolated outputs and run state for every candidate and repetition. Never reuse a
-   directory in a way that allows truncated, failed, or previous outputs to satisfy the current
+1. Create isolated outputs and run state for every candidate and repetition. Freeze an
+   expected-artifact manifest from the final generated input and application semantics before
+   launch, then compare exact missing and unexpected sets after the run. Never reuse a directory
+   in a way that allows truncated, failed, or previous outputs to satisfy the current
    completeness checks.
 2. Capture the exact environment, executable identity, input, resource request, placement,
    decomposition, binding, tunecache state, and relevant overrides. Reconcile the planned node
@@ -84,9 +86,10 @@ starts cold each time, include the cold cost.
 3. Verify what the application actually executed. Requested-setting labels and solver
    modes are not runtime evidence; check solver, precision, batching, device placement,
    convergence, and tuning diagnostics in the output.
-4. Apply the frozen correctness checks before accepting performance data. Compare true
-   residuals or equivalent invariants, required output structure, and reference results with a
-   metric that remains meaningful near zero.
+4. Apply the frozen correctness checks before accepting performance data. Establish structural
+   artifact validity separately from numerical and scientific validity. Compare true residuals
+   or equivalent invariants and reference results with a metric that remains meaningful near
+   zero.
 5. Measure the declared work unit and component boundaries. Record elapsed time, node- or
    GPU-hours, memory, solve and iteration counts, setup, I/O, contractions, and excluded time as
    applicable. Write one observed workflow ledger per run using
@@ -156,9 +159,9 @@ starts cold each time, include the cold cost.
 Use the working project's instructions, detected software profile, selected machine profile,
 nearest validated stack, build profile, relevant application guide, and relevant solver
 documents. Load `conventions/measurement.md` for the steady-state solve series, observed
-workflow ledger, and production projection. Prefer reusable timing, environment-capture,
-memory, and decomposition tools when present. Use the shared prediction record and keep all
-run-specific data outside the handbook.
+workflow ledger, artifact manifest, and production projection. Prefer reusable timing,
+environment-capture, memory, and decomposition tools when present. Use the shared prediction
+record and keep all run-specific data outside the handbook.
 
 Route reusable measurement rules to `conventions/`; software mechanisms to
 `software/<name>/`; machine-specific behavior to `machines/<name>/`; and validated combinations
@@ -168,9 +171,10 @@ privacy, and publishability review.
 ## Done
 
 Benchmarking is done when the frozen contract and environment are recorded; the required
-correctness checks and repetitions are complete; warm, setup, recurring, and excluded costs are
-distinguished; accepted runs have observed ledgers; any production projection is separate and
-states its recurrence model; prediction misses and uncertainty are explained; and the result
-answers the declared comparison or workflow-cost question without claiming beyond the measured
-scope. Any adaptive follow-up requires an explicit transition to tuning, performance, debugging,
-or production mode.
+correctness checks and repetitions are complete; exact artifact checks have no unresolved
+missing or unexpected entries; warm, setup, recurring, and excluded costs are distinguished;
+accepted runs have observed ledgers; any production projection is separate and states its
+recurrence model; prediction misses and uncertainty are explained; and the result answers the
+declared comparison or workflow-cost question without claiming beyond the measured scope. Any
+adaptive follow-up requires an explicit transition to tuning, performance, debugging, or
+production mode.

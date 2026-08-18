@@ -1,6 +1,6 @@
 ---
 title: LQCD measurement and workflow cost accounting
-summary: Shared rules for steady-state solve measurements, per-run workflow ledgers, and production-cost projections.
+summary: Shared rules for steady-state solve measurements, exact artifact validation, per-run workflow ledgers, and production-cost projections.
 scope: [universal]
 load_when: Planning, measuring, comparing, or projecting the cost of tuning and benchmarking runs.
 evidence: operator
@@ -80,7 +80,7 @@ The run header records:
 - candidate setup, workload, input, and generated-input identity;
 - machine, node type, scheduler request, placement, decomposition, and binding;
 - tunecache and other persistent setup state;
-- expected application work units and artifacts; and
+- expected application work units, expected-artifact manifest, and validation root; and
 - raw application, scheduler, environment, telemetry, and artifact locations.
 
 For each reported quantity, record:
@@ -104,6 +104,53 @@ without becoming an additional term beside that parent in the same total.
 The workflow-cost ledger is not the submission-budget ledger. The former explains measured and
 projected cost; the latter records authorization and allocation consumption and remains
 append-only under the campaign budget rule.
+
+## Validate run-owned artifacts exactly
+
+Freeze an expected-artifact manifest from the final generated input and the applicable
+application and runtime semantics before launching the run. Do not derive it only from a
+generator template, a previous run, or a planned source count: the submitted input is the
+authority for the output actions the executable was asked to perform.
+
+For every expected artifact, record:
+
+- the output action and application work unit that produces it;
+- its path resolved against the captured application working directory;
+- whether multiple actions intentionally contribute to the same path;
+- the expected format, internal record identities and multiplicities, and payload shape; and
+- the run-manifest fields or embedded metadata that associate it with this run.
+
+Use a new run-owned validation root whenever possible. Otherwise verify before launch that every
+planned target is absent and inventory the root. An application that appends to an existing file
+can make a failed or partial run appear complete, so existence, modification time, and nonzero
+file size are not sufficient provenance checks.
+
+After the run, classify every file in the validation root as an expected application artifact,
+an explicitly allowlisted run-infrastructure file, or unexpected output. Compare sets in both
+directions:
+
+```text
+missing artifacts    = expected paths - observed expected-class paths
+unexpected artifacts = observed application-artifact paths - expected paths
+```
+
+Pass structural validation only when both sets are empty and every expected artifact has its
+declared internal records and payload shape. Preserve the exact missing and unexpected sets in
+the run ledger. Deduplicate repeated destination paths for file-set comparison, but preserve all
+expected contributions to each path for the internal-record check.
+
+Keep three acceptance layers distinct:
+
+1. **structural validity** — exact paths, format, record identities and multiplicities, sample
+   coverage, parseable finite payload, and current-run association;
+2. **numerical validity** — convergence and comparison with required invariants or references
+   under the frozen tolerance and metric; and
+3. **scientific validity** — approval that the requested parameters and observables answer the
+   intended physics question.
+
+A normal process exit does not establish structural validity, and structural validity does not
+establish either numerical or scientific validity. Do not require every numerical sample to be
+nonzero as a generic structural check; exact or near-zero values may be physically expected.
 
 ## Build a compatible accounting view
 
@@ -187,7 +234,8 @@ every rejected observation.
 A performance quantity enters a comparison or projection only when:
 
 - its boundary and evidence source are known;
-- the required application work and artifacts are complete;
+- the required application work is complete and the exact artifact-set and structural checks
+  pass;
 - the executed path matches the frozen candidate setup;
 - numerical and scientific checks required by the contract pass;
 - scheduler and application exit states are reconciled;

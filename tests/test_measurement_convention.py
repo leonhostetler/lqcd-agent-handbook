@@ -53,6 +53,25 @@ class MeasurementConventionTests(unittest.TestCase):
         )
         self.assertIn("Complete closure is not required", text)
 
+    def test_artifact_contract_is_predeclared_exact_and_layered(self):
+        convention = (ROOT / "conventions/measurement.md").read_text()
+        benchmark = (ROOT / "modes/benchmarking.md").read_text()
+        for text in (convention, benchmark):
+            self.assertIn("expected-artifact manifest", text)
+            self.assertIn("final generated input", text)
+            self.assertIn("missing", text)
+            self.assertIn("unexpected", text)
+
+        self.assertIn("new run-owned validation root", convention)
+        self.assertIn("Deduplicate repeated destination paths", convention)
+        for layer in (
+            "structural validity",
+            "numerical validity",
+            "scientific validity",
+        ):
+            self.assertIn(layer, convention)
+        self.assertIn("nonzero", convention)
+
     def test_steady_state_solver_series_rule_is_routed(self):
         convention = (ROOT / "conventions/measurement.md").read_text()
         benchmark = (ROOT / "modes/benchmarking.md").read_text()

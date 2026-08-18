@@ -44,6 +44,27 @@ class MILCApplicationGuideTests(unittest.TestCase):
         self.assertIn("before performing the requested ending-lattice", rhmc)
         self.assertIn("`warms` counts RHMC warmup trajectories", rhmc)
 
+    def test_ks_spectrum_artifacts_follow_save_destinations_and_records(self):
+        path = ROOT / "software/milc/applications/ks-spectrum.md"
+        spectrum = path.read_text()
+        sources = frontmatter(path)["sources"]
+
+        self.assertTrue(any("generic/io_helpers.c" in source for source in sources))
+        self.assertTrue(any("spectrum_ks.c" in source for source in sources))
+        for marker in (
+            "`forget_corr`",
+            "`save_corr_fnal <path>`",
+            "unique resolved destinations",
+            "append mode",
+            "`STARTPROP`",
+            "`ENDPROP`",
+            "requested output route",
+        ):
+            self.assertIn(marker, spectrum)
+        self.assertIn("same correlator-label/momentum-label pair", spectrum)
+        self.assertIn("`nt` indexed real/imaginary samples", spectrum)
+        self.assertIn("can continue", spectrum)
+
     def test_timing_policy_and_mode_routing_are_explicit(self):
         timing = (ROOT / "software/milc/timing.md").read_text()
         build = (ROOT / "software/milc/build.md").read_text()
