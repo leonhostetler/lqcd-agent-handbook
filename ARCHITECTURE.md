@@ -27,6 +27,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 |---|---|---|
 | **Stacks** | Validated machine × software × toolchain × **build profile** records, filed **under the machine** ([§stacks](#stacks)). Never speculative — a stack exists only if it was built and run | — |
 | **Build profiles** | Named option sets with **capabilities** live in `software/<name>/build-profiles.yaml`; stacks reference a profile and record what it **cost** here. Where a build may run is machine knowledge; a compute-node build is a job under [§budget-rule](#budget-rule) ([§build-profiles](#build-profiles)) | — |
+| **Development conventions** | Software-specific code-change and contribution rules live in `software/<name>/development.md`. Because they vary by project and cut across work modes, they load whenever that software is modified or prepared for review; modes and playbooks point there rather than duplicate them. Only software-independent rules belong in `conventions/` ([§directory-layout](#directory-layout)) | — |
 | **Solver placement** | Solver availability and behavior are software-specific. Implementation knowledge lives in `software/<name>/solvers/`; build profiles declare enabled capabilities, and stacks record what was validated. Software-independent terminology belongs in `conventions/`, while `playbooks/tune-solver.md` owns the selection procedure | A body of actionable solver knowledge proves genuinely software-independent |
 | **Indexing** | Tier-0 `INDEX.md` is a ~dozen-line routing table; per-domain indices are **generated**, committed, and grouped by scoped object ([§indexing](#indexing)) | A domain has enough objects that grouping obscures rather than improves cold reading |
 | **Version pins** | `project.yaml` carries **none**. Pins live in stacks; the checkout in front of you is session state ([§version-lifetimes](#version-lifetimes)) | — |
@@ -213,6 +214,8 @@ lqcd-agent-handbook/
 │       │                      #   rather than restating flags per machine (§build-profiles).
 │       ├── README.md          # what it is, how it relates to the others
 │       ├── build.md           # the software-specific half of building it
+│       ├── development.md     # software-specific code-change and contribution rules;
+│       │                      #   loaded when editing source or preparing a change for review
 │       ├── solvers/           # implementation-specific solver mechanisms and tuning
 │       │   ├── <solver>.md    # parameters, limitations, and enabling-profile links
 │       │   └── <solver>/      # deeper tuning and memory-model docs when needed
