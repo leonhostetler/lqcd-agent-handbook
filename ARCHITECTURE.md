@@ -56,7 +56,8 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 
 | Decision | Choice | Reopen when |
 |---|---|---|
-| **Work mode** | Current, not permanent — may change mid-session, but only by explicit declaration ([§work-mode-currency](#work-mode-currency)) | — |
+| **Work mode** | Current, not permanent — may change mid-session, but only by explicit declaration. It follows the immediate decision and deliverable, not every tool used along the way ([§work-mode-currency](#work-mode-currency)) | — |
+| **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate setup — the solver, build, runtime, resource-placement, and workflow choices being evaluated — while benchmarking measures a candidate setup and workload frozen before the measured series. A campaign may move from tuning to confirmatory benchmarking, but never occupies a hybrid mode, and an exploratory winner needs an independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
 | **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; missing session logging produces a non-blocking offer in the orientation report ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
 | **Concurrency** | Unique filenames for every user-mode write; `base_handbook_commit` on proposals. No branches, no PRs, no curator ([§freshness-model](#freshness-model)) | The handbook gains contributors beyond the operator |
@@ -1362,32 +1363,47 @@ distinguishing content:
   is analysis-only or hands-on (build/run/edit/recompile); `compute-sanitizer`,
   `valgrind4hpc`; **may submit jobs only under an explicit node-hour budget** ([§budget-rule](#budget-rule)).
 - **performance** — Nsight Systems / RocProfiler Systems output; harvests PerfAdvisor.
-- **benchmarking** — needs the target quantity (solver? IO?) and the division of labour
-  (prepare+submit+analyze, or analyze-only); mandatory tunecache-population run first;
-  discard the first solve; **predict before running** ([§predict-compare-loop](#predict-compare-loop)); state which components become
-  negligible at production scale.
-- **tuning** — needs the hypothetical production campaign and the machine; produces a
-  recommended solver stack and parameters by following `playbooks/tune-solver.md` with the
-  relevant `software/<name>/solvers/`, resolved build profile and stack, ensemble knowledge,
-  and memory model;
-  **predict before running** ([§predict-compare-loop](#predict-compare-loop)).
+- **benchmarking** — needs a frozen candidate setup and workload, the target quantity, the
+  benchmark intent (fixed solver or component comparison, or workflow-cost estimation), a
+  correctness reference, and the division of labour (prepare+submit+analyze, or
+  analyze-only). Warm-up and setup are included, excluded, or separately amortized according
+  to the production state being estimated; there is no universal first-solve discard rule.
+  **Predict before running** ([§predict-compare-loop](#predict-compare-loop)), report uncertainty, and state which components become
+  negligible at production scale. Changing a measured parameter ends the benchmark series
+  and returns the decision to tuning.
+- **tuning** — needs the hypothetical production campaign, machine, objective, constraints,
+  and tunable parameter space. It adaptively searches node placement, decomposition, solver,
+  build, runtime, and workflow choices and produces a candidate setup by following
+  `playbooks/tune-solver.md` when applicable, with the relevant
+  `software/<name>/solvers/`, resolved build profile and stack, ensemble knowledge, and
+  memory model. **Predict before every allocation-consuming trial**
+  ([§predict-compare-loop](#predict-compare-loop)). Tuning measurements are exploratory; the selected candidate requires a
+  frozen confirmatory benchmark before it supports a benchmark or production-cost claim.
 - **production** — parameters are already settled; the job is monitoring, submission
   automation, and failure triage. Lowest write-privilege mode. **Live campaign state is not
-  handbook knowledge** — job IDs, which configurations have completed, retry counts, missing
+  handbook knowledge** — job IDs, which gauge configurations have completed, retry counts, missing
   outputs, walltime consumed. Those are working-directory contents by [§no-escape-hatch](#no-escape-hatch), and the handbook
   holds only how to *structure* that state, how to interpret it, and how to recover from
   failure. Otherwise the repo becomes a distributed job database as well as a knowledge base.
 
+The mode follows the **immediate decision**, not the presence of a timer or profiler. Measuring
+a candidate while deciding what to try next is tuning. Measuring a fixed candidate to estimate
+its performance or cost is benchmarking. A campaign may pass through debugging, performance,
+tuning, benchmarking, and production in sequence; exactly one governs each phase.
+
 <a id="work-mode-currency"></a>
 ### 7.2. Work mode is *current*, not permanent — and mostly not asked about
 
-**It may change mid-session.** Real work slides from debugging into performance analysis
-into tuning without anyone starting a new session, and a mode that could only be set once
-would either route wrongly after the task moved or force pointless restarts.
+**It may change mid-session.** Real work slides from debugging into performance analysis,
+tuning, confirmatory benchmarking, and production without anyone starting a new session, and
+a mode that could only be set once would either route wrongly after the task moved or force
+pointless restarts.
 
 **But it changes only by explicit declaration.** The agent states the mode it is operating
 under and reloads that mode doc when it changes; it never drifts silently, because the
-conventions differ in ways that would otherwise be applied to the wrong work.
+conventions differ in ways that would otherwise be applied to the wrong work. The agent may
+identify a phase boundary and recommend the exact next mode, but it remains under the current
+mode until the operator declares the transition.
 
 **What the session asks for, it asks for only once, and only when it cannot know.**
 
@@ -1685,6 +1701,19 @@ model change, the change enters the handbook citing them as
    in user mode.
 4. Durable output — a corrected constant, a widened tolerance, a note that a model does not
    hold on this hardware — is proposed for the handbook. Everything else stays put.
+
+**Tuning observations are exploratory evidence.** The next candidate may depend on the
+previous result, so the selected winner is exposed to selection noise and to unequal run
+conditions. After selection, benchmark the frozen candidate independently with the declared
+production state, repetitions, correctness checks, and uncertainty treatment. A reserved
+confirmation set whose candidate and protocol were fixed before its results were observed may
+satisfy this requirement; an exploratory winning run may not be relabeled after the fact.
+
+**A measured-series parameter change is a mode boundary.** Once a solver, decomposition,
+node count, build option, runtime parameter, workload definition, or warm-state contract is
+changed adaptively, the current evidence belongs to tuning. A new benchmarking series begins
+only after the candidate and measurement contract are frozen and the operator explicitly
+declares benchmarking mode.
 
 **Not every prediction record earns a handbook change.** Step 4 is a judgement about value
 and durability, made against [§admission-test](#admission-test), not an automatic promotion.
