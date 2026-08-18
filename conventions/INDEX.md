@@ -9,3 +9,4 @@ Entries are grouped by scoped convention.
 |---|---|---|
 | [LQCD measurement and workflow cost accounting](measurement.md) | Shared rules for steady-state solve measurements, exact artifact validation, per-run workflow ledgers, and production-cost projections. | Planning, measuring, comparing, or projecting the cost of tuning and benchmarking runs. |
 | [LQCD orientation and vocabulary](orientation.md) | Default HISQ convention and shared meanings used throughout the handbook | beginning any LQCD handbook session |
+| [LQCD run outcome reconciliation](running.md) | Shared rules for reconciling scheduler, runtime, application, artifact, and correctness evidence into a run disposition. | Preparing, observing, classifying, or accounting for a submitted or launched run. |

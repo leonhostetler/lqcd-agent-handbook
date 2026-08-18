@@ -96,8 +96,10 @@ starts cold each time, include the cold cost.
    `conventions/measurement.md`; retain parent clocks and mark nested diagnostics so they are
    not double counted. Do not use operation rate alone to compare algorithms that perform
    different work.
-6. Run the predeclared repetitions and preserve failures and anomalous placements. Do not drop
-   a slow run without a recorded, evidence-backed exclusion reason.
+6. Run the predeclared repetitions and preserve failures and anomalous placements. Reconcile
+   scheduler, runtime, application, artifact, and correctness evidence and assign the disposition
+   defined in `conventions/running.md`. Do not drop a slow run without a recorded, evidence-backed
+   exclusion reason.
 7. Complete the predict → run → compare record for every allocation-consuming run. Diagnose
    misses as stale knowledge, a wrong model, a workload mismatch, ordinary variability, or an
    environmental change before revising the prediction.
@@ -159,9 +161,10 @@ starts cold each time, include the cold cost.
 Use the working project's instructions, detected software profile, selected machine profile,
 nearest validated stack, build profile, relevant application guide, and relevant solver
 documents. Load `conventions/measurement.md` for the steady-state solve series, observed
-workflow ledger, artifact manifest, and production projection. Prefer reusable timing,
-environment-capture, memory, and decomposition tools when present. Use the shared prediction
-record and keep all run-specific data outside the handbook.
+workflow ledger, artifact manifest, and production projection, and load
+`conventions/running.md` for run disposition and evidence reconciliation. Prefer reusable
+timing, environment-capture, memory, and decomposition tools when present. Use the shared
+prediction record and keep all run-specific data outside the handbook.
 
 Route reusable measurement rules to `conventions/`; software mechanisms to
 `software/<name>/`; machine-specific behavior to `machines/<name>/`; and validated combinations

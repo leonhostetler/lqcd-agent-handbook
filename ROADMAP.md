@@ -3,8 +3,8 @@
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
 matrix, including both Claude cases, has passed. Slice 4 is in progress.
 
-**NEXT ACTION:** Complete Slice 4's shared running convention, benchmark playbook, prediction
-record, and extraction/accounting tools.
+**NEXT ACTION:** Complete Slice 4's remaining shared running convention, benchmark playbook,
+prediction record, and extraction/accounting tools.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -35,6 +35,12 @@ run-owned outputs, exact missing and unexpected set comparison, and separate str
 numerical, and scientific validity. The `ks_spectrum` guide specializes the rule for inline and
 FNAL correlator output, repeated destinations, grouped meson records, append-only writers, and
 writer-error fallback.
+
+The shared running convention is now seeded with compact outcome reconciliation. It combines
+scheduler, runtime, application, artifact, and correctness evidence; assigns one of five broad
+dispositions; separates disposition from causal attribution; and keeps every allocation-
+consuming run in the cost ledger while admitting only accepted runs to confirmatory performance
+statistics. Scheduler placement, capture, and budget-ledger portions remain Slice 4 work.
 
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific

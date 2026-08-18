@@ -69,9 +69,9 @@ total. Load the relevant application guide before assigning ownership or recurre
 
 ## Write one observed workflow ledger per run
 
-Create an observed ledger for every allocation-consuming run, including a failed or rejected
-run. Give each run isolated raw output and an immutable identity. The ledger references raw
-evidence; it does not replace it.
+Create an observed ledger for every allocation-consuming run regardless of the disposition
+assigned under `running.md`. Give each run isolated raw output and an immutable identity. The
+ledger references raw evidence; it does not replace it.
 
 The run header records:
 
@@ -95,7 +95,7 @@ For each reported quantity, record:
 | recurrence | Once per campaign, job, gauge configuration, source, solve, cadence, or other declared unit. |
 | accounting role | Parent clock, non-overlapping partition term, nested diagnostic, excluded cost, or derived residual. |
 | warm state | Cold, warm, mixed, or not applicable. |
-| validity | Completion and correctness status of the associated work. |
+| validity | Run disposition from `running.md` and completion and correctness status of the associated work. |
 | limitation | Noise, missing coverage, incompatible boundary, or extrapolation restriction. |
 
 The accounting role prevents double counting. A solver occurrence can explain a propagator phase
@@ -242,6 +242,6 @@ A performance quantity enters a comparison or projection only when:
 - its accounting and recurrence roles are declared; and
 - uncertainty and missing coverage are reported.
 
-Failed and truncated runs retain observed ledgers because they consume allocation and provide
-feasibility or debugging evidence. They do not enter a confirmatory performance distribution
-unless the frozen contract explicitly defined and accepted that outcome.
+Runs classified as `rejected`, `incomplete`, `no-trial`, or `indeterminate` retain observed
+ledgers because they consume allocation or provide feasibility and debugging evidence. Only
+`accepted` runs enter a confirmatory performance distribution.
