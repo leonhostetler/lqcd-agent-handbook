@@ -13,6 +13,10 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/interface_quda.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ext_src/make_ext_src.c
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/f_meas_current.c
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/ks_meson_mom.c
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/ks_meson_mom_quda.c
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/shift_field.c
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/spin_taste_ops.c
 observed: "2026-08-18"
@@ -78,6 +82,15 @@ git merge-base --is-ancestor e318708117360dc09c1f0808615bee93ef372aae HEAD
 A nonzero result does not prove the checkout is affected because the fix may have been
 cherry-picked or reimplemented. Inspect `shiftQuda` for explicit selector dispatch before
 qualifying that checkout.
+
+## Consumer reachability
+
+The one-sided selector path is not confined to `ks_measure`. `spin_taste_op_ape_fn` dispatches
+the APE rho forward and backward indices to `mult_rhois_ape_field`, and the observed MILC source
+has callers in external-source, current-measurement, and meson-momentum code. This establishes
+source reachability, not that every configuration executes those indices. When qualifying an old
+checkout, inventory the requested spin-taste indices across its consumers and test every
+reachable one-sided case.
 
 ## Focused validation
 
