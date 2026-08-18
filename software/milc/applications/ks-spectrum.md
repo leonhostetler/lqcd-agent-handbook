@@ -8,8 +8,11 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/setup.c#L78-L260
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/setup.c#L994-L1390
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/control.c#L76-L1200
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/make_prop.c#L286-L333
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/spectrum_ks.c#L644-L1255
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/spectrum_ks.c#L1360-L1665
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/ks_multicg.c#L760-L823
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/mat_invert.c#L207-L514
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic/io_helpers.c#L664-L705
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/ks_spectrum_includes.h#L33-L40
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/test/ks_spectrum_hisq.fpi.2.sample-in
@@ -55,6 +58,13 @@ A propagator set is an execution unit, not necessarily one solve. `set_type`, so
 color structure, mass count, and backend dispatch can turn one set into single, multimass,
 multi-source, or batched solve calls. Derive the expected runtime calls from both the input and
 the emitted solver records.
+
+**Solver-dispatch heads-up:** at the observed revision, `set_type multimass` enters
+`mat_invert_multi`, but that routine performs separate single-mass inversions when the set has
+at most two masses or the run has a nonzero eigenvector count. `set_type multicolorsource`
+instead enters a block inversion over all source colors. Confirm the executed path from the
+emitted solver records, including mass and right-hand-side cardinality; the requested set type
+alone is not sufficient evidence.
 
 ## Output and work-unit boundaries
 
@@ -152,6 +162,13 @@ and decomposition. A later occurrence can be the first use of a new kernel famil
 is not literally the first solve in the file. Exclude or include first-use cost according to the
 declared warm-state contract in benchmarking mode.
 
+**Solver-work heads-up:** treat single-right-hand-side and block or multi-right-hand-side paths
+as different warm-state classes unless runtime and tunecache evidence establishes otherwise. At
+the observed revision, CGZ solves the even and odd parity systems independently from zero initial
+guesses, while UML solves the even system, reconstructs the odd solution, and then polishes it.
+Solver-call count is therefore not a comparable work metric by itself; compare elapsed time,
+total iterations, convergence, and correctness evidence.
+
 For workflow-cost estimation:
 
 - define how many input sets constitute one gauge-configuration workload;
@@ -162,6 +179,10 @@ For workflow-cost estimation:
   number of `RUNNING COMPLETED` markers; and
 - retain scheduler elapsed time, because application timers need not cover process launch,
   backend initialization/finalization, monitoring, or all output activity.
+
+If gauge-field loading is a non-negligible fraction of the production-shaped workflow, treat the
+gauge reload method, file format, and storage path as candidate tuning dimensions and measure the
+gauge-load phase separately.
 
 Requested input labels are not runtime evidence. Confirm the emitted solver/backend token,
 batch or mass cardinality, precision, iterations, convergence, and residuals. In particular,
