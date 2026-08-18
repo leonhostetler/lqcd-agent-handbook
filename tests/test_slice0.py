@@ -132,14 +132,14 @@ class SliceZeroTests(unittest.TestCase):
             )
             orientation = handbook_copy / "conventions/orientation.md"
             text = orientation.read_text()
-            quoted_observed = json.dumps("2026-08-14")
-            quoted_review = json.dumps("2027-08-14")
-            text = text.replace(
-                f"observed: {quoted_observed}", "observed: 2026-08-14"
-            )
-            text = text.replace(
-                f"review_by: {quoted_review}", "review_by: 2027-08-14"
-            )
+            _, raw_frontmatter, _ = text.split("---", 2)
+            metadata = yaml.safe_load(raw_frontmatter)
+            for field in ("observed", "review_by"):
+                value = metadata[field]
+                quoted_value = json.dumps(value)
+                original = f"{field}: {quoted_value}"
+                self.assertIn(original, text)
+                text = text.replace(original, f"{field}: {value}", 1)
             orientation.write_text(text)
 
             result = subprocess.run(
