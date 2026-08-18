@@ -30,7 +30,8 @@ and the next action.
 - Keep knowledge atomic and scoped. Prefer executable tools to repeated formulas.
 - Use one canonical home per value; other documents should point to it.
 - Keep each commit to one fact class so a faulty import can be reverted cleanly.
-- Never read `session_*.log`; those transcripts are operator-only provenance backups.
+- Do not read `session_*.log` unless the operator explicitly requests it.
+  Authorized review still follows mined-material classification, privacy, and publishability gates.
 - Run `python3 tools/validate-knowledge.py` before every commit. Its privacy scan is a
   safety net, not publication clearance.
 

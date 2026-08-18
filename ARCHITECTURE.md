@@ -62,7 +62,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | An agent should submit unattended — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
-| **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared interpreter dispatcher and checker, and an offer-only installer. The dispatcher selects a compatible versioned Python without loading a module; adapters are copied into `~/.claude/` or `~/.codex/`, and Codex still requires user trust. Logs remain an **operator-facing provenance backup, not an agent-readable source** ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
+| **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared interpreter dispatcher and checker, and an offer-only installer. The dispatcher selects a compatible versioned Python without loading a module; adapters are copied into `~/.claude/` or `~/.codex/`, and Codex still requires user trust. Logs remain **operator-facing provenance backups**: agents do not read them unless the operator explicitly requests review, and authorized review treats them as private evidence rather than canonical knowledge ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
 | **Repo name** | `lqcd-agent-handbook` ([§locating-handbook](#locating-handbook)) | — |
 | **Locating the handbook** | `LQCD_HANDBOOK` is the sole interface; **the launcher fails fast if it is unset** — no `$HOME` fallback. No canonical path, and no clone path recorded anywhere in the repo: [§deny-list](#deny-list) denies it. Validation is **identity by content**, not by path ([§locating-handbook](#locating-handbook)) | — |
 
@@ -883,7 +883,7 @@ write restriction (P6, [§handbook-modes](#handbook-modes)) remains deferred to 
 ([§deferred-decisions](ROADMAP.md#deferred-decisions)).
 
 <a id="session-logging"></a>
-### 4.5. Session logging: provenance for the operator, invisible to the agent
+### 4.5. Session logging: operator provenance, not an agent input by default
 
 The contract is frontend-neutral and the adapters are not. On every assistant-turn
 boundary, a user-level **global `Stop` hook** re-renders the transcript to
@@ -937,16 +937,20 @@ scope.
 
 **What the logs are for.** `[operator]` They are a last-resort backup of the work and
 thinking a session contained — an **ultimate provenance record for the operator**, not a
-knowledge source for the agent. Two consequences:
+routine knowledge source for the agent.
+**Explicit review is a narrow operator-controlled exception.** It exists for recovery or
+targeted reasoning analysis. Authorization to read is not publication clearance: the
+transcript remains private, and any durable candidate follows mined-material
+classification, privacy screening, and an affirmative publishability decision
+before admission. Two consequences:
 
-- **They are not an input to the capture loop ([§predict-compare-loop](#predict-compare-loop)), at any point.** Predictions and
+- **They are not an input to the capture loop ([§predict-compare-loop](#predict-compare-loop)) by default.** Predictions and
   comparisons live in session memory, or — when work crosses sessions — in a document the
-  agent writes deliberately into the working directory. Reasoning worth keeping gets
-  written down on purpose; if something exists only in a session log, that is evidence it
-  did not meet the bar, so mining logs would systematically surface exactly the material
-  that failed it.
+  agent writes deliberately into the working directory. Reasoning worth keeping should be
+  written down on purpose. Routine capture never mines logs merely because they are
+  present; only an explicit operator request activates the exception above.
 - **`conventions/orientation.md` carries an explicit rule: do not read `session_*.log`
-  unless the operator asks.** This has to be a rule rather than an omission, because a
+  unless the operator explicitly requests it.** This has to be a rule rather than an omission, because a
   fresh agent landing in a working directory will *see* the file, obviously relevant and
   full of context. It is a token trap — verbatim transcript is the least dense form of that
   knowledge and the most likely to be stale. State the reason with the rule; a rule without

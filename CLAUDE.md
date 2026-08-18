@@ -36,7 +36,8 @@ Exactly one handbook mode is current:
 - A fact needs declared scope, evidence, observation context, durability, mechanism or an
   explicit empirical label, and an actionable consequence. Episodes remain with their
   source evidence; a one-off may become an incident, never a rule.
-- Do not read `session_*.log`. These are operator-facing provenance backups.
+- Do not read `session_*.log` unless the operator explicitly requests it. Even then,
+  treat the transcript as private evidence, not canonical knowledge.
 - Prefer a tool over prose when a durable rule can be executed.
 
 Use `INDEX.md` only to route to the smallest relevant document. Developer-only planning

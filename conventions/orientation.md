@@ -4,10 +4,10 @@ summary: Default HISQ convention and shared meanings used throughout the handboo
 scope: [universal]
 load_when: beginning any LQCD handbook session
 evidence: operator
-observed: "2026-08-14"
+observed: "2026-08-18"
 observed_on:
   requirements: handbook-bootstrap
-review_by: "2027-08-14"
+review_by: "2027-08-18"
 ---
 
 # Orientation
@@ -28,5 +28,6 @@ Use these terms consistently:
   reusable rule.
 
 Evidence kinds are `source`, `docs`, `observed`, `reproduced`, `experiment`, `operator`,
-and `inferred`; use the contract in `ARCHITECTURE.md`. Never read `session_*.log`: those
-files are an operator-facing provenance backup, not agent-readable evidence.
+and `inferred`; use the contract in `ARCHITECTURE.md`. Do not read `session_*.log` unless the
+operator explicitly requests it. An authorized review treats the transcript as private
+evidence, not canonical knowledge, and does not bypass privacy or publishability gates.
