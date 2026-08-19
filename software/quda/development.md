@@ -15,11 +15,14 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt
   - https://github.com/lattice/quda/tree/b6998853f6b605e22d67ea2ddfa3cab0d752679a/.github/workflows
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/ci/pipeline.yml
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/blas_quda.cu
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/copy_color_spinor_mg.in.hpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/CMakeLists.txt
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/enum_quda_fortran.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/quda_fortran.F90
   - https://github.com/llvm/llvm-project/blob/main/clang/tools/clang-format/git-clang-format
-observed: "2026-08-18"
+observed: "2026-08-19"
 observed_on:
   software:
     quda:
@@ -89,6 +92,18 @@ QUDA pull-request automation does not establish full runtime correctness. At the
 commit, the GitHub Actions pull-request workflows build and install but do not run tests;
 the separate CSCS pipeline runs `ctest`. Run focused validation before relying on CI.
 
+When a correctness repair is prerequisite to an optimization, establish and validate the narrow
+repair first. Preserve its output as the optimization baseline, then change placement or
+dataflow. Otherwise the original defect contaminates the oracle and a result change cannot be
+attributed cleanly.
+
+For accelerator refactors, keep a precision ledger for host storage, device storage, operators,
+intermediates, accumulators, reductions, and outputs. Algebraically equivalent placement may
+change working precision and reduction order. For template-dispatched operations, also trace
+the relevant field tuple, such as color, spin, order, location, and precision, through dispatch
+and the generated instantiation lists; an exposed API can compile yet reject an unsupported
+combination at runtime. Validate every affected precision and representation path.
+
 - Add or update a focused regression test when the changed behavior can be expressed by the
   current test harness, then run the relevant CTest registration or narrow test executable.
 - Select the dimensions the change can affect, such as build configuration, operator,
@@ -103,6 +118,9 @@ the separate CSCS pipeline runs `ctest`. Run focused validation before relying o
 
 ## Preserve interface and build contracts
 
+- Enforce public-input, preserved-state, vector-cardinality, and similar runtime contracts with
+  always-on `errorQuda` paths. Use `assert` only for internal conditions whose checks may safely
+  disappear from release builds.
 - Treat public enumeration ordering and values as interface-sensitive. When
   `include/enum_quda.h` changes, update the hand-maintained
   `include/enum_quda_fortran.h` mirror in the same change.

@@ -14,7 +14,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_measure/setup.c#L55-L75
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/setup.c#L162-L182
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic/com_mpi.c#L612-L626
-observed: "2026-08-18"
+observed: "2026-08-19"
 observed_on:
   software:
     milc:
@@ -57,6 +57,19 @@ families. A build profile may add, remove, or rename members as the software cha
 Backend libraries may print additional timing, tuning, convergence, throughput, and memory
 records independently of `CTIME`. Treat those as backend evidence and identify their format by
 the executable and library revisions.
+
+## Timer ownership
+
+At the observed revision, application `STARTTIME` and `ENDTIME` macros update one
+caller-owned elapsed-time variable. Treat that variable as one open interval: on every
+preprocessed control-flow path, one start must reach exactly one matching end before the
+variable is reused.
+
+Nested or overlapping intervals require independent local variables declared under the same
+instrumentation guard as their uses. Audit macro-expanded paths, including early exits and
+configuration-specific branches, rather than relying on lexical start/end counts. Balanced
+pairs establish that the timer is valid; they do not by themselves establish that its
+boundaries measure the intended operation.
 
 ## Timing layers
 
