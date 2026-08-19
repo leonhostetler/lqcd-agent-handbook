@@ -54,6 +54,13 @@ dispositions; separates disposition from causal attribution; and keeps every all
 consuming run in the cost ledger while admitting only accepted runs to confirmatory performance
 statistics. Scheduler placement, capture, and budget-ledger portions remain Slice 4 work.
 
+Also on 2026-08-19, the public-source foundation of Slice 5 was pulled forward without changing
+the current Slice 4 next action. The MILC HISQ catalog records the 24 isospin-symmetric ensembles
+documented in arXiv:1712.09262, source-attested suffix-free ensemble names, mass-independent
+`p4s` spacings, and published pion characteristics. Operator-selected physical-mass defaults
+resolve unqualified spacing references; stream suffixes remain subordinate to ensemble identity,
+and the 0.03 fm group remains explicitly without a physical-mass default.
+
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
 Claude and Codex loggers, an offer-only user-config installer, manifest validation, and
@@ -471,6 +478,10 @@ trigger a false alarm.
 `ensembles/milc-hisq.yaml`, plus `schemas/ensemble.schema.json` and its validator binding.
 Publishability is settled **per class during the import**
 ([§ensemble-numbers](ARCHITECTURE.md#ensemble-numbers)), so the slice is no longer gated on a single up-front decision.
+
+**State:** The public-source ensemble catalog, schema, validator binding, naming rule, and
+spacing-default convention are prepared independently of the private tuning corpus. Solver
+mining, ensemble-scoped operational imports, and the slice acceptance checks remain pending.
 
 This is the slice where the admission test earns its keep. Run it strictly — stage
 extractions **in the working directory beside the source corpus**, assign each candidate a

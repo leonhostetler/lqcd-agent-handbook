@@ -196,6 +196,7 @@ def validate_schemas(root: Path, errors: list[str]) -> int:
         ("software/**/project.yaml", "project.schema.json"),
         ("software/**/build-profiles.yaml", "build-profiles.schema.json"),
         ("machines/*/stacks/*/stack.yaml", "stack.schema.json"),
+        ("ensembles/milc-hisq.yaml", "ensemble.schema.json"),
     ]
     checked = 0
     for pattern, schema_name in bindings:
@@ -270,7 +271,88 @@ def validate_schemas(root: Path, errors: list[str]) -> int:
                         ),
                     )
                     validate_stack_references(root, path, instance, errors)
+                elif schema_name == "ensemble.schema.json":
+                    validate_observed_on(instance.get("observed_on"), rel, errors)
+                    validate_ensemble_catalog(rel, instance, errors)
     return len(loaded) + checked
+
+
+def validate_ensemble_catalog(
+    path: Path, catalog: dict[str, Any], errors: list[str]
+) -> None:
+    rel = path.as_posix()
+    names_seen: set[str] = set()
+    aliases_seen: set[str] = set()
+    groups: dict[str, dict[str, dict[str, Any]]] = {}
+    for group in catalog.get("spacing_groups", []):
+        if not isinstance(group, dict):
+            continue
+        group_id = group.get("id")
+        group_names: dict[str, dict[str, Any]] = {}
+        for ensemble in group.get("ensembles", []):
+            if not isinstance(ensemble, dict):
+                continue
+            name = ensemble.get("name")
+            if not isinstance(name, str):
+                continue
+            if name in names_seen:
+                errors.append(f"{rel}: duplicate ensemble name {name!r}")
+            names_seen.add(name)
+            group_names[name] = ensemble
+        if isinstance(group_id, str):
+            if group_id in groups:
+                errors.append(f"{rel}: duplicate spacing group id {group_id!r}")
+            groups[group_id] = group_names
+
+    resolution = catalog.get("operator_resolution", {})
+    defaults = (
+        resolution.get("spacing_defaults", [])
+        if isinstance(resolution, dict)
+        else []
+    )
+    groups_referenced: set[str] = set()
+    for default_record in defaults:
+        if not isinstance(default_record, dict):
+            continue
+        group_id = default_record.get("spacing_group")
+        if isinstance(group_id, str):
+            if group_id in groups_referenced:
+                errors.append(
+                    f"{rel}: duplicate default for spacing group {group_id!r}"
+                )
+            groups_referenced.add(group_id)
+        group_names = groups.get(group_id)
+        if group_names is None:
+            errors.append(
+                f"{rel}: spacing default references missing group {group_id!r}"
+            )
+            continue
+
+        for alias in default_record.get("aliases", []):
+            if not isinstance(alias, str):
+                continue
+            if alias in aliases_seen:
+                errors.append(f"{rel}: duplicate operator spacing alias {alias!r}")
+            aliases_seen.add(alias)
+
+        default = default_record.get("ensemble")
+        if default is None:
+            continue
+        selected = group_names.get(default)
+        if selected is None:
+            errors.append(
+                f"{rel}: spacing group {group_id!r} default {default!r} "
+                "is absent from that spacing group"
+            )
+        elif selected.get("physical_light_mass") is not True:
+            errors.append(
+                f"{rel}: spacing group {group_id!r} default {default!r} "
+                "must have physical_light_mass: true"
+            )
+
+    missing_defaults = sorted(set(groups) - groups_referenced)
+    for group_id in missing_defaults:
+        errors.append(f"{rel}: spacing group {group_id!r} has no default record")
 
 
 def validate_build_profile_references(

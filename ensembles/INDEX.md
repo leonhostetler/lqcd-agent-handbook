@@ -3,4 +3,8 @@
 
 Entries are grouped by scoped ensemble.
 
-_No published ensembles knowledge yet._
+## milc-hisq
+
+| Knowledge | Summary | Load when |
+|---|---|---|
+| [MILC HISQ naming and spacing defaults](milc-hisq.md) | Resolves ensemble names, generation streams, and unqualified lattice-spacing references. | selecting or identifying a MILC HISQ ensemble from a name, stream, or approximate lattice spacing |

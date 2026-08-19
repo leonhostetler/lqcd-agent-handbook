@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/lqcd-agent-handbook/schemas/ensemble.schema.json",
+  "title": "Published lattice-gauge ensemble catalog",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "family",
+    "summary",
+    "generator",
+    "sea",
+    "gauge_action",
+    "naming",
+    "operator_resolution",
+    "spacing_groups",
+    "evidence",
+    "observed",
+    "observed_on",
+    "review_by",
+    "sources"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "family": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "summary": {"type": "string", "minLength": 1},
+    "generator": {"type": "string", "minLength": 1},
+    "sea": {
+      "type": "object",
+      "required": ["action", "flavors", "isospin"],
+      "properties": {
+        "action": {"type": "string", "minLength": 1},
+        "flavors": {"type": "string", "minLength": 1},
+        "isospin": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "gauge_action": {"type": "string", "minLength": 1},
+    "naming": {
+      "type": "object",
+      "required": [
+        "ensemble_name_pattern",
+        "stream_suffix_pattern",
+        "stream_semantics"
+      ],
+      "properties": {
+        "ensemble_name_pattern": {"type": "string", "minLength": 1},
+        "stream_suffix_pattern": {"type": "string", "minLength": 1},
+        "stream_semantics": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "operator_resolution": {
+      "$ref": "#/$defs/operator_resolution"
+    },
+    "spacing_groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/spacing_group"}
+    },
+    "evidence": {
+      "type": "string",
+      "enum": [
+        "source",
+        "docs",
+        "observed",
+        "reproduced",
+        "experiment",
+        "operator",
+        "inferred"
+      ]
+    },
+    "observed": {"type": "string", "format": "date"},
+    "observed_on": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": true
+    },
+    "review_by": {"type": "string", "format": "date"},
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "format": "uri"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "uncertainties": {
+      "type": "object",
+      "required": [
+        "statistical",
+        "systematic",
+        "f_pi_pdg",
+        "electromagnetic_scheme"
+      ],
+      "properties": {
+        "statistical": {"type": "number", "minimum": 0},
+        "systematic": {"type": "number", "minimum": 0},
+        "f_pi_pdg": {"type": "number", "minimum": 0},
+        "electromagnetic_scheme": {"type": "number", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "lattice_spacing": {
+      "type": "object",
+      "required": ["method", "value_fm", "uncertainties_fm"],
+      "properties": {
+        "method": {"type": "string", "minLength": 1},
+        "value_fm": {"type": "number", "exclusiveMinimum": 0},
+        "uncertainties_fm": {"$ref": "#/$defs/uncertainties"}
+      },
+      "additionalProperties": false
+    },
+    "sea_masses": {
+      "type": "object",
+      "required": ["light", "strange", "charm"],
+      "properties": {
+        "light": {"type": "number", "exclusiveMinimum": 0},
+        "strange": {"type": "number", "exclusiveMinimum": 0},
+        "charm": {"type": "number", "exclusiveMinimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "geometry": {
+      "type": "object",
+      "required": ["spatial", "temporal"],
+      "properties": {
+        "spatial": {"type": "integer", "minimum": 1},
+        "temporal": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "pion_characterization": {
+      "type": "object",
+      "required": ["mass_mev", "mass_times_length"],
+      "properties": {
+        "mass_mev": {"type": "number", "exclusiveMinimum": 0},
+        "mass_times_length": {"type": "number", "exclusiveMinimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "ensemble": {
+      "type": "object",
+      "required": [
+        "name",
+        "paper_key",
+        "sea_masses",
+        "geometry",
+        "spatial_extent_fm",
+        "pion",
+        "physical_light_mass"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^l[0-9]+f[0-9]+b[0-9]+(?:m[0-9]+){2,4}$"
+        },
+        "paper_key": {"type": "string", "minLength": 1},
+        "sea_masses": {"$ref": "#/$defs/sea_masses"},
+        "geometry": {"$ref": "#/$defs/geometry"},
+        "spatial_extent_fm": {"type": "number", "exclusiveMinimum": 0},
+        "pion": {"$ref": "#/$defs/pion_characterization"},
+        "physical_light_mass": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "spacing_group": {
+      "type": "object",
+      "required": [
+        "id",
+        "approximate_fm",
+        "beta",
+        "lattice_spacing",
+        "ensembles"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^a[0-9]+$"
+        },
+        "approximate_fm": {"type": "number", "exclusiveMinimum": 0},
+        "beta": {"type": "number", "exclusiveMinimum": 0},
+        "lattice_spacing": {"$ref": "#/$defs/lattice_spacing"},
+        "ensembles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/ensemble"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "spacing_default": {
+      "type": "object",
+      "required": [
+        "spacing_group",
+        "aliases",
+        "ensemble"
+      ],
+      "properties": {
+        "spacing_group": {
+          "type": "string",
+          "pattern": "^a[0-9]+$"
+        },
+        "aliases": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^0\\.[0-9]+$"}
+        },
+        "ensemble": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "string",
+              "pattern": "^l[0-9]+f[0-9]+b[0-9]+(?:m[0-9]+){2,4}$"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "operator_resolution": {
+      "type": "object",
+      "required": [
+        "evidence",
+        "spacing_defaults"
+      ],
+      "properties": {
+        "evidence": {
+          "const": "operator"
+        },
+        "spacing_defaults": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/spacing_default"}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

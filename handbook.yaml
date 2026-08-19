@@ -5,6 +5,7 @@ schema_versions:
   project: 2
   build_profiles: 1
   stack: 1
+  ensemble: 1
 tier_0:
   canonical_entrypoint: AGENTS.md
   mirrors:

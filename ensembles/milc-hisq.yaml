@@ -1,0 +1,292 @@
+schema_version: 1
+family: milc-hisq
+summary: Published zero-temperature MILC and Fermilab Lattice gauge ensembles with four flavors of HISQ sea quarks.
+generator: MILC and Fermilab Lattice collaborations
+sea:
+  action: rooted HISQ
+  flavors: 2+1+1
+  isospin: symmetric up and down sea quarks
+gauge_action: one-loop Symanzik improved and tadpole improved
+naming:
+  ensemble_name_pattern: suffix-free MILC l... label
+  stream_suffix_pattern: one trailing lowercase letter
+  stream_semantics: A trailing lowercase letter selects a generation stream and is not part of the ensemble identity.
+operator_resolution:
+  evidence: operator
+  spacing_defaults:
+    - spacing_group: a15
+      aliases: ["0.15"]
+      ensemble: l3248f211b580m00235m0647m831
+    - spacing_group: a12
+      aliases: ["0.12"]
+      ensemble: l4864f211b600m00184m0507m628
+    - spacing_group: a09
+      aliases: ["0.09"]
+      ensemble: l6496f211b630m0012m0363m432
+    - spacing_group: a06
+      aliases: ["0.06"]
+      ensemble: l96192f211b672m0008m022m260
+    - spacing_group: a042
+      aliases: ["0.04", "0.042"]
+      ensemble: l144288f211b700m000569m01555m1827
+    - spacing_group: a03
+      aliases: ["0.03"]
+      ensemble: null
+spacing_groups:
+  - id: a15
+    approximate_fm: 0.15
+    beta: 5.8
+    lattice_spacing:
+      method: mass-independent p4s scale from arXiv:1712.09262 Table IX
+      value_fm: 0.15293
+      uncertainties_fm:
+        statistical: 0.00026
+        systematic: 0.00019
+        f_pi_pdg: 0.00023
+        electromagnetic_scheme: 0.00007
+    ensembles:
+      - name: l1648f211b580m013m065m838
+        paper_key: ms/5
+        sea_masses: {light: 0.013, strange: 0.065, charm: 0.838}
+        geometry: {spatial: 16, temporal: 48}
+        spatial_extent_fm: 2.45
+        pion: {mass_mev: 305, mass_times_length: 3.8}
+        physical_light_mass: false
+      - name: l2448f211b580m0064m0640m828
+        paper_key: ms/10
+        sea_masses: {light: 0.0064, strange: 0.064, charm: 0.828}
+        geometry: {spatial: 24, temporal: 48}
+        spatial_extent_fm: 3.67
+        pion: {mass_mev: 214, mass_times_length: 4.0}
+        physical_light_mass: false
+      - name: l3248f211b580m00235m0647m831
+        paper_key: physical
+        sea_masses: {light: 0.00235, strange: 0.0647, charm: 0.831}
+        geometry: {spatial: 32, temporal: 48}
+        spatial_extent_fm: 4.89
+        pion: {mass_mev: 131, mass_times_length: 3.3}
+        physical_light_mass: true
+  - id: a12
+    approximate_fm: 0.12
+    beta: 6.0
+    lattice_spacing:
+      method: mass-independent p4s scale from arXiv:1712.09262 Table IX
+      value_fm: 0.12224
+      uncertainties_fm:
+        statistical: 0.00016
+        systematic: 0.00015
+        f_pi_pdg: 0.00018
+        electromagnetic_scheme: 0.00005
+    ensembles:
+      - name: l2464f211b600m0102m0509m635
+        paper_key: ms/5
+        sea_masses: {light: 0.0102, strange: 0.0509, charm: 0.635}
+        geometry: {spatial: 24, temporal: 64}
+        spatial_extent_fm: 2.93
+        pion: {mass_mev: 305, mass_times_length: 4.5}
+        physical_light_mass: false
+      - name: l2464f211b600m0102m03054m635
+        paper_key: unphysA
+        sea_masses: {light: 0.0102, strange: 0.03054, charm: 0.635}
+        geometry: {spatial: 24, temporal: 64}
+        spatial_extent_fm: 2.93
+        pion: {mass_mev: 304, mass_times_length: 4.5}
+        physical_light_mass: false
+      - name: l2464f211b600m00507m0507m628
+        paper_key: small
+        sea_masses: {light: 0.00507, strange: 0.0507, charm: 0.628}
+        geometry: {spatial: 24, temporal: 64}
+        spatial_extent_fm: 2.93
+        pion: {mass_mev: 218, mass_times_length: 3.2}
+        physical_light_mass: false
+      - name: l3264f211b600m00507m0507m628
+        paper_key: ms/10
+        sea_masses: {light: 0.00507, strange: 0.0507, charm: 0.628}
+        geometry: {spatial: 32, temporal: 64}
+        spatial_extent_fm: 3.91
+        pion: {mass_mev: 217, mass_times_length: 4.3}
+        physical_light_mass: false
+      - name: l4064f211b600m00507m0507m628
+        paper_key: large
+        sea_masses: {light: 0.00507, strange: 0.0507, charm: 0.628}
+        geometry: {spatial: 40, temporal: 64}
+        spatial_extent_fm: 4.89
+        pion: {mass_mev: 216, mass_times_length: 5.4}
+        physical_light_mass: false
+      - name: l2464f31b600m01275m640
+        paper_key: unphysB
+        sea_masses: {light: 0.01275, strange: 0.01275, charm: 0.640}
+        geometry: {spatial: 24, temporal: 64}
+        spatial_extent_fm: 2.93
+        pion: {mass_mev: 337, mass_times_length: 5.0}
+        physical_light_mass: false
+      - name: l3264f211b600m00507m0304m628
+        paper_key: unphysC
+        sea_masses: {light: 0.00507, strange: 0.0304, charm: 0.628}
+        geometry: {spatial: 32, temporal: 64}
+        spatial_extent_fm: 3.91
+        pion: {mass_mev: 215, mass_times_length: 4.3}
+        physical_light_mass: false
+      - name: l3264f211b600m00507m022815m628
+        paper_key: unphysD
+        sea_masses: {light: 0.00507, strange: 0.022815, charm: 0.628}
+        geometry: {spatial: 32, temporal: 64}
+        spatial_extent_fm: 3.91
+        pion: {mass_mev: 214, mass_times_length: 4.2}
+        physical_light_mass: false
+      - name: l3264f211b600m00507m012675m628
+        paper_key: unphysE
+        sea_masses: {light: 0.00507, strange: 0.012675, charm: 0.628}
+        geometry: {spatial: 32, temporal: 64}
+        spatial_extent_fm: 3.91
+        pion: {mass_mev: 214, mass_times_length: 4.2}
+        physical_light_mass: false
+      - name: l3264f31b600m00507m628
+        paper_key: unphysF
+        sea_masses: {light: 0.00507, strange: 0.00507, charm: 0.628}
+        geometry: {spatial: 32, temporal: 64}
+        spatial_extent_fm: 3.91
+        pion: {mass_mev: 213, mass_times_length: 4.2}
+        physical_light_mass: false
+      - name: l3264f211b600m0088725m022815m628
+        paper_key: unphysG
+        sea_masses: {light: 0.0088725, strange: 0.022815, charm: 0.628}
+        geometry: {spatial: 32, temporal: 64}
+        spatial_extent_fm: 3.91
+        pion: {mass_mev: 282, mass_times_length: 5.6}
+        physical_light_mass: false
+      - name: l4864f211b600m00184m0507m628
+        paper_key: physical
+        sea_masses: {light: 0.00184, strange: 0.0507, charm: 0.628}
+        geometry: {spatial: 48, temporal: 64}
+        spatial_extent_fm: 5.87
+        pion: {mass_mev: 132, mass_times_length: 3.9}
+        physical_light_mass: true
+  - id: a09
+    approximate_fm: 0.09
+    beta: 6.3
+    lattice_spacing:
+      method: mass-independent p4s scale from arXiv:1712.09262 Table IX
+      value_fm: 0.08785
+      uncertainties_fm:
+        statistical: 0.00017
+        systematic: 0.00011
+        f_pi_pdg: 0.00013
+        electromagnetic_scheme: 0.00004
+    ensembles:
+      - name: l3296f211b630m0074m037m440
+        paper_key: ms/5
+        sea_masses: {light: 0.0074, strange: 0.037, charm: 0.440}
+        geometry: {spatial: 32, temporal: 96}
+        spatial_extent_fm: 2.81
+        pion: {mass_mev: 316, mass_times_length: 4.5}
+        physical_light_mass: false
+      - name: l4896f211b630m00363m0363m430
+        paper_key: ms/10
+        sea_masses: {light: 0.00363, strange: 0.0363, charm: 0.430}
+        geometry: {spatial: 48, temporal: 96}
+        spatial_extent_fm: 4.22
+        pion: {mass_mev: 221, mass_times_length: 4.7}
+        physical_light_mass: false
+      - name: l6496f211b630m0012m0363m432
+        paper_key: physical
+        sea_masses: {light: 0.0012, strange: 0.0363, charm: 0.432}
+        geometry: {spatial: 64, temporal: 96}
+        spatial_extent_fm: 5.62
+        pion: {mass_mev: 129, mass_times_length: 3.7}
+        physical_light_mass: true
+  - id: a06
+    approximate_fm: 0.06
+    beta: 6.72
+    lattice_spacing:
+      method: mass-independent p4s scale from arXiv:1712.09262 Table IX
+      value_fm: 0.05662
+      uncertainties_fm:
+        statistical: 0.00013
+        systematic: 0.00007
+        f_pi_pdg: 0.00008
+        electromagnetic_scheme: 0.00003
+    ensembles:
+      - name: l48144f211b672m0048m024m286
+        paper_key: ms/5
+        sea_masses: {light: 0.0048, strange: 0.024, charm: 0.286}
+        geometry: {spatial: 48, temporal: 144}
+        spatial_extent_fm: 2.72
+        pion: {mass_mev: 329, mass_times_length: 4.5}
+        physical_light_mass: false
+      - name: l64144f211b672m0024m024m286
+        paper_key: ms/10
+        sea_masses: {light: 0.0024, strange: 0.024, charm: 0.286}
+        geometry: {spatial: 64, temporal: 144}
+        spatial_extent_fm: 3.62
+        pion: {mass_mev: 234, mass_times_length: 4.3}
+        physical_light_mass: false
+      - name: l96192f211b672m0008m022m260
+        paper_key: physical
+        sea_masses: {light: 0.0008, strange: 0.022, charm: 0.260}
+        geometry: {spatial: 96, temporal: 192}
+        spatial_extent_fm: 5.44
+        pion: {mass_mev: 135, mass_times_length: 3.7}
+        physical_light_mass: true
+  - id: a042
+    approximate_fm: 0.042
+    beta: 7.0
+    lattice_spacing:
+      method: mass-independent p4s scale from arXiv:1712.09262 Table IX
+      value_fm: 0.04259
+      uncertainties_fm:
+        statistical: 0.00005
+        systematic: 0.00005
+        f_pi_pdg: 0.00006
+        electromagnetic_scheme: 0.00002
+    ensembles:
+      - name: l64192f211b700m00316m0158m188
+        paper_key: ms/5
+        sea_masses: {light: 0.00316, strange: 0.0158, charm: 0.188}
+        geometry: {spatial: 64, temporal: 192}
+        spatial_extent_fm: 2.73
+        pion: {mass_mev: 315, mass_times_length: 4.3}
+        physical_light_mass: false
+      - name: l144288f211b700m000569m01555m1827
+        paper_key: physical
+        sea_masses: {light: 0.000569, strange: 0.01555, charm: 0.1827}
+        geometry: {spatial: 144, temporal: 288}
+        spatial_extent_fm: 6.13
+        pion: {mass_mev: 134, mass_times_length: 4.2}
+        physical_light_mass: true
+  - id: a03
+    approximate_fm: 0.03
+    beta: 7.28
+    lattice_spacing:
+      method: mass-independent p4s scale from arXiv:1712.09262 Table IX
+      value_fm: 0.03215
+      uncertainties_fm:
+        statistical: 0.00014
+        systematic: 0.00028
+        f_pi_pdg: 0.00005
+        electromagnetic_scheme: 0.00001
+    ensembles:
+      - name: l96288f211b728m00223m01115m1316
+        paper_key: ms/5
+        sea_masses: {light: 0.00223, strange: 0.01115, charm: 0.1316}
+        geometry: {spatial: 96, temporal: 288}
+        spatial_extent_fm: 3.09
+        pion: {mass_mev: 309, mass_times_length: 4.8}
+        physical_light_mass: false
+evidence: docs
+observed: "2026-08-19"
+observed_on:
+  public_source_set:
+    papers:
+      - arXiv:1212.4768
+      - arXiv:1503.02769
+      - arXiv:1712.09262
+      - arXiv:2206.03156
+    catalog_accessed: "2026-08-19"
+review_by: "2027-02-19"
+sources:
+  - https://arxiv.org/abs/1212.4768
+  - https://arxiv.org/abs/1503.02769
+  - https://arxiv.org/abs/1712.09262
+  - https://arxiv.org/abs/2206.03156
+  - https://docs.google.com/spreadsheets/d/1luGfChiPg9XY78ibbU6AavOr1QLHPLG2CwbFNYs_kAQ/edit
