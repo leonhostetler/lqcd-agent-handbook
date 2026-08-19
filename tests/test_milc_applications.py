@@ -14,9 +14,15 @@ def frontmatter(path: Path) -> dict:
 
 
 class MILCApplicationGuideTests(unittest.TestCase):
-    def test_three_application_guides_are_version_scoped_and_indexed(self):
+    def test_application_guides_are_version_scoped_and_indexed(self):
         index = (ROOT / "software/INDEX.md").read_text()
-        for name in ("ks-spectrum", "ks-measure", "ks-imp-rhmc"):
+        expected_branches = {
+            "ks-spectrum": "develop",
+            "ks-measure": "develop",
+            "ks-imp-rhmc": "develop",
+            "wilson-flow": "quda_gauge_flow",
+        }
+        for name, branch in expected_branches.items():
             path = ROOT / "software/milc/applications" / f"{name}.md"
             self.assertTrue(path.is_file(), path)
             metadata = frontmatter(path)
@@ -24,7 +30,7 @@ class MILCApplicationGuideTests(unittest.TestCase):
             self.assertEqual(metadata["evidence"], "source")
             observed = metadata["observed_on"]["software"]["milc"]
             self.assertTrue(observed["commit"])
-            self.assertEqual(observed["branch"], "develop")
+            self.assertEqual(observed["branch"], branch)
             self.assertIn(f"milc/applications/{name}.md", index)
 
     def test_application_timer_boundaries_remain_distinct(self):
@@ -64,6 +70,24 @@ class MILCApplicationGuideTests(unittest.TestCase):
         self.assertIn("same correlator-label/momentum-label pair", spectrum)
         self.assertIn("`nt` indexed real/imaginary samples", spectrum)
         self.assertIn("can continue", spectrum)
+
+    def test_wilson_flow_backend_and_endpoint_boundaries_are_explicit(self):
+        path = ROOT / "software/milc/applications/wilson-flow.md"
+        guide = path.read_text()
+        sources = frontmatter(path)["sources"]
+
+        self.assertTrue(any("wilson_flow/integrate_quda.c" in source for source in sources))
+        self.assertTrue(any("wilson_flow/staple.c" in source for source in sources))
+        self.assertTrue(any("lib/interface_quda.cpp" in source for source in sources))
+        for marker in (
+            "`stoptime / stepsize`",
+            "actual final flow-time contract",
+            "empty placeholder",
+            "without copying the evolved links back",
+            "`REMAP_STDIO_APPEND`",
+            "`forget` ending-lattice handling",
+        ):
+            self.assertIn(marker, guide)
 
     def test_timing_policy_and_mode_routing_are_explicit(self):
         timing = (ROOT / "software/milc/timing.md").read_text()

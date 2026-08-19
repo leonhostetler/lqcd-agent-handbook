@@ -17,6 +17,7 @@ Entries are grouped by scoped software project.
 | [MILC ROCm 7 QUDA ks_spectrum stack on Frontier](../machines/frontier/stacks/milc-rocm7-quda-ks-spectrum-2026q3/notes.md) | Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack. | Rebuilding or validating the Frontier MILC ks_spectrum_hisq stack with QUDA. |
 | [MILC shift and spin-taste paths through QUDA](quda/internals/milc-shift-interface.md) | Build contracts, selector semantics, a resolved one-sided-shift bug, and resident-gauge validation traps. | Debugging or validating MILC WANT_SHIFT_GPU or WANT_SPIN_TASTE_GPU paths. |
 | [MILC timing instrumentation](milc/timing.md) | Build-time timing macros, output layers, and interpretation rules shared by MILC applications. | Building or analyzing a MILC application for tuning, benchmarking, or production-cost estimation. |
+| [MILC wilson_flow application guide](milc/applications/wilson-flow.md) | Input-set structure, flow observables, backend limits, timing boundaries, and completion checks for MILC wilson_flow. | Preparing, tuning, benchmarking, or interpreting a MILC wilson_flow run. |
 
 ## qio
 

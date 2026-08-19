@@ -37,7 +37,8 @@ application guide before preparing or analyzing a run:
 
 - `applications/ks-spectrum.md` for source, propagator, and correlator workflows;
 - `applications/ks-measure.md` for staggered observable measurements; and
-- `applications/ks-imp-rhmc.md` for RHMC trajectories and gauge generation.
+- `applications/ks-imp-rhmc.md` for RHMC trajectories and gauge generation; and
+- `applications/wilson-flow.md` for gradient-flow evolution and gauge observables.
 
 These are application guides, not build profiles. They define work units, input/output
 boundaries, and completion semantics; the selected build profile still owns which executable,
