@@ -8,6 +8,8 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/quda_milc_interface.h#L70-L101
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/quda_milc_interface.h#L185-L225
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/quda_milc_interface.h#L400-L452
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/eigensolve_quda.cpp#L646-L669
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/inv_cg_quda.cpp#L144-L163
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp#L60-L135
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp#L1299-L1645
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp#L1990-L2110
@@ -53,6 +55,24 @@ When `qudaInvertMsrcDeflatable` requests a preserved parity that does not yet
 exist, it reconstructs it from the opposite parity when possible. Otherwise
 the eigensolver or vector-file load inside the inversion creates the requested
 space.
+
+## Deflated initial guess and reported residual
+
+When initial-guess use is enabled, CG first forms `r = b - A x0` from the caller's
+guess and copies `x0` into its solution accumulator. If deflation is enabled, QUDA
+then adds `V Lambda^-1 Vdag r` to that accumulator and recomputes `r = b - A y`
+before the Krylov iteration. A zero caller guess therefore does not mean that the
+iterative phase starts from zero, and an initial residual reported after this step is
+the post-deflation residual rather than the source norm.
+
+For a sequential or repeated inverse, inspect the residual entering each deflation
+separately. If a later source already contains inverse-amplified low-mode content,
+another projection divides those components by the eigenvalues again. This is
+mathematically expected, but it amplifies any inconsistency between the projection
+used to prepare the source and the preserved or reconstructed space. Compare the
+source norm, pre-deflation residual, projected-guess norm, and post-deflation residual
+by right-hand side and parity; do not infer input-guess corruption from post-deflation
+`r2` alone.
 
 ## Eigenvalue mass convention
 
@@ -150,11 +170,13 @@ When reuse is unexpected or residuals change:
    eigensolver precision, and batch size;
 2. establish whether the parity space came from a fresh computation, MILC
    vectors, a QUDA vector file, or opposite-parity reconstruction;
-3. check whether the operator changed without
+3. distinguish the caller-supplied guess and source norm from the pre-deflation
+   residual, deflation correction, and post-deflation initial residual;
+4. check whether the operator changed without
    `qudaCleanUpDeflationSpace`;
-4. distinguish resident-gauge invalidation from deflation-space invalidation;
-5. use debug verbosity when a shifted-path residual check is needed; and
-6. for exact current, verify both parity mass tags are zero rather than merely
+5. distinguish resident-gauge invalidation from deflation-space invalidation;
+6. use debug verbosity when a shifted-path residual check is needed; and
+7. for exact current, verify both parity mass tags are zero rather than merely
    assuming the cached zero-mass snapshot is sufficient.
 
 See [`../solvers/eigensolver.md`](../solvers/eigensolver.md) for native

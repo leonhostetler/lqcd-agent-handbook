@@ -40,37 +40,51 @@ Before editing, building, or running anything:
 4. When algorithm semantics are uncertain, construct the smallest independent mathematical or
    computational reproducer. Prefer an existing result or a one-variable differential check
    before requesting another allocation-consuming run.
-5. Inspect what tests actually execute. Check defaults, test-harness rewrites, disabled
+5. For an instrumented reproducer, minimize the work needed to exercise the invariant, not the
+   rank count in isolation. Estimate completion time and resource cost from per-rank work and
+   diagnostic overhead; fewer ranks can increase elapsed time. Prefer a topology already shown to
+   complete, and keep it fixed across before/after comparisons unless topology is the tested variable.
+6. Inspect what tests actually execute. Check defaults, test-harness rewrites, disabled
    features, and interactions among options; a parameter matrix is not coverage when the
    triggering feature is overwritten before execution.
-6. For interacting compile-time features, derive a state table from actual dispatch rather than
+7. Treat compiler warnings as a set of root causes and reachability evidence, not a raw line
+   count. Group repeated diagnostics by originating definition and configuration. Before
+   suppressing or annotating an unused symbol, trace its intended callers and guards: an expected
+   central routine becoming unused may mean the target path was compiled out or its dispatch was
+   bypassed. Rebuild every affected legal configuration and compare the resulting warning set.
+8. For interacting compile-time features, derive a state table from actual dispatch rather than
    option names. Distinguish capability, provider, owner, consumer, and cleanup state. Guard
    allocation, handoff, use, and cleanup by their own semantic preconditions; identical macro
    expressions are not required when the operations answer different questions. Compile the
    rare legal combinations that select different branches.
-7. For an experiment intended to change control flow or remove work, derive the expected counts
+9. For an experiment intended to change control flow or remove work, derive the expected counts
    of semantically meaningful calls or markers from source before running it. Compare observed
    counts with that prediction. Counts can establish reachability and work removal; they do not
    establish numerical correctness, so pair them with an invariant or reference comparison.
-8. Put a correctness guard at the shared API or construction boundary when one exists. Express
-   the supported invariant directly and reject every unsupported case, rather than enumerating
-   only the failures known today.
-9. When a fix changes transformed, cached, or restarted state, trace every representation
-   through its write, read, restart, and external-output boundaries. Internal consistency does
-   not establish that the boundary contract is correct.
-10. Treat a change from eager to lazy work as a lifecycle change. Inventory every consumer and
+10. Put a correctness guard at the shared API or construction boundary when one exists. Express
+    the supported invariant directly and reject every unsupported case, rather than enumerating
+    only the failures known today.
+11. When a fix changes transformed, cached, or restarted state, trace every representation
+    through its write, read, restart, and external-output boundaries. Internal consistency does
+    not establish that the boundary contract is correct.
+12. Treat a change from eager to lazy work as a lifecycle change. Inventory every consumer and
     possible first-use order, the provenance metadata needed to interpret stored inputs, the
     operator, links, boundary conditions, precision, and persistent state present at the deferred
     point, and any output or save side effects that disappear when no consumer runs. Exercise
     cold-start cases in which the first consumer requests each supported transformed representation.
-11. For dynamic-analysis campaigns, preserve a baseline pass without newly generated suppressions
+13. For dynamic-analysis campaigns, preserve a baseline pass without newly generated suppressions
     and classify findings by stack and provenance before adding narrow, documented suppressions.
     Track coverage by tool, configuration, and rank; a timeout leaves every unfinished cell
     incomplete even when earlier cells passed. Verify a fix by the disappearance of the targeted
     stack and its exact count or byte delta, not by an aggregate zero-error summary.
-12. Validate in layers: source mechanism, independent reproducer, compilation, focused runtime
-   check, regression coverage, and integration exercise. State which layers were completed and
-   never claim beyond the capabilities that were built and executed.
+14. At host-device and other transfer boundaries, establish what each diagnostic tool can
+    observe. Do not assume a host memory checker witnessed device-kernel writes or that a device
+    sanitizer validated host-only work. Trace producer, transfer, and consumer before classifying
+    undefinedness or ownership, then corroborate with a tool that observes the producer or with an
+    independent checksum, reload, or result invariant.
+15. Validate in layers: source mechanism, independent reproducer, compilation, focused runtime
+    check, regression coverage, and integration exercise. State which layers were completed and
+    never claim beyond the capabilities that were built and executed.
 
 ## Permissions and safeguards
 
