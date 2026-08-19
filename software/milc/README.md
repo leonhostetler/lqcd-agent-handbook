@@ -7,7 +7,7 @@ evidence: source
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/README.md
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
-observed: "2026-08-17"
+observed: "2026-08-19"
 observed_on:
   software:
     milc:
@@ -39,6 +39,13 @@ application guide before preparing or analyzing a run:
 - `applications/ks-measure.md` for staggered observable measurements; and
 - `applications/ks-imp-rhmc.md` for RHMC trajectories and gauge generation; and
 - `applications/wilson-flow.md` for gradient-flow evolution and gauge observables.
+
+For staggered internals shared across applications, use:
+
+- `internals/staggered-inverter-types.md` for `CG`, `CGZ`, `UML`, and `MG`
+  dispatch, parity behavior, and set interactions; and
+- `internals/quark-source-types.md` for base-source construction, support status,
+  subset behavior, and source parity.
 
 These are application guides, not build profiles. They define work units, input/output
 boundaries, and completion semantics; the selected build profile still owns which executable,

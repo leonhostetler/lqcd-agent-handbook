@@ -30,3 +30,8 @@ Use `project.yaml` for intrinsic capabilities and option meanings,
 `build-profiles.yaml` for named option sets, and `build.md` for the software-specific build
 procedure. A machine stack supplies the toolchain, target architecture, build cost, and
 validation evidence.
+
+For lower-level behavior, use `solvers/eigensolver.md` for native eigensolver
+invariants and `internals/milc-deflation-space.md` for the parity spaces,
+mass-shifted eigenvalue cache, invalidation rules, and exact-current
+preconditions exposed through the MILC interface.
