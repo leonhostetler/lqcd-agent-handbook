@@ -20,7 +20,7 @@ class MILCApplicationGuideTests(unittest.TestCase):
             "ks-spectrum": "develop",
             "ks-measure": "develop",
             "ks-imp-rhmc": "develop",
-            "wilson-flow": "quda_gauge_flow",
+            "wilson-flow": "develop",
         }
         for name, branch in expected_branches.items():
             path = ROOT / "software/milc/applications" / f"{name}.md"
@@ -84,10 +84,24 @@ class MILCApplicationGuideTests(unittest.TestCase):
             "actual final flow-time contract",
             "empty placeholder",
             "without copying the evolved links back",
+            "`writeGaugeQuda` with `QUDA_SMEARED_LINKS`",
+            "`continue` remains unqualified",
             "`REMAP_STDIO_APPEND`",
             "`forget` ending-lattice handling",
+            '`LDFLAGS="-g -fopenmp -lgomp"`',
         ):
             self.assertIn(marker, guide)
+
+        profiles = yaml.safe_load(
+            (ROOT / "software/milc/build-profiles.yaml").read_text()
+        )["profiles"]
+        self.assertIn("wilson-flow-quda", profiles)
+        composition = profiles["wilson-flow-quda"]["composes"]["quda"]
+        self.assertEqual(composition["profile"], "milc-cg")
+        self.assertEqual(
+            composition["required_capabilities"]["gauge_operations"],
+            ["wilson-flow"],
+        )
 
     def test_timing_policy_and_mode_routing_are_explicit(self):
         timing = (ROOT / "software/milc/timing.md").read_text()

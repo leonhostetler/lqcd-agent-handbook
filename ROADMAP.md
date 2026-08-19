@@ -18,11 +18,23 @@ detector, and focused tests committed and published at `b116b8f` on 2026-08-15.
 
 On 2026-08-18 Slice 4 began by defining tuning and benchmarking as consecutive rather than
 hybrid modes: tuning adaptively selects a candidate setup, and benchmarking confirms a frozen
-candidate and workload. MILC application guides now keep `ks_spectrum`, `ks_measure`, and
-`ks_imp_rhmc` input/output and timing semantics out of the software-independent modes. The
-`ks_spectrum` guide incorporates screened operational lessons; the other two begin with
-source-backed structure and retain explicit production-benchmark coverage gaps. MILC timing
-instrumentation is required for tuning and benchmarking builds and normally remains enabled.
+candidate and workload. MILC application guides now keep `ks_spectrum`, `ks_measure`,
+`ks_imp_rhmc`, and `wilson_flow` input/output and timing semantics out of the software-independent
+modes. The `ks_spectrum` guide incorporates screened operational lessons; `ks_measure` and
+`ks_imp_rhmc` begin with source-backed structure and retain explicit production-benchmark
+coverage gaps. MILC timing instrumentation is required for tuning and benchmarking builds and
+normally remains enabled.
+
+On 2026-08-19 the `wilson_flow` guide was reconciled with the implementation now present in
+upstream MILC `develop`, replacing its former dependency on a personal `quda_gauge_flow` branch.
+A fresh DeltaAI build established a `wilson-flow-quda` MILC profile composed with the existing
+QUDA `milc-cg` profile. The first GNU/OpenMP link exposed command-line `LDFLAGS` precedence:
+`LDFLAGS=-g` suppressed the Makefile's OpenMP additions, while explicitly retaining
+`-fopenmp -lgomp` produced both Luescher and BBB executables. An operator-submitted four-rank,
+four-GPU smoke test then reloaded a SciDAC gauge field through QIO and completed two BBB Wilson-
+flow steps through QUDA at the intended endpoint. It used `forget`, a fresh tunecache, and one
+node; saved/continued fields, CPU/QUDA numerical equivalence, Symanzik flow, multi-node behavior,
+and production performance remain outside the validated scope.
 
 Also on 2026-08-18, the shared measurement convention defined one observed workflow-cost ledger
 per run and a separate production projection, with explicit timer boundaries, accounting roles,
@@ -120,13 +132,13 @@ scheduler capacity.
 
 Latest automated evidence:
 
-- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: eighteen
-  schema objects valid, fifteen provenance records complete, four generated indices current,
-  zero P2 advisories, two frontend adapters and six session-logging assets valid, 201
-  long-document references resolved, no deny-list match, and Tier 0 at 3,059/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all eighty checks pass with both the
+- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty
+  schema objects valid, twenty-eight provenance records complete, four generated indices current,
+  zero P2 advisories, two frontend adapters and six session-logging assets valid, 205
+  long-document references resolved, no deny-list match, and Tier 0 at 3,638/6,144 bytes;
+- `python3 -m unittest discover -s tests -v`: all ninety-six checks pass with both the
   parent interpreter and subprocess `python3` resolved to Python 3.11, including fourteen
-  focused session-logging checks, six focused DeltaAI checks, four focused Frontier
+  focused session-logging checks, seven focused DeltaAI checks, four focused Frontier
   machine checks, fourteen focused Slice 1 checks, ten focused Slice 2 checks, and eleven
   focused Slice 3 checks;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills

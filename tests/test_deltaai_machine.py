@@ -111,6 +111,29 @@ class DeltaAIMachineTests(unittest.TestCase):
         self.assertIn("#SBATCH --gpu-bind=none", notes)
         self.assertIn("tuning-candidate regression warning", notes)
 
+    def test_wilson_flow_stack_records_current_upstream_and_runtime_limits(self):
+        stack = yaml.safe_load(
+            (
+                ROOT
+                / "machines/deltaai/stacks/"
+                "milc-cuda12-quda-wilson-flow-2026q3/stack.yaml"
+            ).read_text()
+        )
+        self.assertEqual(stack["profile"], "wilson-flow-quda")
+        self.assertEqual(stack["tested_software"]["milc"]["branch"], "develop")
+        self.assertEqual(stack["validation"]["result"], "pass")
+        runtime = stack["validation"]["runtime"]
+        self.assertEqual(runtime["integrator"], "INTEGRATOR_BBB")
+        self.assertEqual(runtime["actual_steps"], 2)
+        self.assertEqual(runtime["actual_final_flow_time"], 0.125)
+        self.assertEqual(runtime["application_payload_exit_code"], 0)
+        self.assertTrue(
+            all(test["result"] == "pass" for test in stack["validation"]["tests"])
+        )
+        limits = " ".join(stack["validation"]["scope_limits"]).casefold()
+        for marker in ("not run", "not exercised", "did not compare", "not benchmark"):
+            self.assertIn(marker, limits)
+
 
 if __name__ == "__main__":
     unittest.main()

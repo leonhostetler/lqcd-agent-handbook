@@ -5,38 +5,41 @@ scope: [software:milc]
 load_when: Preparing, tuning, benchmarking, or interpreting a MILC wilson_flow run.
 evidence: source
 sources:
-  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/wilson_flow/setup.c#L48-L203
-  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/wilson_flow/control.c#L25-L79
-  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/wilson_flow/integrate.c#L6-L129
-  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/wilson_flow/integrate.c#L454-L833
-  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/wilson_flow/staple.c#L207-L284
-  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/wilson_flow/Make_template#L110-L205
-  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/wilson_flow/test/wilson_flow_bbb.symanzik.2.sample-in
-  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/wilson_flow/test/wilson_flow_bbb.symanzik.2.sample-out
-  - https://github.com/leonhostetler/milc_qcd/blob/04be590b79138235ce253b665df2e76ececd5619/wilson_flow/control.c#L25-L94
-  - https://github.com/leonhostetler/milc_qcd/blob/04be590b79138235ce253b665df2e76ececd5619/wilson_flow/integrate_quda.c#L8-L119
-  - https://github.com/leonhostetler/milc_qcd/blob/04be590b79138235ce253b665df2e76ececd5619/include/generic_quda.h#L43-L82
-  - https://github.com/leonhostetler/milc_qcd/blob/04be590b79138235ce253b665df2e76ececd5619/generic/remap_stdio_from_args.c#L89-L105
-  - https://github.com/lattice/quda/blob/e9977c0c2c7359bf642108fe2ad01bb6cedea5d6/include/quda.h#L850-L886
-  - https://github.com/lattice/quda/blob/e9977c0c2c7359bf642108fe2ad01bb6cedea5d6/lib/interface_quda.cpp#L5347-L5443
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/setup.c#L48-L203
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/control.c#L25-L113
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/integrate.c#L6-L129
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/integrate.c#L454-L833
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/integrate_quda.c#L9-L119
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/staple.c#L207-L284
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/Make_template#L31-L92
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/Make_template#L116-L205
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/include/generic_quda.h#L43-L82
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/remap_stdio_from_args.c#L89-L105
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L145-L180
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/test/wilson_flow_bbb.symanzik.2.sample-in
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/test/wilson_flow_bbb.symanzik.2.sample-out
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/CMakeLists.txt#L25-L39
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/interface_quda.cpp#L899-L948
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/interface_quda.cpp#L5385-L5481
 observed: "2026-08-19"
 observed_on:
   software:
     milc:
-      commit: 04be590b79138235ce253b665df2e76ececd5619
-      branch: quda_gauge_flow
-      forked_from_default: 5b20b44fa9080dc2ee97c213a755d9712457b356
+      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      branch: develop
     quda:
-      commit: e9977c0c2c7359bf642108fe2ad01bb6cedea5d6
+      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
       branch: develop
 ---
 
 # MILC `wilson_flow` application guide
 
 `wilson_flow` evolves a gauge field under a selected flow action and reports gauge observables
-at successive flow times. This guide covers the upstream CPU application structure and the
-version-scoped QUDA extension used by the observed production branch. Build capabilities remain
-canonical in `../build-profiles.yaml`, and shared instrumentation policy lives in `../timing.md`.
+at successive flow times. Both the CPU and QUDA paths covered here are in upstream MILC
+`develop`; the former personal `quda_gauge_flow` branch is no longer required. Build capabilities
+remain canonical in `../build-profiles.yaml`, shared instrumentation policy lives in
+`../timing.md`, and the validated DeltaAI combination is recorded in
+`../../../machines/deltaai/stacks/milc-cuda12-quda-wilson-flow-2026q3/stack.yaml`.
 
 ## Input and executable structure
 
@@ -49,14 +52,14 @@ At the observed revision, each input set supplies, in order:
 1. a starting-lattice instruction;
 2. a flow description (`wilson`, `symanzik`, or the caveated `zeuthen` token below);
 3. `exp_order` and `stepsize`;
-4. `local_tol` for an adaptive-integrator target;
+4. `local_tol` only for an adaptive-integrator target;
 5. `stoptime`; and
 6. an ending-lattice instruction and any applicable ILDG logical file name.
 
 `reload_*` starts an independent flow from the named gauge field. The CPU path permits
 `continue`, which starts the next input set from the in-memory field left by the preceding flow.
-The application rejects a `warm` starting lattice. The QUDA branch has a stronger state-ownership
-restriction described under saved and continued gauge fields.
+The application rejects a `warm` starting lattice. The QUDA path has a stronger state-ownership
+restriction for `continue`, described under saved and continued gauge fields.
 
 The flow action is an input choice, but the integration method is compiled into the executable.
 The target `wilson_flow` selects the third-order Luescher scheme. Other upstream targets select
@@ -66,7 +69,7 @@ executable and its printed `Integrator = ...` value rather than inferring the me
 input file.
 
 On the CPU path, `exp_order` controls the series used to exponentiate the anti-Hermitian update.
-The observed QUDA wrapper does not consume `exp_order`. It supports the Luescher targets
+The upstream QUDA wrapper does not consume `exp_order`. It supports the Luescher targets
 `wilson_flow` and `wilson_flow_a` (mapped to QUDA Runge-Kutta order 3) and the BBB targets
 `wilson_flow_bbb` and `wilson_flow_bbb_a` (mapped to order 4); other compiled integrator targets
 terminate in that wrapper. It also accepts only Wilson and Symanzik flow actions.
@@ -75,6 +78,21 @@ terminate in that wrapper. It also accepts only Wilson and Symanzik flow actions
 the Zeuthen correction routine is an empty placeholder. The resulting staple uses the Symanzik
 coefficients without the declared correction. Do not treat token acceptance as an implemented or
 validated Zeuthen-flow calculation.
+
+## Build the QUDA targets
+
+Use MILC `develop` and the `wilson-flow-quda` profile in `../build-profiles.yaml`; do not switch
+to the retired personal `quda_gauge_flow` branch. The composed QUDA `milc-cg` profile already
+contains Wilson-flow kernels because they are part of QUDA's library source list, so no separate
+QUDA gauge-flow option is required. Copy the repository `Makefile` into `wilson_flow`, as for
+other MILC application-directory builds, and build `wilson_flow` and/or `wilson_flow_bbb`.
+
+For a GNU/OpenMP build, take care with a command-line `LDFLAGS` assignment. GNU make gives that
+assignment precedence over the Makefile's ordinary `LDFLAGS += -fopenmp ... -lgomp`, so an
+assignment such as `LDFLAGS=-g` can compile successfully and then fail at the final link with
+unresolved `GOMP_parallel` and `omp_*` symbols. The validated DeltaAI build used
+`LDFLAGS="-g -fopenmp -lgomp"`. Resolve other compiler-family runtime flags from the selected
+machine stack rather than copying the GNU flags.
 
 ## Flow rows and endpoint semantics
 
@@ -102,7 +120,7 @@ fields are backend-native records; do not rename them or apply a normalization c
 that conversion has been independently established for the exact revisions and observable
 definitions.
 
-**QUDA endpoint heads-up:** the observed wrapper assigns `stoptime / stepsize` to QUDA's unsigned
+**QUDA endpoint heads-up:** the upstream wrapper assigns `stoptime / stepsize` to QUDA's unsigned
 integer `n_steps`. A positive nonintegral quotient is truncated, and floating-point roundoff can
 also put a mathematically integral quotient just below the integer boundary. QUDA then reports
 the initial row plus `n_steps` rows and ends at `n_steps * stepsize`; it does not independently
@@ -116,17 +134,18 @@ On the CPU path, flow integration updates the MILC site links. A requested endin
 a following `continue` therefore operates on that evolved in-memory field, subject to the usual
 format-specific gauge-field validation.
 
-The observed QUDA wrapper instead copies the MILC site links into a temporary host array, loads
-them into QUDA, and leaves the evolved field in QUDA's resident smeared field. It frees the host
-input array without copying the evolved links back to the MILC site structure. The surrounding
-control code subsequently calls the generic MILC save routine, and a later input set reloads QUDA
-from those same MILC site links.
+The QUDA wrapper copies the MILC site links into a temporary host array, loads them into QUDA, and
+leaves the evolved field in QUDA's resident smeared field without copying the evolved links back
+to the MILC site structure. Current upstream `control.c` accounts for ending saves: when the
+ending policy is not `forget`, it calls `writeGaugeQuda` with `QUDA_SMEARED_LINKS`, and QUDA copies
+the resident flowed field into its QIO writer. That is a source-backed save path, not a runtime-
+validated one in the DeltaAI stack; validate the saved field directly before relying on it.
 
-Consequently, this guide qualifies the observed QUDA branch only for independently reloaded input
-sets with `forget` ending-lattice handling. A QUDA ending-lattice save or `continue` chain is not
-valid evidence of a saved or continued flowed field until the ownership path is corrected and a
-direct loaded-field-versus-saved-field comparison passes. File existence alone cannot establish
-that property.
+`continue` remains unqualified on the QUDA path. A following input set skips the MILC reload, but
+`run_gradient_flow_quda()` recreates its host input from the unchanged MILC site links, sets
+`restart` false, and loads that field into QUDA again. Use independently reloaded input sets. The
+validated DeltaAI smoke test used `forget` ending-lattice handling. It had one `reload_parallel`
+input set and did not test save or continuation.
 
 ## Output and timing boundaries
 
@@ -137,7 +156,7 @@ input set instead emits one `Time to complete flow = ... seconds` record.
 
 The per-flow timer starts after `readin()` has loaded the starting gauge field. It excludes that
 input set's gauge-file read but includes flow integration and a requested ending-lattice save. On
-the observed QUDA path it also includes host-to-device gauge loading and, for the first flow in a
+the QUDA path it also includes host-to-device gauge loading and, for the first flow in a
 process, QUDA initialization; later flows reuse the initialized library but load their gauge
 field again.
 
@@ -174,9 +193,8 @@ Accept a flow workload for performance or scientific analysis only when:
   or the QUDA row count and actual final time are consistent with the intended integer-step
   contract;
 - the final observed flow time satisfies the declared scientific endpoint requirement; and
-- every requested CPU ending-lattice artifact exists and passes structural, numerical, and
-  scientific validation, while the observed QUDA branch obeys the `forget` and independent-reload
-  restriction above.
+- every requested ending-lattice artifact exists and passes structural, numerical, and scientific
+  validation; QUDA `continue` is excluded until its state-ownership path changes and is validated.
 
 ## Tuning and benchmarking interpretation
 
@@ -198,14 +216,15 @@ unit or gauge-configuration workflow, not by the single process-level `RUNNING C
 
 ## Coverage
 
-The CPU input, target, row, and timer structure is backed by upstream MILC source and regression
-samples at commit `32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839`. The QUDA sections are scoped to
-MILC fork commit `04be590b79138235ce253b665df2e76ececd5619` on `quda_gauge_flow` with QUDA commit
-`e9977c0c2c7359bf642108fe2ad01bb6cedea5d6`. They do not claim that current upstream MILC has the
-same wrapper or that CPU and QUDA observables are scientifically equivalent.
+The CPU and QUDA source claims are scoped to upstream MILC
+`6b9b8a06eec5746187bbfd197eac2629ab8d8e72` on `develop` and QUDA
+`b6998853f6b605e22d67ea2ddfa3cab0d752679a` on `develop`. The DeltaAI stack compiled both
+`wilson_flow` and `wilson_flow_bbb` and ran one short four-rank `wilson_flow_bbb` workload through
+QUDA with a Wilson action, a QIO reload, two steps, finite output rows, and normal application and
+scheduler completion.
 
-The Zeuthen placeholder, QUDA endpoint conversion, and absent flowed-field copyback are
-version-scoped source findings with direct acceptance consequences. Reconcile them against any
-newer source before preparing an input or qualifying a stack. This guide does not establish a
-validated build profile, machine stack, observable-normalization conversion, or production cost
-model.
+That smoke test did not compare CPU and QUDA observables, exercise Symanzik flow, run the Luescher
+target, validate a saved or continued field, or establish a production cost model. The Zeuthen
+placeholder, QUDA endpoint conversion, and absent flowed-field copyback remain version-scoped
+source findings with direct acceptance consequences; reconcile them against newer source before
+preparing an input or qualifying another stack.
