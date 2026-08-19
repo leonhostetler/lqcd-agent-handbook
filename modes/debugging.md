@@ -26,19 +26,34 @@ Before editing, building, or running anything:
 1. Convert the symptom into an explicit correctness invariant. Trace the value or state that
    controls that invariant through every relevant construction and call path; distinguish
    control state from labels, diagnostics, and other presentation-only state.
-2. When algorithm semantics are uncertain, construct the smallest independent mathematical or
+2. When data are distributed, make invariant checks collective. A root-rank or single-partition
+   scan establishes only local cleanliness. Reduce the failure predicate or count across all
+   ranks and, on failure, retain a bounded localization record with rank, global index,
+   component, and applicable right-hand side or parity. State explicitly when only local
+   coverage was available.
+3. Before calling a rerun a reproduction, compare a reproduction fingerprint: executable and
+   input identity, RNG seed and state plus consumer order, rank topology and decomposition,
+   tunecache, resident objects, and other persistent state. Regenerated data or a changed
+   decomposition defines a different trial unless equivalence is demonstrated. If a symptom
+   disappears, audit this fingerprint before attributing the change to a fix or to
+   nondeterminism.
+4. When algorithm semantics are uncertain, construct the smallest independent mathematical or
    computational reproducer. Prefer an existing result or a one-variable differential check
    before requesting another allocation-consuming run.
-3. Inspect what tests actually execute. Check defaults, test-harness rewrites, disabled
+5. Inspect what tests actually execute. Check defaults, test-harness rewrites, disabled
    features, and interactions among options; a parameter matrix is not coverage when the
    triggering feature is overwritten before execution.
-4. Put a correctness guard at the shared API or construction boundary when one exists. Express
+6. For an experiment intended to change control flow or remove work, derive the expected counts
+   of semantically meaningful calls or markers from source before running it. Compare observed
+   counts with that prediction. Counts can establish reachability and work removal; they do not
+   establish numerical correctness, so pair them with an invariant or reference comparison.
+7. Put a correctness guard at the shared API or construction boundary when one exists. Express
    the supported invariant directly and reject every unsupported case, rather than enumerating
    only the failures known today.
-5. When a fix changes transformed, cached, or restarted state, trace every representation
+8. When a fix changes transformed, cached, or restarted state, trace every representation
    through its write, read, restart, and external-output boundaries. Internal consistency does
    not establish that the boundary contract is correct.
-6. Validate in layers: source mechanism, independent reproducer, compilation, focused runtime
+9. Validate in layers: source mechanism, independent reproducer, compilation, focused runtime
    check, regression coverage, and integration exercise. State which layers were completed and
    never claim beyond the capabilities that were built and executed.
 
