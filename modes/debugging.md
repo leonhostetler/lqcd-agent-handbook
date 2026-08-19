@@ -36,17 +36,25 @@ Before editing, building, or running anything:
    tunecache, resident objects, and other persistent state. Regenerated data or a changed
    decomposition defines a different trial unless equivalence is demonstrated. If a symptom
    disappears, audit this fingerprint before attributing the change to a fix or to
-   nondeterminism.
+   nondeterminism. For golden or reference artifacts, record both the producing code identity
+   and the semantic contract they represent. An intentional correctness or normalization change
+   invalidates an old golden result even when its filename and input are unchanged.
 4. When algorithm semantics are uncertain, construct the smallest independent mathematical or
    computational reproducer. Prefer an existing result or a one-variable differential check
-   before requesting another allocation-consuming run.
+   before requesting another allocation-consuming run. Forward/adjoint duality, agreement
+   between implementations that share a convention, and other self-consistency checks can all
+   pass with the same normalization or boundary error; pair them with an independent oracle such
+   as a free-field limit, analytic coefficient, host reference, cross-code comparison, or
+   controlled convergence limit.
 5. For an instrumented reproducer, minimize the work needed to exercise the invariant, not the
    rank count in isolation. Estimate completion time and resource cost from per-rank work and
    diagnostic overhead; fewer ranks can increase elapsed time. Prefer a topology already shown to
    complete, and keep it fixed across before/after comparisons unless topology is the tested variable.
 6. Inspect what tests actually execute. Check defaults, test-harness rewrites, disabled
    features, and interactions among options; a parameter matrix is not coverage when the
-   triggering feature is overwritten before execution.
+   triggering feature is overwritten before execution. For distributed behavior, include a
+   non-degenerate topology in which the affected halo, collective, or state transition must run,
+   and retain a branch marker, topology record, or semantic event count as reachability evidence.
 7. Treat compiler warnings as a set of root causes and reachability evidence, not a raw line
    count. Group repeated diagnostics by originating definition and configuration. Before
    suppressing or annotating an unused symbol, trace its intended callers and guards: an expected
@@ -60,7 +68,10 @@ Before editing, building, or running anything:
 9. For an experiment intended to change control flow or remove work, derive the expected counts
    of semantically meaningful calls or markers from source before running it. Compare observed
    counts with that prediction. Counts can establish reachability and work removal; they do not
-   establish numerical correctness, so pair them with an invariant or reference comparison.
+   establish numerical correctness, so pair them with an invariant or reference comparison. If
+   source inspection says a path exists or is enabled while the predicted events never occur,
+   treat the disagreement as evidence that an intervening state transition makes the path
+   unreachable; reconcile the full state machine before blaming timing noise.
 10. Put a correctness guard at the shared API or construction boundary when one exists. Express
     the supported invariant directly and reject every unsupported case, rather than enumerating
     only the failures known today.

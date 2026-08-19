@@ -21,6 +21,10 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/CMakeLists.txt
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/enum_quda_fortran.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/quda_fortran.F90
+  - https://github.com/lattice/quda/commit/1757c406e32c5b8aa97a7e38a13627654d651bd8
+  - https://github.com/lattice/quda/commit/79af44a6fe6d258de260c1dc0293af524f1c4d7b
+  - https://github.com/lattice/quda/blob/8a6fecc5a64e422d937592bb8cb1c524a5c32e94/include/gauge_backup.h
+  - operator's screened prior QUDA development records
   - https://github.com/llvm/llvm-project/blob/main/clang/tools/clang-format/git-clang-format
 observed: "2026-08-19"
 observed_on:
@@ -104,11 +108,15 @@ the relevant field tuple, such as color, spin, order, location, and precision, t
 and the generated instantiation lists; an exposed API can compile yet reject an unsupported
 combination at runtime. Validate every affected precision and representation path.
 
-- Add or update a focused regression test when the changed behavior can be expressed by the
-  current test harness, then run the relevant CTest registration or narrow test executable.
+- Add or update a focused regression test in the repository that owns the changed behavior when
+  it can be expressed by the current test harness, then run the relevant CTest registration or
+  narrow test executable. An end-to-end consumer test does not replace repo-native coverage for
+  a generic QUDA feature.
 - Select the dimensions the change can affect, such as build configuration, operator,
   precision, and single- versus multi-GPU execution. Do not mistake a matrix of requested
-  values for coverage without checking that the harness reaches the changed path.
+  values for coverage without checking that the harness reaches the changed path. For a
+  distributed change, include a non-degenerate partition in which the affected communication
+  must occur and retain a marker or event count showing that it did.
 - When Dslash behavior is in scope, cover the applicable operator families, precisions, and
   partitionings using the current tests rather than copying the wiki's historical shell loops.
 - For large multigrid changes, define an impact-specific test matrix; the wiki's exhaustive
@@ -116,14 +124,41 @@ combination at runtime. Validate every affected precision and representation pat
 - Record the build configuration, commands, results, and untested scope in the review or
   handoff.
 
+## Preserve solver semantics when changing execution
+
+When replacing, wrapping, batching, or redistributing an existing solver, inventory the stock
+behavior beyond its central recurrence. Build a semantics matrix covering initial guesses,
+per-right-hand-side convergence, residual modes, zero-norm handling, nonfinite guards, the total
+iteration budget, reported iteration and residual fields, and optional chronological, resident,
+or action-computation behavior. Implement each supported row equivalently or reject it with an
+always-on check at the shared API boundary. A few observed zero initial guesses or unused options
+are evidence about those calls, not permission to narrow the public contract.
+
+## Respect state and object lifetimes
+
+Before moving construction across a helper that checks, backs up, splits, or rebuilds resident
+state, inspect its callees for deep copies, deletion, global-pointer replacement, lazy
+reconstruction, and address capture. Names such as `check` and `backup` do not establish purity
+or pointer preservation. Reconcile resident state and create the required layouts before
+constructing `Dirac` or other consumers that retain field pointers; then exercise cold, warm,
+reuse, invalidation, and teardown transitions affected by the change.
+
+If a public setter is callable before `initQuda`, keep that path to pure data storage. Do not
+assume communicator-backed logging, `comm_*`, `printfQuda`, or `errorQuda` is available there;
+defer communicator-dependent validation and messages until the first post-initialization use,
+or make post-initialization an explicit API precondition.
+
 ## Preserve interface and build contracts
 
 - Enforce public-input, preserved-state, vector-cardinality, and similar runtime contracts with
   always-on `errorQuda` paths. Use `assert` only for internal conditions whose checks may safely
   disappear from release builds.
-- Treat public enumeration ordering and values as interface-sensitive. When
-  `include/enum_quda.h` changes, update the hand-maintained
-  `include/enum_quda_fortran.h` mirror in the same change.
+- Treat public enumeration ordering and values as interface-sensitive. An enum-value repair is
+  a state-machine change: enumerate every legal state and transition, then audit all reads,
+  writes, defaults, sentinels, and validators. A legal value must not double as the invalid
+  sentinel, and separating colliding values may expose assignments that still collapse the
+  states. Test every legal state and affected transition. When `include/enum_quda.h` changes,
+  update the hand-maintained `include/enum_quda_fortran.h` mirror in the same change.
 - When `include/quda.h` changes, audit and update the applicable Fortran declarations,
   module structures, and stubs in `include/quda_fortran.h`, `lib/quda_fortran.F90`, and
   `lib/interface_quda.cpp`.
