@@ -31,7 +31,16 @@ Use `project.yaml` for intrinsic capabilities and option meanings,
 procedure. A machine stack supplies the toolchain, target architecture, build cost, and
 validation evidence.
 
-For lower-level behavior, use `solvers/eigensolver.md` for native eigensolver
-invariants and `internals/milc-deflation-space.md` for the parity spaces,
-mass-shifted eigenvalue cache, invalidation rules, and exact-current
-preconditions exposed through the MILC interface.
+For MILC-facing staggered solver behavior, use:
+
+- [`solvers/staggered-cg.md`](solvers/staggered-cg.md) for the Hermitian parity
+  normal-equation CG contract and workspace;
+- [`solvers/staggered-deflated-cg.md`](solvers/staggered-deflated-cg.md) for native CG with
+  an attached low-mode eigenspace, projection triggers, and reuse requirements; and
+- [`solvers/staggered-multigrid.md`](solvers/staggered-multigrid.md) for the full-system
+  outer GCR plus multigrid-preconditioner hierarchy.
+
+Use [`solvers/eigensolver.md`](solvers/eigensolver.md) for native eigensolver invariants
+and [`internals/milc-deflation-space.md`](internals/milc-deflation-space.md) for the parity
+spaces, mass-shifted eigenvalue cache, invalidation rules, and exact-current preconditions
+exposed through the MILC interface.

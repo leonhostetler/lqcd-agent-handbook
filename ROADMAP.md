@@ -1,10 +1,12 @@
 # LQCD Agent Handbook — Roadmap
 
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
-matrix, including both Claude cases, has passed. Slice 4 is in progress.
+matrix, including both Claude cases, has passed. Slice 4 remains in progress; the operator
+has pulled the staged QUDA-solver foundation of Slice 5 forward.
 
-**NEXT ACTION:** Complete Slice 4's remaining shared running convention, benchmark playbook,
-prediction record, and extraction/accounting tools.
+**NEXT ACTION:** Audit build-profile and stack coverage for the source-backed staggered CG,
+deflated-CG, and multigrid overviews; record only validated capabilities and do not invent a
+staggered-MG stack from source availability.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -60,6 +62,16 @@ documented in arXiv:1712.09262, source-attested suffix-free ensemble names, mass
 `p4s` spacings, and published pion characteristics. Operator-selected physical-mass defaults
 resolve unqualified spacing references; stream suffixes remain subordinate to ensemble identity,
 and the 0.03 fm group remains explicitly without a physical-mass default.
+
+Later on 2026-08-19, the operator approved making the staged QUDA solver import the current next
+action while Slice 4 remains unfinished. Three source-backed overview atoms now distinguish the
+actual MILC-facing implementations: parity-normal-equation native CG, the same native CG with an
+attached eigensolver deflation space, and a full-system outer GCR solve with a multigrid
+preconditioner. They record operator contracts, setup and reuse state, build gates, cost
+components, suitability and disqualifiers, dominant memory objects, runtime confirmation, and
+exact-current limitations. No private-corpus timings, crossovers, fitted memory constants, run
+paths, or ensemble-specific optima were admitted. Build-profile and stack capability coverage is
+the next gate before cross-solver selection guidance or tuning procedure is added.
 
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
@@ -480,8 +492,10 @@ Publishability is settled **per class during the import**
 ([§ensemble-numbers](ARCHITECTURE.md#ensemble-numbers)), so the slice is no longer gated on a single up-front decision.
 
 **State:** The public-source ensemble catalog, schema, validator binding, naming rule, and
-spacing-default convention are prepared independently of the private tuning corpus. Solver
-mining, ensemble-scoped operational imports, and the slice acceptance checks remain pending.
+spacing-default convention are prepared independently of the private tuning corpus. The first
+solver batch adds source-backed staggered CG, deflated-CG, and multigrid overviews; build-profile
+and stack coverage, cross-solver selection, tuning procedure, memory/accounting tools,
+ensemble-scoped operational imports, and the slice acceptance checks remain pending.
 
 This is the slice where the admission test earns its keep. Run it strictly — stage
 extractions **in the working directory beside the source corpus**, assign each candidate a
