@@ -4,8 +4,9 @@
 matrix, including both Claude cases, has passed. Slice 4 remains in progress; the operator
 has pulled the staged QUDA-solver foundation of Slice 5 forward.
 
-**NEXT ACTION:** Audit build-profile and stack coverage for the source-backed staggered
-deflated-CG overview; record only capabilities supported by a validated build and run.
+**NEXT ACTION:** Screen solver memory and decomposition guidance without importing private
+fitted constants or machine-specific capacity claims; preserve the distinction among
+source-derived objects, validated stack measurements, and campaign-local models.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -69,8 +70,8 @@ attached eigensolver deflation space, and a full-system outer GCR solve with a m
 preconditioner. They record operator contracts, setup and reuse state, build gates, cost
 components, suitability and disqualifiers, dominant memory objects, runtime confirmation, and
 exact-current limitations. No private-corpus timings, crossovers, fitted memory constants, run
-paths, or ensemble-specific optima were admitted. Deflated-CG build-profile and stack capability
-coverage is the next gate before cross-solver selection guidance or tuning procedure is added.
+paths, or ensemble-specific optima were admitted. The later capability audit keeps compiled
+features distinct from the behavior each stack actually exercised.
 
 On 2026-08-20 the operator locked complete test builds as the handbook default. A QUDA
 multigrid build had explicitly overridden QUDA's upstream all-tests defaults to `OFF`, so a
@@ -96,6 +97,23 @@ outer GCR solve took 18 iterations and 3.74901s, and QUDA and host checks agreed
 L2 relative residual of `7.260597e-07` against a `1e-6` request. The fresh-tunecache
 run validates only this native hierarchy on the 40 GB A100 node type; it is neither a
 linked MILC validation nor benchmark evidence.
+
+The subsequent Stage-2 audit records deflated CG as a compiled capability of both QUDA
+profiles. At the observed MILC revision, `WANT_FN_CG_GPU` forces `WANT_EIG_GPU`, so the
+composed `ks-spectrum-hisq-quda` profile also compiles native-CG deflation. All nine
+eigensolver-enabled stacks now bound that broader profile claim: four native QUDA CG stacks
+and four linked MILC stacks exercised plain CG only, while the included `mg-staggered` stack
+exercised GCR-MG only. No current stack validates a deflated solve. The native MG stack closes
+the earlier source-only gap for its exact Perlmutter test path, but it does not establish a
+linked MILC MG application stack.
+
+Stage 3 adds a cross-solver selection leaf and a solver-tuning playbook. They distinguish
+linked-application, native-harness-only, and compiled-only evidence; gate mathematical
+compatibility, feasibility, correctness, and runtime proof before performance; and evaluate
+`C_s(N) = I_s + N R_s` only over the legal compatible-reuse scope. Setup-dominated, mixed,
+and throughput-dominated regimes come from measured workload crossovers rather than fixed
+corpus thresholds. The import admits no private timing, crossover, fitted-memory, run-path,
+ensemble-optimum, or campaign-forensics value.
 
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
@@ -176,13 +194,13 @@ scheduler capacity.
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six
-  schema objects valid, forty provenance records complete, four generated indices current,
+  schema objects valid, forty-one provenance records complete, four generated indices current,
   sixteen pre-existing P2 advisories, two frontend adapters and six session-logging assets
   valid, 205 long-document references resolved, no deny-list match, and Tier 0 at
   4,363/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all 109 checks pass with both the parent
+- `python3 -m unittest discover -s tests -v`: all 114 checks pass with both the parent
   interpreter and subprocess `python3` resolved to Python 3.11, including the bounded
-  native staggered-MG stack regression;
+  native staggered-MG stack regression and five focused solver-import checks;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
   tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier and DeltaAI
   validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,
@@ -515,11 +533,12 @@ Publishability is settled **per class during the import**
 ([§ensemble-numbers](ARCHITECTURE.md#ensemble-numbers)), so the slice is no longer gated on a single up-front decision.
 
 **State:** The public-source ensemble catalog, schema, validator binding, naming rule, and
-spacing-default convention are prepared independently of the private tuning corpus. The first
-solver batch adds source-backed staggered CG, deflated-CG, and multigrid overviews; staggered
-CG and bounded native staggered-MG stacks now exist. Deflated-CG profile and stack coverage,
-cross-solver selection, tuning procedure, memory/accounting tools, ensemble-scoped operational
-imports, and the slice acceptance checks remain pending.
+spacing-default convention are prepared independently of the private tuning corpus. The solver
+batch now includes source-backed staggered CG, deflated-CG, and multigrid overviews; audited
+compiled-versus-runtime capability coverage; linked-application plain-CG and bounded native-MG
+evidence; and cross-solver selection and tuning procedures. Deflated-CG and linked MILC MG
+runtime validation, memory/accounting tools, ensemble-scoped operational imports, and the slice
+acceptance checks remain pending.
 
 This is the slice where the admission test earns its keep. Run it strictly — stage
 extractions **in the working directory beside the source corpus**, assign each candidate a

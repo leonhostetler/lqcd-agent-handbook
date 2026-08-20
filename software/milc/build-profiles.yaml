@@ -2,7 +2,7 @@ schema_version: 1
 software: milc
 profiles:
   ks-spectrum-hisq-quda:
-    summary: Double-precision, multi-rank ks_spectrum_hisq application with HISQ links and staggered solves accelerated by QUDA.
+    summary: Double-precision, multi-rank ks_spectrum_hisq application with HISQ links and plain or deflated staggered CG accelerated by QUDA.
     application_guide: software/milc/applications/ks-spectrum.md
     targets: [ks_spectrum_hisq]
     options:
@@ -29,6 +29,7 @@ profiles:
       parallelism: [qmp, openmp]
       quda_paths:
         - staggered-cg
+        - staggered-deflated-cg
         - fermion-links
         - gauge-fixing
         - gauge-force
@@ -40,12 +41,13 @@ profiles:
         profile: milc-cg
         required_capabilities:
           dirac: [staggered, improved-staggered]
-          solvers: [cg]
+          solvers: [cg, deflated-cg]
           application_interfaces: [milc]
           communication: [qmp]
           io: [qio]
     notes:
       - Capabilities describe compiled paths; each stack records which paths its runtime validation actually exercised.
+      - WANT_FN_CG_GPU forces WANT_EIG_GPU in the observed MILC Makefile, so this profile compiles the native-CG deflation path even when a run supplies no eigenspace.
       - QMP and QIO are supplied by the composed QUDA installation in the validated Frontier stack.
   wilson-flow-quda:
     summary: Double-precision, multi-rank Wilson-flow applications using QUDA for gauge evolution and observables.

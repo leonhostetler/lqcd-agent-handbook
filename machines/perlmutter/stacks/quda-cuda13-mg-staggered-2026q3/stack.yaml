@@ -127,6 +127,7 @@ validation:
       solve_gflops: 1498.98
       result: pass
   scope_limits:
+    - The profile compiled plain and deflated CG support, but validation exercised GCR-MG only; no CG eigensolve, preserved deflation space, or deflated solve is validated.
     - The focused native QUDA unit-gauge test does not exercise a linked MILC executable or application input.
     - Validation covers only the listed hierarchy and gpu-a100-40; other hierarchy shapes and gpu-a100-80 remain inferences until exercised.
     - QIO was compiled but was not exercised by this validation.

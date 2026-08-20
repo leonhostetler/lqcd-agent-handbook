@@ -22,9 +22,11 @@ solvers, field operations, application interfaces, and multi-GPU support. Its ow
 executables are useful for focused validation and performance work.
 
 Keep the software name and build profile separate. `quda` identifies the project;
-`milc-cg` identifies the option set that exposes the MILC interface and staggered CG
-capability. QMP and QIO are dependencies selected by that profile, so they do not belong in
-the profile slug.
+`milc-cg` identifies the option set that exposes the MILC interface and plain or deflated
+staggered CG capability. QMP and QIO are dependencies selected by that profile, so they
+do not belong in the profile slug. `mg-staggered` adds multigrid kernels and records plain and deflated
+CG as compiled capabilities in the same library. Its current Perlmutter stack validates a
+native GCR-MG harness only; it does not validate linked MILC multigrid.
 
 Use `project.yaml` for intrinsic capabilities and option meanings,
 `build-profiles.yaml` for named option sets, and `build.md` for the software-specific build
@@ -33,12 +35,18 @@ validation evidence.
 
 For MILC-facing staggered solver behavior, use:
 
+- [`solvers/staggered-solver-selection.md`](solvers/staggered-solver-selection.md) for the
+  compatibility gates, reuse-scoped cost model, solve-count regimes, measurement
+  requirements, and stop rules that choose among the implementations;
 - [`solvers/staggered-cg.md`](solvers/staggered-cg.md) for the Hermitian parity
   normal-equation CG contract and workspace;
 - [`solvers/staggered-deflated-cg.md`](solvers/staggered-deflated-cg.md) for native CG with
   an attached low-mode eigenspace, projection triggers, and reuse requirements; and
 - [`solvers/staggered-multigrid.md`](solvers/staggered-multigrid.md) for the full-system
   outer GCR plus multigrid-preconditioner hierarchy.
+
+Use [`../../playbooks/tune-solver.md`](../../playbooks/tune-solver.md) to execute the
+cross-solver selection and tuning procedure for a declared production workload.
 
 Use [`solvers/eigensolver.md`](solvers/eigensolver.md) for native eigensolver invariants
 and [`internals/milc-deflation-space.md`](internals/milc-deflation-space.md) for the parity

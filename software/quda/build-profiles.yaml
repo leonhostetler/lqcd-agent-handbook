@@ -2,7 +2,7 @@ schema_version: 1
 software: quda
 profiles:
   milc-cg:
-    summary: MILC-facing staggered CG and Wilson-flow library build with QMP and QIO enabled but multigrid omitted.
+    summary: MILC-facing staggered CG, deflated-CG, and Wilson-flow library build with QMP and QIO enabled but multigrid omitted.
     options:
       QUDA_DIRAC_DEFAULT_OFF: true
       QUDA_DIRAC_STAGGERED: true
@@ -23,6 +23,7 @@ profiles:
         - improved-staggered
       solvers:
         - cg
+        - deflated-cg
       application_interfaces:
         - milc
         - qdp
@@ -37,9 +38,10 @@ profiles:
     notes:
       - QDP remains enabled because the native staggered dslash and inverter tests construct QDP-ordered host gauge fields.
       - QMP and QIO are dependencies of this MILC-facing build, not separate profile-name components.
+      - Deflated CG needs no additional QUDA profile switch at the observed revision; the composed MILC profile forces eigensolver support on with WANT_FN_CG_GPU. Runtime validation remains stack-owned.
       - The all-tests options implement the default in playbooks/build-lqcd-stack.md; only an explicit operator instruction may override them for a build.
   mg-staggered:
-    summary: Native staggered GCR with a multigrid preconditioner, plus MILC and QDP interfaces, QMP, and QIO.
+    summary: Native staggered CG, deflated CG, and GCR with a multigrid preconditioner, plus MILC and QDP interfaces, QMP, and QIO.
     options:
       QUDA_BUILD_SHAREDLIB: true
       QUDA_DIRAC_DEFAULT_OFF: true
@@ -63,6 +65,8 @@ profiles:
         - staggered
         - improved-staggered
       solvers:
+        - cg
+        - deflated-cg
         - gcr
         - multigrid
       preconditioners:
@@ -90,7 +94,8 @@ profiles:
         - "64"
     build_cost: expensive
     notes:
-      - The named profile records compiled capability; the validated stack exercises QUDA's native staggered GCR-MG test path, not a linked MILC executable.
+      - The named profile records compiled capability; the validated stack exercises QUDA's native staggered GCR-MG test path, not plain or deflated CG and not a linked MILC executable.
+      - Deflated CG uses the same eigensolver-enabled library capability as milc-cg; a linked MILC build must still enable and validate its deflation path.
       - The all-tests options are the handbook default. The historical build behind the first validated stack compiled the focused staggered inverter target separately; its cost is not an all-tests estimate.
 evidence: source
 observed: "2026-08-20"

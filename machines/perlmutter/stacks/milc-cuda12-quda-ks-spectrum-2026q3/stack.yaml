@@ -136,6 +136,7 @@ validation:
       output_bytes: 24015
       result: pass
   scope_limits:
+    - The profile compiled native-CG deflation support, but validation exercised plain CG only; no eigensolve, deflation-space lifecycle, or deflated solve is validated.
     - QIO was linked, but the upstream warm-gauge sample did not exercise QIO file read or write through the MILC application.
     - Gaussian smearing, gauge-force, and fermion-force paths were compiled but not exercised by this sample.
     - The gauge-fixing path executed, but acceptance did not assert that its final reported delta met the configured tolerance.

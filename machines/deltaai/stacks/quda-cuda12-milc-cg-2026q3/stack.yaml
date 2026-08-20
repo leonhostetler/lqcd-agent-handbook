@@ -132,6 +132,7 @@ validation:
       result: pass
   scope_limits:
     - The MILC interface was compiled, but no MILC executable was linked or run.
+    - The profile compiled eigensolver support, but validation did not exercise an eigensolve, preserved deflation space, or deflated solve.
     - The selected inverter case checked the L2 residual; its heavy-quark tolerance was inactive.
     - Validation covers one gpu-gh200 node; no multi-node path was exercised.
     - The run populated a fresh tunecache and emitted a tuning-candidate regression warning, so it is not benchmark evidence.

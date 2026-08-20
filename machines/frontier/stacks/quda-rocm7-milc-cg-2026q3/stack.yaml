@@ -113,6 +113,7 @@ validation:
       result: pass
   scope_limits:
     - The MILC interface was compiled, but no MILC executable was linked or run.
+    - The profile compiled eigensolver support, but validation did not exercise an eigensolve, preserved deflation space, or deflated solve.
     - Validation covers the P2P-disabled workaround path only.
     - The run populated a fresh tunecache and is not benchmark evidence.
     - Root-rank output enumerated all devices but did not print every rank's selected device ordinal.
