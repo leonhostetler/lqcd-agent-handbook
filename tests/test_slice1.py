@@ -160,6 +160,35 @@ class SliceOneKnowledgeTests(unittest.TestCase):
         self.assertFalse(profiles["milc-cg"]["options"]["QUDA_MULTIGRID"])
         self.assertTrue(profiles["milc-cg"]["options"]["QUDA_INTERFACE_QDP"])
 
+    def test_complete_test_suite_is_the_build_default(self):
+        options = yaml.safe_load(
+            (ROOT / "software/quda/build-profiles.yaml").read_text()
+        )["profiles"]["milc-cg"]["options"]
+        self.assertTrue(options["QUDA_BUILD_ALL_TESTS"])
+        self.assertTrue(options["QUDA_INSTALL_ALL_TESTS"])
+
+        architecture = " ".join((ROOT / "ARCHITECTURE.md").read_text().split())
+        playbook = " ".join(
+            (ROOT / "playbooks/build-lqcd-stack.md").read_text().split()
+        )
+        guide = (ROOT / "software/quda/build.md").read_text()
+        self.assertIn(
+            "A reduced test build requires an **explicit operator instruction",
+            architecture,
+        )
+        self.assertIn("Build the complete available test suite by default", playbook)
+        self.assertIn("do not infer an opt-out", playbook)
+        self.assertIn("-DQUDA_BUILD_ALL_TESTS=ON", guide)
+        self.assertIn("-DQUDA_INSTALL_ALL_TESTS=ON", guide)
+        self.assertNotIn("-DQUDA_BUILD_ALL_TESTS=OFF", guide)
+        self.assertNotIn("-DQUDA_INSTALL_ALL_TESTS=OFF", guide)
+
+        for notes in ROOT.glob("machines/*/stacks/quda-*/notes.md"):
+            with self.subTest(notes=notes):
+                text = notes.read_text()
+                self.assertNotIn("-DQUDA_BUILD_ALL_TESTS=OFF", text)
+                self.assertNotIn("-DQUDA_INSTALL_ALL_TESTS=OFF", text)
+
     def test_validated_stack_references_profile_and_node_type(self):
         machine = yaml.safe_load(
             (ROOT / "machines/perlmutter/machine.yaml").read_text()

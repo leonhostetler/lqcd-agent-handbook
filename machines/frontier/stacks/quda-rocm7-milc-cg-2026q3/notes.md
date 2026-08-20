@@ -72,18 +72,18 @@ cmake --fresh -S "$QUDA_SOURCE_DIR" -B "$QUDA_BUILD_DIR" -G Ninja \
   -DQUDA_USE_EIGEN=ON \
   -DQUDA_DOWNLOAD_EIGEN=ON \
   -DQUDA_DOWNLOAD_USQCD=ON \
-  -DQUDA_BUILD_ALL_TESTS=OFF \
-  -DQUDA_INSTALL_ALL_TESTS=OFF \
+  -DQUDA_BUILD_ALL_TESTS=ON \
+  -DQUDA_INSTALL_ALL_TESTS=ON \
   -DQUDA_CTEST_DISABLE_BENCHMARKS=ON
 
 cmake --build "$QUDA_BUILD_DIR" --target install --parallel 4
-cmake --build "$QUDA_BUILD_DIR" \
-  --target staggered_dslash_test staggered_invert_test io_test \
-  --parallel 4
 ```
 
 Configuration downloads Eigen, QMP, and QIO when they are absent. The tested login-node
-build used four jobs. Reassess placement if a future profile is materially larger.
+build used four jobs and then built only the focused validation executables. The commands above
+implement the current all-tests default instead. The cost in `stack.yaml` predates that policy
+and must not be used as an estimate for an all-tests build. Reassess placement if a future
+profile is materially larger.
 
 ## Keep scheduler output in the working project
 

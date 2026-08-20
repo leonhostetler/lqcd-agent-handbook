@@ -55,21 +55,20 @@ cmake --fresh -S "$QUDA_SOURCE_DIR" -B "$QUDA_BUILD_DIR" \
   -DQUDA_USE_EIGEN=ON \
   -DQUDA_DOWNLOAD_EIGEN=ON \
   -DQUDA_DOWNLOAD_USQCD=ON \
-  -DQUDA_BUILD_ALL_TESTS=OFF \
-  -DQUDA_INSTALL_ALL_TESTS=OFF \
+  -DQUDA_BUILD_ALL_TESTS=ON \
+  -DQUDA_INSTALL_ALL_TESTS=ON \
   -DQUDA_CTEST_DISABLE_BENCHMARKS=ON
 
 cmake --build "$QUDA_BUILD_DIR" --target install --parallel 8
-cmake --build "$QUDA_BUILD_DIR" \
-  --target staggered_dslash_test staggered_invert_test io_test \
-  --parallel 8
 ```
 
 Configuration downloads Eigen, QMP, QIO, and CCCL when they are absent. The tested build
 used a fresh out-of-source directory and a clean, full-history QUDA checkout. Relative to
 the cited MILC sample, it did not pull or reuse a checkout in place, reduced build
-parallelism from 32 to 8, selected the complete handbook profile explicitly, and built only
-the focused validation executables after installation.
+parallelism from 32 to 8, selected the complete handbook profile explicitly, and then built
+only the focused validation executables after installation. The commands above implement the
+current all-tests default instead. The cost in `stack.yaml` predates that policy and must not be
+used as an estimate for an all-tests build.
 
 ## Use the short debugging partition
 

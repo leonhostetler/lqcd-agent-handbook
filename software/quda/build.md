@@ -5,13 +5,13 @@ scope: [software:quda]
 load_when: Configuring, compiling, installing, or validating QUDA.
 evidence: source
 sources:
-  - https://github.com/lattice/quda/blob/7733f60bb744204576f82574ece8d8bd454fbcfd/README.md
-  - https://github.com/lattice/quda/blob/7733f60bb744204576f82574ece8d8bd454fbcfd/CMakeLists.txt
-observed: "2026-08-15"
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/README.md
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt
+observed: "2026-08-20"
 observed_on:
   software:
     quda:
-      commit: 7733f60bb744204576f82574ece8d8bd454fbcfd
+      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
       branch: develop
 ---
 
@@ -52,16 +52,19 @@ limits:
 cmake --build "$build_dir" --target install --parallel <jobs>
 ```
 
-## Build focused validation executables
+## Build and install the complete test suite
 
-The profile disables building and installing every test by default. Build only the tests
-needed for its validation contract:
+Keep QUDA's upstream all-tests defaults enabled in every profile unless the operator explicitly
+requests a reduced test build:
 
 ```bash
-cmake --build "$build_dir" \
-  --target staggered_dslash_test staggered_invert_test io_test \
-  --parallel <jobs>
+-DQUDA_BUILD_ALL_TESTS=ON
+-DQUDA_INSTALL_ALL_TESTS=ON
 ```
+
+With those options, the install build above compiles and installs all tests enabled by the
+configured features. A focused runtime validation may execute only the subset required by the
+profile's validation contract; it must not narrow what is compiled.
 
 For `milc-cg`, retain `QUDA_INTERFACE_QDP=ON`: the native staggered dslash and inverter
 tests construct QDP-ordered host gauge fields even though the intended consumer interface

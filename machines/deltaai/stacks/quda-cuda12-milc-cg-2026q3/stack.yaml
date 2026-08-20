@@ -69,7 +69,7 @@ build:
     command: cmake --build <build-dir> --target install --parallel 8
     parallelism: 8
     wallclock: 7m50.59s
-    timing_scope: Clean build and install after a successful fresh configure.
+    timing_scope: Clean build and install after a successful fresh configure; complete test suite excluded and focused tests built separately.
     maximum_reported_rss_kib: 1723904
     memory_scope: Maximum RSS reported by GNU time for the command, not aggregate build-process memory.
 validation:

@@ -15,8 +15,8 @@ profiles:
       QUDA_USE_EIGEN: true
       QUDA_DOWNLOAD_EIGEN: true
       QUDA_DOWNLOAD_USQCD: true
-      QUDA_BUILD_ALL_TESTS: false
-      QUDA_INSTALL_ALL_TESTS: false
+      QUDA_BUILD_ALL_TESTS: true
+      QUDA_INSTALL_ALL_TESTS: true
     capabilities:
       dirac:
         - staggered
@@ -37,6 +37,7 @@ profiles:
     notes:
       - QDP remains enabled because the native staggered dslash and inverter tests construct QDP-ordered host gauge fields.
       - QMP and QIO are dependencies of this MILC-facing build, not separate profile-name components.
+      - The all-tests options implement the default in playbooks/build-lqcd-stack.md; only an explicit operator instruction may override them for a build.
 evidence: source
 observed: "2026-08-19"
 observed_on:

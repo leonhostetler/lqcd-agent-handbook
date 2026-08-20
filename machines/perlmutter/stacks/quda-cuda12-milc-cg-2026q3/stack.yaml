@@ -56,7 +56,7 @@ build:
     command: cmake --build <build-dir> --target install --parallel 8
     parallelism: 8
     wallclock: 9m14.68s
-    timing_scope: Incremental rebuild after enabling QDP; the compile-definition change rebuilt most of QUDA, but this is not a clean-build timing.
+    timing_scope: Incremental rebuild after enabling QDP; the compile-definition change rebuilt most of QUDA, but this is not a clean-build timing; complete test suite excluded and focused tests built separately.
     maximum_reported_rss_kib: 1592708
     memory_scope: Maximum RSS reported by GNU time for the command, not aggregate build-process memory.
 validation:

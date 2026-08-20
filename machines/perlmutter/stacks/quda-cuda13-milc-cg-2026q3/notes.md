@@ -48,18 +48,17 @@ cmake --fresh -S "$QUDA_SOURCE_DIR" -B "$QUDA_BUILD_DIR" \
   -DQUDA_USE_EIGEN=ON \
   -DQUDA_DOWNLOAD_EIGEN=ON \
   -DQUDA_DOWNLOAD_USQCD=ON \
-  -DQUDA_BUILD_ALL_TESTS=OFF \
-  -DQUDA_INSTALL_ALL_TESTS=OFF
+  -DQUDA_BUILD_ALL_TESTS=ON \
+  -DQUDA_INSTALL_ALL_TESTS=ON
 
 cmake --build "$QUDA_BUILD_DIR" --target install --parallel 8
-cmake --build "$QUDA_BUILD_DIR" \
-  --target staggered_dslash_test staggered_invert_test io_test \
-  --parallel 8
 ```
 
 Configuration requires network access when the downloaded QMP, QIO, and Eigen dependencies
 are not already present. Keep the login-node build at the machine profile's eight-job
-ceiling.
+ceiling. The recorded build then compiled only the focused validation executables. The commands
+above implement the current all-tests default instead. The cost in `stack.yaml` predates that
+policy and must not be used as an estimate for an all-tests build.
 
 ## Multi-GPU placement
 

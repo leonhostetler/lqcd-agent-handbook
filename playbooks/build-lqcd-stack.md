@@ -117,9 +117,12 @@ the resolved cache, module list, compiler and accelerator-toolkit versions, elap
 parallelism, and carefully labelled memory measurement. Do not describe maximum per-process
 RSS as aggregate build memory.
 
-For a library project, build only the focused validation executables after the library and
-install target succeed. For an application suite, build only the selected application targets and
-their required libraries.
+Build the complete available test suite by default, for both libraries and application suites.
+Building fewer tests requires an explicit operator instruction for that build; do not infer an
+opt-out from machine limits, prior stack commands, reference scripts, or an earlier reduced build.
+Record the opt-out and exact excluded test targets in the working project and in any resulting
+stack. This compilation rule does not require running every test: execute the focused subset that
+exercises the selected profile's validation contract.
 
 ## 6. Validate on the resolved node type
 

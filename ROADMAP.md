@@ -73,6 +73,16 @@ exact-current limitations. No private-corpus timings, crossovers, fitted memory 
 paths, or ensemble-specific optima were admitted. Build-profile and stack capability coverage is
 the next gate before cross-solver selection guidance or tuning procedure is added.
 
+On 2026-08-20 the operator locked complete test builds as the handbook default. A QUDA
+multigrid build had explicitly overridden QUDA's upstream all-tests defaults to `OFF`, so a
+required validation executable was absent after three allocation-limited build attempts. The
+shared build playbook now requires an explicit operator instruction before reducing the compiled
+test set, while allowing the executed validation subset to remain focused. The QUDA profile and
+reproduction commands now keep `QUDA_BUILD_ALL_TESTS` and `QUDA_INSTALL_ALL_TESTS` enabled, and a
+regression test enforces the policy. Existing QUDA stack cost records remain historical: their
+scope now states that the measured builds predated this policy and compiled focused tests
+separately.
+
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
 Claude and Codex loggers, an offer-only user-config installer, manifest validation, and
