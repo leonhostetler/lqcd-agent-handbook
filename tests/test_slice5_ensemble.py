@@ -38,7 +38,7 @@ class MilcHisqCatalogTests(unittest.TestCase):
 
         errors: list[str] = []
         count = VALIDATOR.validate_schemas(ROOT, errors)
-        self.assertEqual(count, 22)
+        self.assertEqual(count, 25)
         self.assertEqual(errors, [])
 
     def test_published_core_has_unique_suffix_free_names(self):
