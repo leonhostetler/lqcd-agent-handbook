@@ -372,6 +372,19 @@ def validate_build_profile_references(
     for profile_name, profile in record.get("profiles", {}).items():
         if not isinstance(profile, dict):
             continue
+        application_guide = profile.get("application_guide")
+        if isinstance(application_guide, str):
+            expected_prefix = f"software/{software}/applications/"
+            if not application_guide.startswith(expected_prefix):
+                errors.append(
+                    f"{rel}: profile {profile_name!r} application guide must live "
+                    f"under {expected_prefix}"
+                )
+            elif not (root / application_guide).is_file():
+                errors.append(
+                    f"{rel}: profile {profile_name!r} references missing "
+                    f"application guide {application_guide}"
+                )
         compositions = profile.get("composes", {})
         if not isinstance(compositions, dict):
             continue
@@ -474,10 +487,32 @@ def validate_stack_references(
             )
 
     expected_pointer = f"software/{software}/build-profiles.yaml#{profile}"
-    actual_pointer = stack.get("build", {}).get("profile_options_from")
+    build = stack.get("build", {})
+    actual_pointer = build.get("profile_options_from")
     if actual_pointer != expected_pointer:
         errors.append(
             f"{rel}: build.profile_options_from must equal {expected_pointer!r}"
+        )
+
+    portable_recipe = build.get("portable_recipe")
+    if isinstance(portable_recipe, str):
+        expected_prefix = f"software/{software}/applications/"
+        if not portable_recipe.startswith(expected_prefix):
+            errors.append(
+                f"{rel}: build.portable_recipe must live under {expected_prefix}"
+            )
+        elif not (root / portable_recipe).is_file():
+            errors.append(
+                f"{rel}: build.portable_recipe references missing {portable_recipe}"
+            )
+
+    nearest_application_stack = build.get("nearest_application_stack")
+    if isinstance(nearest_application_stack, str) and not (
+        root / nearest_application_stack
+    ).is_file():
+        errors.append(
+            f"{rel}: build.nearest_application_stack references missing "
+            f"{nearest_application_stack}"
         )
 
 

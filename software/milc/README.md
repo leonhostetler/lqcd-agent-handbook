@@ -2,7 +2,7 @@
 title: MILC
 summary: Role, application selection, QUDA composition, and routing guidance for the MILC application suite.
 scope: [software:milc]
-load_when: Selecting a MILC application, build profile, or accelerator interface.
+load_when: Selecting or compiling a MILC application, build profile, or accelerator interface.
 evidence: source
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/README.md
@@ -28,9 +28,10 @@ staggered operators and CG solver, plus the QMP and QIO dependencies selected by
 profile.
 
 Use `project.yaml` for intrinsic MILC capabilities and option meanings,
-`build-profiles.yaml` for the canonical option set and its composed QUDA requirements, and
-`build.md` for the software-local build and acceptance procedure. A machine stack owns the
-toolchain, paths, build cost, scheduler resources, and demonstrated runtime scope.
+`build-profiles.yaml` for the canonical option set and its composed QUDA requirements,
+`build.md` for the shared application-directory build contract, and the selected application
+guide for its portable directory and target recipe. A machine stack owns the toolchain, paths,
+build cost, scheduler resources, and demonstrated runtime scope.
 
 MILC applications do not share one input grammar or output interpretation. Load the matching
 application guide before preparing or analyzing a run:
@@ -47,7 +48,7 @@ For staggered internals shared across applications, use:
 - `internals/quark-source-types.md` for base-source construction, support status,
   subset behavior, and source parity.
 
-These are application guides, not build profiles. They define work units, input/output
-boundaries, and completion semantics; the selected build profile still owns which executable,
-instrumentation, and accelerator capabilities exist. Use `timing.md` for the MILC-wide timing
-macro policy and output-layer hierarchy.
+These are application guides, not build profiles. They define portable application entry points,
+work units, input/output boundaries, and completion semantics; the selected build profile still
+owns the exact option set, instrumentation, and accelerator capabilities. Use `timing.md` for the
+MILC-wide timing macro policy and output-layer hierarchy.

@@ -2,9 +2,10 @@
 title: MILC ks_spectrum application guide
 summary: Input-set structure, output boundaries, artifact validation, timing records, and benchmark checks for the MILC ks_spectrum family.
 scope: [software:milc]
-load_when: Preparing, tuning, benchmarking, or interpreting a ks_spectrum-family run.
+load_when: Compiling, preparing, tuning, benchmarking, or interpreting a ks_spectrum-family run.
 evidence: source
 sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/setup.c#L78-L260
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/setup.c#L994-L1390
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/control.c#L76-L1200
@@ -31,6 +32,25 @@ This guide covers the `ks_spectrum` application family, including the HISQ execu
 used by the handbook's current MILC build profile. It describes application semantics, not a
 particular physics workflow. Build capabilities remain canonical in `../build-profiles.yaml`,
 and shared instrumentation policy lives in `../timing.md`.
+
+## Portable build recipe
+
+The application directory is `ks_spectrum`, and its upstream targets are defined in
+`ks_spectrum/Make_template`. The current named profile `ks-spectrum-hisq-quda` maps to target and
+executable `ks_spectrum_hisq`. Resolve the shared invocation in `../build.md` with:
+
+```text
+MILC_APPLICATION_DIR=ks_spectrum
+MILC_MAKE_TARGET=ks_spectrum_hisq
+MILC_BUILT_EXECUTABLE=ks_spectrum_hisq
+profile=ks-spectrum-hisq-quda
+```
+
+Other upstream targets select Asqtad, naive, eigCG, equation-of-state, chemical-potential, U(1),
+or specialized baryon variants. Select such a target from the physics and observable request,
+then require a named profile that supplies its exact options before treating the recipe as
+portable. Do not infer those options from the HISQ/QUDA profile merely because the application
+directory is shared.
 
 ## Input structure
 
@@ -185,9 +205,11 @@ gauge reload method, file format, and storage path as candidate tuning dimension
 gauge-load phase separately.
 
 Requested input labels are not runtime evidence. Confirm the emitted solver/backend token,
-batch or mass cardinality, precision, iterations, convergence, and residuals. In particular,
-`total_iters` is not a universal acceptance signal: the QUDA application path documented in
-`../build.md` can complete valid solves while leaving that application-local counter at zero.
+batch or mass cardinality, precision, iterations, convergence, and residuals. At the observed
+MILC revision, `total_iters` is not an acceptance signal for the current `ks_spectrum_hisq` QUDA
+path: `solve_ksprop` initializes that local counter to zero and returns it without incrementing
+it, while QUDA reports the actual iterations for each solve. Judge that path by its QUDA
+convergence and true-residual records, and record wrapper and payload exit states separately.
 
 ## Completion checks
 

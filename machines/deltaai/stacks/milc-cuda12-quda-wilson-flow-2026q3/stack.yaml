@@ -50,6 +50,7 @@ build:
   generator: GNU Make
   install_layout: <install-prefix>/bin/wilson_flow_gpu and <install-prefix>/bin/wilson_flow_bbb_gpu
   profile_options_from: software/milc/build-profiles.yaml#wilson-flow-quda
+  portable_recipe: software/milc/applications/wilson-flow.md
   machine_options:
     OFFLOAD: CUDA
     MY_CC: cc

@@ -2,7 +2,7 @@
 title: MILC wilson_flow application guide
 summary: Input-set structure, flow observables, backend limits, timing boundaries, and completion checks for MILC wilson_flow.
 scope: [software:milc]
-load_when: Preparing, tuning, benchmarking, or interpreting a MILC wilson_flow run.
+load_when: Compiling, preparing, tuning, benchmarking, or interpreting a MILC wilson_flow run.
 evidence: source
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/setup.c#L48-L203
@@ -79,13 +79,18 @@ the Zeuthen correction routine is an empty placeholder. The resulting staple use
 coefficients without the declared correction. Do not treat token acceptance as an implemented or
 validated Zeuthen-flow calculation.
 
-## Build the QUDA targets
+## Portable build recipe
 
 Use MILC `develop` and the `wilson-flow-quda` profile in `../build-profiles.yaml`; do not switch
-to the retired personal `quda_gauge_flow` branch. The composed QUDA `milc-cg` profile already
-contains Wilson-flow kernels because they are part of QUDA's library source list, so no separate
-QUDA gauge-flow option is required. Copy the repository `Makefile` into `wilson_flow`, as for
-other MILC application-directory builds, and build `wilson_flow` and/or `wilson_flow_bbb`.
+to the retired personal `quda_gauge_flow` branch. The application directory is `wilson_flow`,
+and the profile maps to the Luescher target `wilson_flow` and BBB target `wilson_flow_bbb`.
+Resolve either target through the shared invocation in `../build.md`.
+
+The composed QUDA `milc-cg` profile declares the required `wilson-flow` gauge operation, MILC
+interface, QMP communication, and QIO capability. A current-machine QUDA stack that references
+that profile is sufficient for the first MILC build attempt even when no Wilson-flow application
+stack exists on that machine. That situation limits runtime validation; it is not a reason to
+reinspect QUDA source or rebuild QUDA before compiling MILC.
 
 For a GNU/OpenMP build, take care with a command-line `LDFLAGS` assignment. GNU make gives that
 assignment precedence over the Makefile's ordinary `LDFLAGS += -fopenmp ... -lgomp`, so an

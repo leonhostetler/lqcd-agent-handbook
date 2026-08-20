@@ -773,6 +773,8 @@ Application-family knowledge lives in
 guide:
 
 - names the application family and the executable variants actually covered;
+- identifies the portable application directory, upstream target mapping, and invocation shape
+  needed to build those variants without restating profile- or machine-owned flags;
 - describes the ordered input sections and the count fields that delimit repeated records;
 - defines the meaningful work units and how they map to input sets, output blocks, and artifacts;
 - identifies normal-completion, correctness, convergence, and rejection signals;
@@ -780,10 +782,12 @@ guide:
 - distinguishes unconditional output from build-time instrumentation and backend diagnostics;
 - states the observed software revision and every important coverage gap.
 
-The guide interprets an output; it does not own a campaign's inputs, outputs, measurements, or
-selected parameters. Those remain in the working directory. It also does not claim that a marker
-was compiled or exercised: build profiles own the enabled instrumentation and capabilities, while
-stacks own the executable revision and paths actually validated on a machine.
+The guide owns portable application entry points and interprets their output; it does not own a
+campaign's inputs, outputs, measurements, selected parameters, compiler flags, or dependency
+prefixes. Those remain in the working directory or their canonical build profile and machine
+stack. A portable recipe is not a validation claim: build profiles own enabled instrumentation
+and compiled capabilities, while stacks own the executable revision and paths actually built and
+run on a machine.
 
 Work modes compose with these guides. Tuning and benchmarking define how candidates are selected
 or frozen, while the relevant application guide defines what a solve, trajectory, input set,

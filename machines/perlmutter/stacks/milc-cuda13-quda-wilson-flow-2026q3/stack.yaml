@@ -48,6 +48,8 @@ build:
   generator: GNU Make
   install_layout: <install-prefix>/bin/wilson_flow_gpu and <install-prefix>/bin/wilson_flow_bbb_gpu
   profile_options_from: software/milc/build-profiles.yaml#wilson-flow-quda
+  portable_recipe: software/milc/applications/wilson-flow.md
+  nearest_application_stack: machines/deltaai/stacks/milc-cuda12-quda-wilson-flow-2026q3/stack.yaml
   machine_options:
     OFFLOAD: CUDA
     MY_CC: cc

@@ -40,6 +40,7 @@ build:
   generator: GNU Make
   install_layout: <build-dir>/install/bin/ks_spectrum_hisq
   profile_options_from: software/milc/build-profiles.yaml#ks-spectrum-hisq-quda
+  portable_recipe: software/milc/applications/ks-spectrum.md
   machine_options:
     OFFLOAD: HIP
     MY_CC: hipcc

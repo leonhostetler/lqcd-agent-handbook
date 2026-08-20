@@ -1,104 +1,100 @@
 ---
-title: Building MILC ks_spectrum_hisq with QUDA
-summary: Software-specific build and validation procedure for the composed MILC ks_spectrum_hisq and QUDA profile.
-scope: [software:milc, software:quda]
-load_when: Compiling, linking, or validating the QUDA-enabled MILC ks_spectrum_hisq application.
-evidence: experiment
+title: Building MILC applications
+summary: Shared portable build contract for MILC application-directory targets and machine adapters.
+scope: [software:milc]
+load_when: Compiling, linking, or validating any MILC application.
+evidence: source
 sources:
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Frontier/compile_ks_spectrum_hisq.sh
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Frontier/sample.in
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/make_prop.c
-observed: "2026-08-17"
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/Make_template
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_measure/Make_template
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_imp_rhmc/Make_template
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/Make_template
+observed: "2026-08-20"
 observed_on:
   software:
     milc:
       commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
       branch: develop
-    quda:
-      commit: 7733f60bb744204576f82574ece8d8bd454fbcfd
-      branch: develop
 ---
 
-# Building MILC `ks_spectrum_hisq` with QUDA
+# Building MILC applications
 
-Follow `playbooks/build-lqcd-stack.md` for source selection and the shared workflow. Use a
-disposable full MILC checkout for the build because the upstream application procedure
-copies the repository `Makefile` into the application directory and builds there. Do not
-modify the source checkout that the operator placed in scope.
+Follow `../../playbooks/build-lqcd-stack.md` for source selection, composition, placement,
+cost, and validation. This file owns the shared MILC application-directory build contract.
+The selected application guide owns its portable directory and upstream target mapping;
+`build-profiles.yaml` owns reusable option sets and compiled capabilities; the machine stack
+owns compilers, accelerator target, dependency prefixes, flags, and build placement.
 
-Resolve the canonical application options and composed QUDA capability requirements from
-`build-profiles.yaml`. Resolve compilers, accelerator target, dependency prefixes, flags,
-and build placement from the selected machine stack.
+## Resolve the portable recipe
 
-Keep the timing definitions described in `timing.md` enabled. They are required for tuning and
-benchmarking builds and are the normal recommendation for other builds. Export the exact
-profile-owned `CTIME` value rather than an empty or assumed default, and record it with the
-executable identity.
+Load the requested application guide before building. When the selected named profile has an
+`application_guide` pointer, follow it directly and require its target to appear in the profile's
+`targets`. A source-backed target listed by a guide is not by itself a reusable option profile.
+If no named profile supplies the requested target and capabilities, report that gap before
+deriving and recording a new option set.
 
-## Build the application
+For a composed profile, validate `required_capabilities` against the dependency profile. A
+current-machine dependency stack that references the resolved dependency profile is sufficient
+for the first application build attempt. A missing same-machine application stack limits runtime
+claims; it does not require re-inspecting or rebuilding a dependency before the application has
+been compiled and linked.
 
-Starting from a clean disposable checkout at the selected commit:
+## Reuse a compatible checkout
+
+Use the existing MILC checkout when its revision satisfies the request and planned writes do not
+overlap unrelated changes. A disposable checkout is appropriate for explicit pristine
+reproduction, a required revision change, conflicting application artifacts, or an operator
+cleanliness requirement; it is not the default merely because MILC builds in its source tree.
+
+MILC application targets include their local `Make_template` through a copy of the repository
+`Makefile`. Preserve any differing application-local `Makefile`; do not overwrite it. After the
+application guide supplies its application-specific recipe values, use this shared invocation
+shape:
 
 ```bash
 milc_source=${MILC_SOURCE_DIR:?set MILC_SOURCE_DIR}
 milc_install=${MILC_INSTALL_DIR:?set MILC_INSTALL_DIR}
-quda_install=${QUDA_INSTALL_DIR:?set QUDA_INSTALL_DIR}
+application_dir=${MILC_APPLICATION_DIR:?set MILC_APPLICATION_DIR}
+target=${MILC_MAKE_TARGET:?set MILC_MAKE_TARGET}
+built_executable=${MILC_BUILT_EXECUTABLE:?set MILC_BUILT_EXECUTABLE}
+install_name=${MILC_INSTALL_NAME:-$built_executable}
+jobs=${MILC_BUILD_JOBS:?set MILC_BUILD_JOBS}
 
-cd "$milc_source/ks_spectrum"
-cp ../Makefile ./Makefile
+cd "$milc_source/$application_dir"
+if test -e Makefile; then
+  cmp -s ../Makefile Makefile || {
+    echo "application Makefile differs from the repository Makefile" >&2
+    exit 1
+  }
+else
+  cp ../Makefile Makefile
+fi
 
-export QUDA_HOME="$quda_install"
-export QMPPAR="$quda_install"
-export QIOPAR="$quda_install"
-export OFFLOAD=<accelerator-backend>
-export MY_CC=<c-compiler>
-export MY_CXX=<cxx-compiler>
-export COMPILER=<makefile-compiler-family>
-export OPT=<compile-flags>
-export LDFLAGS=<mpi-link-flags>
-export LIBQUDA=<quda-and-accelerator-link-flags>
-export CGEOM=<fixed-geometry-defines>
-export KSCGMULTI=<multimass-policy-define>
-export CTIME=<timing-defines>
-export PRECISION=<profile-value>
-export MPP=<profile-value>
-export OMP=<profile-value>
-export WANTQUDA=<profile-value>
-export WANT_FN_CG_GPU=<profile-value>
-export WANT_FL_GPU=<profile-value>
-export WANT_GF_GPU=<profile-value>
-export WANT_FF_GPU=<profile-value>
-export WANT_MIXED_PRECISION_GPU=<profile-value>
-export WANT_GAUGEFIX_OVR_GPU=<profile-value>
-export WANT_GSMEAR_GPU=<profile-value>
-export WANTQMP=<profile-value>
-export WANTQIO=<profile-value>
-
-make -j <jobs> ks_spectrum_hisq
-install -m 0755 ks_spectrum_hisq "$milc_install/bin/ks_spectrum_hisq"
+mkdir -p "$milc_install/bin"
+make -j "$jobs" "$target" "${profile_args[@]}" "${machine_args[@]}"
+install -m 0755 "$built_executable" "$milc_install/bin/$install_name"
 ```
 
-The nearest validated stack is canonical for all concrete values above. Confirm that the
-result has no unresolved shared libraries before spending a job allocation.
+Populate `profile_args` exactly from the selected named profile and `machine_args` from the
+current-machine stack. Do not copy another machine's compiler, accelerator, link, or filesystem
+values. Do not run a broad clean merely to obtain a first build; preserve existing artifacts and
+let the target-specific MILC dependency rules rebuild what the resolved configuration requires.
 
-## Validate the composed stack
+## Preserve timing and linkage evidence
 
-Run the exact upstream machine sample input on the stack's declared compute-node type. A
-valid acceptance checks both layers:
+Keep the timing definitions described in `timing.md` enabled. They are required for tuning and
+benchmarking builds and are the normal recommendation for other builds. Record the exact
+profile-owned `CTIME` value with the executable identity.
 
-- the application payload exits zero and prints `RUNNING COMPLETED`;
-- QUDA reports the expected number of CG solves, each solve reports convergence, and the
-  maximum reported true residual is below the requested tolerance;
-- the HISQ fermion-link path reports QUDA execution; and
-- the correlator file exists and has the structure implied by the input.
+Before allocating a node, confirm that the executable has no unresolved shared libraries and
+that it resolves the dependencies required by the profile. A successful link is compatibility
+evidence, not runtime validation.
 
-At the observed MILC commit, `total_iters` is not an acceptance signal for this application
-path. `solve_ksprop` initializes that local counter to zero and returns it without
-incrementing it, while QUDA prints the actual iterations for each solve. A wrapper that
-requires positive `total_iters` can therefore fail after a successful application payload.
-Use the QUDA convergence and true-residual records instead, and record wrapper and payload
-exit states separately.
+## Validate the application contract
 
-Treat a fresh QUDA tunecache run as validation rather than benchmark evidence. Linkage does
-not prove runtime coverage: explicitly state whether the sample exercised QIO, smearing,
-force paths, and the P2P-enabled communication path.
+Use the smallest workload that exercises the requested profile capabilities on the resolved node
+type. The application guide owns its completion, cardinality, numerical, artifact, and timing
+interpretation; the machine stack owns placement and telemetry expectations. Record payload and
+wrapper exits separately, preserve explicit scope limits for linked but unexercised paths, and
+treat a fresh accelerator tunecache run as validation rather than benchmark evidence.

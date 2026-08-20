@@ -2,9 +2,10 @@
 title: MILC ks_measure application guide
 summary: Source-backed input, observable, completion, and timing structure for the MILC ks_measure family.
 scope: [software:milc]
-load_when: Preparing or interpreting a ks_measure-family input or output.
+load_when: Compiling, preparing, tuning, benchmarking, or interpreting a ks_measure-family run.
 evidence: source
 sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_measure/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_measure/setup.c#L55-L651
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_measure/control.c#L39-L321
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_measure/ks_measure_includes.h#L25-L31
@@ -23,6 +24,19 @@ observed_on:
 `ks_measure` measures staggered-fermion observables on a gauge field. Its input and output are
 not reduced forms of `ks_spectrum`; use this guide and `../timing.md` rather than applying a
 spectroscopy parser.
+
+## Portable build recipe
+
+The application directory is `ks_measure`, and its upstream targets are defined in
+`ks_measure/Make_template`. Basic action targets are `ks_measure_hisq` and
+`ks_measure_asqtad`; distinct targets add eigCG, equation-of-state, susceptibility,
+chemical-potential, disconnected-current, or U(1) paths. Resolve the shared invocation in
+`../build.md` only after selecting the variant required by the input and observables.
+
+The handbook does not yet contain a named `ks_measure` build profile. The source-backed target
+map is therefore routing knowledge, not a claim that another application's option set is valid.
+A reusable build must first resolve or propose a named profile for the requested target and
+backend; do not borrow `ks-spectrum-hisq-quda` merely because both applications use HISQ.
 
 ## Input structure
 

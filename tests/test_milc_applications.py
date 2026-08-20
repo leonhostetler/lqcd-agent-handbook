@@ -31,7 +31,44 @@ class MILCApplicationGuideTests(unittest.TestCase):
             observed = metadata["observed_on"]["software"]["milc"]
             self.assertTrue(observed["commit"])
             self.assertEqual(observed["branch"], branch)
+            self.assertIn("Compiling", metadata["load_when"])
             self.assertIn(f"milc/applications/{name}.md", index)
+
+    def test_all_application_guides_own_portable_build_routing(self):
+        expected = {
+            "ks-spectrum": ("ks_spectrum", "ks_spectrum_hisq"),
+            "ks-measure": ("ks_measure", "ks_measure_hisq"),
+            "ks-imp-rhmc": ("ks_imp_rhmc", "su3_rhmc_hisq"),
+            "wilson-flow": ("wilson_flow", "wilson_flow_bbb"),
+        }
+        for name, markers in expected.items():
+            with self.subTest(application=name):
+                guide = (
+                    ROOT / "software/milc/applications" / f"{name}.md"
+                ).read_text()
+                self.assertIn("## Portable build recipe", guide)
+                self.assertIn("`../build.md`", guide)
+                for marker in markers:
+                    self.assertIn(marker, guide)
+
+    def test_composed_milc_stacks_route_to_portable_recipes(self):
+        stack_paths = sorted(ROOT.glob("machines/*/stacks/milc-*/stack.yaml"))
+        self.assertTrue(stack_paths)
+        for path in stack_paths:
+            with self.subTest(stack=path):
+                stack = yaml.safe_load(path.read_text())
+                recipe = stack["build"]["portable_recipe"]
+                self.assertTrue((ROOT / recipe).is_file(), recipe)
+
+        perlmutter = yaml.safe_load(
+            (
+                ROOT
+                / "machines/perlmutter/stacks/"
+                "milc-cuda13-quda-wilson-flow-2026q3/stack.yaml"
+            ).read_text()
+        )
+        nearest = perlmutter["build"]["nearest_application_stack"]
+        self.assertTrue((ROOT / nearest).is_file(), nearest)
 
     def test_application_timer_boundaries_remain_distinct(self):
         spectrum = (
@@ -102,6 +139,18 @@ class MILCApplicationGuideTests(unittest.TestCase):
             composition["required_capabilities"]["gauge_operations"],
             ["wilson-flow"],
         )
+
+    def test_build_playbook_prefers_composition_and_checkout_reuse(self):
+        playbook = (ROOT / "playbooks/build-lqcd-stack.md").read_text()
+        for marker in (
+            "Use the composition fast path",
+            "sufficient for the first build attempt",
+            "Treat build and link as the cheapest compatibility probe",
+            "prefer using it",
+            "Do not create a second checkout solely",
+            "inherited versus newly demonstrated",
+        ):
+            self.assertIn(marker, playbook)
 
     def test_timing_policy_and_mode_routing_are_explicit(self):
         timing = (ROOT / "software/milc/timing.md").read_text()

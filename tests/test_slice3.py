@@ -55,6 +55,35 @@ class SliceThreeProfileTests(unittest.TestCase):
         for capability, required in composition["required_capabilities"].items():
             self.assertLessEqual(set(required), set(quda["capabilities"][capability]))
 
+    def test_milc_profiles_route_to_existing_application_guides(self):
+        profiles = yaml.safe_load(
+            (ROOT / "software/milc/build-profiles.yaml").read_text()
+        )["profiles"]
+        for profile_name, profile in profiles.items():
+            with self.subTest(profile=profile_name):
+                guide = ROOT / profile["application_guide"]
+                self.assertTrue(guide.is_file(), guide)
+                self.assertIn("## Portable build recipe", guide.read_text())
+
+    def test_validator_rejects_a_missing_application_guide(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            copy = Path(temp_dir) / "handbook"
+            shutil.copytree(
+                ROOT,
+                copy,
+                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+            )
+            path = copy / "software/milc/build-profiles.yaml"
+            record = yaml.safe_load(path.read_text())
+            record["profiles"]["ks-spectrum-hisq-quda"]["application_guide"] = (
+                "software/milc/applications/missing.md"
+            )
+            errors: list[str] = []
+            VALIDATOR.validate_build_profile_references(copy, path, record, errors)
+            self.assertTrue(
+                any("references missing application guide" in error for error in errors)
+            )
+
     def test_validator_rejects_a_missing_composed_profile(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             copy = Path(temp_dir) / "handbook"
@@ -135,9 +164,9 @@ class SliceThreeFrontierStackTests(unittest.TestCase):
         self.assertIn("not benchmark evidence", limits)
 
     def test_total_iters_false_negative_is_documented(self):
-        build = (ROOT / "software/milc/build.md").read_text()
+        guide = (ROOT / "software/milc/applications/ks-spectrum.md").read_text()
         notes = self.stack_path.with_name("notes.md").read_text()
-        self.assertIn("`total_iters` is not an acceptance signal", build)
+        self.assertIn("`total_iters` is not an acceptance signal", guide)
         self.assertIn("Do not require positive MILC `total_iters`", notes)
         self.assertIn("payload exited zero", self.stack["validation"]["scope_limits"][-1])
 

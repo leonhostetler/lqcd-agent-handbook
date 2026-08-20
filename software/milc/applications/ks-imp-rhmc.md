@@ -2,9 +2,10 @@
 title: MILC ks_imp_rhmc application guide
 summary: Source-backed input, trajectory, acceptance, completion, and timing structure for MILC RHMC generation.
 scope: [software:milc]
-load_when: Preparing or interpreting a ks_imp_rhmc input, trajectory output, tuning run, or benchmark.
+load_when: Compiling, preparing, tuning, benchmarking, or interpreting a ks_imp_rhmc run.
 evidence: source
 sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/setup.c#L108-L700
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/control.c#L27-L195
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/ks_imp_includes.h#L37-L43
@@ -23,6 +24,20 @@ observed_on:
 `ks_imp_rhmc` generates gauge fields with rational hybrid Monte Carlo. Its repeated unit is a
 trajectory, with measurements and gauge-field output at separately declared cadences. It must
 not be costed or parsed as a spectroscopy or standalone-measurement application.
+
+## Portable build recipe
+
+The application directory is `ks_imp_rhmc`, and its upstream targets are defined in
+`ks_imp_rhmc/Make_template`. `su3_rhmc` selects the generic Asqtad RHMC target, while
+`su3_rhmc_hisq` selects the standard HISQ RHMC target; other targets change the action,
+integrator, equation-of-state or susceptibility terms, or experimental force construction.
+Resolve the shared invocation in `../build.md` only after matching those compile-time choices
+to the intended rational-function and trajectory contract.
+
+The handbook does not yet contain a named `ks_imp_rhmc` build profile. Treat this source-backed
+target map as routing knowledge and resolve or propose a named option profile before recording a
+portable build or stack. Do not infer force, integrator, or accelerator options from a
+spectroscopy profile.
 
 ## Input structure
 

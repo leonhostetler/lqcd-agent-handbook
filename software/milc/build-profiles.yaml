@@ -3,6 +3,7 @@ software: milc
 profiles:
   ks-spectrum-hisq-quda:
     summary: Double-precision, multi-rank ks_spectrum_hisq application with HISQ links and staggered solves accelerated by QUDA.
+    application_guide: software/milc/applications/ks-spectrum.md
     targets: [ks_spectrum_hisq]
     options:
       PRECISION: 2
@@ -48,6 +49,7 @@ profiles:
       - QMP and QIO are supplied by the composed QUDA installation in the validated Frontier stack.
   wilson-flow-quda:
     summary: Double-precision, multi-rank Wilson-flow applications using QUDA for gauge evolution and observables.
+    application_guide: software/milc/applications/wilson-flow.md
     targets: [wilson_flow, wilson_flow_bbb]
     options:
       PRECISION: 2
