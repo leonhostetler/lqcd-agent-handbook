@@ -145,10 +145,13 @@ requested hierarchy must be represented in `QUDA_MULTIGRID_NVEC_LIST`, and any s
 MMA multi-source shape must be compatible with `QUDA_MULTIGRID_MRHS_LIST`. The QUDA
 defaults are not proof that an arbitrary MILC `nvec` or batch size was instantiated.
 
-The observed handbook has no generally validated staggered-MG stack merely because the
-source capability exists. Require a named build profile and machine stack whose CMake
-cache, generated coarse-color set, communication backend, target architecture, and
-validation evidence match the run.
+The `mg-staggered` build profile and
+`machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/stack.yaml` record one
+validated native QUDA path on `gpu-a100-40`. Its synthetic unit-gauge test covers the
+listed hierarchy, generated coarse-color set, QMP backend, and `sm_80` target; it does
+not validate a linked MILC executable, other hierarchy shapes, `gpu-a100-80`, or
+production performance. Require a stack whose scope matches the intended run rather
+than generalizing from this bounded validation.
 
 ## Geometry and decomposition constraints
 

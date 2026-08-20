@@ -34,7 +34,7 @@ capabilities:
   - Mixed-precision Krylov solvers
   - Multi-GPU execution through QMP or MPI
   - Optional QIO binary I/O
-  - Optional adaptive multigrid for supported Wilson-type operators
+  - Optional adaptive multigrid for supported Wilson- and staggered-type operators
 build_options:
   QUDA_TARGET_TYPE:
     meaning: Selects the accelerator backend; accepted values at the observed commit are CUDA, HIP, and SYCL.
@@ -94,12 +94,14 @@ build_options:
     meaning: Downloads Eigen during configuration.
     type: boolean
 evidence: source
-observed: "2026-08-15"
+observed: "2026-08-20"
 observed_on:
   software:
     quda:
-      commit: 7733f60bb744204576f82574ece8d8bd454fbcfd
+      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
       branch: develop
 sources:
-  - https://github.com/lattice/quda/blob/7733f60bb744204576f82574ece8d8bd454fbcfd/README.md
-  - https://github.com/lattice/quda/blob/7733f60bb744204576f82574ece8d8bd454fbcfd/CMakeLists.txt
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/README.md
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/staggered_invert_test.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp

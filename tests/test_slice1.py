@@ -152,20 +152,31 @@ class SliceOneKnowledgeTests(unittest.TestCase):
             project["schema_version"],
         )
 
-    def test_slice_one_has_exactly_one_quda_profile(self):
+    def test_quda_profiles_match_validated_capabilities(self):
         profiles = yaml.safe_load(
             (ROOT / "software/quda/build-profiles.yaml").read_text()
         )["profiles"]
-        self.assertEqual(list(profiles), ["milc-cg"])
+        self.assertEqual(list(profiles), ["milc-cg", "mg-staggered"])
         self.assertFalse(profiles["milc-cg"]["options"]["QUDA_MULTIGRID"])
         self.assertTrue(profiles["milc-cg"]["options"]["QUDA_INTERFACE_QDP"])
+        self.assertTrue(profiles["mg-staggered"]["options"]["QUDA_MULTIGRID"])
+        self.assertEqual(
+            profiles["mg-staggered"]["options"]["QUDA_MULTIGRID_NVEC_LIST"],
+            "24,64,96,112,128",
+        )
+        self.assertEqual(
+            profiles["mg-staggered"]["options"]["QUDA_MULTIGRID_MRHS_LIST"],
+            "8,16,32,64",
+        )
 
     def test_complete_test_suite_is_the_build_default(self):
-        options = yaml.safe_load(
+        profiles = yaml.safe_load(
             (ROOT / "software/quda/build-profiles.yaml").read_text()
-        )["profiles"]["milc-cg"]["options"]
-        self.assertTrue(options["QUDA_BUILD_ALL_TESTS"])
-        self.assertTrue(options["QUDA_INSTALL_ALL_TESTS"])
+        )["profiles"]
+        for profile, record in profiles.items():
+            with self.subTest(profile=profile):
+                self.assertTrue(record["options"]["QUDA_BUILD_ALL_TESTS"])
+                self.assertTrue(record["options"]["QUDA_INSTALL_ALL_TESTS"])
 
         architecture = " ".join((ROOT / "ARCHITECTURE.md").read_text().split())
         playbook = " ".join(
@@ -209,6 +220,36 @@ class SliceOneKnowledgeTests(unittest.TestCase):
         self.assertEqual(
             [test["result"] for test in stack["validation"]["tests"]],
             ["pass", "pass", "pass"],
+        )
+
+    def test_staggered_mg_stack_records_bounded_native_validation(self):
+        stack = yaml.safe_load(
+            (
+                ROOT
+                / "machines/perlmutter/stacks/"
+                "quda-cuda13-mg-staggered-2026q3/stack.yaml"
+            ).read_text()
+        )
+        self.assertEqual(stack["profile"], "mg-staggered")
+        self.assertEqual(stack["validated_on"], ["gpu-a100-40"])
+        self.assertEqual(
+            stack["tested_software"]["quda"]["commit"],
+            "b6998853f6b605e22d67ea2ddfa3cab0d752679a",
+        )
+        self.assertEqual(stack["validation"]["result"], "pass")
+        self.assertEqual(len(stack["validation"]["tests"]), 1)
+        test = stack["validation"]["tests"][0]
+        self.assertEqual(test["name"], "staggered_invert_test")
+        self.assertEqual(test["execution_path"], "native non-GTest")
+        self.assertLessEqual(
+            test["host_l2_relative_residual"],
+            test["requested_l2_relative_residual"],
+        )
+        self.assertTrue(
+            any(
+                "does not exercise a linked MILC executable" in limit
+                for limit in stack["validation"]["scope_limits"]
+            )
         )
 
     def test_build_skill_adapters_route_to_shared_playbook(self):

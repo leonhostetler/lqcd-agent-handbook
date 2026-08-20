@@ -132,7 +132,7 @@ class SliceThreeFrontierStackTests(unittest.TestCase):
     def test_composed_stack_cross_references_are_complete(self):
         errors: list[str] = []
         count = VALIDATOR.validate_schemas(ROOT, errors)
-        self.assertEqual(count, 25)
+        self.assertEqual(count, 26)
         self.assertEqual(errors, [])
         self.assertIn("quda", self.stack["tested_software"])
 

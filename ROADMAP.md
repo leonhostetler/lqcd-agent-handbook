@@ -4,9 +4,8 @@
 matrix, including both Claude cases, has passed. Slice 4 remains in progress; the operator
 has pulled the staged QUDA-solver foundation of Slice 5 forward.
 
-**NEXT ACTION:** Audit build-profile and stack coverage for the source-backed staggered CG,
-deflated-CG, and multigrid overviews; record only validated capabilities and do not invent a
-staggered-MG stack from source availability.
+**NEXT ACTION:** Audit build-profile and stack coverage for the source-backed staggered
+deflated-CG overview; record only capabilities supported by a validated build and run.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -70,8 +69,8 @@ attached eigensolver deflation space, and a full-system outer GCR solve with a m
 preconditioner. They record operator contracts, setup and reuse state, build gates, cost
 components, suitability and disqualifiers, dominant memory objects, runtime confirmation, and
 exact-current limitations. No private-corpus timings, crossovers, fitted memory constants, run
-paths, or ensemble-specific optima were admitted. Build-profile and stack capability coverage is
-the next gate before cross-solver selection guidance or tuning procedure is added.
+paths, or ensemble-specific optima were admitted. Deflated-CG build-profile and stack capability
+coverage is the next gate before cross-solver selection guidance or tuning procedure is added.
 
 On 2026-08-20 the operator locked complete test builds as the handbook default. A QUDA
 multigrid build had explicitly overridden QUDA's upstream all-tests defaults to `OFF`, so a
@@ -82,6 +81,21 @@ reproduction commands now keep `QUDA_BUILD_ALL_TESTS` and `QUDA_INSTALL_ALL_TEST
 regression test enforces the policy. Existing QUDA stack cost records remain historical: their
 scope now states that the measured builds predated this policy and compiled focused tests
 separately.
+
+Later on 2026-08-20, the operator-submitted Perlmutter run established the first
+`mg-staggered` stack. QUDA
+`b6998853f6b605e22d67ea2ddfa3cab0d752679a` on `develop` used CUDA 13.2,
+`sm_80`, staggered operators, GCR-MG, the MILC and QDP interfaces, QMP, and QIO.
+The install completed across three resumable one-hour `gpu-a100-40` allocation attempts;
+the final build command took 40m08.88s. Because the historical cache excluded the complete
+test suite, `staggered_invert_test` was built separately; the current reproduction profile
+keeps all tests enabled, and the historical cost is not an all-tests estimate. A four-rank
+native QUDA run completed an optimized-KD-to-aggregation hierarchy on a
+`16 x 16 x 16 x 32` synthetic unit-gauge asqtad system. MG setup took 273.019s, the
+outer GCR solve took 18 iterations and 3.74901s, and QUDA and host checks agreed on an
+L2 relative residual of `7.260597e-07` against a `1e-6` request. The fresh-tunecache
+run validates only this native hierarchy on the 40 GB A100 node type; it is neither a
+linked MILC validation nor benchmark evidence.
 
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
@@ -161,15 +175,14 @@ scheduler capacity.
 
 Latest automated evidence:
 
-- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty
-  schema objects valid, twenty-eight provenance records complete, four generated indices current,
-  zero P2 advisories, two frontend adapters and six session-logging assets valid, 205
-  long-document references resolved, no deny-list match, and Tier 0 at 3,638/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all ninety-six checks pass with both the
-  parent interpreter and subprocess `python3` resolved to Python 3.11, including fourteen
-  focused session-logging checks, seven focused DeltaAI checks, four focused Frontier
-  machine checks, fourteen focused Slice 1 checks, ten focused Slice 2 checks, and eleven
-  focused Slice 3 checks;
+- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six
+  schema objects valid, forty provenance records complete, four generated indices current,
+  sixteen pre-existing P2 advisories, two frontend adapters and six session-logging assets
+  valid, 205 long-document references resolved, no deny-list match, and Tier 0 at
+  4,363/6,144 bytes;
+- `python3 -m unittest discover -s tests -v`: all 109 checks pass with both the parent
+  interpreter and subprocess `python3` resolved to Python 3.11, including the bounded
+  native staggered-MG stack regression;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
   tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier and DeltaAI
   validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,
@@ -503,9 +516,10 @@ Publishability is settled **per class during the import**
 
 **State:** The public-source ensemble catalog, schema, validator binding, naming rule, and
 spacing-default convention are prepared independently of the private tuning corpus. The first
-solver batch adds source-backed staggered CG, deflated-CG, and multigrid overviews; build-profile
-and stack coverage, cross-solver selection, tuning procedure, memory/accounting tools,
-ensemble-scoped operational imports, and the slice acceptance checks remain pending.
+solver batch adds source-backed staggered CG, deflated-CG, and multigrid overviews; staggered
+CG and bounded native staggered-MG stacks now exist. Deflated-CG profile and stack coverage,
+cross-solver selection, tuning procedure, memory/accounting tools, ensemble-scoped operational
+imports, and the slice acceptance checks remain pending.
 
 This is the slice where the admission test earns its keep. Run it strictly — stage
 extractions **in the working directory beside the source corpus**, assign each candidate a

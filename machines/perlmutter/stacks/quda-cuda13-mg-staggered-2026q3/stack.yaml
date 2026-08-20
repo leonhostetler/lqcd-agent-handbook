@@ -1,0 +1,153 @@
+schema_version: 1
+machine: perlmutter
+software: quda
+profile: mg-staggered
+validated_on:
+  - gpu-a100-40
+tested_software:
+  quda:
+    commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+    branch: develop
+reference_sources:
+  operator_provided_perlmutter_sample:
+    quda_checkout_commit: f4af6b974aab71ea525e9d7e5319cfd0403d2a80
+    milc_checkout_commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    use: Directory layout and build-option baseline; the validated stack pins a newer QUDA commit.
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+  eigen:
+    version: 3.4.1
+    acquisition: Downloaded by QUDA CMake.
+tested_toolchain:
+  environment: cpe/26.03
+  programming_environment: PrgEnv-gnu/8.7.0
+  host_compiler:
+    module: gcc-native/14
+    version: 14.3.0
+    wrappers:
+      c: cc
+      cxx: CC
+  cuda:
+    module: cudatoolkit/13.2
+    compiler_version: 13.2.78
+  mpi:
+    module: cray-mpich/9.1.0
+  craype: 2.7.36
+  cmake: 3.28.3
+build:
+  type: RELEASE
+  target: CUDA
+  gpu_arch: sm_80
+  generator: Unix Makefiles
+  install_layout: <build-dir>/usqcd
+  profile_options_from: software/quda/build-profiles.yaml#mg-staggered
+  machine_options:
+    CMAKE_C_COMPILER: cc
+    CMAKE_CXX_COMPILER: CC
+    QUDA_TARGET_TYPE: CUDA
+    QUDA_GPU_ARCH: sm_80
+  dependency_acquisition:
+    mode: QUDA CMake downloads
+    network_required_at_configure: true
+  cost:
+    where: interactive
+    command: cmake --build <build-dir> --target install --parallel 16
+    parallelism: 16
+    wallclock: 40m08.88s final attempt; approximately 2h40m across three allocation attempts
+    timing_scope: Two one-hour allocations expired during the resumable build; the successful third command took 40m08.88s. The historical cache excluded the complete test suite, and staggered_invert_test was built separately.
+    maximum_reported_rss_kib: 1462468
+    memory_scope: Maximum RSS reported by GNU time for the successful third launcher command, not aggregate build-process memory.
+validation:
+  date: "2026-08-20"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 1
+    mpi_ranks: 4
+    cpus_per_rank: 16
+    gpus_per_rank: 1
+    visible_gpu_devices: 4
+    accelerator: NVIDIA A100-SXM4-40GB
+    accelerator_memory_bytes: 42949672960
+    constraint: "gpu&hbm40g"
+    rank_grid: [1, 1, 1, 4]
+  runtime:
+    communication: QMP over Cray MPICH
+    QUDA_ENABLE_GDR: 1
+    MPICH_GPU_SUPPORT_ENABLED: 1
+    gpu_binding: disabled so each rank can enumerate all four devices for QUDA local-rank mapping
+    resource_path: fresh writable directory for gpu-a100-40
+    command_elapsed: 4m50.93s
+    validation_wrapper_exit_code: 0
+    accelerator_telemetry: all four ranks observed all four 40 GB A100 devices at compute capability 8.0
+  tests:
+    - name: staggered_invert_test
+      execution_path: native non-GTest
+      operator: asqtad full system
+      outer_solver: gcr
+      preconditioner: multigrid
+      gauge: synthetic unit gauge
+      precision:
+        fine: double
+        sloppy: single
+        preconditioner: single
+        null_vectors: single
+      global_lattice: [16, 16, 16, 32]
+      local_lattice: [16, 16, 16, 8]
+      hierarchy:
+        - level: 0
+          transfer: optimized-kd
+          nvec: 3
+          block: [1, 1, 1, 1]
+          smoother_solve_type: direct-pc
+        - level: 1
+          transfer: aggregate
+          nvec: 64
+          block: [4, 4, 4, 4]
+          smoother_solve_type: direct
+        - level: 2
+          role: bottom
+      iterations: 18
+      requested_l2_relative_residual: 1.0e-6
+      quda_l2_relative_residual: 7.260597e-7
+      host_l2_relative_residual: 7.260597e-7
+      quda_heavy_quark_residual: 1.680747e-7
+      host_heavy_quark_residual: 1.680747e-7
+      mg_setup_seconds: 273.019
+      mg_setup_gflops: 869.75
+      solve_seconds: 3.74901
+      solve_gflops: 1498.98
+      result: pass
+  scope_limits:
+    - The focused native QUDA unit-gauge test does not exercise a linked MILC executable or application input.
+    - Validation covers only the listed hierarchy and gpu-a100-40; other hierarchy shapes and gpu-a100-80 remain inferences until exercised.
+    - QIO was compiled but was not exercised by this validation.
+    - The run populated a fresh tunecache and is functional validation, not benchmark evidence.
+    - No scheduler or process-wide runtime memory high-water measurement is claimed.
+    - The historical install excluded the complete test suite and built only the focused executable afterward; current profile commands enable all tests, so the recorded cost is not an all-tests estimate.
+evidence: experiment
+observed: "2026-08-20"
+observed_on:
+  machine: perlmutter
+  node_type: gpu-a100-40
+  software:
+    quda:
+      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+      branch: develop
+  toolchain:
+    cuda: 13.2.78
+    host_compiler: GNU 14.3.0 through Cray wrappers
+sources:
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/staggered_invert_test.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/staggered_invert_test_gtest.hpp
+  - operator-submitted validation run reviewed during the 2026-08-20 handbook developer session; raw scheduler output is not committed
