@@ -214,9 +214,11 @@ setup can be materially larger because the search basis and temporary batches co
 Vector count, local parity volume, storage precision, field order, I/O staging, and
 allocator pooling all matter. A retained count alone is not a byte-exact memory model.
 
-Use the future shared memory calculator for capacity decisions. Until then, measure the
-device high-water mark across eigensolver setup, first projection, and a representative
-solve rather than sampling only steady-state CG.
+Use [`staggered-memory.md`](staggered-memory.md) to price the source-derived retained-vector
+payload and, when its evidence scope applies, the separately labelled Perlmutter A100
+high-water fit. The fit does not include an arbitrary search-basis peak or a second
+preserved parity space. Measure device high-water across eigensolver setup, first
+projection, and a representative solve rather than sampling only steady-state CG.
 
 ## Runtime confirmation and correctness
 

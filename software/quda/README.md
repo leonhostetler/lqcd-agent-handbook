@@ -45,6 +45,10 @@ For MILC-facing staggered solver behavior, use:
 - [`solvers/staggered-multigrid.md`](solvers/staggered-multigrid.md) for the full-system
   outer GCR plus multigrid-preconditioner hierarchy.
 
+Use [`solvers/staggered-memory.md`](solvers/staggered-memory.md) for source-exact field
+sizes, corpus-calibrated high-water estimates with their evidence limits, decomposition
+coupling, and capacity accounting across all three solver paths.
+
 Use [`../../playbooks/tune-solver.md`](../../playbooks/tune-solver.md) to execute the
 cross-solver selection and tuning procedure for a declared production workload.
 

@@ -4,9 +4,10 @@
 matrix, including both Claude cases, has passed. Slice 4 remains in progress; the operator
 has pulled the staged QUDA-solver foundation of Slice 5 forward.
 
-**NEXT ACTION:** Screen solver memory and decomposition guidance without importing private
-fitted constants or machine-specific capacity claims; preserve the distinction among
-source-derived objects, validated stack measurements, and campaign-local models.
+**NEXT ACTION:** Review the remaining solver empirical guidance—coarse-spectrum fits,
+deflation schedules, setup knees, timing crossovers, and the evidence needed for a
+mechanistic MRHS memory model—by publishability, evidence scope, and portability before
+proposing the next exact handbook diff.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -115,6 +116,34 @@ and throughput-dominated regimes come from measured workload crossovers rather t
 corpus thresholds. The import admits no private timing, crossover, fitted-memory, run-path,
 ensemble-optimum, or campaign-forensics value.
 
+Stage 4 adds a shared staggered-memory leaf and two deterministic command-line tools while
+preserving the evidence boundary in their interfaces. Source-exact modes reproduce current
+native field allocation and QUDA transfer block adjustment. Separately labelled corpus
+modes admit the Perlmutter A100 plain-CG, retained-deflation, communication-pool,
+page-locked-host, and four-level MG high-water calibrations. Agent-loaded text carries
+only short scope caveats; detailed fit populations, errors, support sets, and historical
+changes live beside the constants in the Python calculator. Its public path targets
+current QUDA only. The MG estimate remains a maximum over allocation phases, and capacity
+output is advisory rather than a guaranteed fit.
+
+The same calculator exposes two- and three-level hierarchies, MG precision, and the fitted
+workspace/copy controls as explicitly unvalidated what-if modes. These modes emit loud
+warnings and never inherit the four-level error statistics. Its preferred global-geometry
+path derives local dimensions and partitioning, applies QUDA block adjustment, and passes
+the effective hierarchy directly to the model. `mg-search` exhaustively enumerates every
+rank-grid factorization below an exclusive node bound and classifies each source-valid
+decomposition against a named machine advisory; it does not select only one cube-like
+layout.
+
+The decomposition tool keeps source errors independent from an opt-in empirical screen.
+That screen reports the provisional `V3 >= 10000` and coarsest-cell aspect `<= 1.5`
+heuristics mined from four ensembles; it cannot turn either threshold into a QUDA legality
+rule. The source audit also corrects the deeper aggregate-space bound: current MILC's
+coarse `ColorSpinorField` has `Ncolor = nvec_1` and `Nspin = 2`, so the next transfer
+bounds `nvec_2` by `nvec_1*b2`, not by the coarse-gauge color `2*nvec_1`. No existing
+corpus configuration is close to that bound. Raw run paths, job identifiers, accounts,
+and allocation data remain outside the public repository.
+
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
 Claude and Codex loggers, an offer-only user-config installer, manifest validation, and
@@ -194,13 +223,13 @@ scheduler capacity.
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six
-  schema objects valid, forty-one provenance records complete, four generated indices current,
+  schema objects valid, forty-two provenance records complete, four generated indices current,
   sixteen pre-existing P2 advisories, two frontend adapters and six session-logging assets
   valid, 205 long-document references resolved, no deny-list match, and Tier 0 at
   4,363/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all 114 checks pass with both the parent
-  interpreter and subprocess `python3` resolved to Python 3.11, including the bounded
-  native staggered-MG stack regression and five focused solver-import checks;
+- `python3 -m unittest discover -s tests -v`: all 128 checks pass, including the bounded
+  native staggered-MG stack regression, five focused solver-import checks, and fourteen
+  focused memory/decomposition checks;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
   tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier and DeltaAI
   validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,
@@ -536,9 +565,12 @@ Publishability is settled **per class during the import**
 spacing-default convention are prepared independently of the private tuning corpus. The solver
 batch now includes source-backed staggered CG, deflated-CG, and multigrid overviews; audited
 compiled-versus-runtime capability coverage; linked-application plain-CG and bounded native-MG
-evidence; and cross-solver selection and tuning procedures. Deflated-CG and linked MILC MG
-runtime validation, memory/accounting tools, ensemble-scoped operational imports, and the slice
-acceptance checks remain pending.
+evidence; cross-solver selection and tuning procedures; and the staged memory/accounting
+tools. Deflated-CG and linked MILC MG runtime validation, ensemble-scoped operational
+imports, and the slice acceptance checks remain pending. A mechanistic MRHS memory model
+is also an explicit future obligation: observed increments may guide its design but may
+not be promoted as a transferable capacity formula without allocation-lifetime analysis
+and validation across MRHS widths.
 
 This is the slice where the admission test earns its keep. Run it strictly — stage
 extractions **in the working directory beside the source corpus**, assign each candidate a

@@ -12,6 +12,7 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/solver.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/solve.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/transfer.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/block_orthogonalize.in.cu
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/coarse_op.cuh
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/interface_quda.cpp
@@ -19,7 +20,7 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface_internal.cpp
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/CMakeLists.txt
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c
-observed: "2026-08-19"
+observed: "2026-08-20"
 observed_on:
   software:
     quda:
@@ -180,6 +181,30 @@ Decomposition choice therefore changes both legality and the executed hierarchy.
 it before allocating a long setup job; do not infer validity from global lattice
 divisibility alone.
 
+Use the source-scoped preflight tool before sizing:
+
+```bash
+python3 tools/quda-staggered-decomposition.py \
+  --global 64 64 64 96 --ranks 2 2 2 3 \
+  --block1 4 4 4 4 --block2 2 2 2 2 \
+  --nvec1 64 --nvec2 32 --nvec3 0 \
+  --compiled-nvecs 6 24 32 64
+```
+
+It emulates the current transfer constructor's halving, keeps requested and effective
+blocks separate, checks aggregate and compiled-`nvec` constraints, and reports global and
+local coarse volumes. Every result is derived from the supplied global lattice and rank
+geometry; there is no built-in lattice size or lattice-spacing default. For the observed optimized-KD MILC hierarchy, the first true
+aggregate has coarse-space capacity `3*b1/2`, while the next uses
+`nvec_1*b2`: coarse `ColorSpinorField` color is `nvec_1` with spin stored separately,
+even though the corresponding coarse **gauge** field combines them into color
+`2*nvec_1`.
+
+Adding `--corpus-advisories` applies a separate, provisional screen mined from four
+ensembles: warn below global `V3 = 10000` sites or above coarsest-cell aspect 1.5. Those
+warnings are empirical tuning evidence, not QUDA errors. The tool's source status remains
+independent, and runtime `Transfer: using block size ...` output remains authoritative.
+
 ## When to use it
 
 Use this path when:
@@ -258,9 +283,12 @@ vectors will undercount that peak.
 Memory depends on local geometry at every level, effective block sizes after QUDA's
 validation/halving, `nvec`, coarse precision, compiled kernel shapes, GCR basis,
 right-hand-side batch size, gauge representation, communication backend, and allocator
-pool state. Use a shared source-derived calculator with an explicit accuracy bound once
-available; until then, measure setup and solve high-water marks separately and retain
-safe headroom.
+pool state. [`staggered-memory.md`](staggered-memory.md) separates source-exact object
+sizes from the calibrated four-level Perlmutter A100 model, loudly warned two-/three-level
+extrapolations, integrated geometry checks, and machine-scoped capacity advice.
+The text gives only the operational caveat; detailed fit populations, errors, and
+historical changes live in the companion calculator. Use the model only inside its
+declared scope and measure setup and solve high-water on the target stack.
 
 ## Runtime confirmation and correctness
 

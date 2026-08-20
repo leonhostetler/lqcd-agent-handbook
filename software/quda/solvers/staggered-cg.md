@@ -178,8 +178,11 @@ plain CG.
 
 This inventory is the stable source contract, not a byte-exact capacity estimator.
 Allocator pools, halo buffers, field order, gauge reconstruction, communication backend,
-and concurrent right-hand sides affect the observed high-water mark. Use the shared
-staggered memory page and calculator when those are admitted to the handbook.
+and concurrent right-hand sides affect the observed high-water mark. Use
+[`staggered-memory.md`](staggered-memory.md) for source-exact object sizes, the explicitly
+scoped Perlmutter A100 plain-CG fit, counter accounting, and companion calculator. Fit
+populations and errors live in that script; measure the final candidate on its actual
+stack.
 
 ## Runtime confirmation and correctness
 
