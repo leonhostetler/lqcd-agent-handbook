@@ -26,6 +26,14 @@ Exactly one handbook mode is current:
 
 ## Standing safeguards
 
+- Never recursively traverse `/`, a filesystem or mount root, a shared top-level directory,
+  a system prefix, or another unbounded directory. Before searching, choose a bounded root
+  inside the current workspace or a known project or data directory; constrain depth and
+  filename patterns where possible, and stop to ask when no bounded root is known. This
+  applies on login and compute nodes to every tool or language. Locate software through
+  shell, module, package, or known-prefix metadata rather than a mounted-filesystem scan.
+  Never bypass an installed traversal guard by changing tools, moving to a compute node, or
+  requesting approval for an equivalent broad scan. See `conventions/filesystem-discovery.md`.
 - Never submit a scheduler job without an explicit campaign-scoped node-hour or GPU-hour
   ceiling. Without one, prepare the job and hand the submit command to the operator.
 - Authorization to change project code does not authorize commits or publication. Unless

@@ -5,6 +5,7 @@ scope: [machine:perlmutter]
 load_when: Building software or preparing a job on Perlmutter.
 evidence: docs
 sources:
+  - https://docs.nersc.gov/development/coding-agents/
   - https://docs.nersc.gov/jobs/policy/
   - https://docs.nersc.gov/policies/resource-usage/
   - https://docs.nersc.gov/development/compilers/wrappers/
@@ -28,6 +29,15 @@ when they appear on a shell command line.
 Once a GPU job starts, reconcile the declared node type with accelerator telemetry before
 treating the run as validation. Shared GPU architecture may support an inference about
 binary compatibility, but validation remains specific to the node types actually run.
+
+## Bound filesystem discovery
+
+Follow the universal [bounded filesystem-discovery convention](../../conventions/filesystem-discovery.md).
+NERSC specifically prohibits recursive traversal from `/`, `/global`, `/global/cfs`,
+`/global/homes`, `/pscratch`, `/opt`, `/usr`, or another shared top-level directory on both
+login and compute nodes. For a bounded, computationally substantial search, use NERSC's
+`$perlmutter-compute` route. Neither a compute allocation nor that route broadens the permitted
+filesystem root.
 
 ## Place builds deliberately
 
