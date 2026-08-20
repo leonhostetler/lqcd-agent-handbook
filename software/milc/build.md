@@ -48,9 +48,39 @@ reproduction, a required revision change, conflicting application artifacts, or 
 cleanliness requirement; it is not the default merely because MILC builds in its source tree.
 
 MILC application targets include their local `Make_template` through a copy of the repository
-`Makefile`. Preserve any differing application-local `Makefile`; do not overwrite it. After the
-application guide supplies its application-specific recipe values, use this shared invocation
-shape:
+`Makefile`. Preserve any differing application-local `Makefile`; do not overwrite it.
+
+## Materialize profile and machine options
+
+Construct `profile_args` from every entry under the selected profile's `options` mapping in
+`build-profiles.yaml`. Construct `machine_args` from every entry under `build.machine_options`
+in the current-machine stack. Each mapping entry becomes exactly one shell-array element in the
+form `KEY=value`; the mapping key is the MILC make variable and must not be renamed. Preserve
+explicit false, zero, and empty values rather than silently dropping them.
+
+Resolve stack placeholders such as `<quda-install-prefix>` and intentional environment
+references against the live build environment before invoking make. Keep each complete
+assignment in one quoted array element because values including `CTIME`, `OPT`, `LDFLAGS`, and
+`LIBQUDA` can contain whitespace. If a key occurs in both mappings, stop and resolve the
+ownership error instead of relying on command-line ordering. Before the build, print or capture
+the resolved arrays in provenance so that the command can be reproduced.
+
+For example, this profile fragment:
+
+```yaml
+options:
+  PRECISION: 2
+  CTIME: -DONE -DTWO
+```
+
+must become two array elements:
+
+```bash
+profile_args=("PRECISION=2" "CTIME=-DONE -DTWO")
+```
+
+After the application guide supplies its directory and target values and both argument arrays
+have been materialized, use this shared invocation:
 
 ```bash
 milc_source=${MILC_SOURCE_DIR:?set MILC_SOURCE_DIR}
@@ -72,6 +102,11 @@ else
 fi
 
 mkdir -p "$milc_install/bin"
+declare -p profile_args machine_args >/dev/null 2>&1 || {
+  echo "materialize profile_args and machine_args before building" >&2
+  exit 1
+}
+printf 'MILC make argument: %q\n' "${profile_args[@]}" "${machine_args[@]}"
 make -j "$jobs" "$target" "${profile_args[@]}" "${machine_args[@]}"
 install -m 0755 "$built_executable" "$milc_install/bin/$install_name"
 ```

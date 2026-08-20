@@ -152,6 +152,20 @@ class MILCApplicationGuideTests(unittest.TestCase):
         ):
             self.assertIn(marker, playbook)
 
+    def test_build_materializes_profile_and_machine_make_arguments(self):
+        build = (ROOT / "software/milc/build.md").read_text()
+        for marker in (
+            "## Materialize profile and machine options",
+            "selected profile's `options` mapping",
+            "`build.machine_options`",
+            "exactly one shell-array element",
+            "must not be renamed",
+            "If a key occurs in both mappings, stop",
+            "declare -p profile_args machine_args",
+            'make -j "$jobs" "$target" "${profile_args[@]}" "${machine_args[@]}"',
+        ):
+            self.assertIn(marker, build)
+
     def test_timing_policy_and_mode_routing_are_explicit(self):
         timing = (ROOT / "software/milc/timing.md").read_text()
         build = (ROOT / "software/milc/build.md").read_text()
