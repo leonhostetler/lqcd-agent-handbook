@@ -57,6 +57,12 @@ dispositions; separates disposition from causal attribution; and keeps every all
 consuming run in the cost ledger while admitting only accepted runs to confirmatory performance
 statistics. Scheduler placement, capture, and budget-ledger portions remain Slice 4 work.
 
+Three user-facing contracts remain intentional future additions rather than current handbook
+capabilities. Slice 4 will add the append-only submission-budget-ledger format and the shared
+prediction schema and capture workflow. Slice 6 will add `modes/performance.md` and the profile-
+analysis playbook. Until those files land, their absence does not relax the submission ceiling
+or ledger safeguards, and startup must report that performance mode has no recorded conventions.
+
 Also on 2026-08-19, the public-source foundation of Slice 5 was pulled forward without changing
 the current Slice 4 next action. The MILC HISQ catalog records the 24 isospin-symmetric ensembles
 documented in arXiv:1712.09262, source-attested suffix-free ensemble names, mass-independent
@@ -254,13 +260,13 @@ scheduler capacity.
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six
-  schema objects valid, forty-two provenance records complete, four generated indices current,
+  schema objects valid, forty-seven provenance records complete, four generated indices current,
   sixteen pre-existing P2 advisories, two frontend adapters and six session-logging assets
   valid, 205 long-document references resolved, no deny-list match, and Tier 0 at
   4,363/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all 128 checks pass, including the bounded
-  native staggered-MG stack regression, five focused solver-import checks, and fourteen
-  focused memory/decomposition checks;
+- `python3 -m unittest discover -s tests -v`: all 139 checks pass, including the bounded
+  native staggered-MG stack and focused solver-import, memory/decomposition, and cold-reader
+  interface regressions;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
   tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier and DeltaAI
   validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,
@@ -571,6 +577,11 @@ build-time instrumentation guidance in `software/milc/timing.md`; neither is dup
 generic modes or conventions.
 Admit `memory_model.py` and `check_decomposition.py` from validated source versions after screening.
 
+**Remaining future additions:** the submission-budget-ledger format, prediction schema,
+prediction/capture playbooks and tooling, and the unfinished scheduler-placement guidance. The
+current modes describe the semantic fields for local records but do not constitute the promised
+shared formats.
+
 Slice 4 must also make scheduler placement explicit in `conventions/running.md` and
 `modes/debugging.md`. Before every submission, assess whether the job is appropriate for
 debug/interactive placement by comparing its purpose, node count, walltime, and concurrency
@@ -621,6 +632,10 @@ that is the check that narrow knowledge was filed rather than inlined.
 
 ### Slice 6 — performance analysis
 `modes/performance.md`, `playbooks/analyze-profile.md`, harvested from the operator's PerfAdvisor working tree after screening.
+
+**Future addition:** `performance` is already a valid mode name for startup routing, but its mode
+document and analysis playbook have not landed. Startup therefore reports the bootstrap limitation
+and uses no unrecorded performance conventions when that mode is selected.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check

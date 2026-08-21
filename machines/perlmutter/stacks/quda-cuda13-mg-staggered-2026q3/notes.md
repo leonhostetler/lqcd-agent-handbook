@@ -27,6 +27,10 @@ Load the Perlmutter machine profile, declare `gpu-a100-40`, and resolve the
 `mg-staggered` profile before using these notes. `stack.yaml` is canonical for
 the tested versions, toolchain, historical build cost, hierarchy, and validation result.
 
+This is a bounded sample stack for validating one native QUDA GCR-MG path. Its three-level
+synthetic-unit-gauge hierarchy is not a production recommendation, a general hierarchy default,
+or a validated linked-MILC target.
+
 ## Layout, configure, and build
 
 The validated project layout keeps the QUDA checkout and build tree as siblings, with the

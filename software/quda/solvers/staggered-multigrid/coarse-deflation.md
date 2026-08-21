@@ -48,7 +48,8 @@ The joint fit has 11.9% RMS and 20.4% p90 relative error over
 `nu3 = 0.022...0.250` vectors per coarsest site and
 `m = 0.000569...0.01555` in the calibration manifest's literal MILC input-mass
 convention. The coefficient `c` is ensemble-specific: it was `10.74` and `8.00` on the
-two fitted ensembles. On a new ensemble, estimate it at two or more heavy-mass probes
+two fitted ensembles, specifically `c(0.04 fm) = 10.74` and `c(0.06 fm) = 8.00`. On a
+new ensemble, estimate it at two or more heavy-mass probes
 from `c_i = sqrt(max(eval_max - A*nu3^alpha, 0))/m_i` while holding the hierarchy fixed.
 Agreement among the probes is an applicability check; do not transfer either fitted
 value.

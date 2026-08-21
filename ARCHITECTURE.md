@@ -150,6 +150,9 @@ nowhere else in the repo, even under auto-accept permissions ([§modes](#modes))
 <a id="directory-layout"></a>
 ## 3. Directory layout
 
+This is the **target completed-bootstrap layout**, not an inventory of files currently present.
+`ROADMAP.md` owns landing state and identifies which target entries remain future additions.
+
 ```
 lqcd-agent-handbook/
 ├── AGENTS.md                  # CANONICAL Tier-0 entrypoint (§loading-chain). ≤5 KB;
@@ -181,8 +184,9 @@ lqcd-agent-handbook/
 │   ├── running.md             # env-var capture, verbosity, sacct/scontrol/nvidia-smi
 │   │                          #   logging, session logging (§session-logging),
 │   │                          #   the job-submission budget rule and its ledger
-│   └── measurement.md         # first-solve discard, tunecache state, CONGRAD5 counting,
-│                              #   what a benchmark may and may not be compared against
+│   └── measurement.md         # conditional first-solve exclusion for a homogeneous
+│                              #   steady-state solver series; tunecache state; CONGRAD5
+│                              #   counting; valid benchmark comparisons
 │
 ├── modes/                     # two families; ONE FROM EACH is in force at any moment
 │   ├── debugging.md           #  ┐
@@ -1593,7 +1597,7 @@ bottom row decides admission.
 
 | Scope | Holds for | Illustrative source example | Destination |
 |---|---|---|---|
-| **universal** | HISQ/LQCD work generally | "no performance claim is meaningful without a solve count"; "discard the first solve"; "`mflops` is not comparable across solvers" | `conventions/` |
+| **universal** | HISQ/LQCD work generally | "no performance claim is meaningful without a solve count"; "discard the first solve by default only in a homogeneous steady-state solver series"; "`mflops` is not comparable across solvers" | `conventions/` |
 | **software × solver** | one software implementation of a solver | "QUDA multigrid setup cost must be amortized over a declared solve count" | `software/<name>/solvers/` |
 | **software** | one code, a commit range | "option X is unstable on `<commit-a>`, clean on `<commit-b>`; no mechanism known" | `software/quda/` |
 | **machine** | one system | queue limits, binding scripts, `MPICH_*` settings that cost a factor of 2.7 | `machines/<name>/` |
