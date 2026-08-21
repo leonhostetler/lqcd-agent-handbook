@@ -92,11 +92,11 @@ field. Their accuracy is exact only inside that object contract and source revis
 Examples:
 
 ```bash
-python3 tools/quda-staggered-memory.py spinor \
+python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" spinor \
   --local 36 36 24 32 --ncolor 3 --nspin 1 --precision single \
   --subset parity --count 2048
 
-python3 tools/quda-staggered-memory.py gauge \
+python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" gauge \
   --local 6 6 6 8 --ncolor 128 --precision half --geometry coarse \
   --coarse-pad
 ```
@@ -106,12 +106,12 @@ The second is one native coarse field, not the complete coarse operator.
 
 ## Named empirical calibration
 
-The fit commands use calibration `perlmutter-a100-staggered-2024-2026`, obtained from
-MILC HISQ runs with QUDA staggered solvers on Perlmutter A100 GPUs. These are planning
-models, not source invariants. Detailed populations, errors, build sensitivity, and
-exclusions live beside the constants in
-[`quda-staggered-memory.py`](../../../tools/quda-staggered-memory.py); inspect them only
-when applying or updating a fit.
+The fit commands use calibration `perlmutter-a100-staggered-2024-2026`. The
+[`staggered-MG calibration manifest`](staggered-multigrid/calibration.md) defines the
+shared operator, machine, hierarchy, ensemble, and convention scope. Memory-specific
+populations, errors, build sensitivity, and exclusions live beside the constants in
+[`quda-staggered-memory.py`](../../../tools/quda-staggered-memory.py). These are planning
+models, not source invariants; inspect both records when applying or updating a fit.
 
 For MG, inspect `prediction_assessment.tier` before using the number:
 
@@ -127,6 +127,13 @@ For MG, inspect `prediction_assessment.tier` before using the number:
 The current-code KD correction remains a separately declared one-point extrapolation even
 inside the first tier. A final candidate must still be measured on its target stack.
 
+For `mg-fit` JSON, top-level `evidence` is the actual prediction tier above, while
+`model_basis` records `corpus-calibrated-with-source-geometry`. Thus an
+`--machine other` result says `evidence: caveated-extrapolation` instead of inheriting a
+calibrated label. The `detail.phase_model_evidence` string describes whether the
+two-, three-, or four-level phase structure has empirical support; it does not claim
+that every four-level candidate is inside the calibration envelope.
+
 ### Plain CG
 
 For this calibration,
@@ -140,7 +147,7 @@ These coefficients were fitted to the named Perlmutter A100 corpus. See the comp
 script for the fit population, observed errors, build sensitivity, and exclusions.
 
 ```bash
-python3 tools/quda-staggered-memory.py cg-fit --local 36 36 24 32
+python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" cg-fit --local 36 36 24 32
 ```
 
 The command excludes the separately reported communication pool and does not predict
@@ -171,7 +178,7 @@ Delta D_CG(w; w0) = (w - w0) * 160 B * V0.
 ```
 
 ```bash
-python3 tools/quda-staggered-memory.py mrhs-cg-delta \
+python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" mrhs-cg-delta \
   --local 36 36 24 24 --reference-width 1 --width 3
 ```
 
@@ -210,7 +217,7 @@ file-backed workflow, size for the resident vector count in the file, not only t
 selected for projection.
 
 ```bash
-python3 tools/quda-staggered-memory.py deflated-fit \
+python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" deflated-fit \
   --local 36 36 24 32 --vectors 2048
 ```
 
@@ -243,27 +250,32 @@ the communication pool separately as `Pinned device memory used` and also predic
 QUDA page-locked host counter.
 
 Coarse gauge color is `2*nvec`, so its link storage scales quadratically. Raising
-`nvec` from 64 to 96 multiplies that object by 2.25, not 1.5. MMA can allocate additional
-MILC-order fields and ghosts, but it affects total high-water only when its phase is the
-winner.
+`nvec` from 64 to 96 multiplies that object by 2.25, not 1.5. Here MMA means the
+tensor-core matrix-multiply-accumulate path selected by MILC `use_mma`. It can allocate
+additional MILC-order/AoS coarse fields and ghosts, but affects total high-water only
+when its phase is the winner. It is not MRHS batch width.
 
 Use global geometry whenever it is known. Requested blocks are adjusted and validated
 inside the same command, so the memory model cannot accidentally consume stale requested
 values:
 
 ```bash
-python3 tools/quda-staggered-memory.py mg-fit \
+python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" mg-fit \
   --global 144 144 144 288 --ranks 6 3 6 8 \
   --levels 4 --block1 4 6 6 6 --block2 3 2 2 3 \
   --nvec1 64 --nvec2 96 --nvec3 4000 --mma \
+  --compiled-nvecs 24 64 96 112 128 \
   --machine perlmutter-a100-40 --corpus-advisories
 ```
 
 The output includes requested and effective blocks, local and coarse geometry, phase
 totals, the winning term breakdown, device and page-locked-host counters, prediction
-tier, and every extrapolation. If only local dimensions are available, `--local` remains
-supported but requires an explicit `--partitioned` mask and cannot establish that the
-rank geometry itself lies in the calibration envelope.
+tier, and every extrapolation. The nested
+`geometry.build_capability.QUDA_MULTIGRID_NVEC_LIST.status` is `pass` or `fail` only
+when `--compiled-nvecs` is supplied and otherwise says `unchecked`; source-valid geometry
+does not prove build capability. If only local dimensions are available, `--local`
+remains supported but requires an explicit `--partitioned` mask and cannot establish
+that the rank geometry itself lies in the calibration envelope.
 
 ### Unvalidated hierarchy, precision, and fit controls
 
@@ -344,18 +356,20 @@ That 4-GiB number is a **Perlmutter A100 corpus advisory**, not a QUDA requireme
 portable GPU default. Use it explicitly when that evidence is applicable:
 
 ```bash
-python3 tools/quda-staggered-memory.py mg-fit \
+python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" mg-fit \
   --global 144 144 144 288 --ranks 6 3 6 8 \
   --levels 4 --block1 4 6 6 6 --block2 3 2 2 3 \
   --nvec1 64 --nvec2 96 --nvec3 4000 --mma \
+  --compiled-nvecs 24 64 96 112 128 \
   --machine perlmutter-a100-40
 ```
 
-The tool reports `over-capacity`, `inside-advisory-band`, or
-`outside-advisory-band`; it deliberately never reports a guaranteed fit. On another
-machine or allocator, measure the gap and supply a local margin. A prediction inside its
-own error band is an unresolved sizing result, not evidence that a nearly fitting job is
-safe.
+The tool reports `estimated-over-capacity`,
+`estimated-headroom-below-margin`, or `estimated-headroom-meets-margin`. The names say
+which side of the requested margin the estimate occupies; none is a guaranteed fit. On
+another machine or allocator, measure the gap and supply a local margin. A prediction
+inside its own error band is an unresolved sizing result, not evidence that a nearly
+fitting job is safe.
 
 ## Exhaustive inverse node sizing
 
@@ -366,19 +380,22 @@ applies QUDA block adjustment, discards source-invalid hierarchies, and prices e
 remaining model-compatible decomposition. The default `--min-local 1` imposes no hidden
 cube-size heuristic; a larger value is an explicit search filter, not a QUDA rule.
 
-For example, to search a four-level 0.06-fm lattice on fewer than `XXX` Perlmutter nodes:
+For example, to search a four-level 0.06-fm lattice on fewer than 17 Perlmutter
+nodes (replace `17` with the intended exclusive bound):
 
 ```bash
-python3 tools/quda-staggered-memory.py mg-search \
-  --global 96 96 96 192 --nodes-lt XXX \
+python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" mg-search \
+  --global 96 96 96 192 --nodes-lt 17 \
   --machine perlmutter-a100-40 \
   --levels 4 --block1 6 6 6 4 --block2 2 2 2 2 \
-  --nvec1 64 --nvec2 96 --nvec3 2048 --mma
+  --nvec1 64 --nvec2 96 --nvec3 2048 --mma \
+  --compiled-nvecs 24 64 96 112 128
 ```
 
 The result partitions every source-valid, model-compatible rank geometry into
-`outside_advisory_band`, `inside_advisory_band`, or `over_capacity`. The first category
-is the defensible screening answer to “which fit?”; it is still not a run guarantee.
+`estimated_headroom_meets_margin`, `estimated_headroom_below_margin`, or
+`estimated_over_capacity`. The first category is the defensible screening answer to
+“which has the requested estimated headroom?”; it is still not a run guarantee.
 Each row carries its prediction tier, requested-versus-effective blocks, both device
 counters, page-locked host per rank and node, and warnings. The counts prove that all
 rank geometries considered were source-invalid, outside the checkerboarded memory model's

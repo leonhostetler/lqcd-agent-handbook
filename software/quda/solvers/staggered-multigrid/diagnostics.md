@@ -22,10 +22,10 @@ observed_on:
 # Staggered multigrid diagnostic chains
 
 Diagnose in dependency order and preserve the raw counters. The reference values here
-come from the `perlmutter-a100-staggered-mg-2024-2026` four-level retrospective corpus.
-They are advisory comparisons for closely matched MILC HISQ/QUDA staggered runs, not
-QUDA error conditions, universal healthy ranges, or substitutes for target-stack
-validation.
+come from the `perlmutter-a100-staggered-mg-2024-2026` four-level retrospective. Its
+[`calibration manifest`](calibration.md) defines “closely matched” separately for each
+advisory. The bands are not QUDA error conditions, universal healthy ranges, or
+substitutes for target-stack validation.
 
 ## Quick reference
 
@@ -40,6 +40,40 @@ validation.
 The decomposition tool's separate `V3 >= 10000` and coarsest-cell aspect `<= 1.5`
 screens are likewise provisional four-ensemble advisories. Source legality always has
 priority.
+
+## Observable extraction contract
+
+The retrospective field names are derived quantities, not literal QUDA labels. For the
+source revision in this page's frontmatter, extract them as follows. If a later build
+changes a message format, preserve the raw lines and update this contract before using
+the old numerical bands.
+
+- **`setup_l1_iters`:** within one hierarchy-build event, read the ordered lines matching
+  `MG level 1 (GPU): CG: <k> iterations, n = <j>, ...`. A reset of `k` to zero starts a
+  new level-1 near-null CG stream. Take the terminal printed `k` before the next reset
+  or the end of the build, then take the arithmetic mean of those terminal values.
+  Do not add one to the printed counter and do not substitute solve-side level-1 GCR
+  iterations.
+- **`setup_maxiter_1`:** read the literal MILC parameter-file value
+  `setup_maxiter 1` used for the same hierarchy build. If it cannot be recovered, report
+  `rho_setup` as unavailable rather than borrowing a cap from another level or run.
+- **`eval_max` and `l3_res_max`:** for one coarsest eigensolve event, collect its lines
+  matching
+  `MG level 3 (GPU): Eval[NNNN] = (+real,imag) ... Residual = <r>`.
+  `eval_max` is the maximum printed real eigenvalue and `l3_res_max` is the maximum
+  printed `Residual` over the same delivered prefix. Count the `Eval[...]` lines and
+  compare that count with requested `nvec_3` and the event's convergence summary; a
+  short prefix is partial delivery, not a smaller complete spectrum.
+- **TRLM restarts:** from the summary for that same event, parse the integer immediately
+  before `restart steps`. Current variants include
+  `TRLM computed the requested ... vectors in <R> restart steps ...` and
+  `BLOCK TRLM ... in <R> restart steps with ...`. An absent summary is missing data,
+  not zero restarts.
+
+Keep separate records when a log contains multiple hierarchy builds or eigensolve
+events; never maximize or average across them silently. Compute global `V3` and `nu3`
+from the global lattice and QUDA's executed blocks with the decomposition tool, not from
+the per-rank coarse volume or requested blocks.
 
 ## Setup pinned at its ceiling
 

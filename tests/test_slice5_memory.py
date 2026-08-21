@@ -158,7 +158,12 @@ class StaggeredMemoryTests(unittest.TestCase):
             "--margin-gib",
             "4",
         )
-        self.assertEqual(payload["evidence"], "corpus-calibrated-with-source-geometry")
+        self.assertEqual(payload["evidence"], "caveated-extrapolation")
+        self.assertEqual(payload["model_basis"], "corpus-calibrated-with-source-geometry")
+        self.assertEqual(
+            payload["geometry"]["build_capability"]["QUDA_MULTIGRID_NVEC_LIST"]["status"],
+            "unchecked",
+        )
         self.assertIn(payload["detail"]["winning_phase"], ("A", "B", "C"))
         self.assertGreater(payload["pool_gib"], 0)
         self.assertGreater(payload["page_locked_host_gib"], 0)
@@ -236,12 +241,23 @@ class StaggeredMemoryTests(unittest.TestCase):
             "--nvec3",
             "4000",
             "--mma",
+            "--compiled-nvecs",
+            "24",
+            "64",
+            "96",
+            "112",
+            "128",
             "--machine",
             "perlmutter-a100-40",
         )
         assessment = payload["prediction_assessment"]
+        self.assertEqual(payload["evidence"], "calibrated-envelope-current-code")
         self.assertEqual(assessment["tier"], "calibrated-envelope-current-code")
         self.assertTrue(assessment["reliable_screening_with_published_error"])
+        self.assertEqual(
+            payload["geometry"]["build_capability"]["QUDA_MULTIGRID_NVEC_LIST"]["status"],
+            "pass",
+        )
         self.assertEqual(assessment["failed_envelope_checks"], [])
         self.assertIn("Page-locked", payload["counter_scope"]["page_locked_host_gib"])
 
@@ -282,7 +298,10 @@ class StaggeredMemoryTests(unittest.TestCase):
             payload["prediction_assessment"]["tier"],
             "unvalidated-structural-extrapolation",
         )
-        self.assertFalse(payload["detail"]["four_level_empirically_validated"])
+        self.assertIn(
+            "unvalidated structural extrapolation",
+            payload["detail"]["phase_model_evidence"],
+        )
         self.assertIn("LOUD WARNING", result.stderr)
         self.assertTrue(any("precision" in item for item in payload["warnings"]))
         self.assertTrue(any("custom calibration" in item for item in payload["warnings"]))
@@ -348,9 +367,9 @@ class StaggeredMemoryTests(unittest.TestCase):
             "--no-mma",
         )
         categories = (
-            payload["outside_advisory_band"]
-            + payload["inside_advisory_band"]
-            + payload["over_capacity"]
+            payload["estimated_headroom_meets_margin"]
+            + payload["estimated_headroom_below_margin"]
+            + payload["estimated_over_capacity"]
         )
         self.assertTrue(payload["search_contract"]["complete_rank_geometry_enumeration"])
         self.assertEqual(payload["search_contract"]["node_bound"], "1 <= nodes < 3")
@@ -366,6 +385,10 @@ class StaggeredMemoryTests(unittest.TestCase):
         self.assertEqual(len(identities), len(categories))
         self.assertTrue(all(row["nodes"] < 3 for row in categories))
         self.assertTrue(all("page_locked_host_gib_per_node" in row for row in categories))
+        self.assertEqual(
+            payload["search_contract"]["build_capability"]["QUDA_MULTIGRID_NVEC_LIST"]["status"],
+            "unchecked",
+        )
 
     def test_transfer_adjustment_is_warning_not_automatic_rejection(self):
         result, payload = run_json(
@@ -397,8 +420,38 @@ class StaggeredMemoryTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertEqual(payload["source_status"], "pass")
+        self.assertEqual(
+            payload["build_capability"]["QUDA_MULTIGRID_NVEC_LIST"]["status"],
+            "unchecked",
+        )
         self.assertTrue(payload["requested_blocks_changed"])
         self.assertEqual(payload["levels"][0]["effective_block"], [4, 4, 4, 4])
+
+    def test_compiled_nvec_check_is_explicitly_unchecked_pass_or_fail(self):
+        base = (
+            "--global", "64", "64", "64", "96",
+            "--ranks", "2", "2", "2", "3",
+            "--block1", "4", "4", "4", "4",
+            "--block2", "2", "2", "2", "2",
+            "--nvec1", "64", "--nvec2", "96", "--nvec3", "4000",
+        )
+        _, unchecked = run_json(DECOMPOSITION, *base)
+        _, passed = run_json(
+            DECOMPOSITION, *base, "--compiled-nvecs", "24", "64", "96", "112", "128"
+        )
+        failed_result, failed = run_json(
+            DECOMPOSITION, *base, "--compiled-nvecs", "24", "64", check=False
+        )
+        key = "QUDA_MULTIGRID_NVEC_LIST"
+        self.assertEqual(unchecked["build_capability"][key]["status"], "unchecked")
+        self.assertEqual(passed["build_capability"][key]["status"], "pass")
+        self.assertEqual(failed_result.returncode, 2)
+        self.assertEqual(failed["build_capability"][key]["status"], "fail")
+        self.assertEqual(
+            failed["build_capability"][key]["missing"],
+            [{"parameter": "nvec2", "value": 96}],
+        )
+        self.assertNotIn(4000, [item["value"] for item in passed["build_capability"][key]["required"]])
 
     def test_deeper_aggregate_bound_uses_spinor_color_not_gauge_color(self):
         result, payload = run_json(
@@ -487,6 +540,9 @@ class StaggeredMemoryTests(unittest.TestCase):
         )
         self.assertNotIn("--pool-era", help_result.stdout)
         self.assertNotIn("--kd-era", help_result.stdout)
+        self.assertIn("tensor-core matrix-multiply-", help_result.stdout)
+        self.assertIn("accumulate path", help_result.stdout)
+        self.assertIn("not MRHS batch width", help_result.stdout)
 
     def test_decomposition_accepts_arbitrary_lattice_sizes(self):
         cases = (
@@ -529,6 +585,7 @@ class StaggeredMemoryTests(unittest.TestCase):
     def test_new_public_files_contain_no_private_paths_or_job_identifiers(self):
         paths = (
             ROOT / "software/quda/solvers/staggered-memory.md",
+            ROOT / "software/quda/solvers/staggered-multigrid/calibration.md",
             ROOT / "software/quda/solvers/staggered-multigrid/hierarchy-and-setup.md",
             ROOT / "software/quda/solvers/staggered-multigrid/coarse-deflation.md",
             ROOT / "software/quda/solvers/staggered-multigrid/tuning.md",

@@ -48,7 +48,8 @@ declared decision.
 ## 3. Choose hierarchy candidates under memory
 
 For every source-valid candidate, record global `V3`, coarsest-cell shape, `nu3`, and
-the memory prediction tier. Use
+the memory prediction tier. Confirm that the target matches the applicable row of the
+[`calibration manifest`](calibration.md). Use
 [`hierarchy-and-setup.md`](hierarchy-and-setup.md) for the empirical ordering and
 [`../staggered-memory.md`](../staggered-memory.md) for capacity. Retain alternatives
 when a larger `V3`, better cell shape, and memory headroom pull in different directions.
@@ -58,7 +59,8 @@ advisory band is unresolved, not a safe fit.
 
 ## 4. Stabilize setup before timing production
 
-Locate the level-1 setup-tolerance knee with
+Locate the level-1 setup-tolerance knee with the counters defined by the
+[`observable extraction contract`](diagnostics.md#observable-extraction-contract):
 `setup_l1_iters/setup_maxiter_1`. Check that the setup does not repeatedly hit its cap
 and that the resulting residual improves when the tolerance is tightened. Hold blocks,
 near-null counts, stack, and setup cap fixed during this scan.

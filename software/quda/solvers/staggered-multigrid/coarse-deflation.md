@@ -27,10 +27,10 @@ eigenvector quality, compatible reuse count, and target workload. Do not copy a 
 `nvec_3` or mass switch from another ensemble.
 
 All numerical bands and fitted constants below belong to the named
-`perlmutter-a100-staggered-mg-2024-2026` retrospective calibration. It contains 49
-converged spectrum cells at two working lattice spacings, uses four-level MILC
-HISQ/QUDA staggered MG, fixes `nvec_1 = 64`, and uses `nvec_2 = 96` in 49 of 51 relevant
-cells. Values outside the declared envelope are probes, not validated predictions.
+`perlmutter-a100-staggered-mg-2024-2026` retrospective. Its
+[`calibration manifest`](calibration.md) defines the 49-cell fit population, ensemble
+support, literal MILC input-mass convention, relevant precision, and exclusions.
+Values outside that declared envelope are probes, not validated predictions.
 
 ## Predict, then verify, the requested spectrum
 
@@ -46,9 +46,11 @@ alpha    = 1.551
 
 The joint fit has 11.9% RMS and 20.4% p90 relative error over
 `nu3 = 0.022...0.250` vectors per coarsest site and
-`m = 0.000569...0.01555` in the input mass convention. The coefficient `c` is
-ensemble-specific: it was `10.74` and `8.00` on the two fitted ensembles. Obtain it from
-at least two heavy-mass probes on a new ensemble and do not transfer either fitted
+`m = 0.000569...0.01555` in the calibration manifest's literal MILC input-mass
+convention. The coefficient `c` is ensemble-specific: it was `10.74` and `8.00` on the
+two fitted ensembles. On a new ensemble, estimate it at two or more heavy-mass probes
+from `c_i = sqrt(max(eval_max - A*nu3^alpha, 0))/m_i` while holding the hierarchy fixed.
+Agreement among the probes is an applicability check; do not transfer either fitted
 value.
 
 The shared exponent and coefficient are an empirical prior, not a source law. A changed
@@ -70,7 +72,9 @@ optimum was not located. Treat margins near or below `2x` as a corpus warning, n
 universal lower bound, and do not describe the combined evidence as an `8x...26x`
 optimum.
 
-Use this loop:
+Use the [`observable extraction contract`](diagnostics.md#observable-extraction-contract)
+so `eval_max`, `l3_res_max`, and restart counts refer to one delivered eigensolve event.
+Then use this loop:
 
 1. predict `eval_max` inside the fitted envelope or obtain it from a cheap probe;
 2. choose an explicit trial margin and hold the other eigensolver controls fixed;

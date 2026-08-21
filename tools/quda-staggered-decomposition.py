@@ -16,16 +16,43 @@ from quda_staggered_geometry import GeometryError, evaluate_decomposition
 
 def parser() -> argparse.ArgumentParser:
     out = argparse.ArgumentParser(description=__doc__)
-    out.add_argument("--global", dest="global_dims", nargs=4, type=int, required=True)
-    out.add_argument("--ranks", nargs=4, type=int, required=True)
-    out.add_argument("--levels", type=int, choices=(2, 3, 4), default=4)
-    out.add_argument("--block1", nargs=4, type=int)
-    out.add_argument("--block2", nargs=4, type=int)
-    out.add_argument("--nvec1", type=int, default=0)
-    out.add_argument("--nvec2", type=int, default=0)
-    out.add_argument("--nvec3", type=int)
-    out.add_argument("--compiled-nvecs", nargs="+", type=int)
-    out.add_argument("--lattice-spacing-fm", type=float)
+    out.add_argument(
+        "--global", dest="global_dims", nargs=4, type=int, required=True,
+        metavar=("LX", "LY", "LZ", "LT"), help="global lattice extents",
+    )
+    out.add_argument(
+        "--ranks", nargs=4, type=int, required=True,
+        metavar=("RX", "RY", "RZ", "RT"), help="four-dimensional rank grid",
+    )
+    out.add_argument(
+        "--levels", type=int, choices=(2, 3, 4), default=4,
+        help="total QUDA levels; 4 means levels 0, 1, 2, and 3",
+    )
+    out.add_argument(
+        "--block1", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"),
+        help="MILC geo_block_size 1: aggregate QUDA level 1 into level 2",
+    )
+    out.add_argument(
+        "--block2", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"),
+        help="MILC geo_block_size 2: aggregate QUDA level 2 into level 3",
+    )
+    out.add_argument("--nvec1", type=int, default=0, help="MILC nvec 1 coarse color count")
+    out.add_argument("--nvec2", type=int, default=0, help="MILC nvec 2 coarse color count")
+    out.add_argument(
+        "--nvec3", type=int,
+        help="MILC nvec 3 coarsest-deflation count; not a compiled coarse color",
+    )
+    out.add_argument(
+        "--compiled-nvecs", nargs="+", type=int,
+        help=(
+            "values in QUDA_MULTIGRID_NVEC_LIST; omit to leave build capability "
+            "explicitly unchecked"
+        ),
+    )
+    out.add_argument(
+        "--lattice-spacing-fm", type=float,
+        help="optional spacing used only to report coarsest-cell physical extents",
+    )
     out.add_argument(
         "--corpus-advisories",
         action="store_true",

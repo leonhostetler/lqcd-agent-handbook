@@ -87,6 +87,24 @@ flags, optional vector I/O, coarsest-level deflation, and multi-source batch siz
 top-level choices remain prescribed by the interface rather than the file, including the
 full outer solve and GCR.
 
+For the four-level optimized-KD hierarchy, use this index crosswalk:
+
+| Executed level | MILC parameter-file index | Tool argument | Meaning |
+|---|---|---|---|
+| `0`, fine operator and KD transfer | interface-fixed `n_vec[0] = 3` and unit KD block | none | optimized-KD fine-color transfer |
+| `1`, KD pseudo-fine | `nvec 1`, `geo_block_size 1`, `setup_* 1` | `--nvec1`, `--block1` | first user aggregation constructs level 2 |
+| `2`, intermediate coarse | `nvec 2`, `geo_block_size 2`, `setup_* 2` | `--nvec2`, `--block2` | second user aggregation constructs level 3 |
+| `3`, coarsest solve/deflation | `nvec 3` | `--nvec3` | requested deflation-vector count, not a coarse color |
+
+Thus `V2` and `V3` name the global grid volumes at executed levels 2 and 3. Only
+`nvec_1` and `nvec_2` select generated coarse-color kernels and must appear in
+`QUDA_MULTIGRID_NVEC_LIST`; `nvec_3` does not.
+
+MILC `use_mma` selects QUDA's tensor-core matrix-multiply-accumulate path. In the
+observed memory path it can retain extra MILC-order/AoS coarse-gauge copies and ghosts.
+It is independent of active multi-right-hand-side batch width: `use_mma = true` does not
+mean multiple sources, and a batch-width setting does not by itself enable MMA.
+
 ## Reuse, updates, and cleanup
 
 MILC stores the MG object in one static process-global `mg_preconditioner` pointer.
@@ -142,9 +160,11 @@ path (`HAVE_QUDA`, `USE_CG_GPU`, and `MULTIGRID` in the observed source; corresp
 CMake controls are `WANTQUDA`, `WANT_FN_CG_GPU`, and `WANT_MULTIGRID`).
 
 QUDA compiles coarse-color and multi-right-hand-side kernels for configured lists. The
-requested hierarchy must be represented in `QUDA_MULTIGRID_NVEC_LIST`, and any selected
-MMA multi-source shape must be compatible with `QUDA_MULTIGRID_MRHS_LIST`. The QUDA
-defaults are not proof that an arbitrary MILC `nvec` or batch size was instantiated.
+requested `nvec_1` and `nvec_2` must be represented in
+`QUDA_MULTIGRID_NVEC_LIST`, while a selected active multi-source batch shape must be
+represented in `QUDA_MULTIGRID_MRHS_LIST`. These are separate checks from the runtime
+`use_mma` switch. The QUDA defaults are not proof that an arbitrary MILC `nvec` or batch
+size was instantiated.
 
 The `mg-staggered` build profile and
 `machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/stack.yaml` record one
@@ -184,17 +204,23 @@ divisibility alone.
 Use the source-scoped preflight tool before sizing:
 
 ```bash
-python3 tools/quda-staggered-decomposition.py \
+python3 "$LQCD_HANDBOOK/tools/quda-staggered-decomposition.py" \
   --global 64 64 64 96 --ranks 2 2 2 3 \
   --block1 4 4 4 4 --block2 2 2 2 2 \
-  --nvec1 64 --nvec2 32 --nvec3 0 \
-  --compiled-nvecs 6 24 32 64
+  --nvec1 64 --nvec2 96 --nvec3 0 \
+  --compiled-nvecs 24 64 96 112 128
 ```
 
 It emulates the current transfer constructor's halving, keeps requested and effective
 blocks separate, checks aggregate and compiled-`nvec` constraints, and reports global and
 local coarse volumes. Every result is derived from the supplied global lattice and rank
-geometry; there is no built-in lattice size or lattice-spacing default. For the observed optimized-KD MILC hierarchy, the first true
+geometry; there is no built-in lattice size or lattice-spacing default. The
+`build_capability.QUDA_MULTIGRID_NVEC_LIST.status` field is `pass` or `fail` only when
+`--compiled-nvecs` is supplied; otherwise it is explicitly `unchecked`. A geometry
+`source_status: pass` with an unchecked build capability is not proof that the executable
+contains the requested coarse-color kernels.
+
+For the observed optimized-KD MILC hierarchy, the first true
 aggregate has coarse-space capacity `3*b1/2`, while the next uses
 `nvec_1*b2`: coarse `ColorSpinorField` color is `nvec_1` with spin stored separately,
 even though the corresponding coarse **gauge** field combines them into color
@@ -207,9 +233,11 @@ independent, and runtime `Transfer: using block size ...` output remains authori
 
 ## Empirical tuning guidance
 
-This page owns the current source and interface contract. The following atomic leaves
-carry the separately labelled `perlmutter-a100-staggered-mg-2024-2026` retrospective
-guidance:
+This page owns the current source and interface contract. The
+[`calibration manifest`](staggered-multigrid/calibration.md) defines the population,
+literal mass convention, advisory-specific exclusions, and meaning of “closely matched”
+for the separately labelled `perlmutter-a100-staggered-mg-2024-2026` retrospective.
+The following action leaves carry its guidance:
 
 - [`staggered-multigrid/hierarchy-and-setup.md`](staggered-multigrid/hierarchy-and-setup.md)
   for global coarse geometry, `nu3`, and the level-1 setup-tolerance knee;

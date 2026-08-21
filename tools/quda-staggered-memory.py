@@ -19,6 +19,7 @@ from typing import Iterable
 
 from quda_staggered_geometry import (
     GeometryError,
+    compiled_nvec_check,
     evaluate_decomposition,
     evaluate_local_hierarchy,
     product as geometry_product,
@@ -535,7 +536,12 @@ def mg_corpus_fit(
             "x2": x2,
             "x3": x3,
             "mg_levels": levels,
-            "four_level_empirically_validated": levels == 4,
+            "phase_model_evidence": (
+                "four-level phase model has corpus calibration; candidate-envelope "
+                "status is reported separately"
+                if levels == 4
+                else f"{levels}-level phase model is an unvalidated structural extrapolation"
+            ),
             "winning_phase": peak,
             "phase_gib": {name: value / GIB for name, value in totals.items()},
             "winning_terms_gib": {name: value / GIB for name, value in phases[peak].items()},
@@ -735,7 +741,8 @@ def build_mg_payload(
             "requested aggregation blocks were adjusted; confirm QUDA's runtime block messages"
         )
     payload: dict[str, object] = {
-        "evidence": "corpus-calibrated-with-source-geometry",
+        "evidence": assessment["tier"],
+        "model_basis": "corpus-calibrated-with-source-geometry",
         "calibration": CALIBRATION,
         "machine_scope": machine,
         "prediction_assessment": assessment,
@@ -777,6 +784,7 @@ def search_mg_decompositions(
     prec_setup: int,
     setup_ws: float,
     copy_factor: float,
+    compiled_nvecs: list[int] | None = None,
     min_nodes: int = 1,
     min_local: int = 1,
 ) -> dict[str, object]:
@@ -784,10 +792,11 @@ def search_mg_decompositions(
     if nodes_lt <= min_nodes:
         raise ModelError("nodes-lt must be greater than min-nodes")
     results: dict[str, list[dict[str, object]]] = {
-        "outside_advisory_band": [],
-        "inside_advisory_band": [],
-        "over_capacity": [],
+        "estimated_headroom_meets_margin": [],
+        "estimated_headroom_below_margin": [],
+        "estimated_over_capacity": [],
     }
+    build_check = compiled_nvec_check(levels, nvec1, nvec2, compiled_nvecs)
     source_invalid = 0
     model_incompatible = 0
     total_rank_geometries = 0
@@ -804,6 +813,7 @@ def search_mg_decompositions(
                 nvec1,
                 nvec2,
                 nvec3,
+                compiled_nvecs,
             )
             if hierarchy["source_status"] != "pass":
                 source_invalid += 1
@@ -863,8 +873,10 @@ def search_mg_decompositions(
             "min_local_extent": min_local,
             "machine": machine,
             "capacity_meaning": (
-                "outside_advisory_band is a screening result, not a runtime fit guarantee"
+                "estimated_headroom_meets_margin is a screening result, not a runtime "
+                "fit guarantee"
             ),
+            "build_capability": {"QUDA_MULTIGRID_NVEC_LIST": build_check},
         },
         "global_dims": global_dims,
         "parameters": {
@@ -879,6 +891,9 @@ def search_mg_decompositions(
             "setup_precision": {value: name for name, value in PRECISION.items()}[prec_setup],
             "setup_ws_bytes_per_site": setup_ws,
             "coarse_copy_factor": copy_factor,
+            "compiled_nvecs": (
+                sorted(set(compiled_nvecs)) if compiled_nvecs is not None else None
+            ),
         },
         "counts": {
             "rank_geometries_considered": total_rank_geometries,
@@ -898,11 +913,11 @@ def capacity_advisory(total_gib: float, gpu_gib: float, margin_gib: float) -> di
         raise ModelError("gpu-gib must be positive and margin-gib nonnegative")
     headroom = gpu_gib - total_gib
     if headroom < 0:
-        status = "over-capacity"
+        status = "estimated-over-capacity"
     elif headroom < margin_gib:
-        status = "inside-advisory-band"
+        status = "estimated-headroom-below-margin"
     else:
-        status = "outside-advisory-band"
+        status = "estimated-headroom-meets-margin"
     return {
         "gpu_gib": gpu_gib,
         "requested_margin_gib": margin_gib,
@@ -927,30 +942,67 @@ def emit(payload: dict[str, object]) -> None:
 
 
 def add_local(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--local", nargs=4, type=int, required=True, metavar=("X", "Y", "Z", "T"))
+    parser.add_argument(
+        "--local", nargs=4, type=int, required=True, metavar=("X", "Y", "Z", "T"),
+        help="per-rank local lattice extents",
+    )
 
 
 def add_capacity(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--gpu-gib", type=float)
-    parser.add_argument("--margin-gib", type=float)
+    parser.add_argument("--gpu-gib", type=float, help="device capacity for an explicit advisory")
+    parser.add_argument(
+        "--margin-gib", type=float,
+        help="required estimated headroom; must be supplied with --gpu-gib",
+    )
 
 
 def add_mg_parameters(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--levels", type=int, choices=(2, 3, 4), default=4)
-    parser.add_argument("--block1", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"))
-    parser.add_argument("--block2", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"))
-    parser.add_argument("--nvec1", type=int, default=0)
-    parser.add_argument("--nvec2", type=int, default=0)
-    parser.add_argument("--nvec3", type=int, default=0)
-    mma = parser.add_mutually_exclusive_group(required=True)
-    mma.add_argument("--mma", dest="mma", action="store_true")
-    mma.add_argument("--no-mma", dest="mma", action="store_false")
-    parser.add_argument("--null-precision", choices=PRECISION, default="half")
-    parser.add_argument("--setup-precision", choices=PRECISION, default="single")
     parser.add_argument(
-        "--setup-ws-bytes-per-site", type=float, default=MG_SETUP_WS_BYTES_PER_SITE
+        "--levels", type=int, choices=(2, 3, 4), default=4,
+        help="total QUDA levels; 4 means levels 0, 1, 2, and 3",
     )
-    parser.add_argument("--coarse-copy-factor", type=float, default=MG_COARSE_COPY_FACTOR)
+    parser.add_argument(
+        "--block1", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"),
+        help="MILC geo_block_size 1: aggregate QUDA level 1 into level 2",
+    )
+    parser.add_argument(
+        "--block2", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"),
+        help="MILC geo_block_size 2: aggregate QUDA level 2 into level 3",
+    )
+    parser.add_argument("--nvec1", type=int, default=0, help="MILC nvec 1 coarse color count")
+    parser.add_argument("--nvec2", type=int, default=0, help="MILC nvec 2 coarse color count")
+    parser.add_argument(
+        "--nvec3", type=int, default=0,
+        help="MILC nvec 3 coarsest-deflation count; not a compiled coarse color",
+    )
+    mma = parser.add_mutually_exclusive_group(required=True)
+    mma.add_argument(
+        "--mma", dest="mma", action="store_true",
+        help=(
+            "model MILC use_mma=true: tensor-core matrix-multiply-accumulate path "
+            "with extra MILC-order/AoS coarse fields; not MRHS batch width"
+        ),
+    )
+    mma.add_argument(
+        "--no-mma", dest="mma", action="store_false",
+        help="model MILC use_mma=false; this does not set MRHS batch width",
+    )
+    parser.add_argument(
+        "--null-precision", choices=PRECISION, default="half",
+        help="near-null/preconditioner vector precision; calibrated default: half",
+    )
+    parser.add_argument(
+        "--setup-precision", choices=PRECISION, default="single",
+        help="setup-solver precision; calibrated default: single",
+    )
+    parser.add_argument(
+        "--setup-ws-bytes-per-site", type=float, default=MG_SETUP_WS_BYTES_PER_SITE,
+        help="what-if override of fitted setup workspace coefficient",
+    )
+    parser.add_argument(
+        "--coarse-copy-factor", type=float, default=MG_COARSE_COPY_FACTOR,
+        help="what-if override of fitted coarse Y-set copy factor",
+    )
 
 
 def resolve_mg_hierarchy(args: argparse.Namespace) -> tuple[dict[str, object], list[int]]:
@@ -985,6 +1037,7 @@ def resolve_mg_hierarchy(args: argparse.Namespace) -> tuple[dict[str, object], l
             args.block2,
             args.nvec1,
             args.nvec2,
+            args.compiled_nvecs,
         )
         hierarchy.update(
             {
@@ -1061,15 +1114,37 @@ def parser() -> argparse.ArgumentParser:
         help="integrated 2/3/4-level MG decomposition and high-water estimate",
     )
     mg_geometry = mg.add_mutually_exclusive_group(required=True)
-    mg_geometry.add_argument("--local", nargs=4, type=int, metavar=("X", "Y", "Z", "T"))
     mg_geometry.add_argument(
-        "--global", dest="global_dims", nargs=4, type=int, metavar=("X", "Y", "Z", "T")
+        "--local", nargs=4, type=int, metavar=("X", "Y", "Z", "T"),
+        help="per-rank local lattice extents",
     )
-    mg.add_argument("--ranks", nargs=4, type=int, metavar=("RX", "RY", "RZ", "RT"))
-    mg.add_argument("--partitioned", nargs=4, type=int, metavar=("X", "Y", "Z", "T"))
-    mg.add_argument("--compiled-nvecs", nargs="+", type=int)
-    mg.add_argument("--lattice-spacing-fm", type=float)
-    mg.add_argument("--corpus-advisories", action="store_true")
+    mg_geometry.add_argument(
+        "--global", dest="global_dims", nargs=4, type=int, metavar=("X", "Y", "Z", "T"),
+        help="global lattice extents; requires --ranks",
+    )
+    mg.add_argument(
+        "--ranks", nargs=4, type=int, metavar=("RX", "RY", "RZ", "RT"),
+        help="four-dimensional rank grid used with --global",
+    )
+    mg.add_argument(
+        "--partitioned", nargs=4, type=int, metavar=("X", "Y", "Z", "T"),
+        help="0/1 partition mask required with --local",
+    )
+    mg.add_argument(
+        "--compiled-nvecs", nargs="+", type=int,
+        help=(
+            "values in QUDA_MULTIGRID_NVEC_LIST; omit to leave build capability "
+            "explicitly unchecked"
+        ),
+    )
+    mg.add_argument(
+        "--lattice-spacing-fm", type=float,
+        help="optional spacing used only to report coarsest-cell physical extents",
+    )
+    mg.add_argument(
+        "--corpus-advisories", action="store_true",
+        help="apply the provisional four-level V3/aspect screen",
+    )
     mg.add_argument(
         "--machine",
         choices=("unspecified", "other", *MACHINE_PROFILES),
@@ -1083,9 +1158,15 @@ def parser() -> argparse.ArgumentParser:
         "mg-search",
         help="enumerate every valid rank geometry below an exclusive node limit",
     )
-    search.add_argument("--global", dest="global_dims", nargs=4, type=int, required=True)
-    search.add_argument("--nodes-lt", type=int, required=True)
-    search.add_argument("--min-nodes", type=int, default=1)
+    search.add_argument(
+        "--global", dest="global_dims", nargs=4, type=int, required=True,
+        metavar=("LX", "LY", "LZ", "LT"), help="global lattice extents",
+    )
+    search.add_argument(
+        "--nodes-lt", type=int, required=True,
+        help="exclusive node-count upper bound",
+    )
+    search.add_argument("--min-nodes", type=int, default=1, help="inclusive node-count lower bound")
     search.add_argument(
         "--min-local",
         type=int,
@@ -1093,6 +1174,13 @@ def parser() -> argparse.ArgumentParser:
         help="optional explicit search filter; default 1 adds no heuristic local-extent cutoff",
     )
     search.add_argument("--machine", choices=MACHINE_PROFILES, required=True)
+    search.add_argument(
+        "--compiled-nvecs", nargs="+", type=int,
+        help=(
+            "values in QUDA_MULTIGRID_NVEC_LIST; omit to leave build capability "
+            "explicitly unchecked"
+        ),
+    )
     add_mg_parameters(search)
     return root
 
@@ -1243,14 +1331,15 @@ def main() -> int:
                 PRECISION[args.setup_precision],
                 args.setup_ws_bytes_per_site,
                 args.coarse_copy_factor,
+                args.compiled_nvecs,
                 args.min_nodes,
                 args.min_local,
             )
             search_warnings: list[str] = []
             for category in (
-                "outside_advisory_band",
-                "inside_advisory_band",
-                "over_capacity",
+                "estimated_headroom_meets_margin",
+                "estimated_headroom_below_margin",
+                "estimated_over_capacity",
             ):
                 for row in payload[category]:
                     search_warnings.extend(row["warnings"])

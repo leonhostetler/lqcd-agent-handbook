@@ -15,8 +15,9 @@ def frontmatter(path: Path) -> dict:
 
 
 class Stage5GuidanceTests(unittest.TestCase):
-    def test_four_atomic_leaves_are_scoped_and_indexed(self):
+    def test_manifest_and_four_action_leaves_are_scoped_and_indexed(self):
         expected = {
+            "calibration.md": "experiment",
             "hierarchy-and-setup.md": "experiment",
             "coarse-deflation.md": "experiment",
             "tuning.md": "inferred",
@@ -31,6 +32,18 @@ class Stage5GuidanceTests(unittest.TestCase):
                 self.assertIn("solver:multigrid", metadata["scope"])
                 self.assertIn(f"quda/solvers/staggered-multigrid/{name}", index)
 
+    def test_calibration_manifest_is_corpus_independent(self):
+        text = (MG_DIR / "calibration.md").read_text()
+        for detail in (
+            "raw run records are not committed",
+            "Literal MILC input masses",
+            "m` is the literal positive `mass",
+            "Population by advisory",
+            "What “closely matched” means",
+            "multiple QUDA builds",
+        ):
+            self.assertIn(detail.replace("`", chr(96)), text)
+
     def test_hierarchy_metrics_are_advisories_not_source_constraints(self):
         text = (MG_DIR / "hierarchy-and-setup.md").read_text()
         self.assertIn("nu3  = nvec_3 / V3", text)
@@ -38,6 +51,7 @@ class Stage5GuidanceTests(unittest.TestCase):
         self.assertIn("nvec_3/V3", text)
         self.assertIn("not a QUDA convergence requirement", text)
         self.assertIn("rho_setup < 0.5", text)
+        self.assertIn("$LQCD_HANDBOOK/tools/quda-staggered-decomposition.py", text)
 
     def test_spectrum_fit_carries_full_envelope_and_feedback_limits(self):
         text = (MG_DIR / "coarse-deflation.md").read_text()
@@ -56,6 +70,18 @@ class Stage5GuidanceTests(unittest.TestCase):
             self.assertIn(detail, text)
         self.assertIn("universal lower bound", text)
         self.assertIn("do not transfer either fitted", text)
+
+    def test_observables_have_a_raw_log_extraction_contract(self):
+        text = (MG_DIR / "diagnostics.md").read_text()
+        for detail in (
+            "Observable extraction contract",
+            "MG level 1 (GPU): CG:",
+            "setup_maxiter 1",
+            "MG level 3 (GPU): Eval[NNNN]",
+            "restart steps",
+            "partial delivery",
+        ):
+            self.assertIn(detail, text)
 
     def test_timing_class_is_procedural_and_not_a_public_threshold(self):
         tuning = (MG_DIR / "tuning.md").read_text()

@@ -134,6 +134,7 @@ def evaluate_local_hierarchy(
     block2: list[int] | None,
     nvec1: int,
     nvec2: int,
+    compiled_nvecs: list[int] | None = None,
 ) -> dict[str, object]:
     """Adjust and validate every aggregation step for a supplied local lattice."""
     require_four_positive("local dimensions", local_dims)
@@ -170,7 +171,7 @@ def evaluate_local_hierarchy(
         effective_blocks.append(adjusted.effective)
         current = coarse
 
-    return {
+    hierarchy = {
         "source_revision": SOURCE_REVISION,
         "source_status": "error" if errors else "pass",
         "source_errors": errors,
@@ -184,6 +185,59 @@ def evaluate_local_hierarchy(
         ),
         "runtime_confirmation": "confirm every `Transfer: using block size ...` line",
     }
+    return attach_compiled_nvec_check(
+        hierarchy, levels, nvec1, nvec2, compiled_nvecs
+    )
+
+
+def compiled_nvec_check(
+    levels: int,
+    nvec1: int,
+    nvec2: int,
+    compiled_nvecs: list[int] | None,
+) -> dict[str, object]:
+    """Describe a QUDA_MULTIGRID_NVEC_LIST check without implying it ran."""
+    required = []
+    if levels >= 3:
+        required.append({"parameter": "nvec1", "value": nvec1})
+    if levels == 4:
+        required.append({"parameter": "nvec2", "value": nvec2})
+    supplied = sorted(set(compiled_nvecs)) if compiled_nvecs is not None else None
+    missing = (
+        [item for item in required if item["value"] not in supplied]
+        if supplied is not None
+        else []
+    )
+    return {
+        "status": "unchecked" if supplied is None else ("fail" if missing else "pass"),
+        "required": required,
+        "supplied": supplied,
+        "missing": missing,
+        "scope": (
+            "nvec1/nvec2 construct coarse colors; nvec3 is a coarsest-deflation "
+            "count and is not checked against this list"
+        ),
+    }
+
+
+def attach_compiled_nvec_check(
+    hierarchy: dict[str, object],
+    levels: int,
+    nvec1: int,
+    nvec2: int,
+    compiled_nvecs: list[int] | None,
+) -> dict[str, object]:
+    """Attach the build check and make a checked failure source-invalid."""
+    check = compiled_nvec_check(levels, nvec1, nvec2, compiled_nvecs)
+    hierarchy["build_capability"] = {"QUDA_MULTIGRID_NVEC_LIST": check}
+    if check["status"] == "fail":
+        for item in check["missing"]:
+            hierarchy["source_errors"].append(
+                f"{item['parameter']}={item['value']} is absent from the supplied "
+                "QUDA_MULTIGRID_NVEC_LIST"
+            )
+        hierarchy["source_status"] = "error"
+    return hierarchy
 
 
 def evaluate_decomposition(
@@ -217,22 +271,13 @@ def evaluate_decomposition(
         }
     else:
         hierarchy = evaluate_local_hierarchy(
-            local, levels, block1, block2, nvec1, nvec2
+            local, levels, block1, block2, nvec1, nvec2, compiled_nvecs
         )
         hierarchy["source_errors"] = errors + list(hierarchy["source_errors"])
         hierarchy["source_status"] = "error" if hierarchy["source_errors"] else "pass"
 
-    if compiled_nvecs:
-        compiled = set(compiled_nvecs)
-        used = [("nvec1", nvec1)] if levels >= 3 else []
-        if levels == 4:
-            used.append(("nvec2", nvec2))
-        for name, value in used:
-            if value not in compiled:
-                hierarchy["source_errors"].append(
-                    f"{name}={value} is absent from the supplied QUDA_MULTIGRID_NVEC_LIST"
-                )
-        hierarchy["source_status"] = "error" if hierarchy["source_errors"] else "pass"
+    if local is None:
+        attach_compiled_nvec_check(hierarchy, levels, nvec1, nvec2, compiled_nvecs)
 
     metrics: dict[str, object] = {}
     advisories: list[str] = []

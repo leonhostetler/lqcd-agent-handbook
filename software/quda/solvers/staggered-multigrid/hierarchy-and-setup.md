@@ -27,11 +27,13 @@ Only then apply the empirical screens on this page. A source-valid hierarchy can
 be a poor hierarchy; an empirical warning can never make a source-invalid hierarchy
 legal.
 
-The numerical guidance below is the named `perlmutter-a100-staggered-mg-2024-2026`
-retrospective calibration. It covers four-level MILC HISQ/QUDA staggered MG on
-Perlmutter A100 GPUs, with `nvec_1 = 64` and almost always `nvec_2 = 96`, at two working
-lattice spacings. It is an advisory starting point, not a QUDA convergence requirement
-or a portable default.
+The numerical guidance below belongs to the named
+`perlmutter-a100-staggered-mg-2024-2026` retrospective. Its
+[`calibration manifest`](calibration.md) defines the ensembles, literal mass convention,
+population used by each advisory, exclusions, and the test for a closely matched target.
+It is an advisory starting point, not a QUDA convergence requirement or a portable
+default. Use the overview's level/index crosswalk when translating `V3`, `nvec_1`,
+`nvec_2`, and `nvec_3` into a MILC parameter file.
 
 ## Describe the executed hierarchy
 
@@ -58,7 +60,7 @@ The decomposition tool reports these quantities without treating them as legalit
 conditions:
 
 ```bash
-python3 tools/quda-staggered-decomposition.py \
+python3 "$LQCD_HANDBOOK/tools/quda-staggered-decomposition.py" \
   --global LX LY LZ LT --ranks RX RY RZ RT \
   --block1 B1X B1Y B1Z B1T --block2 B2X B2Y B2Z B2T \
   --nvec1 NV1 --nvec2 NV2 --nvec3 NV3 --corpus-advisories
@@ -76,6 +78,12 @@ For each level-1 setup solve, monitor
 ```text
 rho_setup = setup_l1_iters / setup_maxiter_1.
 ```
+
+Derive both terms with the
+[`observable extraction contract`](diagnostics.md#observable-extraction-contract):
+`setup_l1_iters` is the arithmetic mean of terminal counters across the level-1
+near-null CG streams in one hierarchy build, while `setup_maxiter_1` is the literal
+MILC `setup_maxiter 1` value. It is not a solve-side level-1 GCR counter.
 
 The retrospective data support one mechanism: changing `setup_tol_1` materially changes
 total setup cost when the solve approaches its iteration ceiling. Well below that knee,

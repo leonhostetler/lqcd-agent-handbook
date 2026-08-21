@@ -145,14 +145,21 @@ corpus configuration is close to that bound. Raw run paths, job identifiers, acc
 and allocation data remain outside the public repository.
 
 Stage 5 admits the operator-approved dimensionless hierarchy and eigensolver-quality
-class as four atomic staggered-MG leaves. They keep source constraints separate from a
-named Perlmutter A100 retrospective calibration; define `nu3 = nvec_3/V3`; publish the
+class as a public calibration manifest plus four staggered-MG action leaves. They keep
+source constraints separate from a named Perlmutter A100 retrospective calibration;
+define `nu3 = nvec_3/V3`; publish the
 coarse-spectrum fit only with its population, error, mass/`nu3` envelope, and `nvec_2`
 confound; and make setup-cap ratio, filter margin, worst-vector residual, and asymmetric
 TRLM restart behavior the diagnostic feedback. The tuning leaf orders source, memory,
 setup, eigensolver, workload, and correctness gates. A deflation schedule is derived
 from matched setup and recurring measurements and stored as `nu3(m)`, never copied as a
 bare-mass table.
+
+A cold-reader review then made the import independently usable without the source
+corpus: it added the advisory-specific calibration populations and literal mass
+convention, the hierarchy/index/tool crosswalk, raw-log observable extraction rules,
+explicit build-capability status, defined MMA, working-directory-independent commands,
+and unambiguous memory evidence and headroom labels.
 
 The same stage admits the matched MRHS validation class. A narrow `mrhs-cg-delta`
 command implements the current unsplit double/half MATPC/direct-PC CG device increment
