@@ -3,6 +3,9 @@
 This public repository is a routing layer for durable, transferable LQCD knowledge.
 Keep live campaign state, unpublished results, credentials, allocation data, and local
 paths in the working directory where the work occurs.
+Handbook privacy screening applies only to the exact material proposed for this repository:
+a user-mode inbox entry or a direct developer-mode change. It does not govern files in the
+working project; preserve project-local evidence under that project's instructions.
 
 ## Start every session
 
@@ -21,6 +24,7 @@ Exactly one handbook mode is current:
 
 - **User mode is the default.** Treat the handbook as read-only. You may create a uniquely
   named file under `inbox/proposals/` or `inbox/rejections/`; do not edit existing files.
+  Screen only that proposed entry under `PRIVACY.md`, never the working project around it.
 - **Developer mode must be explicit.** Before editing, read `ARCHITECTURE.md`, `ROADMAP.md`,
   `handbook.yaml`, and `modes/developer.md`, then require a clean, current tree.
 

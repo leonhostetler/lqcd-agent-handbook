@@ -197,6 +197,33 @@ class SliceZeroTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 1, result.stdout)
 
+    def test_privacy_screening_targets_only_proposed_handbook_material(self):
+        agents = " ".join((ROOT / "AGENTS.md").read_text().split())
+        architecture = " ".join(
+            (ROOT / "ARCHITECTURE.md").read_text().split()
+        )
+        user_mode = " ".join((ROOT / "modes/user.md").read_text().split())
+        developer_mode = " ".join(
+            (ROOT / "modes/developer.md").read_text().split()
+        )
+        startup = " ".join(
+            (ROOT / "playbooks/start-session.md").read_text().split()
+        )
+
+        self.assertIn("a user-mode inbox entry", agents)
+        self.assertIn("It does not govern files in the working project", agents)
+        self.assertIn("You may create a uniquely named file", agents)
+        self.assertIn("Apply `PRIVACY.md` only to the exact inbox file", user_mode)
+        self.assertIn("Do not scan, redact, or rewrite", user_mode)
+        self.assertIn(
+            "Apply `PRIVACY.md` only to the exact inbox entry or direct handbook diff",
+            developer_mode,
+        )
+        self.assertIn("This status classification is structural", startup)
+        self.assertNotIn("privacy-screened before creation", startup)
+        self.assertIn("Privacy-screening boundary", architecture)
+        self.assertIn("never to the working directory as a whole", architecture)
+
     def test_session_logs_are_ignored(self):
         result = subprocess.run(
             ["git", "check-ignore", "--no-index", "session_example.log"],

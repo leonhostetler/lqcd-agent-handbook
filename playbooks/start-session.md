@@ -26,9 +26,9 @@ bootstrap, when it is unset, report that exact remote identity cannot yet be che
 
 Inspect `git status --porcelain=v1 --untracked-files=all`. Classify a path as pending
 intake only when Git reports `??`, the path is directly under `inbox/proposals/` or
-`inbox/rejections/`, its name follows `<ISO8601>-<machine>-<uuid>.yaml`, and it was
-privacy-screened before creation. Report every pending path. Any other status entry is a
-hard gate.
+`inbox/rejections/`, and its name follows `<ISO8601>-<machine>-<uuid>.yaml`. This status
+classification is structural: it does not inspect or clear the file's contents. Report
+every pending path. Any other status entry is a hard gate.
 
 Fetch the configured upstream when available. If local HEAD matches upstream, continue.
 If upstream is a fast-forward and the tree is clean or contains only pending intake, pull

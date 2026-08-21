@@ -1,6 +1,9 @@
 # Public-Repository Privacy Rules
 
-This handbook is public. A successful automated check is never permission to publish.
+These rules apply only to the exact material proposed for this public repository, whether as
+a user-mode inbox entry or a direct developer-mode change. They do not govern the working
+project that holds source evidence: do not scan, redact, or rewrite that workspace under
+handbook privacy rules. A successful automated check is never permission to publish.
 
 Every inbox entry is public-repository content and must satisfy `PRIVACY.md` before
 creation. The inbox is not a quarantine: raw, confidential, unpublished, or

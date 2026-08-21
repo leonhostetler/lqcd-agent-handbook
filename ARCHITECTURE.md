@@ -62,6 +62,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate setup — the solver, build, runtime, resource-placement, and workflow choices being evaluated — while benchmarking measures a candidate setup and workload frozen before the measured series. A campaign may move from tuning to confirmatory benchmarking, but never occupies a hybrid mode, and an exploratory winner needs an independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
 | **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; missing session logging produces a non-blocking offer in the orientation report ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
+| **Privacy-screening boundary** | Screen only the exact material crossing into the handbook: a user-mode inbox entry or a direct developer-mode change. Handbook privacy rules never mandate scanning, redacting, or rewriting the working project that holds source evidence ([§privacy-screening](#privacy-screening), [§handbook-modes](#handbook-modes)) | The repository's publication boundary changes |
 | **Concurrency** | Unique filenames for every user-mode write; `base_handbook_commit` on proposals. No branches, no PRs, no curator ([§freshness-model](#freshness-model)) | The handbook gains contributors beyond the operator |
 | **Handbook change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
 | **Project Git authority** | Authorization to change project code does not authorize commits or publication. Canonical `AGENTS.md` owns the standing rule: the agent requires an explicit operator request before committing, pushing, or opening or updating a pull or merge request. The default handoff is an uncommitted working tree, a validation summary, and a suggested commit message | The operator explicitly delegates a named class of Git actions |
@@ -907,9 +908,10 @@ Five rules:
 3. **A qualifying new untracked inbox entry is pending intake, not a dirty-tree
    failure.** It qualifies only when Git reports it as `??`, it is a direct child of
    `inbox/proposals/` or `inbox/rejections/`, its name follows the required convention,
-   and it was screened under `PRIVACY.md` before creation. Report each pending path.
-   Modified, deleted, or renamed tracked paths; nested or misnamed inbox paths; and changes
-   anywhere else remain hard stops.
+   and no other status is present. This classification is structural only: it neither
+   inspects nor clears the contents. Report each pending path. Modified, deleted, or renamed
+   tracked paths; nested or misnamed inbox paths; and changes anywhere else remain hard
+   stops.
 4. **`lqcd-start-session` resolves freshness before any work begins.** Fetch the configured
    upstream. If HEAD already matches upstream, continue. If upstream is a fast-forward and
    the tree is clean or contains only pending intake, **pull with `git pull --ff-only`**.
@@ -995,7 +997,7 @@ routine knowledge source for the agent.
 **Explicit review is a narrow operator-controlled exception.** It exists for recovery or
 targeted reasoning analysis. Authorization to read is not publication clearance: the
 transcript remains private, and any durable candidate follows mined-material
-classification, privacy screening, and an affirmative publishability decision
+classification, targeted repository-boundary privacy screening, and an affirmative publishability decision
 before admission. Two consequences:
 
 - **They are not an input to the capture loop ([§predict-compare-loop](#predict-compare-loop)) by default.** Predictions and
@@ -1234,6 +1236,12 @@ not admissible. A bare device-memory number is not usable later; a value tagged
 <a id="privacy-screening"></a>
 ## 6. Public-repo screening
 
+This section applies only to the exact material proposed for the handbook: a new user-mode
+inbox entry or a direct developer-mode change. The working project is the canonical home for
+episode evidence and live campaign state, not an object to scan, redact, or rewrite under
+these rules. Distill and screen the candidate at the repository boundary; preserve its source
+workspace under that project's instructions.
+
 <a id="deny-list"></a>
 ### 6.1. The deny-list (mechanical, enforced by `validate-knowledge.py`)
 
@@ -1259,7 +1267,9 @@ everything, and they are the durable/episode distinction of [§admission-test](#
 
 The operator does not work *inside* the handbook. They work in a project directory that has
 its own frontend instruction file, its own logs, and its own outputs — and **anything that fails the [§deny-list](#deny-list)
-screening simply accumulates there instead.** It was never handbook material.
+screening remains there instead.** The screening decision happens only when material is
+proposed for the handbook; it does not turn the working directory itself into an intake
+target. Material that never crosses that boundary was never handbook material.
 
 Each candidate for the old `local/` dissolves on inspection:
 
@@ -1322,7 +1332,8 @@ default is inaction.
 handbook — "this cmake flag is required on Frontier" — needs no publication decision and
 follows the normal `inbox/` proposal flow. Requiring a ceremony for routine capture would
 stop capture happening, which costs more than the risk it guards against. The deny-list
-applies to both.
+applies to the exact handbook candidate in both flows, never to the working directory as a
+whole.
 
 **What this does not solve, stated plainly:** publishability is the operator's judgement,
 not the agent's. An agent can flag "this looks like an unpublished result" but cannot know
@@ -1337,7 +1348,7 @@ already been made. Gitignoring it would work mechanically but reinstates the rej
 `local/` pattern ([§no-escape-hatch](#no-escape-hatch)) — local state hiding inside a public repo. So **`inbox/mining/` is
 removed**; mining stages in the working directory beside the source corpus, which is where
 rule 2 above already said the material stays by default, and candidates enter through
-`inbox/proposals/` after screening like anything else.
+`inbox/proposals/` after their exact proposed content is screened at the repository boundary.
 
 <a id="ensemble-numbers"></a>
 ### 6.3a. Ensemble-scoped numbers: decided per class, at the moment of import
@@ -1475,8 +1486,10 @@ One work mode **and** one handbook mode are in force at all times. The handbook 
 decides what the agent may *write*; the work mode decides what it is *doing*.
 
 - **user mode** (default) — the handbook is read-only. The agent may write to `inbox/`
-  and nowhere else in the repo, *even under auto-accept permissions*. On finding an error
-  or a better method it says so and offers to file a proposal; it does not edit.
+  and nowhere else in the repo, *even under auto-accept permissions*. Before creating an
+  inbox entry it screens only that proposed file, never the working project around it. On
+  finding an error or a better method it says so and offers to file a proposal; it does not
+  edit existing handbook content.
 - **developer mode** (explicitly declared) — the agent and operator are actively building
   the handbook. Full specification in [§developer-mode-spec](#developer-mode-spec), because this is the mode the project lives in
   for its first several months and the only one with write access to a public repo.
@@ -1513,6 +1526,11 @@ expensive *before* it would be backwards. It is a one-line commit.
 Before any handbook write, pass the freshness gate in
 [§freshness-model](#freshness-model): require current HEAD and a clean tracked tree, with
 qualifying new untracked inbox entries as the sole exception.
+
+Apply handbook privacy screening only to the exact inbox entry or direct repository diff
+being proposed. It does not govern working-project files: preserve local paths, allocation
+records, unpublished results, and other operational evidence there under the project's own
+instructions.
 
 1. **`ARCHITECTURE.md` is the authority; `ROADMAP.md` is the state.** Read both before
    acting ([§plan-ships-with-handbook](#plan-ships-with-handbook)). When reality diverges from the architecture, **amend `ARCHITECTURE.md`

@@ -11,16 +11,19 @@ and the next action.
    `inbox/proposals/` or `inbox/rejections/` only when they qualify as pending intake under
    `ARCHITECTURE.md` §4.3. Report them and compare each `base_handbook_commit` with current
    HEAD. Stop on every other dirty or divergent state.
-2. Apply the operator-approval gate in `ARCHITECTURE.md` §7.5a. Show the exact proposed
+2. Apply `PRIVACY.md` only to the exact inbox entry or direct handbook diff being proposed.
+   Do not scan, redact, or rewrite the working project under handbook privacy rules; preserve
+   its operational evidence under its own instructions.
+3. Apply the operator-approval gate in `ARCHITECTURE.md` §7.5a. Show the exact proposed
    diff and obtain explicit approval before any handbook write.
-3. Treat commits as operator-owned. After applying and verifying an approved change, stop
+4. Treat commits as operator-owned. After applying and verifying an approved change, stop
    with the working-tree diff. Never commit unless the operator explicitly requests that
    specific commit.
-4. Check the current `phase` in `handbook.yaml`. Restructuring is expected during
+5. Check the current `phase` in `handbook.yaml`. Restructuring is expected during
    `bootstrap`; during `maintenance`, propose architectural changes first.
-5. For mined material, extract outside this repository. Classify scope, durability,
+6. For mined material, extract outside this repository. Classify scope, durability,
    mechanism, actionability, evidence, and publishability before admitting a fact.
-6. Treat material from prior corpora as non-publishable until the operator affirmatively
+7. Treat material from prior corpora as non-publishable until the operator affirmatively
    clears its fact class. Never import an episode merely because it is well documented.
 
 ## While editing

@@ -264,14 +264,21 @@ before loading Tier-1 context, and restricts known-machine resolution to the one
 profile and that machine's stack candidates. Full `ARCHITECTURE.md` and `ROADMAP.md` loading
 in developer mode remains intentional even when no immediate edit is planned.
 
+Later on 2026-08-21, a live user-mode tuning session exposed an intake-scope defect: a
+repository privacy screen was mistakenly applied to ordinary working-directory planning.
+User mode retains its unique-file `inbox/` capability, while both user- and developer-mode
+guidance now screen only the exact material proposed for the handbook. Startup classifies
+pending intake structurally without treating that classification as clearance, and Tier-0
+routing plus a focused regression protect working-project evidence from handbook screening.
+
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six
   schema objects valid, forty-seven provenance records complete, four generated indices current,
   sixteen pre-existing P2 advisories, two frontend adapters and six session-logging assets
-  valid, 205 long-document references resolved, no deny-list match, and Tier 0 at
-  4,363/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all 140 checks pass, including detector-first
+  valid, 207 long-document references resolved, no deny-list match, and Tier 0 at
+  4,721/6,144 bytes;
+- `python3 -m unittest discover -s tests -v`: all 141 checks pass, including detector-first
   bounded startup routing, the bounded native staggered-MG stack, and focused solver-import,
   memory/decomposition, and cold-reader interface regressions;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
@@ -582,7 +589,8 @@ the **budget-ledger format** of [§budget-rule](ARCHITECTURE.md#budget-rule) (ap
 MILC-specific application semantics live under `software/milc/applications/`, with shared
 build-time instrumentation guidance in `software/milc/timing.md`; neither is duplicated in the
 generic modes or conventions.
-Admit `memory_model.py` and `check_decomposition.py` from validated source versions after screening.
+Admit `memory_model.py` and `check_decomposition.py` from validated source versions after
+screening the exact proposed handbook additions.
 
 **Remaining future additions:** the submission-budget-ledger format, prediction schema,
 prediction/capture playbooks and tooling, and the unfinished scheduler-placement guidance. The
@@ -638,7 +646,8 @@ tuning session on an ensemble *not* in the corpus loads no ensemble-scoped mater
 that is the check that narrow knowledge was filed rather than inlined.
 
 ### Slice 6 — performance analysis
-`modes/performance.md`, `playbooks/analyze-profile.md`, harvested from the operator's PerfAdvisor working tree after screening.
+`modes/performance.md`, `playbooks/analyze-profile.md`, harvested from the operator's PerfAdvisor
+working tree with the exact proposed handbook additions screened at intake.
 
 **Future addition:** `performance` is already a valid mode name for startup routing, but its mode
 document and analysis playbook have not landed. Startup therefore reports the bootstrap limitation
