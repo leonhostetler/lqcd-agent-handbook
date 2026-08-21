@@ -96,6 +96,27 @@ class SliceOneMachineTests(unittest.TestCase):
             "unknown",
         )
 
+    def test_startup_routes_detector_before_targeted_tier_one_loading(self):
+        text = (ROOT / "playbooks/start-session.md").read_text()
+        normalized = " ".join(text.split())
+        detector = '"$LQCD_HANDBOOK/tools/detect-machine.sh"'
+
+        self.assertIn(detector, text)
+        self.assertIn("do not open `machines/INDEX.md`", normalized)
+        self.assertIn("any `machines/*/machine.yaml`", normalized)
+        self.assertIn("Only after the current work mode is stated", normalized)
+        self.assertIn("open only `machines/<machine>/machine.yaml`", normalized)
+        self.assertIn("Do not inspect stacks for any other machine", normalized)
+        self.assertIn("read exactly `modes/<work-mode>.md`", normalized)
+        self.assertLess(
+            text.index(detector),
+            text.index("## 5. Establish modes"),
+        )
+        self.assertLess(
+            text.index("## 5. Establish modes"),
+            text.index("## 6. Resolve targeted Tier-1 context"),
+        )
+
     def test_node_type_resolution_defaults_only_unambiguous_profiles(self):
         for relative_path in (
             "AGENTS.md",

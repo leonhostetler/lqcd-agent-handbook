@@ -257,6 +257,13 @@ CPU, 40 GB A100, and 80 GB A100 inventories; Frontier and DeltaAI record their r
 accelerator-node inventories. These values are upper-bound planning context, not live
 scheduler capacity.
 
+On 2026-08-21 a cold-start routing audit aligned the shared playbook with the existing
+architecture contract. Startup now invokes `tools/detect-machine.sh` directly, opens no
+machine profile or stack when detection returns `unknown`, waits for the declared work mode
+before loading Tier-1 context, and restricts known-machine resolution to the one matching
+profile and that machine's stack candidates. Full `ARCHITECTURE.md` and `ROADMAP.md` loading
+in developer mode remains intentional even when no immediate edit is planned.
+
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six
@@ -264,9 +271,9 @@ Latest automated evidence:
   sixteen pre-existing P2 advisories, two frontend adapters and six session-logging assets
   valid, 205 long-document references resolved, no deny-list match, and Tier 0 at
   4,363/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all 139 checks pass, including the bounded
-  native staggered-MG stack and focused solver-import, memory/decomposition, and cold-reader
-  interface regressions;
+- `python3 -m unittest discover -s tests -v`: all 140 checks pass, including detector-first
+  bounded startup routing, the bounded native staggered-MG stack, and focused solver-import,
+  memory/decomposition, and cold-reader interface regressions;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
   tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier and DeltaAI
   validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,

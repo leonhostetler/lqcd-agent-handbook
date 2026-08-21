@@ -51,21 +51,25 @@ Record the reported state for the final orientation summary. When it is `missing
 second mandatory startup question. On explicit acceptance, follow
 `playbooks/session-logging.md`.
 
-## 4. Detect context
+## 4. Detect machine and software
 
-Report rather than ask:
+Report rather than ask. Run the handbook detector exactly once:
 
-- machine evidence from hostname, scheduler commands, and any matching profile below
-  `machines/`; report `unknown` when no profile exists;
-- working-directory software from `git remote -v`, `git rev-parse HEAD`, branch, and
-  recognizable project files;
-- the nearest validated stack, or explicitly `no matching validated stack`.
+```bash
+"$LQCD_HANDBOOK/tools/detect-machine.sh"
+```
 
-A login host alone cannot reveal the intended node type. An explicit operator declaration
-wins; without one, resolve the sole `node_types` entry in a matching machine profile as
-the default. If the profile has multiple entries, leave node type undeclared until the
-operator selects one. Reconcile the resolved type with accelerator telemetry once a job
-runs.
+Record its exact output as the detected machine. The detector owns machine-profile
+selection; do not identify the machine by listing or reading profiles. If it reports
+`unknown`, report that result and do not open `machines/INDEX.md`, any
+`machines/*/machine.yaml`, or any stack record. The node type is then undeclared and there
+is no matching validated stack.
+
+Detect working-directory software and version from `git remote -v`, `git rev-parse HEAD`,
+branch, and recognizable project files. If the working directory is not a Git checkout,
+use the already-loaded project instructions and a bounded check of top-level project
+markers; do not recursively inventory the workspace. At this stage do not load a machine
+profile, software profile, stack, or work-mode document.
 
 ## 5. Establish modes
 
@@ -74,8 +78,29 @@ then read `ARCHITECTURE.md`, `ROADMAP.md`, `handbook.yaml`, and `modes/developer
 
 Ask one question only: which current work mode applies — debugging, performance,
 benchmarking, tuning, or production? State it after the operator answers. A mode changes
-only on another explicit declaration. If its mode document has not landed during bootstrap,
-report that limitation and use no unrecorded conventions.
+only on another explicit declaration. After the operator answers, read exactly
+`modes/<work-mode>.md` when it exists. If that mode document has not landed during
+bootstrap, report that limitation and use no unrecorded conventions.
+
+## 6. Resolve targeted Tier-1 context
+
+Only after the current work mode is stated:
+
+- when the detected machine is not `unknown`, open only
+  `machines/<machine>/machine.yaml`; do not open `machines/INDEX.md` or any other machine
+  profile;
+- when the working-directory software is recognized and its profile exists, open only the
+  matching `software/<software>/project.yaml`;
+- derive the nearest validated stack only from the detected machine's `stacks/` and the
+  detected software and environment. Do not inspect stacks for any other machine, and load
+  only the nearest matching `stack.yaml` when one exists. Otherwise report
+  `no matching validated stack`.
+
+A login host alone cannot reveal the intended node type. An explicit operator declaration
+wins; without one, resolve the sole `node_types` entry in the matching machine profile as
+the default. If the profile has multiple entries, leave node type undeclared until the
+operator selects one. Reconcile the resolved type with accelerator telemetry once a job
+runs.
 
 End with a compact orientation report: frontend, handbook identity/freshness, handbook
 mode, work mode, machine, software/commit, node type, nearest stack, and any staleness
