@@ -1,13 +1,13 @@
 # LQCD Agent Handbook — Roadmap
 
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
-matrix, including both Claude cases, has passed. Slice 4 remains in progress; the operator
-has pulled the staged QUDA-solver foundation of Slice 5 forward.
+matrix, including both Claude cases, has passed. Slice 4 remains in progress. The
+operator-directed solver import through Stage 5 is published; solver-import Stage 6 is
+indefinitely deferred while split-grid deflated CG remains in development, testing, and
+tuning.
 
-**NEXT ACTION:** Review the remaining solver empirical guidance—coarse-spectrum fits,
-deflation schedules, setup knees, timing crossovers, and the evidence needed for a
-mechanistic MRHS memory model—by publishability, evidence scope, and portability before
-proposing the next exact handbook diff.
+**NEXT ACTION:** Complete Slice 4's remaining scheduler-placement, capture, and
+budget-ledger work, then run its cold-session acceptance test.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -161,6 +161,12 @@ records a source-derived four-level MG marginal field slope and the historical w
 to width-3 validation, while an unexplained width-activation term deliberately blocks an
 absolute MRHS-MG calculator. Numerical solver timing and crossover values remain outside
 the public handbook; only their target-workload measurement procedure is admitted.
+
+The exact Stage 5 change was published as
+`d8af6bb8d4e1f227b47aaa923c93edda76f4c803`. Solver-import Stage 6, split-grid deflated
+CG, is indefinitely deferred while its execution path remains in development, testing,
+and tuning. No composed-strategy guidance is admitted until implementation and validation
+evidence exist.
 
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
