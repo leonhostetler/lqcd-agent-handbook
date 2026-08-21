@@ -7,10 +7,15 @@ evidence: experiment
 sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/quda_internal.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/color_spinor_field.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/solve.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/inv_cg_quda.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/inv_gcr_quda.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/inv_ca_gcr.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/gauge_field.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/dirac_coarse.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/lattice_field.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/targets/cuda/malloc.cpp
 observed: "2026-08-20"
 observed_on:
@@ -141,6 +146,49 @@ python3 tools/quda-staggered-memory.py cg-fit --local 36 36 24 32
 The command excludes the separately reported communication pool and does not predict
 scheduler RSS.
 
+### Plain-CG active batch width
+
+For current unsplit mixed-precision MATPC/direct-PC CG, the source-derived device
+increment from active batch width `w0` to `w` is
+
+```text
+Delta D_CG(w; w0) = (w - w0) [
+    5 C_pc(V0, 3, 1, P_precise)
+  + (Np + 4) C_pc(V0, 3, 1, P_sloppy)
+]
+```
+
+`C_pc` is the source-exact parity `ColorSpinorField` allocation and `Np` is
+`solution_accumulator_pipeline`. The five precise fields are interface `b`/`x`, CG
+`r`/`y`, and the precise operator temporary. The sloppy set is `p`, `Ap`, the mixed
+residual, `Np` search-direction fields, and the sloppy operator temporary.
+
+The public command intentionally exposes only the audited current profile: double
+precise, half sloppy, and `Np = 1`. In that profile the law reduces to
+
+```text
+Delta D_CG(w; w0) = (w - w0) * 160 B * V0.
+```
+
+```bash
+python3 tools/quda-staggered-memory.py mrhs-cg-delta \
+  --local 36 36 24 24 --reference-width 1 --width 3
+```
+
+Here `w` is the active MILC `block_solver_batch_size`, not necessarily the total
+application source count. Three matched Perlmutter A100 width-1 to width-3 cells,
+spanning a factor of 10.7 in local volume, validate the per-additional-RHS device term to
+at most 0.04%. One cell records QUDA `d61517229`; the relevant field structure remains
+at the current `b6998853f` anchor. The other two cells widen the geometry check but omit
+their source revision. Older unversioned cells form a different source/path regime and
+are excluded rather than fitted into this law.
+
+This is an increment to add to an appropriate one-RHS device estimate, not a replacement
+base fit. It excludes deflation-space storage, equal-precision alias changes, other
+inverters, heavy-quark residual workspaces, split grid, and whole-process RSS. The
+matched cells did not establish any width term for QUDA's pinned-device, page-locked
+host, or total-host counters.
+
 ### Deflated CG
 
 A single-precision staggered color vector on one parity has logical payload
@@ -167,7 +215,8 @@ python3 tools/quda-staggered-memory.py deflated-fit \
 ```
 
 This estimate does not include a larger active eigensolver search basis, a second
-preserved parity space, double-precision vectors, undeflated MRHS overhead, or
+preserved parity space, double-precision vectors, the plain-CG production-width
+increment above, or
 whole-process RSS. Add or measure those according to the executed lifecycle.
 
 ## Staggered-MG high-water model
@@ -258,6 +307,32 @@ correction to another local volume is an extrapolation. The companion script rec
 measurement and how the historical allocation differed; there is no pre-fix runtime
 selector.
 
+### MRHS-MG: marginal slope only
+
+Source inspection closes a marginal production-field slope for one exact four-level
+topology: optimized KD, outer GCR(15), post CA-GCR(8), intermediate GCR(8), bottom
+Chebyshev CA-GCR(16), double outer precision, single sloppy/coarse precision, and half
+fine/pseudo-fine preconditioning. After the recursive solvers are created, each
+additional active RHS keeps the following fields live together:
+
+```text
+fine and KD pseudo-fine: 3 double full + 54 single full + 18 half full
+level 2:                2 single full + 27 single parity
+level 3:                2 single full + 32 single parity
+```
+
+For the matched hierarchy with `V0 = 884736`, `V2 = 1024`, `V3 = 64`,
+`nvec_1 = 64`, and `nvec_2 = 96`, this field inventory is `1475.1875 MiB` per
+additional active RHS. A historical build-`7519b9dcf` width-2 to width-3 pair measured
+`1481.4 MiB`, 0.42% above that source slope.
+
+This does **not** define an absolute MRHS-MG capacity model. The matched width-1 to
+width-2 transition also activated an unexplained `5467.3 MiB` fixed high-water term.
+Its source owner, build transfer, and behavior on another hierarchy are unresolved.
+The calculator therefore has no MRHS-MG width option: use the slope only as a scoped
+marginal diagnostic for the named topology, and measure the complete high-water at the
+target widths and stack.
+
 ## Capacity decisions and A100 margin
 
 Three sampled Perlmutter A100 runs placed whole-device `nvidia-smi` high-water 1.8–2.8
@@ -330,10 +405,9 @@ measurement has a correct place to enter.
 
 Do not construct a whole-process host formula from this calibration. The unexplained gap
 between QUDA's page-locked and total host counters reached 1.53 GiB, while scheduler
-`MaxRSS` spanned 1.35–3.81 times the QUDA total across MG groups. Undeflated MRHS and
-MRHS-MG increments were measured in the corpus but were not mechanistically modelled.
-MRHS memory modeling is an explicit roadmap item; until it lands, do not add an observed
-constant to a capacity estimate as though it were a transferable formula.
+`MaxRSS` spanned 1.35–3.81 times the QUDA total across MG groups. The plain-CG device
+increment above creates no host formula, and the unresolved MRHS-MG activation term must
+not be added to a capacity estimate as though it were transferable.
 
 For a capacity decision, record and compare all of the following on the target stack:
 

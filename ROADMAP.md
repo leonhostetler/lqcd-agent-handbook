@@ -144,6 +144,24 @@ bounds `nvec_2` by `nvec_1*b2`, not by the coarse-gauge color `2*nvec_1`. No exi
 corpus configuration is close to that bound. Raw run paths, job identifiers, accounts,
 and allocation data remain outside the public repository.
 
+Stage 5 admits the operator-approved dimensionless hierarchy and eigensolver-quality
+class as four atomic staggered-MG leaves. They keep source constraints separate from a
+named Perlmutter A100 retrospective calibration; define `nu3 = nvec_3/V3`; publish the
+coarse-spectrum fit only with its population, error, mass/`nu3` envelope, and `nvec_2`
+confound; and make setup-cap ratio, filter margin, worst-vector residual, and asymmetric
+TRLM restart behavior the diagnostic feedback. The tuning leaf orders source, memory,
+setup, eigensolver, workload, and correctness gates. A deflation schedule is derived
+from matched setup and recurring measurements and stored as `nu3(m)`, never copied as a
+bare-mass table.
+
+The same stage admits the matched MRHS validation class. A narrow `mrhs-cg-delta`
+command implements the current unsplit double/half MATPC/direct-PC CG device increment
+from active batch width and labels its three-cell validation scope. The memory leaf also
+records a source-derived four-level MG marginal field slope and the historical width-2
+to width-3 validation, while an unexplained width-activation term deliberately blocks an
+absolute MRHS-MG calculator. Numerical solver timing and crossover values remain outside
+the public handbook; only their target-workload measurement procedure is admitted.
+
 On 2026-08-15 the operator explicitly pulled the session-logging adapter forward from
 Slice 7 as Slice 0c. It adds a shared startup check and non-blocking offer, frontend-specific
 Claude and Codex loggers, an offer-only user-config installer, manifest validation, and

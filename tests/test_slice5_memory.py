@@ -61,6 +61,67 @@ class StaggeredMemoryTests(unittest.TestCase):
         self.assertIn("whole-process scheduler RSS", payload["calibration"]["outside_scope"])
         self.assertNotIn("fits", payload)
 
+    def test_plain_cg_mrhs_delta_is_source_derived_and_profile_scoped(self):
+        _, payload = run_json(
+            MEMORY,
+            "mrhs-cg-delta",
+            "--local",
+            "36",
+            "36",
+            "24",
+            "24",
+            "--reference-width",
+            "1",
+            "--width",
+            "3",
+        )
+        detail = payload["detail"]
+        self.assertEqual(payload["evidence"], "source-derived-with-corpus-validation")
+        self.assertEqual(detail["V0"], 746496)
+        self.assertEqual(detail["additional_active_rhs"], 2)
+        self.assertEqual(detail["device_bytes_per_additional_rhs"], 160 * 746496)
+        self.assertEqual(detail["device_increment_bytes"], 2 * 160 * 746496)
+        self.assertEqual(detail["profile"]["precise_precision"], "double")
+        self.assertEqual(detail["profile"]["sloppy_precision"], "half")
+        self.assertIn("0.04%", payload["validation"]["device_accuracy"])
+        self.assertIn("whole-process scheduler RSS", payload["counter_scope"]["not_modelled"])
+
+    def test_plain_cg_mrhs_delta_rejects_invalid_widths(self):
+        for widths in (("0", "1"), ("2", "3")):
+            with self.subTest(widths=widths):
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(MEMORY),
+                        "mrhs-cg-delta",
+                        "--local",
+                        "8",
+                        "8",
+                        "8",
+                        "16",
+                        "--width",
+                        widths[0],
+                        "--reference-width",
+                        widths[1],
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 2)
+
+    def test_no_absolute_mrhs_mg_calculator_is_exposed(self):
+        result = subprocess.run(
+            [sys.executable, str(MEMORY), "--help"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertIn("mrhs-cg-delta", result.stdout)
+        self.assertNotIn("mrhs-mg", result.stdout)
+
     def test_mg_fit_separates_device_pool_and_capacity_advisory(self):
         _, payload = run_json(
             MEMORY,
@@ -468,6 +529,10 @@ class StaggeredMemoryTests(unittest.TestCase):
     def test_new_public_files_contain_no_private_paths_or_job_identifiers(self):
         paths = (
             ROOT / "software/quda/solvers/staggered-memory.md",
+            ROOT / "software/quda/solvers/staggered-multigrid/hierarchy-and-setup.md",
+            ROOT / "software/quda/solvers/staggered-multigrid/coarse-deflation.md",
+            ROOT / "software/quda/solvers/staggered-multigrid/tuning.md",
+            ROOT / "software/quda/solvers/staggered-multigrid/diagnostics.md",
             MEMORY,
             DECOMPOSITION,
             ROOT / "tools/quda_staggered_geometry.py",

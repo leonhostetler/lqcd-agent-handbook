@@ -205,6 +205,27 @@ ensembles: warn below global `V3 = 10000` sites or above coarsest-cell aspect 1.
 warnings are empirical tuning evidence, not QUDA errors. The tool's source status remains
 independent, and runtime `Transfer: using block size ...` output remains authoritative.
 
+## Empirical tuning guidance
+
+This page owns the current source and interface contract. The following atomic leaves
+carry the separately labelled `perlmutter-a100-staggered-mg-2024-2026` retrospective
+guidance:
+
+- [`staggered-multigrid/hierarchy-and-setup.md`](staggered-multigrid/hierarchy-and-setup.md)
+  for global coarse geometry, `nu3`, and the level-1 setup-tolerance knee;
+- [`staggered-multigrid/coarse-deflation.md`](staggered-multigrid/coarse-deflation.md)
+  for the fitted coarse-spectrum envelope, filter-window feedback, restart diagnostics,
+  and workload-derived deflation schedules;
+- [`staggered-multigrid/tuning.md`](staggered-multigrid/tuning.md) for the ordered tuning
+  gates and stop rules; and
+- [`staggered-multigrid/diagnostics.md`](staggered-multigrid/diagnostics.md) for setup,
+  hierarchy, and eigensolver triage.
+
+Their numerical bands are corpus advisories, not QUDA invariants or solver-global
+defaults. The handbook intentionally withholds retrospective solver timing and crossover
+values; derive those from matched target-workload measurements and the compatible-reuse
+cost model.
+
 ## When to use it
 
 Use this path when:

@@ -2,8 +2,10 @@
 """Source-exact object sizes and corpus-calibrated staggered-solver memory estimates.
 
 All sizes are per rank.  Source-object commands reproduce allocation formulas at QUDA
-b6998853f.  Fit commands use the explicitly named Perlmutter A100 retrospective
-calibration documented in software/quda/solvers/staggered-memory.md.
+b6998853f.  The plain-CG MRHS command derives a production-width increment from the
+same source and carries a separately named matched-width validation.  Fit commands use
+the Perlmutter A100 retrospective calibration documented in
+software/quda/solvers/staggered-memory.md.
 """
 
 from __future__ import annotations
@@ -158,6 +160,32 @@ CALIBRATION = {
     ],
 }
 
+MRHS_CG_VALIDATION = {
+    "name": "perlmutter-a100-plain-cg-mrhs-2026",
+    "profile": (
+        "unsplit MATPC/direct-PC CG, double precise, half sloppy, "
+        "solution_accumulator_pipeline=1"
+    ),
+    "population": (
+        "three matched active-width 1-to-3 cells over local volumes "
+        "746496, 884736, and 7962624 sites"
+    ),
+    "version_scope": (
+        "one pair records QUDA d61517229 and retains the relevant allocation structure "
+        "at b6998853f; two pairs omit their source revision and extend only the "
+        "volume/decomposition check"
+    ),
+    "device_accuracy": "maximum absolute per-additional-RHS error 0.04%",
+    "counter_observations": (
+        "Pinned device and Page-locked host counters were unchanged; Total host was "
+        "unchanged to 0.1 MiB; these observations do not define host or RSS formulas"
+    ),
+    "excluded_regime": (
+        "unversioned older cells with a different bytes-per-site slope are a source/path "
+        "discontinuity and are not fitted into this current-profile law"
+    ),
+}
+
 
 class ModelError(ValueError):
     """An input is outside a source formula or calibrated model contract."""
@@ -245,6 +273,41 @@ def cg_fit(dims: list[int]) -> Fit:
     device = (CG_DEVICE_CONST_MIB * MIB + CG_DEVICE_BYTES_PER_SITE * v0) / GIB
     host = (CG_HOST_CONST_MIB * MIB + CG_HOST_BYTES_PER_SITE * v0) / GIB
     return Fit(device, host, {"V0": v0})
+
+
+def mrhs_cg_delta(dims: list[int], width: int, reference_width: int) -> dict[str, object]:
+    """Current-profile QUDA Device increment for plain-CG active batch width."""
+    if width < 1 or reference_width < 1:
+        raise ModelError("active and reference widths must be positive")
+    if width < reference_width:
+        raise ModelError("active width must be greater than or equal to reference width")
+    precise_field = color_spinor_bytes(
+        dims, 3, 1, PRECISION["double"], "parity"
+    )
+    sloppy_field = color_spinor_bytes(
+        dims, 3, 1, PRECISION["half"], "parity"
+    )
+    per_rhs = 5 * precise_field + 5 * sloppy_field
+    increment = (width - reference_width) * per_rhs
+    return {
+        "V0": volume(dims),
+        "active_batch_width": width,
+        "reference_batch_width": reference_width,
+        "additional_active_rhs": width - reference_width,
+        "profile": {
+            "solver": "unsplit MATPC/direct-PC CG",
+            "precise_precision": "double",
+            "sloppy_precision": "half",
+            "solution_accumulator_pipeline": 1,
+            "precise_parity_fields_per_rhs": 5,
+            "sloppy_parity_fields_per_rhs": 5,
+        },
+        "precise_parity_field_bytes": precise_field,
+        "sloppy_parity_field_bytes": sloppy_field,
+        "device_bytes_per_additional_rhs": per_rhs,
+        "device_increment_bytes": increment,
+        "device_increment_gib": increment / GIB,
+    }
 
 
 def deflated_fit(dims: list[int], vectors: int) -> Fit:
@@ -974,6 +1037,19 @@ def parser() -> argparse.ArgumentParser:
     cg = commands.add_parser("cg-fit", help="corpus-calibrated plain-CG high-water estimate")
     add_local(cg)
 
+    mrhs_cg = commands.add_parser(
+        "mrhs-cg-delta",
+        help="source-derived plain-CG QUDA Device increment for active batch width",
+    )
+    add_local(mrhs_cg)
+    mrhs_cg.add_argument("--width", type=int, required=True, help="active batch width")
+    mrhs_cg.add_argument(
+        "--reference-width",
+        type=int,
+        default=1,
+        help="active reference batch width; default 1",
+    )
+
     deflated = commands.add_parser(
         "deflated-fit", help="corpus-calibrated deflated-CG high-water estimate"
     )
@@ -1061,6 +1137,34 @@ def main() -> int:
                     "pad": pad,
                     "bytes": size,
                     "gib": size / GIB,
+                }
+            )
+        elif args.command == "mrhs-cg-delta":
+            detail = mrhs_cg_delta(args.local, args.width, args.reference_width)
+            emit(
+                {
+                    "evidence": "source-derived-with-corpus-validation",
+                    "source_revision": "quda-b6998853f",
+                    "scope": (
+                        "plain unsplit MATPC/direct-PC CG production-width increment only; "
+                        "active batch width, not total application source count"
+                    ),
+                    "counter_scope": {
+                        "predicted": "QUDA Device increment",
+                        "observed_without_width_term": [
+                            "Pinned device memory used",
+                            "Page-locked host memory used",
+                            "Total host memory used within 0.1 MiB reporting precision",
+                        ],
+                        "not_modelled": [
+                            "whole-process scheduler RSS",
+                            "deflation-space storage",
+                            "split grid",
+                            "other inverter or precision profiles",
+                        ],
+                    },
+                    "validation": MRHS_CG_VALIDATION,
+                    "detail": detail,
                 }
             )
         elif args.command in ("cg-fit", "deflated-fit"):
