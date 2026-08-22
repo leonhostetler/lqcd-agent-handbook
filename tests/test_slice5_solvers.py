@@ -14,6 +14,38 @@ def frontmatter(path: Path) -> dict:
 
 
 class SolverImportTests(unittest.TestCase):
+    def test_task_time_solver_routing_contract_is_complete(self):
+        agents = (ROOT / "AGENTS.md").read_text()
+        tuning_mode = " ".join((ROOT / "modes/tuning.md").read_text().split())
+        playbook = (ROOT / "playbooks/tune-solver.md").read_text()
+
+        self.assertIn("whenever the task narrows or changes", agents)
+        self.assertIn("whose `load_when` matches", agents)
+        self.assertIn("../playbooks/tune-solver.md", tuning_mode)
+        for trigger in (
+            "selects a solver",
+            "summarizes or interprets",
+            "diagnoses an unhealthy result",
+            "explains a solver parameter",
+            "chooses the next candidate",
+        ):
+            self.assertIn(trigger, tuning_mode)
+
+        required_leaves = (
+            "software/INDEX.md",
+            "software/quda/solvers/staggered-solver-selection.md",
+            "software/quda/solvers/staggered-multigrid.md",
+            "software/quda/solvers/staggered-multigrid/tuning.md",
+            "software/quda/solvers/staggered-multigrid/hierarchy-and-setup.md",
+            "software/quda/solvers/staggered-multigrid/diagnostics.md",
+            "software/quda/solvers/staggered-multigrid/coarse-deflation.md",
+            "software/quda/solvers/staggered-multigrid/calibration.md",
+            "software/quda/solvers/staggered-memory.md",
+        )
+        for relative in required_leaves:
+            self.assertTrue((ROOT / relative).is_file(), relative)
+            self.assertIn(f"(../{relative})", playbook)
+
     def test_selection_leaf_is_scoped_and_indexed(self):
         path = ROOT / "software/quda/solvers/staggered-solver-selection.md"
         metadata = frontmatter(path)

@@ -58,5 +58,14 @@ Exactly one handbook mode is current:
 - When modifying software, load `software/<name>/development.md` when present and
   complete its required formatting and post-edit checks before handoff.
 
-Use `INDEX.md` only to route to the smallest relevant document. Developer-only planning
-must not be opened in user mode.
+## Route each task
+
+Orientation loads Tier 1, not all task-specific knowledge. Before substantive
+LQCD analysis or action, and whenever the task narrows or changes, derive named
+applications, solvers, ensembles, and the immediate decision from the operator
+request and active project instructions. Use `INDEX.md` and only the matching
+domain indices to load the smallest Tier-2 leaves whose `load_when` matches.
+
+Interpret solver mechanisms, parameters, failures, campaign evidence, or next
+candidates only after this check. Report when no matching leaf exists.
+Developer-only planning must not be opened in user mode.

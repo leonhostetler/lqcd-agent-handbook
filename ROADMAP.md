@@ -271,16 +271,24 @@ guidance now screen only the exact material proposed for the handbook. Startup c
 pending intake structurally without treating that classification as clearance, and Tier-0
 routing plus a focused regression protect working-project evidence from handbook screening.
 
+On 2026-08-22, a live Codex tuning session exposed a task-time routing defect:
+orientation loaded Tier 1, but a later solver-specific campaign summary and an explanation
+of coarsest-grid deflator density did not trigger the indexed staggered-multigrid Tier-2
+leaves until operator correction. Tier 0 now requires a routing checkpoint before substantive
+LQCD analysis or action, tuning mode invokes the solver-tuning playbook for solver-specific
+analysis, and that playbook maps task signals to the smallest relevant leaves without making
+skill installation a prerequisite.
+
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six
   schema objects valid, forty-seven provenance records complete, four generated indices current,
   sixteen pre-existing P2 advisories, two frontend adapters and six session-logging assets
   valid, 207 long-document references resolved, no deny-list match, and Tier 0 at
-  4,721/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all 141 checks pass, including detector-first
-  bounded startup routing, the bounded native staggered-MG stack, and focused solver-import,
-  memory/decomposition, and cold-reader interface regressions;
+  5,219/6,144 bytes;
+- `python3 -m unittest discover -s tests -v`: all 142 checks pass, including detector-first
+  bounded startup routing, task-time solver routing, the bounded native staggered-MG stack,
+  and focused solver-import, memory/decomposition, and cold-reader interface regressions;
 - `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
   tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier and DeltaAI
   validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,
@@ -439,6 +447,15 @@ mirror synchronization is checkable and repairable; both launchers fail actionab
 shared zero-argument prompting, preserved working directory, and Codex's additive bootstrap;
 the Codex wrapper test also rejects `--add-dir` and `--sandbox`. Installer tests cover first
 install, idempotence, and conflict refusal.
+
+**Deferred skill-installation portability:** First define the supported platform and Codex-surface
+matrix, then replace the Unix-only optional symlink installer with a manifest-driven,
+conflict-safe implementation. Preserve `$HOME/.agents/skills` as the Codex user scope;
+evaluate managed-copy and symlink modes; preflight every target; never overwrite unmanaged
+paths; and document relocation, update, and stale-install behavior. The handbook launcher
+and Tier-0 routing must remain fully functional without skill installation. Acceptance
+requires filesystem tests plus real Codex discovery checks on every supported Linux/HPC,
+macOS, and Windows/WSL environment; unsupported combinations must be explicit.
 
 *Cold-session acceptance matrix:*
 

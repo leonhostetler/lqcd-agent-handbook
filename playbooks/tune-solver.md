@@ -23,6 +23,29 @@ nearest stacks, [`../conventions/measurement.md`](../conventions/measurement.md)
 For MILC-facing QUDA staggered solves, also load
 [`../software/quda/solvers/staggered-solver-selection.md`](../software/quda/solvers/staggered-solver-selection.md).
 
+### Task-triggered leaf routing
+
+Use [`../software/INDEX.md`](../software/INDEX.md) as the canonical `load_when`
+index. For MILC-facing QUDA staggered work, load every matching row:
+
+| Task signal | Required Tier-2 leaves |
+| --- | --- |
+| Solver selection, comparison, or setup-versus-solve economics | [`staggered-solver-selection.md`](../software/quda/solvers/staggered-solver-selection.md) and the active candidate solver pages |
+| Any multigrid configuration, mechanism, parameter, or result | [`staggered-multigrid.md`](../software/quda/solvers/staggered-multigrid.md) |
+| Campaign summary, parameter ordering, or next-candidate choice | [`tuning.md`](../software/quda/solvers/staggered-multigrid/tuning.md) |
+| Hierarchy, setup, V-cycle, null-vector count, or grid-density question | [`hierarchy-and-setup.md`](../software/quda/solvers/staggered-multigrid/hierarchy-and-setup.md) |
+| Unhealthy setup, eigensolve, convergence, or residual behavior | [`diagnostics.md`](../software/quda/solvers/staggered-multigrid/diagnostics.md) |
+| Coarse eigenspace, deflator, deflation window, or TRLM question | [`coarse-deflation.md`](../software/quda/solvers/staggered-multigrid/coarse-deflation.md) |
+| Applying or contrasting a retrospective numerical band or fit | [`calibration.md`](../software/quda/solvers/staggered-multigrid/calibration.md) |
+| Memory, rank decomposition, or capacity question | [`staggered-memory.md`](../software/quda/solvers/staggered-memory.md), [`quda-staggered-decomposition.py`](../tools/quda-staggered-decomposition.py), and [`quda-staggered-memory.py`](../tools/quda-staggered-memory.py) |
+
+Rows compose. A request asking what an observed coarsest-grid deflator density
+means therefore loads the multigrid overview, hierarchy/setup, and
+coarse-deflation leaves and, when judging health or applying numerical bands,
+the diagnostics and calibration leaves. Do not load calibration merely to
+define a source invariant; load it when applying or contrasting its numerical
+bands.
+
 ## 2. Build the candidate matrix
 
 For each solver, record:

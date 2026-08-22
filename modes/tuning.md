@@ -107,6 +107,14 @@ relabeled as confirmatory after the fact.
 
 ## Tools and routing
 
+Before analyzing a solver-specific tuning task, run the task-time Tier-2 routing
+checkpoint. A task that selects a solver, summarizes or interprets a solver-tuning
+campaign, diagnoses an unhealthy result, explains a solver parameter, or chooses
+the next candidate must open the
+[solver-tuning playbook](../playbooks/tune-solver.md) before analysis. Re-run
+routing when the application, solver, hierarchy, parameter class, or immediate
+decision changes.
+
 Use the detected machine profile, software profile, nearest stack, build profile, relevant
 application guide, and relevant solver documents when present. Use the working project's own
 instructions throughout. Prefer executable memory and decomposition checks to informal scaling,
