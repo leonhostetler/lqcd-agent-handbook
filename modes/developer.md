@@ -9,8 +9,12 @@ and the next action.
 
 1. Require current HEAD and a clean tracked Git tree. New untracked files may remain under
    `inbox/proposals/` or `inbox/rejections/` only when they qualify as pending intake under
-   `ARCHITECTURE.md` §4.3. Report them and compare each `base_handbook_commit` with current
-   HEAD. Stop on every other dirty or divergent state.
+   `ARCHITECTURE.md` §4.3. Committed entries in those directories are pending intake as
+   well and need no exception, because they leave the tree clean. List both directories
+   rather than relying on `git status`, report every entry in either state, and compare each
+   `base_handbook_commit` with current HEAD. Stop on every other dirty or divergent state.
+   This gate concerns drift the session did not author: changes already shown, approved, and
+   applied in the current session do not re-trigger it.
 2. Apply `PRIVACY.md` only to the exact inbox entry or direct handbook diff being proposed.
    Do not scan, redact, or rewrite the working project under handbook privacy rules; preserve
    its operational evidence under its own instructions.

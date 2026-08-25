@@ -937,7 +937,8 @@ Seven rules:
    Untracked pending intake may remain while it is reviewed; committed intake needs no
    exception, because it is not dirt. In both states, compare each entry's
    `base_handbook_commit` with current HEAD before promotion or rejection. There is no
-   other dirty-tree exception.
+   other dirty-tree exception; [§developer-obligations](#developer-obligations) scopes the
+   gate itself to drift the session did not author.
 
 **No branches, no pull requests, no curator role.** Direct commits to main in developer
 mode. Those are multi-developer conventions with no second reviewer here; revisit only if
@@ -1542,7 +1543,11 @@ expensive *before* it would be backwards. It is a one-line commit.
 
 Before any handbook write, pass the freshness gate in
 [§freshness-model](#freshness-model): require current HEAD and a clean tracked tree, with
-qualifying new untracked inbox entries as the sole exception.
+qualifying new untracked inbox entries as the only standing exception. The gate concerns
+drift the session did not author; a change already shown, approved, and applied earlier in
+the same session does not re-trigger it. Without that scoping, obligation 1 below would be
+unsatisfiable: it requires amending this document and then letting the tree follow within
+one session, while obligation 3 leaves the amendment uncommitted until the operator acts.
 
 Apply handbook privacy screening only to the exact inbox entry or direct repository diff
 being proposed. It does not govern working-project files: preserve local paths, allocation

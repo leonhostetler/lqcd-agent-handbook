@@ -24,18 +24,25 @@ If `repository.canonical_remote` is set, require `origin` to match it exactly. D
 bootstrap, when it is unset, report that exact remote identity cannot yet be checked; if
 `origin` exists, its repository basename must still be `lqcd-agent-handbook`.
 
-Inspect `git status --porcelain=v1 --untracked-files=all`. Classify a path as pending
-intake only when Git reports `??`, the path is directly under `inbox/proposals/` or
+List `inbox/proposals/` and `inbox/rejections/`, ignoring `.gitkeep`. Every entry found is
+pending intake awaiting a developer-mode decision, whether or not Git tracks it: a committed
+entry is one transported from another clone for review, never one already admitted. Report
+every entry and its tracked state. A committed entry produces no status output, so this
+listing — not `git status` — is what detects intake.
+
+Then inspect `git status --porcelain=v1 --untracked-files=all`. Classify a path as untracked
+pending intake only when Git reports `??`, the path is directly under `inbox/proposals/` or
 `inbox/rejections/`, and its name follows `<ISO8601>-<machine>-<uuid>.yaml`. This status
-classification is structural: it does not inspect or clear the file's contents. Report
-every pending path. Any other status entry is a hard gate.
+classification is structural: it does not inspect or clear the file's contents. Any other
+status entry is a hard gate.
 
 Fetch the configured upstream when available. If local HEAD matches upstream, continue.
-If upstream is a fast-forward and the tree is clean or contains only pending intake, pull
-with `git pull --ff-only`. On an incoming-path collision, other dirtiness, an ahead branch,
-a missing upstream, or divergence, report the state and stop before using potentially
-stale knowledge. Developer mode additionally requires a clean tracked tree; pending intake
-is the sole exception.
+If upstream is a fast-forward and the tree is clean or contains only untracked pending
+intake, pull with `git pull --ff-only`. On an incoming-path collision, other dirtiness, an
+ahead branch, a missing upstream, or divergence, report the state and stop before using
+potentially stale knowledge. Developer mode additionally requires a clean tracked tree;
+untracked pending intake is the sole exception, and committed intake needs none because it
+leaves the tree clean.
 
 ## 3. Check user-wide session logging
 
@@ -103,5 +110,7 @@ operator selects one. Reconcile the resolved type with accelerator telemetry onc
 runs.
 
 End with a compact orientation report: frontend, handbook identity/freshness, handbook
-mode, work mode, machine, software/commit, node type, nearest stack, and any staleness
-warning, plus the session-logging state and offer when applicable.
+mode, work mode, machine, software/commit, node type, nearest stack, any staleness warning,
+and pending intake — stating the count and tracked state, or that the inbox is empty — plus
+the session-logging state and offer when applicable. Never report the inbox as empty on the
+strength of a clean `git status`.
