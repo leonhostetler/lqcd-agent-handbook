@@ -24,3 +24,11 @@ an external one is selected.
 Use `project.yaml` for intrinsic capabilities and option meanings. A consuming stack must
 separate linkage from runtime evidence: an application linked against QIO has not validated
 QIO reads or writes unless its recorded test actually performs them.
+
+## Partfile and single-file layout binding
+
+QIO's partfile format embeds a per-partition DML sitelist, so a partfile record is readable
+only under the I/O layout that wrote it; single-file records carry no sitelist and no such
+binding. Because the consequence is a save-format decision made in the calling library, that
+mechanism is documented once in
+[`software/quda/internals/vector-io-layout.md`](../quda/internals/vector-io-layout.md).

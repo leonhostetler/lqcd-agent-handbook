@@ -42,6 +42,11 @@ shapes, local lattice, effective transfer blocks, aggregate-space limits, and lo
 rules. Run the decomposition preflight, then compare its effective blocks with QUDA's
 runtime messages. A native QUDA harness does not by itself validate the linked MILC path.
 
+If the trial reuses stored near-null vectors, also confirm that the planned rank
+decomposition matches the one that wrote them, or that they were saved in single-file
+format; the decomposition preflight does not cover stored I/O layout. See
+[`../../internals/vector-io-layout.md`](../../internals/vector-io-layout.md).
+
 Stop if the executed operator, fallback path, residual, or hierarchy differs from the
 declared decision.
 

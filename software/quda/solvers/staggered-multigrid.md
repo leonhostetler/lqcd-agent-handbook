@@ -129,6 +129,12 @@ observed implementation. The static pointer is not reset to null after destructi
 creating another hierarchy in the same process after that cleanup requires a source fix
 or an audited lifecycle wrapper.
 
+Stored near-null vectors carry a further lifecycle boundary that is invisible to the
+hierarchy parameters: a set saved in QIO partfile format is readable only under the rank-grid
+factorization that wrote it. See
+[`../internals/vector-io-layout.md`](../internals/vector-io-layout.md) before reusing saved
+vectors across a placement change.
+
 ## Cost structure
 
 Separate these costs in every measurement:
