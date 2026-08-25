@@ -65,6 +65,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
 | **Privacy-screening boundary** | Screen only the exact material crossing into the handbook: a user-mode inbox entry or a direct developer-mode change. Handbook privacy rules never mandate scanning, redacting, or rewriting the working project that holds source evidence ([§privacy-screening](#privacy-screening), [§handbook-modes](#handbook-modes)) | The repository's publication boundary changes |
 | **Concurrency** | Unique filenames for every user-mode write; `base_handbook_commit` on proposals. No branches, no PRs, no curator ([§freshness-model](#freshness-model)) | The handbook gains contributors beyond the operator |
+| **Intake lifecycle** | An inbox entry has two pending states, not one: **untracked** (filed locally, unreachable from any other clone) and **committed** (transported so another machine can review it). Both are pending; committing is transport, never admission. Detection is therefore a **listing of `inbox/`**, never a reading of `git status` ([§freshness-model](#freshness-model)) | Intake gains a review queue outside the repository, or entries stop travelling between clones |
 | **Handbook change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
 | **Project Git authority** | Authorization to change project code does not authorize commits or publication. Canonical `AGENTS.md` owns the standing rule: the agent requires an explicit operator request before committing, pushing, or opening or updating a pull or merge request. The default handoff is an uncommitted working tree, a validation summary, and a suggested commit message | The operator explicitly delegates a named class of Git actions |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | An agent should submit unattended — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
@@ -897,7 +898,7 @@ files under `inbox/`, never editing anything that exists — so there is nothing
 on. The only genuine multi-writer targets are `ROADMAP.md` and canonical knowledge files,
 and those are written only in developer mode: one operator, usually one session.
 
-Five rules:
+Seven rules:
 
 1. **Everything user mode writes is a new, uniquely-named file** —
    `<ISO8601>-<machine>-<uuid>.yaml` under `inbox/proposals/` or `inbox/rejections/`.
@@ -913,13 +914,28 @@ Five rules:
    inspects nor clears the contents. Report each pending path. Modified, deleted, or renamed
    tracked paths; nested or misnamed inbox paths; and changes anywhere else remain hard
    stops.
-4. **`lqcd-start-session` resolves freshness before any work begins.** Fetch the configured
+4. **A committed inbox entry is pending intake too, and it is the ordinary
+   cross-machine case.** An untracked proposal cannot leave the clone that wrote it, so the
+   only way to put one in front of the machine that will review it is to commit it.
+   Committing an entry is an act of **transport, not of admission**: it changes where the
+   proposal can be read, never whether it has been accepted. Such an entry produces no
+   status output at all, so **intake is detected by listing `inbox/proposals/` and
+   `inbox/rejections/`, never by reading `git status`** — ignoring `.gitkeep`. Report every
+   entry found, in either state, and treat neither state as clearance.
+5. **Disposition empties the inbox.** Promotion writes the leaf and removes the proposal;
+   rejection records the outcome under `inbox/rejections/` and removes the proposal. An
+   entry therefore lives exactly as long as it is undecided, so a non-empty `inbox/` always
+   means undecided work. That invariant is what makes a directory listing trustworthy, and
+   it is why a decided entry is never left in place as a record of its own decision.
+6. **`lqcd-start-session` resolves freshness before any work begins.** Fetch the configured
    upstream. If HEAD already matches upstream, continue. If upstream is a fast-forward and
-   the tree is clean or contains only pending intake, **pull with `git pull --ff-only`**.
-   On an incoming-path collision, other dirtiness, an ahead branch, a missing upstream, or
-   divergence, report the state and stop.
-5. **Developer mode requires current HEAD and a clean tracked tree before it may write.**
-   Pending intake may remain untracked while it is reviewed. Compare each entry's
+   the tree is clean or contains only untracked pending intake, **pull with
+   `git pull --ff-only`**. On an incoming-path collision, other dirtiness, an ahead branch,
+   a missing upstream, or divergence, report the state and stop. Report committed intake in
+   the orientation summary; it never blocks, because it leaves the tree clean.
+7. **Developer mode requires current HEAD and a clean tracked tree before it may write.**
+   Untracked pending intake may remain while it is reviewed; committed intake needs no
+   exception, because it is not dirt. In both states, compare each entry's
    `base_handbook_commit` with current HEAD before promotion or rejection. There is no
    other dirty-tree exception.
 
