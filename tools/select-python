@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Select a Python interpreter that satisfies a caller-declared dependency set.
+#
+# Interpreter selection is shared, but the dependency set is not: session
+# logging needs PyYAML plus a TOML reader, while the knowledge validator also
+# needs jsonschema. A probe hard-coded to one caller's imports silently hands
+# the other an interpreter that cannot run it, so requirements are arguments.
+set -eu
+
+usage() {
+    cat >&2 <<'USAGE'
+usage: select-python [--label TEXT] [--min-version MAJOR.MINOR]
+                     [--require MODULE]... [--require-any MOD,MOD]...
+                     -- <script> [args ...]
+USAGE
+    exit 2
+}
+
+label="this tool"
+min_major=3
+min_minor=10
+require=()
+require_any=()
+
+while (( $# > 0 )); do
+    case "$1" in
+        --label)       (( $# >= 2 )) || usage; label="$2"; shift 2 ;;
+        --min-version) (( $# >= 2 )) || usage
+                       min_major="${2%%.*}"; min_minor="${2##*.}"; shift 2 ;;
+        --require)     (( $# >= 2 )) || usage; require+=("$2"); shift 2 ;;
+        --require-any) (( $# >= 2 )) || usage; require_any+=("$2"); shift 2 ;;
+        --)            shift; break ;;
+        *)             usage ;;
+    esac
+done
+
+(( $# > 0 )) || usage
+
+# Build the probe and the human-readable requirement list together, so the
+# failure message can never drift from what was actually tested.
+probe="import importlib, sys
+if sys.version_info < (${min_major}, ${min_minor}):
+    raise SystemExit(1)
+"
+described=""
+for module in ${require[@]+"${require[@]}"}; do
+    probe="${probe}importlib.import_module(\"${module}\")
+"
+    described="${described}${described:+, }${module}"
+done
+for group in ${require_any[@]+"${require_any[@]}"}; do
+    alternatives=""
+    human=""
+    IFS=',' read -r -a parts <<< "$group"
+    for part in "${parts[@]}"; do
+        alternatives="${alternatives}\"${part}\", "
+        human="${human}${human:+ or }${part}"
+    done
+    probe="${probe}for _module in (${alternatives}):
+    try:
+        importlib.import_module(_module)
+        break
+    except ImportError:
+        pass
+else:
+    raise SystemExit(1)
+"
+    described="${described}${described:+, }${human}"
+done
+
+# Candidate discovery uses a redirected loop; preserve the caller's stdin for
+# the selected script, which may receive hook JSON through this channel.
+exec 3<&0
+
+# NERSC's site-injected Python monitor can sample at interpreter exit and append
+# scheduler-authentication diagnostics after otherwise valid JSON. Disable that
+# monitor for these deterministic subprocesses. The variable is inert on systems
+# without NERSC PyMon.
+export NERSC_PYMON_DISABLE=1
+
+# Prefer versioned commands. On module-based systems, an unversioned python3 may
+# be the system Python or a module wrapper that emits site diagnostics on stdout.
+for name in python3.11 python3.12 python3.13 python3.14 python3.10 python3; do
+    while IFS= read -r candidate; do
+        [[ -x "$candidate" ]] || continue
+        probe_output=""
+        if probe_output=$("$candidate" -c "$probe" </dev/null 2>&1) && [[ -z "$probe_output" ]]; then
+            exec "$candidate" "$@" <&3 3<&-
+        fi
+    done < <(type -a -p "$name" 2>/dev/null || true)
+done
+
+echo "${label} requires Python ${min_major}.${min_minor}+ with ${described}" >&2
+echo "no interpreter on PATH satisfied that; on a module-based system, load a Python" >&2
+echo "module providing those packages and retry" >&2
+exit 2

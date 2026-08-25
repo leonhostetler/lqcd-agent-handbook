@@ -16,7 +16,10 @@ try:
     import yaml
     from jsonschema import Draft202012Validator, FormatChecker
 except ImportError as exc:  # pragma: no cover - environment failure
-    raise SystemExit(f"validator dependency missing: {exc}; install PyYAML and jsonschema")
+    raise SystemExit(
+        f"validator dependency missing: {exc}; run tools/run-validator, "
+        "or supply an interpreter with PyYAML and jsonschema"
+    )
 
 EVIDENCE = {"source", "docs", "observed", "reproduced", "experiment", "operator", "inferred"}
 KNOWLEDGE_ROOTS = {"conventions", "machines", "software", "ensembles"}

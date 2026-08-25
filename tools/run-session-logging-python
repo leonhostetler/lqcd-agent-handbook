@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Run a session-logging script under an interpreter that has its dependencies.
+# Installed user hooks invoke this path, so it keeps its name; the interpreter
+# search itself lives in tools/select-python.
 set -eu
 
 if (( $# == 0 )); then
@@ -6,36 +9,10 @@ if (( $# == 0 )); then
     exit 2
 fi
 
-# Candidate discovery uses a redirected loop; preserve the caller's stdin for the
-# selected script, which receives hook JSON through this channel.
-exec 3<&0
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# NERSC's site-injected Python monitor can sample at interpreter exit and append
-# scheduler-authentication diagnostics after otherwise valid JSON. Disable that
-# monitor for these deterministic checker and installer subprocesses. The variable
-# is inert on systems without NERSC PyMon.
-export NERSC_PYMON_DISABLE=1
-
-# Prefer versioned commands. On module-based systems, an unversioned python3 may
-# be the system Python or a module wrapper that emits site diagnostics on stdout.
-for name in python3.11 python3.12 python3.13 python3.14 python3.10 python3; do
-    while IFS= read -r candidate; do
-        [[ -x "$candidate" ]] || continue
-        probe_output=""
-        if probe_output=$("$candidate" -c '
-import sys
-if sys.version_info < (3, 10):
-    raise SystemExit(1)
-import yaml
-try:
-    import tomllib
-except ImportError:
-    import tomli
-' </dev/null 2>&1) && [[ -z "$probe_output" ]]; then
-            exec "$candidate" "$@" <&3 3<&-
-        fi
-    done < <(type -a -p "$name" 2>/dev/null || true)
-done
-
-echo "session logging requires Python 3.10+ with PyYAML and tomllib or tomli" >&2
-exit 2
+exec "$here/select-python" \
+    --label "session logging" \
+    --require yaml \
+    --require-any tomllib,tomli \
+    -- "$@"

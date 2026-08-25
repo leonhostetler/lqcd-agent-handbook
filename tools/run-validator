@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Run the knowledge validator under an interpreter that has its dependencies.
+# The validator needs jsonschema in addition to PyYAML, and it uses syntax that
+# a system python3 predating 3.10 cannot parse, so it is never safe to invoke
+# through a bare `python3` on a module-based system.
+set -eu
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+exec "$here/select-python" \
+    --label "the knowledge validator" \
+    --require yaml \
+    --require jsonschema \
+    -- "$here/validate-knowledge.py" "$@"
