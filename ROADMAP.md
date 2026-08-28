@@ -331,21 +331,36 @@ record: both scripts declare their account with the short form, so the record no
 short aliases alongside the long options. The tool is advisory, and its status line names the
 approved-root, invoked-program, and intent checks it does not perform.
 
+Two defects surfaced during the batch-script work and remain open. `6c8e9f9` split
+`select-python` out of the session-logging runner without updating that runner's tests, so
+three checks were red for two commits before a bisect found them; the fix landed in
+`ee8517d`, and the lesson is that a tool change must run its own tests, not only the
+validator. Separately, `.gitignore` covers `session_*.log` but nothing under `.claude/`, so a
+developer-mode session whose frontend mounts configuration paths into this repository trips
+its own clean-tree gate and breaks eleven tests that copy the tree. Neither is scheduled.
+
 Latest automated evidence:
 
-- `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six
-  schema objects valid, forty-seven provenance records complete, four generated indices current,
-  sixteen pre-existing P2 advisories, two frontend adapters and six session-logging assets
-  valid, 207 long-document references resolved, no deny-list match, and Tier 0 at
-  5,219/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all 142 checks pass, including detector-first
+- `tools/run-validator`: twenty-eight schema objects valid, forty-nine provenance records
+  complete, four generated indices current, sixteen pre-existing P2 advisories, two frontend
+  adapters and six session-logging assets valid, 227 long-document references resolved, no
+  deny-list match, and Tier 0 at 5,383/6,144 bytes;
+- `python3 -m unittest discover -s tests -v`: all 156 checks pass, including detector-first
   bounded startup routing, task-time solver routing, the bounded native staggered-MG stack,
-  and focused solver-import, memory/decomposition, and cold-reader interface regressions;
-- `bash -n tools/lqcd-claude tools/lqcd-codex tools/install-codex-skills
-  tools/detect-machine.sh tools/log-session-claude.sh` and the working-project Frontier and DeltaAI
-  validation scripts, Python compilation of the validator, indexer, and Slice 2 and Slice 3 tests,
+  the batch-script checker and its dispatcher runner, and focused solver-import,
+  memory/decomposition, and cold-reader interface regressions;
+- `bash -n` over the two launchers, the Codex skill installer, the machine detector, the
+  Claude session logger, `select-python`, and all three dispatcher runners; Python compilation
+  of the validator, indexer, and batch-script checker;
   `python3 tools/sync-agent-entrypoints.py --check`, `tools/build-index.py --check`, and
   `git diff --check` complete cleanly.
+
+The validator is now invoked through `tools/run-validator` rather than a bare `python3`,
+because on a module-based system no interpreter on `PATH` carries `jsonschema`; the runner
+discovers one. Two caveats on the suite: eleven errors appear when it runs inside a working
+tree where an agent frontend has mounted device nodes over `.mcp.json` or `.claude/` paths,
+because tests that copy the tree cannot read them; and this session's counts were observed
+under a 3.12 module, with identical results under 3.11 and 3.14.
 
 Accepted on 2026-08-15 by operator report: the Claude launcher in user mode, the Claude
 launcher in developer mode, Claude invoked without the launcher, the Codex launcher in user
