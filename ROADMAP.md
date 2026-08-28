@@ -294,6 +294,19 @@ validator returns identical results under 3.11, 3.12, and 3.14. Rejected candida
 reported with the specific reason rather than discarded, because a silent scan cannot
 distinguish a missing package from a too-old interpreter.
 
+Also on 2026-08-28, the scheduler submission surface was admitted as a per-type record
+rather than a per-machine one. Preparing the machine-profile edit showed that all three
+profiled machines are Slurm and their `scheduler:` blocks were byte-identical, so writing
+the directive prefix, option names, and job-id variables into each profile would have
+restated three dozen values that cannot differ by site. `conventions/scheduler-surfaces.yaml`
+now holds one entry per scheduler type, bound to `schemas/scheduler-surface.schema.json`;
+machine profiles name their `type` and carry only site-specific fields. Option and variable
+names were verified against the installed Slurm manual pages. Perlmutter records
+`node_local_tmp_variable: null` from a live check; Frontier and DeltaAI leave it unrecorded
+because neither was available to verify, and an unrecorded field obliges a consumer to ask
+rather than assume. No machine schema bump was needed: the profiles lost restated fields and
+gained only an optional one.
+
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six

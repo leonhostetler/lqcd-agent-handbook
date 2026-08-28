@@ -200,6 +200,7 @@ def validate_schemas(root: Path, errors: list[str]) -> int:
         ("software/**/build-profiles.yaml", "build-profiles.schema.json"),
         ("machines/*/stacks/*/stack.yaml", "stack.schema.json"),
         ("ensembles/milc-hisq.yaml", "ensemble.schema.json"),
+        ("conventions/scheduler-surfaces.yaml", "scheduler-surface.schema.json"),
     ]
     checked = 0
     for pattern, schema_name in bindings:

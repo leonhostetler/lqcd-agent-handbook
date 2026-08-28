@@ -35,7 +35,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Branch policy** | **There is none, deliberately.** QUDA and MILC are built from `develop`, a feature branch, or a fork, per episode; tagged releases are not used. So the branch is session state too, and the environment-vs-stack check reports **ancestry — including `diverged` — never a commit distance** ([§version-lifetimes](#version-lifetimes)) | Either project adopts a real release cadence |
 | **Node types** | One `machines/<name>/` per machine, with `node_types:` inside for CPU/GPU partitions *and* for heterogeneous accelerators — never `machine-gpu/` beside `machine-cpu/`. Node types carry build-determining fields separately from sizing-determining ones, including documented installed inventory per type; stacks record `validated_on:` as a list, and shared-architecture compatibility is **reported as an inference, never as validation**. An explicit operator declaration selects the node type; without one, exactly one profiled node type is the unambiguous default, while multiple profiled types require a declaration. A login host alone never selects it. The resolved type is reconciled against vendor runtime telemetry once a job runs ([§node-types](#node-types)) | — |
 | **Machine order** | Frontier → DeltaAI → Aurora, onboarded as needed rather than as slices. Scheduler and accelerator fields are **discriminated on type from slice 2** so PBS and non-NVIDIA arrive as values, not restructures ([§build-order](ROADMAP.md#build-order)) | — |
-| **Scheduler submission surface** | `machine.yaml`'s `scheduler:` block carries the submission surface — directive prefix, account/chdir/output option names, and the job-id, array, and submit-directory variables — so submission guidance stays scheduler-agnostic. A facility the site does not provide is declared as an explicit `null`, never omitted ([§scheduler-surface](#scheduler-surface)) | A scheduler arrives whose submission surface cannot be expressed as named options and variables |
+| **Scheduler submission surface** | Recorded **once per scheduler type** in `conventions/scheduler-surfaces.yaml` — directive prefix, account/chdir/output option names, and the job-id, array, and submit-directory variables — so submission guidance stays scheduler-agnostic. A machine profile names its `type` and carries only what its site genuinely changes or provides; a site facility that does not exist is an explicit `null`, never omitted ([§scheduler-surface](#scheduler-surface)) | A scheduler arrives whose submission surface cannot be expressed as named options and variables |
 | **The plan itself** | Ships in the repo as `ARCHITECTURE.md` (durable) + `ROADMAP.md` (state), developer-mode only ([§plan-ships-with-handbook](#plan-ships-with-handbook)) | — |
 | **Cross-references** | Stable `<a id="slug">` anchors, not section numbers; numbers stay in headings and may change freely. Validator-enforced. **Long documents only** — knowledge files are already addressed by path ([§stable-anchors](#stable-anchors)) | — |
 | **Predictions** | The loop is mandatory in benchmarking and tuning, but records live in the **working directory**; only `prediction.schema.json` ships ([§records-in-working-directory](#records-in-working-directory)) | — |
@@ -821,29 +821,45 @@ fails the P3 test the moment Aurora lands. The slice-2 insurance already discrim
 that block must carry for the discrimination to be usable by a consumer rather than merely
 well-shaped.
 
+**The surface belongs to the scheduler, not to the machine.** Implementation made this
+concrete: the three profiled machines are all Slurm, and their `scheduler:` blocks were
+byte-identical. Writing `#SBATCH`, `--account`, and `SLURM_JOB_ID` into each profile would
+restate three dozen values that cannot legitimately differ, which is precisely the drift P2
+forbids, and would make Aurora a hand-filled fourth copy. So the surface is recorded once
+per scheduler type, in `conventions/scheduler-surfaces.yaml`:
+
 ```yaml
-scheduler:
-  type: slurm
-  submit_command: sbatch
-  interactive_command: salloc
-  directive_prefix: "#SBATCH"
-  account_option: "--account"
-  chdir_option: "--chdir"
-  output_option: "--output"
-  error_option: "--error"
-  append_output_option: "--open-mode=append"
-  job_id_variable: SLURM_JOB_ID
-  array_job_id_variable: SLURM_ARRAY_JOB_ID
-  array_task_id_variable: SLURM_ARRAY_TASK_ID
-  submit_dir_variable: SLURM_SUBMIT_DIR
-  node_local_tmp_variable: null
+surfaces:
+  slurm:
+    submit_command: sbatch
+    interactive_command: salloc
+    query_command: squeue
+    queues_command: sinfo
+    directive_prefix: "#SBATCH"
+    account_option: "--account"
+    chdir_option: "--chdir"
+    output_option: "--output"
+    error_option: "--error"
+    append_output_option: "--open-mode=append"
+    job_id_variable: SLURM_JOB_ID
+    array_job_id_variable: SLURM_ARRAY_JOB_ID
+    array_task_id_variable: SLURM_ARRAY_TASK_ID
+    submit_dir_variable: SLURM_SUBMIT_DIR
 ```
 
 Every field is here because [§batch-scripts](#batch-scripts) or its checker consumes it;
-none is decorative. The commands the block already held stay where they are.
+none is decorative. Aurora then arrives as one new `pbs` entry, which is what the slice-2
+insurance promised when it discriminated the block on `type:`.
 
-**A facility the site does not provide is declared as an explicit `null`, never omitted.**
-This is the mechanism that replaces naming a site variable in prose. A live Perlmutter
+**A machine profile names its `type` and carries only what its site changes or provides.**
+It may override any field, because a site can wrap a submit command or disable an option;
+absent an override the type record is canonical, so there is never a pair that can disagree
+without a rule about which wins.
+
+**A site facility that does not exist is declared as an explicit `null`, never omitted.**
+This is a machine-profile field, because whether a site exports a node-local temporary
+directory is a site convention rather than a property of the scheduler. It is also the
+mechanism that replaces naming a site variable in prose. A live Perlmutter
 session found `SLURM_TMPDIR` unset, and the two safeguards a submission script normally
 carries interact badly there: under `set -u` the reference aborts the job, and without it
 `"${SLURM_TMPDIR}/work"` expands to an absolute path at the filesystem root. An explicit
@@ -853,8 +869,12 @@ name: only those a profile declares, which is why the guidance never writes `$SC
 `$PROJECT`, or `$CFS` into its own text.
 
 **Populate from fact, not from anticipation.** The Slurm values are recorded because they
-are known on the profiled machines. PBS values arrive with Aurora; inventing them now would
-be the overclaim [§stacks](#stacks) rule 2 exists to prevent, in a schema instead of a stack.
+are verified. PBS values arrive with Aurora; inventing them now would be the overclaim
+[§stacks](#stacks) rule 2 exists to prevent, in a schema instead of a stack. The same rule
+binds the site fields: `node_local_tmp_variable` is recorded only where it was actually
+checked, and stays absent elsewhere. An unrecorded field means *nobody has established
+this*, and a consumer must ask rather than assume — which is why absence and an explicit
+`null` are deliberately different states.
 
 <a id="session-start"></a>
 ## 4. How a session starts across frontends

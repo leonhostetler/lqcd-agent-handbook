@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scheduler-surface.schema.json",
+  "title": "Scheduler submission surface",
+  "description": "Canonical per-scheduler-type submission surface. A machine profile names its scheduler type and overrides only where its site differs.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "surfaces",
+    "evidence",
+    "observed",
+    "observed_on",
+    "sources",
+    "review_by"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "surfaces": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "enum": ["slurm", "pbs", "lsf", "flux", "other"] },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "submit_command",
+          "interactive_command",
+          "query_command",
+          "queues_command",
+          "directive_prefix",
+          "account_option",
+          "chdir_option",
+          "output_option",
+          "error_option",
+          "append_output_option",
+          "job_id_variable",
+          "array_job_id_variable",
+          "array_task_id_variable",
+          "submit_dir_variable"
+        ],
+        "properties": {
+          "submit_command": { "type": "string" },
+          "interactive_command": { "type": "string" },
+          "query_command": { "type": "string" },
+          "queues_command": { "type": "string" },
+          "directive_prefix": { "type": "string" },
+          "account_option": { "type": "string" },
+          "chdir_option": { "type": "string" },
+          "output_option": { "type": "string" },
+          "error_option": { "type": "string" },
+          "append_output_option": { "type": "string" },
+          "job_id_variable": { "type": "string" },
+          "array_job_id_variable": { "type": "string" },
+          "array_task_id_variable": { "type": "string" },
+          "submit_dir_variable": { "type": "string" }
+        }
+      }
+    },
+    "evidence": {
+      "enum": ["source", "docs", "observed", "reproduced", "experiment", "operator", "inferred"]
+    },
+    "observations": { "type": "integer", "minimum": 1 },
+    "observed": { "type": "string", "format": "date" },
+    "observed_on": { "type": "object", "minProperties": 1 },
+    "review_by": { "type": "string", "format": "date" },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    }
+  }
+}

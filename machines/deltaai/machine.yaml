@@ -9,9 +9,6 @@ public_login_hosts:
   - gh-login04.delta.ncsa.illinois.edu
 scheduler:
   type: slurm
-  submit_command: sbatch
-  query_command: squeue
-  queues_command: sinfo
 filesystems:
   home:
     purpose: Software, scripts, and job files; not job I/O.

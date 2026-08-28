@@ -1,0 +1,34 @@
+schema_version: 1
+# Canonical submission surface per scheduler type. These are properties of the
+# scheduler, not of any site, so they are recorded once here rather than restated
+# in every machine profile. A machine profile names its scheduler type and adds
+# only what its site genuinely changes or provides.
+#
+# Populate an entry from fact, not from anticipation: a scheduler with no
+# profiled machine has no entry until one is onboarded.
+surfaces:
+  slurm:
+    submit_command: sbatch
+    interactive_command: salloc
+    query_command: squeue
+    queues_command: sinfo
+    directive_prefix: "#SBATCH"
+    account_option: "--account"
+    chdir_option: "--chdir"
+    output_option: "--output"
+    error_option: "--error"
+    append_output_option: "--open-mode=append"
+    job_id_variable: SLURM_JOB_ID
+    array_job_id_variable: SLURM_ARRAY_JOB_ID
+    array_task_id_variable: SLURM_ARRAY_TASK_ID
+    submit_dir_variable: SLURM_SUBMIT_DIR
+evidence: docs
+observed: "2026-08-28"
+observed_on:
+  requirements: scheduler-submission-surface
+review_by: "2027-08-28"
+sources:
+  - https://slurm.schedmd.com/sbatch.html
+  - https://slurm.schedmd.com/salloc.html
+  - https://slurm.schedmd.com/squeue.html
+  - https://slurm.schedmd.com/sinfo.html

@@ -8,9 +8,10 @@ public_login_hosts:
   - saul.nersc.gov
 scheduler:
   type: slurm
-  submit_command: sbatch
-  query_command: squeue
-  queues_command: sinfo
+  # This site sets no scheduler-provided node-local temporary directory.
+  # Stated as an explicit null because an omitted key cannot be told apart
+  # from one nobody checked; see ARCHITECTURE.md scheduler-surface.
+  node_local_tmp_variable: null
 filesystems:
   scratch:
     purpose: High-performance temporary storage for active Perlmutter jobs.
