@@ -35,6 +35,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Branch policy** | **There is none, deliberately.** QUDA and MILC are built from `develop`, a feature branch, or a fork, per episode; tagged releases are not used. So the branch is session state too, and the environment-vs-stack check reports **ancestry — including `diverged` — never a commit distance** ([§version-lifetimes](#version-lifetimes)) | Either project adopts a real release cadence |
 | **Node types** | One `machines/<name>/` per machine, with `node_types:` inside for CPU/GPU partitions *and* for heterogeneous accelerators — never `machine-gpu/` beside `machine-cpu/`. Node types carry build-determining fields separately from sizing-determining ones, including documented installed inventory per type; stacks record `validated_on:` as a list, and shared-architecture compatibility is **reported as an inference, never as validation**. An explicit operator declaration selects the node type; without one, exactly one profiled node type is the unambiguous default, while multiple profiled types require a declaration. A login host alone never selects it. The resolved type is reconciled against vendor runtime telemetry once a job runs ([§node-types](#node-types)) | — |
 | **Machine order** | Frontier → DeltaAI → Aurora, onboarded as needed rather than as slices. Scheduler and accelerator fields are **discriminated on type from slice 2** so PBS and non-NVIDIA arrive as values, not restructures ([§build-order](ROADMAP.md#build-order)) | — |
+| **Scheduler submission surface** | `machine.yaml`'s `scheduler:` block carries the submission surface — directive prefix, account/chdir/output option names, and the job-id, array, and submit-directory variables — so submission guidance stays scheduler-agnostic. A facility the site does not provide is declared as an explicit `null`, never omitted ([§scheduler-surface](#scheduler-surface)) | A scheduler arrives whose submission surface cannot be expressed as named options and variables |
 | **The plan itself** | Ships in the repo as `ARCHITECTURE.md` (durable) + `ROADMAP.md` (state), developer-mode only ([§plan-ships-with-handbook](#plan-ships-with-handbook)) | — |
 | **Cross-references** | Stable `<a id="slug">` anchors, not section numbers; numbers stay in headings and may change freely. Validator-enforced. **Long documents only** — knowledge files are already addressed by path ([§stable-anchors](#stable-anchors)) | — |
 | **Predictions** | The loop is mandatory in benchmarking and tuning, but records live in the **working directory**; only `prediction.schema.json` ships ([§records-in-working-directory](#records-in-working-directory)) | — |
@@ -69,6 +70,8 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Handbook change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
 | **Project Git authority** | Authorization to change project code does not authorize commits or publication. Canonical `AGENTS.md` owns the standing rule: the agent requires an explicit operator request before committing, pushing, or opening or updating a pull or merge request. The default handoff is an uncommitted working tree, a validation summary, and a suggested commit message | The operator explicitly delegates a named class of Git actions |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | An agent should submit unattended — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
+| **Batch submission scripts** | Guidance is one universal Tier-2 convention leaf, loaded before writing, modifying, or reviewing a batch script or preparing a submit command, and reached from a Tier-0 pointer. Mechanically decidable rules move to `tools/check-batch-script.py`, which is **advisory lint, never a sandbox** ([§batch-scripts](#batch-scripts)) | Slice 7 lands a `PreToolUse` guard that enforces rather than advises |
+| **Chargeable account** | **Never inferred** — not from a scheduler or environment default, an accounting query, another script in the working directory, or an archived campaign script. Enumerating available accounts is expected; selecting one is not ([§account-rule](#account-rule)) | The operator declares a standing per-campaign default account |
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
 | **Test builds** | Build the complete available test suite by default. A reduced test build requires an **explicit operator instruction for that build**; record the opt-out and exact excluded targets. Test execution may remain focused on the validation contract | The complete suite cannot be compiled within available build resources and the operator adopts another standing policy |
 | **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared interpreter dispatcher and checker, and an offer-only installer. The dispatcher selects a compatible versioned Python without loading a module; adapters are copied into `~/.claude/` or `~/.codex/`, and Codex still requires user trust. Logs remain **operator-facing provenance backups**: agents do not read them unless the operator explicitly requests review, and authorized review treats them as private evidence rather than canonical knowledge ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
@@ -184,6 +187,9 @@ lqcd-agent-handbook/
 │   ├── orientation.md         # HISQ is the default everywhere; vocabulary; units;
 │   │                          #   evidence tags; what "solve", "setup", "sweep" mean here;
 │   │                          #   the do-not-read rule for session_*.log (§session-logging)
+│   ├── batch-scripts.md       # submission-script invariants: append-only w.r.t. inputs
+│   │                          #   and shared data, account and ceiling resolution,
+│   │                          #   directive pinning, review gate (§batch-scripts)
 │   ├── running.md             # env-var capture, verbosity, sacct/scontrol/nvidia-smi
 │   │                          #   logging, session logging (§session-logging),
 │   │                          #   the job-submission budget rule and its ledger
@@ -287,6 +293,7 @@ lqcd-agent-handbook/
 │   ├── check_decomposition.py     # admitted from a validated source tool
 │   ├── extract-milc-timings.py
 │   ├── summarize-slurm-job.py
+│   ├── check-batch-script.py      # advisory batch-script lint (§batch-scripts)
 │   └── validate-knowledge.py      # schema, provenance, privacy, staleness, generated
 │                                  #   indices, P2 advisories, and references (§validator-checks)
 │
@@ -802,6 +809,51 @@ or frozen, while the relevant application guide defines what a solve, trajectory
 completion marker, or timer means for that executable. When an application lacks a guide, the
 session must characterize those boundaries from source and representative output before treating
 an extracted number as comparable evidence.
+
+<a id="scheduler-surface"></a>
+### 3.9. The scheduler submission surface
+
+Submission guidance must not name one scheduler. Three profiled machines are Slurm and
+Aurora is PBS, so a leaf that writes `sbatch`, `#SBATCH`, or `$SLURM_JOB_ID` into its prose
+fails the P3 test the moment Aurora lands. The slice-2 insurance already discriminates
+`scheduler:` on `type:` so a second scheduler arrives as a value; this section states what
+that block must carry for the discrimination to be usable by a consumer rather than merely
+well-shaped.
+
+```yaml
+scheduler:
+  type: slurm
+  submit_command: sbatch
+  interactive_command: salloc
+  directive_prefix: "#SBATCH"
+  account_option: "--account"
+  chdir_option: "--chdir"
+  output_option: "--output"
+  error_option: "--error"
+  append_output_option: "--open-mode=append"
+  job_id_variable: SLURM_JOB_ID
+  array_job_id_variable: SLURM_ARRAY_JOB_ID
+  array_task_id_variable: SLURM_ARRAY_TASK_ID
+  submit_dir_variable: SLURM_SUBMIT_DIR
+  node_local_tmp_variable: null
+```
+
+Every field is here because [§batch-scripts](#batch-scripts) or its checker consumes it;
+none is decorative. The commands the block already held stay where they are.
+
+**A facility the site does not provide is declared as an explicit `null`, never omitted.**
+This is the mechanism that replaces naming a site variable in prose. A live Perlmutter
+session found `SLURM_TMPDIR` unset, and the two safeguards a submission script normally
+carries interact badly there: under `set -u` the reference aborts the job, and without it
+`"${SLURM_TMPDIR}/work"` expands to an absolute path at the filesystem root. An explicit
+`null` states *this site provides none* — a fact — while an omitted key is indistinguishable
+from one nobody recorded. The same rule governs which filesystem variables a script may
+name: only those a profile declares, which is why the guidance never writes `$SCRATCH`,
+`$PROJECT`, or `$CFS` into its own text.
+
+**Populate from fact, not from anticipation.** The Slurm values are recorded because they
+are known on the profiled machines. PBS values arrive with Aurora; inventing them now would
+be the overclaim [§stacks](#stacks) rule 2 exists to prevent, in a schema instead of a stack.
 
 <a id="session-start"></a>
 ## 4. How a session starts across frontends
@@ -1746,6 +1798,72 @@ directory can both read a balance and both submit — the same class as [§fresh
 question, with the same answer: the operator is one person, so report it, do not build
 locking. And **the ledger is accounting, not enforcement** — it makes overspend visible, not
 impossible. Enforcement remains deferred ([§deferred-decisions](ROADMAP.md#deferred-decisions)); this does not un-park it.
+
+<a id="account-rule"></a>
+### 7.7. The chargeable account is never inferred
+
+[§budget-rule](#budget-rule) governs *how much* may be spent. This governs *whose allocation
+pays*, and it is the second rule in this document with irreversible consequences: a wrong
+ceiling overspends the operator's own allocation, a wrong account spends someone else's.
+
+`[operator]` Operators routinely hold several submission accounts. An agent that picks one —
+because it was the scheduler default, the only row an accounting query returned, or the
+string in a script it found nearby — has made an accounting decision it had no standing to
+make, and the charge is not reversible.
+
+**Declared, never derived.** Not from a scheduler or environment default, not from the first
+row of an accounting query, not from another script in the working directory, and not from an
+archived campaign script — historical scripts are exactly where a stale account survives
+longest. Enumerating the accounts available to the operator and presenting them is expected
+and useful; selecting one is not. **A single visible account is still not a declaration**: the
+set an agent can see is not necessarily the set the operator may charge for this campaign.
+
+**It is campaign state, so it lives beside the ledger** in the working directory
+([§no-escape-hatch](#no-escape-hatch)) and never in the handbook, where allocation and project
+codes are denied outright ([§deny-list](#deny-list)). That has a specific consequence for
+tooling: a checker reports whether an account option is present and where, and **never echoes
+the value it found**, because a lint that prints an allocation code into a log that is later
+committed breaches the rule it was written to enforce.
+
+<a id="batch-scripts"></a>
+### 7.8. Batch submission scripts
+
+A batch script is the one artifact an agent writes that later executes with the operator's
+full credentials, outside whatever constrains the agent's own tool calls. That is true under
+every frontend, so the guidance is frontend-agnostic; it is true under every scheduler, so it
+reads [§scheduler-surface](#scheduler-surface) rather than naming directives.
+
+**Placement: one universal Tier-2 leaf, reached from a Tier-0 pointer.** The requirement is
+that it load *only* before batch-script work and *every* time, and those pull opposite ways —
+Tier 0 guarantees "every time" and cannot afford the content (P1), while a Tier-2 leaf affords
+the content and needs a trigger. The resolution is the one `conventions/filesystem-discovery.md`
+already uses: the leaf holds the rules, and a single Tier-0 standing-rule line names the
+trigger and points at it. Its `load_when` covers writing, modifying, and reviewing a script
+*and* preparing a submit command, so the no-ceiling handoff of [§budget-rule](#budget-rule) is
+covered rather than exempt.
+
+**The invariant is positive; the prohibited list is illustrative.** A batch script is
+**append-only with respect to inputs and shared data** — read what exists, create what does
+not. Run-owned mutable state is the deliberate exception: a tunecache, checkpoint, or restart
+file inside the run root is rewritten by design, and a blanket "never modify anything that
+exists" would forbid the warm-state contract tuning mode requires. Any enumeration of
+destructive commands stays explicitly non-exhaustive, because an agent reading a long specific
+list infers that absence means permission; the case that decides the commands nobody
+enumerated is *name the approved writable root this write lands under, or do not write it*.
+
+**Checkable rules become a tool.** [§prefer-a-tool](#prefer-a-tool) applies directly. Whether
+`set -euo pipefail` is present, whether the script submits another job, whether the working
+directory and output targets are pinned rather than inherited, and whether a referenced
+variable is one the profile declares are all decidable — and several are decidable only
+against `machine.yaml`. Whether a writable root is genuinely approved, whether an invoked
+program is safe, and intent are not, and the leaf says so rather than implying coverage.
+
+**`tools/check-batch-script.py` is advisory lint, never a sandbox.** It cannot stop a script
+being written unchecked; only interception can, which is Slice 7's `PreToolUse` guard and the
+same conclusion [§deferred-decisions](ROADMAP.md#deferred-decisions) already reached about
+enforcing the budget. It is calibrated against scripts already trusted in the working project,
+because a lint that fires on known-good input trains the operator to ignore it —
+[§tolerances](#tolerances) applied to a checker.
 
 ---
 
