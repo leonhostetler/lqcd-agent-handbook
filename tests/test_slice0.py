@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import importlib.util
 import shutil
 import subprocess
 import sys
@@ -15,6 +16,13 @@ from jsonschema import Draft202012Validator
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SUPPORT_SPEC = importlib.util.spec_from_file_location(
+    "handbook_test_support", ROOT / "tests/support.py"
+)
+SUPPORT = importlib.util.module_from_spec(SUPPORT_SPEC)
+assert SUPPORT_SPEC.loader is not None
+SUPPORT_SPEC.loader.exec_module(SUPPORT)
+handbook_copy_ignore = SUPPORT.handbook_copy_ignore
 
 
 class SliceZeroTests(unittest.TestCase):
@@ -92,8 +100,8 @@ class SliceZeroTests(unittest.TestCase):
             shutil.copytree(
                 ROOT,
                 handbook_copy,
-                ignore=shutil.ignore_patterns(
-                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ignore=handbook_copy_ignore(
+                    ROOT, ".git", "__pycache__", "*.pyc", "session_*.log"
                 ),
             )
             private_path = "/" + "home/example/private/"
@@ -126,8 +134,8 @@ class SliceZeroTests(unittest.TestCase):
             shutil.copytree(
                 ROOT,
                 handbook_copy,
-                ignore=shutil.ignore_patterns(
-                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ignore=handbook_copy_ignore(
+                    ROOT, ".git", "__pycache__", "*.pyc", "session_*.log"
                 ),
             )
             orientation = handbook_copy / "conventions/orientation.md"
@@ -259,8 +267,8 @@ class SliceZeroTests(unittest.TestCase):
             shutil.copytree(
                 ROOT,
                 handbook_copy,
-                ignore=shutil.ignore_patterns(
-                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ignore=handbook_copy_ignore(
+                    ROOT, ".git", "__pycache__", "*.pyc", "session_*.log"
                 ),
             )
             manifest = handbook_copy / "handbook.yaml"
@@ -290,8 +298,8 @@ class SliceZeroTests(unittest.TestCase):
             shutil.copytree(
                 ROOT,
                 handbook_copy,
-                ignore=shutil.ignore_patterns(
-                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ignore=handbook_copy_ignore(
+                    ROOT, ".git", "__pycache__", "*.pyc", "session_*.log"
                 ),
             )
             manifest = handbook_copy / "handbook.yaml"
@@ -319,8 +327,8 @@ class SliceZeroTests(unittest.TestCase):
             shutil.copytree(
                 ROOT,
                 handbook_copy,
-                ignore=shutil.ignore_patterns(
-                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ignore=handbook_copy_ignore(
+                    ROOT, ".git", "__pycache__", "*.pyc", "session_*.log"
                 ),
             )
             with (handbook_copy / "CLAUDE.md").open("a") as mirror:
@@ -355,8 +363,8 @@ class SliceZeroTests(unittest.TestCase):
             shutil.copytree(
                 ROOT,
                 handbook_copy,
-                ignore=shutil.ignore_patterns(
-                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ignore=handbook_copy_ignore(
+                    ROOT, ".git", "__pycache__", "*.pyc", "session_*.log"
                 ),
             )
             (handbook_copy / "CLAUDE.md").write_text("stale\n")
@@ -383,8 +391,8 @@ class SliceZeroTests(unittest.TestCase):
             shutil.copytree(
                 ROOT,
                 handbook_copy,
-                ignore=shutil.ignore_patterns(
-                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ignore=handbook_copy_ignore(
+                    ROOT, ".git", "__pycache__", "*.pyc", "session_*.log"
                 ),
             )
             with (handbook_copy / "CLAUDE.md").open("a") as mirror:

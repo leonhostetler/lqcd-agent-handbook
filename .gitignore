@@ -2,3 +2,15 @@ session_*.log
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# Frontend session tooling writes these into whatever directory an agent opens, and an
+# agent sandbox additionally materialises a placeholder at every path it denies writes to
+# — as a device node or as an unwritable empty file, varying within a single session.
+# None of it is handbook content, and declaring so here is what keeps it out of the
+# freshness and developer gates on every machine. The handbook owns only the skill
+# directories, which stay tracked and fully visible.
+/.mcp.json
+/.claude/*
+!/.claude/skills/
+/.agents/*
+!/.agents/skills/

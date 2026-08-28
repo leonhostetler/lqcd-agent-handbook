@@ -36,7 +36,19 @@ pending intake only when Git reports `??`, the path is directly under `inbox/pro
 classification is structural: it does not inspect or clear the file's contents. Any other
 status entry is a hard gate.
 
-Fetch the configured upstream when available. If local HEAD matches upstream, continue.
+The tooling paths an agent sandbox writes placeholders into — `.mcp.json`, `.claude/*`,
+`.agents/*`, excluding the handbook-owned `skills/` directories — are ignored in
+`.gitignore`, so they never reach that gate whatever the sandbox makes them. Extend the
+ignore list when a frontend adds a tooling path, and never add an entry to wave through a
+path the gate stops on: outside those declared paths, a `??` entry is real.
+
+Fetch the configured upstream when available. If the fetch fails because the environment
+cannot take Git's credential lock — a sandbox with a read-only `HOME` reports
+`unable to get credential storage lock` — retry once as
+`GIT_TERMINAL_PROMPT=0 git -c credential.helper= fetch`. That needs no credentials for a
+public HTTPS remote and fails fast instead of hanging on a prompt. If the retry also fails,
+freshness is unverified: report that and stop rather than continuing on possibly stale
+knowledge. If local HEAD matches upstream, continue.
 If upstream is a fast-forward and the tree is clean or contains only untracked pending
 intake, pull with `git pull --ff-only`. On an incoming-path collision, other dirtiness, an
 ahead branch, a missing upstream, or divergence, report the state and stop before using

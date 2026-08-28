@@ -11,6 +11,19 @@ budget-ledger work, then run its cold-session acceptance test.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
+On 2026-08-28 two session-start defects were repaired without changing the Slice 4 next
+action. An agent sandbox on Perlmutter wrote placeholders over ten tooling paths under the
+handbook root; Git reported them as `??` and stage 2 stopped orientation on an apparently
+dirty tree. Those paths are now ignored in `.gitignore` and `ARCHITECTURE.md` §4.3 gained
+rule 3a. The rule records why the fix is a declaration rather than a test on the placeholder:
+the same sandbox represented the same paths first as character devices owned by `nobody` and
+then as empty unwritable regular files owned by the operator, so ownership, size, mode, and
+file type were all unreliable. Separately, that session could not fetch upstream because the
+sandbox `HOME` is read-only, so rule 6 and the playbook now prescribe one
+`git -c credential.helper=` retry and an explicit stop when freshness stays unverified. The
+eleven tests that copy the repository were failing on the same placeholders and now route
+their copies through `tests/support.py`.
+
 <a id="current-slice-state"></a>
 ## Current slice state
 
@@ -331,13 +344,17 @@ record: both scripts declare their account with the short form, so the record no
 short aliases alongside the long options. The tool is advisory, and its status line names the
 approved-root, invoked-program, and intent checks it does not perform.
 
-Two defects surfaced during the batch-script work and remain open. `6c8e9f9` split
+Two defects surfaced during the batch-script work. `6c8e9f9` split
 `select-python` out of the session-logging runner without updating that runner's tests, so
 three checks were red for two commits before a bisect found them; the fix landed in
 `ee8517d`, and the lesson is that a tool change must run its own tests, not only the
-validator. Separately, `.gitignore` covers `session_*.log` but nothing under `.claude/`, so a
-developer-mode session whose frontend mounts configuration paths into this repository trips
-its own clean-tree gate and breaks eleven tests that copy the tree. Neither is scheduled.
+validator. Separately, `.gitignore` covered `session_*.log` but nothing under `.claude/`, so a
+developer-mode session whose frontend mounts configuration paths into this repository tripped
+its own clean-tree gate and broke eleven tests that copy the tree. Both halves were fixed
+on 2026-08-28: the gate half by ignoring the frontend tooling paths, and the copying tests
+by routing through `tests/support.py`, since `.gitignore` has no effect on
+`shutil.copytree`. That helper repeats the same declaration in executable form and keeps
+the handbook-owned `skills/` directories the validator needs.
 
 Latest automated evidence:
 
@@ -357,10 +374,10 @@ Latest automated evidence:
 
 The validator is now invoked through `tools/run-validator` rather than a bare `python3`,
 because on a module-based system no interpreter on `PATH` carries `jsonschema`; the runner
-discovers one. Two caveats on the suite: eleven errors appear when it runs inside a working
-tree where an agent frontend has mounted device nodes over `.mcp.json` or `.claude/` paths,
-because tests that copy the tree cannot read them; and this session's counts were observed
-under a 3.12 module, with identical results under 3.11 and 3.14.
+discovers one. One caveat on the suite: this session's counts were observed under a 3.12
+module, with identical results under 3.11 and 3.14. The eleven errors that used to appear
+inside a working tree where an agent frontend has mounted placeholders over `.mcp.json` or
+`.claude/` paths were fixed on 2026-08-28.
 
 Accepted on 2026-08-15 by operator report: the Claude launcher in user mode, the Claude
 launcher in developer mode, Claude invoked without the launcher, the Codex launcher in user

@@ -13,6 +13,13 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SUPPORT_SPEC = importlib.util.spec_from_file_location(
+    "handbook_test_support", ROOT / "tests/support.py"
+)
+SUPPORT = importlib.util.module_from_spec(SUPPORT_SPEC)
+assert SUPPORT_SPEC.loader is not None
+SUPPORT_SPEC.loader.exec_module(SUPPORT)
+handbook_copy_ignore = SUPPORT.handbook_copy_ignore
 VALIDATOR_SPEC = importlib.util.spec_from_file_location(
     "validate_knowledge_slice3", ROOT / "tools/validate-knowledge.py"
 )
@@ -71,7 +78,7 @@ class SliceThreeProfileTests(unittest.TestCase):
             shutil.copytree(
                 ROOT,
                 copy,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+                ignore=handbook_copy_ignore(ROOT, ".git", "__pycache__", "*.pyc"),
             )
             path = copy / "software/milc/build-profiles.yaml"
             record = yaml.safe_load(path.read_text())
@@ -90,7 +97,7 @@ class SliceThreeProfileTests(unittest.TestCase):
             shutil.copytree(
                 ROOT,
                 copy,
-                ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+                ignore=handbook_copy_ignore(ROOT, ".git", "__pycache__", "*.pyc"),
             )
             path = copy / "software/milc/build-profiles.yaml"
             record = yaml.safe_load(path.read_text())

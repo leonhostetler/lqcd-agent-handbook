@@ -5,6 +5,7 @@ import datetime as dt
 import json
 import os
 from pathlib import Path
+import importlib.util
 import shutil
 import stat
 import subprocess
@@ -14,6 +15,13 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SUPPORT_SPEC = importlib.util.spec_from_file_location(
+    "handbook_test_support", ROOT / "tests/support.py"
+)
+SUPPORT = importlib.util.module_from_spec(SUPPORT_SPEC)
+assert SUPPORT_SPEC.loader is not None
+SUPPORT_SPEC.loader.exec_module(SUPPORT)
+handbook_copy_ignore = SUPPORT.handbook_copy_ignore
 RUNNER = ROOT / "tools/run-session-logging-python"
 
 
@@ -547,8 +555,8 @@ class SessionLoggingTests(unittest.TestCase):
             shutil.copytree(
                 ROOT,
                 handbook,
-                ignore=shutil.ignore_patterns(
-                    ".git", "__pycache__", "*.pyc", "session_*.log"
+                ignore=handbook_copy_ignore(
+                    ROOT, ".git", "__pycache__", "*.pyc", "session_*.log"
                 ),
             )
             (handbook / "tools/log-session-codex.py").unlink()

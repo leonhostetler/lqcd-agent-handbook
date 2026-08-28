@@ -987,6 +987,18 @@ Seven rules:
    inspects nor clears the contents. Report each pending path. Modified, deleted, or renamed
    tracked paths; nested or misnamed inbox paths; and changes anywhere else remain hard
    stops.
+3a. **Frontend session tooling is declared non-content in `.gitignore`, so it never reaches
+   rule 3.** An agent sandbox materialises a placeholder at every path it denies writes to,
+   and Git reports each as `??` although nothing was authored — enough to stop a session on
+   the sandbox's own bookkeeping, as ten such paths did on Perlmutter on 2026-08-28. Do not
+   try to recognise a placeholder by inspecting it: that same sandbox represented the same
+   paths first as character devices owned by `nobody` and then, minutes later, as empty
+   unwritable regular files owned by the operator. Ownership, size, mode, and file type all
+   moved. Declaration is stable where inspection is not, so `.mcp.json`, `.claude/*`, and
+   `.agents/*` are ignored, with the handbook-owned `skills/` directories re-included — a
+   new or modified file under `.claude/skills/` is still reported, because that part *is*
+   handbook content. Extend the ignore list when a frontend adds a tooling path; outside
+   those declared paths, a `??` entry is real and rule 3 applies unchanged.
 4. **A committed inbox entry is pending intake too, and it is the ordinary
    cross-machine case.** An untracked proposal cannot leave the clone that wrote it, so the
    only way to put one in front of the machine that will review it is to commit it.
@@ -1006,6 +1018,14 @@ Seven rules:
    `git pull --ff-only`**. On an incoming-path collision, other dirtiness, an ahead branch,
    a missing upstream, or divergence, report the state and stop. Report committed intake in
    the orientation summary; it never blocks, because it leaves the tree clean.
+
+   **A fetch that fails on the environment is not divergence.** A sandbox with a read-only
+   `HOME` cannot take Git's credential lock, and the fetch dies before reaching the network
+   (`unable to get credential storage lock`). Retry once as
+   `GIT_TERMINAL_PROMPT=0 git -c credential.helper= fetch`, which needs no credentials for a
+   public HTTPS remote and fails immediately rather than hanging on a prompt for a private
+   one. If the retry also fails, freshness is genuinely unverified: report that and stop.
+   The gate is never satisfied by a fetch that did not run.
 7. **Developer mode requires current HEAD and a clean tracked tree before it may write.**
    Untracked pending intake may remain while it is reviewed; committed intake needs no
    exception, because it is not dirt. In both states, compare each entry's
