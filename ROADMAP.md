@@ -279,6 +279,21 @@ LQCD analysis or action, tuning mode invokes the solver-tuning playbook for solv
 analysis, and that playbook maps task signals to the smallest relevant leaves without making
 skill installation a prerequisite.
 
+On 2026-08-28 a Perlmutter developer session found that the mandatory pre-commit validator
+could not run at all. `tools/select-python` scans `PATH` only, and the sole candidate there,
+the distribution `python3.11`, carries PyYAML but not `jsonschema`; the unversioned `python3`
+is 3.6.15. Session logging was unaffected because its requirements are PyYAML plus stdlib
+`tomllib`, so the defect was invisible until the validator was invoked. The no-module rule
+turned out to be scoped to output integrity for the JSON-parsed session-logging checker
+rather than to interpreter selection generally, so `run-validator` now passes
+`--allow-module-load` and the dispatcher discovers module-provided interpreters from the
+module system, in its existing version-preference order, probing each with the caller's own
+requirements. No module name enters the tool. With the dispatcher's existing NERSC PyMon
+suppression the preferred `python/3.11-24.1.0` probes cleanly and is selected, and the
+validator returns identical results under 3.11, 3.12, and 3.14. Rejected candidates are now
+reported with the specific reason rather than discarded, because a silent scan cannot
+distinguish a missing package from a too-old interpreter.
+
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six

@@ -9,6 +9,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 exec "$here/select-python" \
     --label "the knowledge validator" \
+    --allow-module-load \
     --require yaml \
     --require jsonschema \
     -- "$here/validate-knowledge.py" "$@"

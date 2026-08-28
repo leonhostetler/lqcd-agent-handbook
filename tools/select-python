@@ -11,6 +11,7 @@ usage() {
     cat >&2 <<'USAGE'
 usage: select-python [--label TEXT] [--min-version MAJOR.MINOR]
                      [--require MODULE]... [--require-any MOD,MOD]...
+                     [--allow-module-load]
                      -- <script> [args ...]
 USAGE
     exit 2
@@ -21,6 +22,7 @@ min_major=3
 min_minor=10
 require=()
 require_any=()
+allow_module_load=0
 
 while (( $# > 0 )); do
     case "$1" in
@@ -29,6 +31,7 @@ while (( $# > 0 )); do
                        min_major="${2%%.*}"; min_minor="${2##*.}"; shift 2 ;;
         --require)     (( $# >= 2 )) || usage; require+=("$2"); shift 2 ;;
         --require-any) (( $# >= 2 )) || usage; require_any+=("$2"); shift 2 ;;
+        --allow-module-load) allow_module_load=1; shift ;;
         --)            shift; break ;;
         *)             usage ;;
     esac
@@ -78,19 +81,87 @@ exec 3<&0
 # without NERSC PyMon.
 export NERSC_PYMON_DISABLE=1
 
-# Prefer versioned commands. On module-based systems, an unversioned python3 may
-# be the system Python or a module wrapper that emits site diagnostics on stdout.
-for name in python3.11 python3.12 python3.13 python3.14 python3.10 python3; do
+# Preferred minor versions, most-tested first. One list feeds both the PATH scan
+# and module discovery, so the two cannot drift about what "preferred" means.
+preferred=(3.11 3.12 3.13 3.14 3.10)
+
+# Rejections are recorded rather than discarded. A silent scan leaves the caller
+# with "nothing worked" and no way to separate a missing package from an
+# interpreter that is merely too old, which is the difference that decides what
+# to do next.
+rejected=""
+probe_out=""
+probe_rc=0
+
+record_rejection() {
+    local what="$1" rc="$2" out="$3" why=""
+    if (( rc != 0 )); then
+        why="$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1 || true)"
+        why="${why:-does not satisfy Python ${min_major}.${min_minor}+ with ${described}}"
+    else
+        why="imports satisfied, but it emitted: $(printf '%s\n' "$out" \
+             | grep -v '^[[:space:]]*$' | head -1 || true)"
+    fi
+    rejected="${rejected}  ${what}: ${why}
+"
+}
+
+probe_ok() {  # sets probe_rc and probe_out; succeeds only on a clean, silent probe
+    probe_out="$("$@" </dev/null 2>&1)" && probe_rc=0 || probe_rc=$?
+    (( probe_rc == 0 )) && [[ -z "$probe_out" ]]
+}
+
+# 1. Prefer versioned commands already on PATH. On module-based systems an
+#    unversioned python3 may be the system Python or a module wrapper that emits
+#    site diagnostics on stdout.
+path_names=()
+for version in "${preferred[@]}"; do path_names+=("python${version}"); done
+path_names+=(python3)
+
+for name in "${path_names[@]}"; do
     while IFS= read -r candidate; do
         [[ -x "$candidate" ]] || continue
-        probe_output=""
-        if probe_output=$("$candidate" -c "$probe" </dev/null 2>&1) && [[ -z "$probe_output" ]]; then
+        if probe_ok "$candidate" -c "$probe"; then
             exec "$candidate" "$@" <&3 3<&-
         fi
+        record_rejection "$candidate" "$probe_rc" "$probe_out"
     done < <(type -a -p "$name" 2>/dev/null || true)
 done
 
+# 2. Optionally discover a module-provided interpreter. Only callers whose output
+#    a human reads pass --allow-module-load: the no-module rule exists to keep
+#    site diagnostics out of parsed JSON, which does not apply to prose output
+#    (§session-logging). Names are discovered from the module system and never
+#    carried here, because a module name is machine knowledge (P3). The
+#    reject-on-output rule still applies, so a module that imports cleanly but
+#    emits diagnostics is passed over for one that does not.
+if (( allow_module_load )) && [[ "$(type -t module 2>/dev/null || true)" == function ]]; then
+    available="$(module -t avail python 2>&1 | grep -v ':$' | grep -v '^[[:space:]]*$' || true)"
+    for version in "${preferred[@]}"; do
+        escaped="${version//./\\.}"
+        while IFS= read -r mod; do
+            [[ -n "$mod" ]] || continue
+            if probe_ok bash -c "module load '${mod}' >/dev/null 2>&1 && exec python3 -c \"\$1\"" _ "$probe"; then
+                module load "$mod" >/dev/null 2>&1
+                exec python3 "$@" <&3 3<&-
+            fi
+            record_rejection "module ${mod}" "$probe_rc" "$probe_out"
+        done < <(printf '%s\n' "$available" | grep -E "/${escaped}([.-]|$)" | sort -V -r || true)
+    done
+fi
+
 echo "${label} requires Python ${min_major}.${min_minor}+ with ${described}" >&2
-echo "no interpreter on PATH satisfied that; on a module-based system, load a Python" >&2
-echo "module providing those packages and retry" >&2
+if [[ -n "$rejected" ]]; then
+    echo "candidates probed and rejected:" >&2
+    printf '%s' "$rejected" >&2
+else
+    echo "no candidate interpreter was found to probe" >&2
+fi
+if (( allow_module_load )); then
+    if [[ "$(type -t module 2>/dev/null || true)" != function ]]; then
+        echo "no module system was available to search for another" >&2
+    fi
+else
+    echo "this caller does not search module-provided interpreters" >&2
+fi
 exit 2

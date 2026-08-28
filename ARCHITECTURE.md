@@ -75,6 +75,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
 | **Test builds** | Build the complete available test suite by default. A reduced test build requires an **explicit operator instruction for that build**; record the opt-out and exact excluded targets. Test execution may remain focused on the validation contract | The complete suite cannot be compiled within available build resources and the operator adopts another standing policy |
 | **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared interpreter dispatcher and checker, and an offer-only installer. The dispatcher selects a compatible versioned Python without loading a module; adapters are copied into `~/.claude/` or `~/.codex/`, and Codex still requires user trust. Logs remain **operator-facing provenance backups**: agents do not read them unless the operator explicitly requests review, and authorized review treats them as private evidence rather than canonical knowledge ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
+| **Interpreter selection** | One shared dispatcher probes caller-declared requirements and rejects any candidate that emits diagnostics. The `PATH` scan never loads a module. A caller whose output is read by a human may additionally opt into **discovering** module-provided interpreters — enumerated from the module system, never named in the tool ([§session-logging](#session-logging)) | A caller needs an interpreter that neither `PATH` nor the module system exposes |
 | **Repo name** | `lqcd-agent-handbook` ([§locating-handbook](#locating-handbook)) | — |
 | **Locating the handbook** | `LQCD_HANDBOOK` is the sole interface; **the launcher fails fast if it is unset** — no `$HOME` fallback. No canonical path, and no clone path recorded anywhere in the repo: [§deny-list](#deny-list) denies it. Validation is **identity by content**, not by path ([§locating-handbook](#locating-handbook)) | — |
 
@@ -1037,6 +1038,27 @@ rejects candidates that emit diagnostics during the probe, and only then execute
 checker or installer. The disable variable is inert away from NERSC and does not alter the
 caller's module state. The Codex installer records the selected absolute interpreter in the
 hook command, so later hooks do not depend on `PATH` or a module environment.
+
+**The no-module rule is scoped to the session-logging path, not to every caller.** Its
+reason is output integrity: this checker's stdout is parsed as JSON, so an interpreter that
+emits site diagnostics corrupts the result even when its imports succeed. That reason does
+not transfer to a caller whose output a human reads. A Perlmutter developer session found
+the consequence: the knowledge validator additionally requires `jsonschema`, no interpreter
+on `PATH` provided it, and [§developer-obligations](#developer-obligations) item 6 makes that
+validator mandatory before every commit — so the one check guarding the privacy deny-list
+could not be run at all.
+
+**A human-facing caller may therefore opt into module-provided interpreters, by discovery
+rather than by name.** The dispatcher enumerates what the module system offers and probes
+each candidate with the caller's own requirements, in the same preference order the `PATH`
+scan uses; it never carries a module name, which would be machine knowledge in a shared tool
+(P3). The existing safeguards are what make this safe without new machinery — because the
+dispatcher already suppresses the site Python monitor for its own subprocess, the preferred
+module on the machine that exposed the defect probes cleanly and is selected, while the
+reject-on-output rule still stands guard over any candidate that emits regardless. Selection
+remains explicit, the probe is unchanged, and the load happens in the dispatcher's own
+process, so no caller's environment is mutated. Session logging does not pass the flag and
+its behaviour is unchanged.
 
 **Startup checks and offers; it never auto-installs.** After handbook freshness is
 established, `lqcd-start-session` runs `tools/check-session-logging.py` through the shared
