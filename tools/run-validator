@@ -5,9 +5,18 @@
 # through a bare `python3` on a module-based system.
 set -eu
 
-here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve this script's directory with builtins only. `dirname` is external, and
+# these runners must work under a minimal PATH: the session-logging runner is
+# invoked from a user-level Stop hook in whatever environment the frontend
+# provides, so depending on coreutils here breaks logging where PATH is bare.
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+here="$(cd -- "$here" && pwd)"
 
-exec "$here/select-python" \
+# Invoke through this same bash; see run-session-logging-python for why.
+exec "${BASH:-bash}" "$here/select-python" \
     --label "the knowledge validator" \
     --allow-module-load \
     --require yaml \

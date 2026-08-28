@@ -9,9 +9,20 @@ if (( $# == 0 )); then
     exit 2
 fi
 
-here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve this script's directory with builtins only. `dirname` is external, and
+# these runners must work under a minimal PATH: the session-logging runner is
+# invoked from a user-level Stop hook in whatever environment the frontend
+# provides, so depending on coreutils here breaks logging where PATH is bare.
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+here="$(cd -- "$here" && pwd)"
 
-exec "$here/select-python" \
+# Invoke through this same bash. select-python's own shebang would send
+# /usr/bin/env back to PATH to find bash, reintroducing the dependency the
+# builtin path resolution above just removed. $BASH is already absolute.
+exec "${BASH:-bash}" "$here/select-python" \
     --label "session logging" \
     --require yaml \
     --require-any tomllib,tomli \
