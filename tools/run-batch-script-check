@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Run the batch-script checker under an interpreter that has its dependencies.
+# The checker needs PyYAML to read the scheduler surface and the machine profile,
+# and it uses syntax a system python3 predating 3.7 cannot parse, so it is never
+# safe to invoke through a bare `python3` on a module-based system.
+set -eu
+
+# Resolve this script's directory with builtins only. `dirname` is external, and
+# these runners must work under a minimal PATH: the session-logging runner is
+# invoked from a user-level Stop hook in whatever environment the frontend
+# provides, so depending on coreutils here breaks logging where PATH is bare.
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+here="$(cd -- "$here" && pwd)"
+
+# Invoke through this same bash; see run-session-logging-python for why.
+exec "${BASH:-bash}" "$here/select-python" \
+    --label "the batch-script checker" \
+    --allow-module-load \
+    --require yaml \
+    -- "$here/check-batch-script.py" "$@"

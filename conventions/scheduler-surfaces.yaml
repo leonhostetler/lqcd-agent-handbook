@@ -14,9 +14,13 @@ surfaces:
     queues_command: sinfo
     directive_prefix: "#SBATCH"
     account_option: "--account"
+    account_option_short: "-A"
     chdir_option: "--chdir"
+    chdir_option_short: "-D"
     output_option: "--output"
+    output_option_short: "-o"
     error_option: "--error"
+    error_option_short: "-e"
     append_output_option: "--open-mode=append"
     job_id_variable: SLURM_JOB_ID
     array_job_id_variable: SLURM_ARRAY_JOB_ID

@@ -320,6 +320,17 @@ four pre-writing resolutions, the never-inferred account rule, the ban on nested
 and an ordered review gate that puts the irreversible checks first. Tier 0 gains a pointer and
 the account rule folded into the existing ceiling safeguard rather than a new bullet.
 
+Also on 2026-08-28, `tools/check-batch-script.py` mechanised the decidable half of the
+batch-script convention. It reads directive and option names from the scheduler-type surface
+record rather than carrying scheduler knowledge, treats nested submission and destructive
+operations as errors, treats missing hardening and unpinned directives as warnings, and
+enumerates truncating redirections for the reviewer instead of guessing which are unsafe. It
+never prints an account value. Calibration against the working project's two real batch
+scripts and its validation driver produced no false errors, and exposed a gap in the surface
+record: both scripts declare their account with the short form, so the record now carries
+short aliases alongside the long options. The tool is advisory, and its status line names the
+approved-root, invoked-program, and intent checks it does not perform.
+
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six
@@ -714,7 +725,11 @@ and uses no unrecorded performance conventions when that mode is selected.
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check
 landed early in Slice 0c ([§session-logging](ARCHITECTURE.md#session-logging)). Slice 7 retains
-knowledge-capture hooks and the user-mode write guard.
+knowledge-capture hooks and the user-mode write guard, and adds a `PreToolUse` guard that
+intercepts a write to a batch script and runs `tools/check-batch-script.py` before the write
+lands ([§batch-scripts](ARCHITECTURE.md#batch-scripts)). Until it exists the checker is
+advisory and agent-invoked, which is the same interim posture the budget rule already takes:
+only intercepting the call enforces, and an installer is required either way.
 **The `.gitignore` entry that logging makes necessary does not wait for this slice** — the
 hazard exists from the first developer-mode session, so it lands in slice 0.
 

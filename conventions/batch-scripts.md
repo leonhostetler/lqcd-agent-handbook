@@ -133,5 +133,12 @@ In this order, because the irreversible items come first:
 6. Check for unsafe expansion, indirect execution, and nested submission.
 7. Show the operator anything that could touch pre-existing data, and wait.
 
+`tools/run-batch-script-check` mechanises the parts of steps 3 to 6 that a machine can
+decide — nested submission, destructive operations, hardening, indirect execution, and the
+directives whose defaults are unsafe. Pass `--machine` to enable the directive checks, which
+need the profile. It is advisory: it reports what it examined and states plainly that
+approved-root, invoked-program, and intent checks were not performed. Running it does not
+discharge this review; failing to run it is not an excuse for skipping one.
+
 When uncertain whether an operation could affect shared or pre-existing data, leave it out and
 ask. A non-destructive alternative that costs disk space is always the better trade.
