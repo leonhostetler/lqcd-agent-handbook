@@ -7,6 +7,7 @@ Entries are grouped by scoped convention.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
+| [Batch submission script safety and structure](batch-scripts.md) | Invariants and required resolutions for writing, modifying, or reviewing a batch submission script on a shared system. | Writing, modifying, or reviewing a batch submission script, or preparing a submit command to hand to the operator. |
 | [Bounded filesystem discovery](filesystem-discovery.md) | Universal safeguards for file, directory, software, and data discovery on shared systems. | Searching for files, directories, software, or data on a shared system. |
 | [LQCD measurement and workflow cost accounting](measurement.md) | Shared rules for steady-state solve measurements, exact artifact validation, per-run workflow ledgers, and production-cost projections. | Planning, measuring, comparing, or projecting the cost of tuning and benchmarking runs. |
 | [LQCD orientation and vocabulary](orientation.md) | Default HISQ convention and shared meanings used throughout the handbook | beginning any LQCD handbook session |

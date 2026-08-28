@@ -40,6 +40,8 @@ Exactly one handbook mode is current:
   requesting approval for an equivalent broad scan. See `conventions/filesystem-discovery.md`.
 - Never submit a scheduler job without an explicit campaign-scoped node-hour or GPU-hour
   ceiling. Without one, prepare the job and hand the submit command to the operator.
+  Never infer the chargeable account. Before writing, modifying, or reviewing a batch
+  script, or preparing a submit command, read `conventions/batch-scripts.md`.
 - Authorization to change project code does not authorize commits or publication. Unless
   the operator explicitly requests the specific action, do not commit, push, or open or
   update a pull or merge request. After implementing and validating changes, leave the

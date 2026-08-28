@@ -307,6 +307,19 @@ because neither was available to verify, and an unrecorded field obliges a consu
 rather than assume. No machine schema bump was needed: the profiles lost restated fields and
 gained only an optional one.
 
+Also on 2026-08-28, `conventions/batch-scripts.md` admitted the operator's batch-script
+safety policy, adapted to the handbook's constraints. It is frontend-agnostic, takes every
+directive and variable name from the scheduler-type surface record rather than naming a
+scheduler, and names no site filesystem variable: a script may reference only what a machine
+profile declares. The prohibited-operation list is explicitly non-exhaustive and now includes
+truncating redirection, because an agent reading a long specific list infers that absence
+means permission; the case that decides the rest is whether the write lands under a named
+approved root. The append-only invariant is scoped to inputs and shared data so that it does
+not forbid the run-owned tunecache the warm-state contract requires. The leaf also carries the
+four pre-writing resolutions, the never-inferred account rule, the ban on nested submission,
+and an ordered review gate that puts the irreversible checks first. Tier 0 gains a pointer and
+the account rule folded into the existing ceiling safeguard rather than a new bullet.
+
 Latest automated evidence:
 
 - `python3 tools/validate-knowledge.py` in the Python 3.11 validation environment: twenty-six
