@@ -46,6 +46,9 @@ the diagnostics and calibration leaves. Do not load calibration merely to
 define a source invariant; load it when applying or contrasting its numerical
 bands.
 
+Load [`../conventions/batch-scripts.md`](../conventions/batch-scripts.md) before writing,
+modifying, or reviewing any batch script or preparing a submit command.
+
 ## 2. Build the candidate matrix
 
 For each solver, record:

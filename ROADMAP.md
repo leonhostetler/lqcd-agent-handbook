@@ -24,6 +24,13 @@ sandbox `HOME` is read-only, so rule 6 and the playbook now prescribe one
 eleven tests that copy the repository were failing on the same placeholders and now route
 their copies through `tests/support.py`.
 
+On 2026-08-29 a routing defect was repaired without changing the Slice 4 next action. An agent
+wrote and submitted three batch scripts without loading `conventions/batch-scripts.md`, although
+the Tier-0 pointer and `conventions/INDEX.md` were both correct. `ARCHITECTURE.md` §7.8 was
+amended to record that a Tier-0 pointer alone does not achieve "every time", and the trigger was
+added to the four `modes/*.md` routing sections, `playbooks/tune-solver.md`, and
+`playbooks/start-session.md` stage 6.
+
 <a id="current-slice-state"></a>
 ## Current slice state
 

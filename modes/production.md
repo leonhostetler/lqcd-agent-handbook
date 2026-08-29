@@ -238,7 +238,9 @@ inputs, transformation parameters, tool revision, output identity, and validatio
 Use the working project's instructions, detected software profile, selected machine profile,
 nearest validated stack, build profile, relevant application guide, and relevant solver or
 runtime documents. Load `conventions/running.md` for evidence reconciliation and run disposition,
-and `conventions/measurement.md` for run-owned artifact validation and workflow accounting.
+`conventions/measurement.md` for run-owned artifact validation and workflow accounting, and
+`conventions/batch-scripts.md` before writing, modifying, or reviewing any batch script or
+preparing a submit command.
 
 Keep campaign contracts, runbooks, launchers, manifests, ledgers, handoffs, private knowledge,
 monitoring state, and raw evidence in the working project. Route only durable, generalized

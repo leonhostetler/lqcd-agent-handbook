@@ -119,6 +119,10 @@ profile, and the nearest stack before applying machine- or software-specific adv
 appropriate to the suspected failure. Use `playbooks/build-lqcd-stack.md` when debugging
 requires a new or rebuilt stack.
 
+Load `conventions/batch-scripts.md` before writing, modifying, or reviewing any batch script or
+preparing a submit command. A diagnostic rerun is still a submission, and debugging is where a
+script is most likely to be edited quickly under pressure.
+
 Keep raw outputs, diagnostics, temporary models, and run state in the working directory.
 Only durable conclusions that pass the handbook admission and privacy rules may be proposed
 for canonical knowledge.

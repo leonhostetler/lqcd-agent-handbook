@@ -162,7 +162,9 @@ Use the working project's instructions, detected software profile, selected mach
 nearest validated stack, build profile, relevant application guide, and relevant solver
 documents. Load `conventions/measurement.md` for the steady-state solve series, observed
 workflow ledger, artifact manifest, and production projection, and load
-`conventions/running.md` for run disposition and evidence reconciliation. Prefer reusable
+`conventions/running.md` for run disposition and evidence reconciliation, and
+`conventions/batch-scripts.md` before writing, modifying, or reviewing any batch script or
+preparing a submit command. Prefer reusable
 timing, environment-capture, memory, and decomposition tools when present. Use the shared
 prediction record and keep all run-specific data outside the handbook.
 

@@ -70,7 +70,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Handbook change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
 | **Project Git authority** | Authorization to change project code does not authorize commits or publication. Canonical `AGENTS.md` owns the standing rule: the agent requires an explicit operator request before committing, pushing, or opening or updating a pull or merge request. The default handoff is an uncommitted working tree, a validation summary, and a suggested commit message | The operator explicitly delegates a named class of Git actions |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | An agent should submit unattended — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
-| **Batch submission scripts** | Guidance is one universal Tier-2 convention leaf, loaded before writing, modifying, or reviewing a batch script or preparing a submit command, and reached from a Tier-0 pointer. Mechanically decidable rules move to `tools/check-batch-script.py`, which is **advisory lint, never a sandbox** ([§batch-scripts](#batch-scripts)) | Slice 7 lands a `PreToolUse` guard that enforces rather than advises |
+| **Batch submission scripts** | Guidance is one universal Tier-2 convention leaf, loaded before writing, modifying, or reviewing a batch script or preparing a submit command. Reached from a Tier-0 pointer **and from every task-time routing surface that can reach script work** — modes' "Tools and routing", playbook routing tables — after the pointer alone was observed not to fire (amended 2026-08-29). Mechanically decidable rules move to `tools/check-batch-script.py`, which is **advisory lint, never a sandbox** ([§batch-scripts](#batch-scripts)) | Slice 7 lands a `PreToolUse` guard that enforces rather than advises |
 | **Chargeable account** | **Never inferred** — not from a scheduler or environment default, an accounting query, another script in the working directory, or an archived campaign script. Enumerating available accounts is expected; selecting one is not ([§account-rule](#account-rule)) | The operator declares a standing per-campaign default account |
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
 | **Test builds** | Build the complete available test suite by default. A reduced test build requires an **explicit operator instruction for that build**; record the opt-out and exact excluded targets. Test execution may remain focused on the validation contract | The complete suite cannot be compiled within available build resources and the operator adopts another standing policy |
@@ -1903,6 +1903,20 @@ already uses: the leaf holds the rules, and a single Tier-0 standing-rule line n
 trigger and points at it. Its `load_when` covers writing, modifying, and reviewing a script
 *and* preparing a submit command, so the no-ceiling handoff of [§budget-rule](#budget-rule) is
 covered rather than exempt.
+
+**Amended 2026-08-29: a Tier-0 pointer alone does not achieve "every time".** In a tuning
+session on Perlmutter an agent wrote three launchers and submitted three jobs without opening
+the leaf. Nothing was missing: the Tier-0 line was in context for the whole session and
+`conventions/INDEX.md` indexed the leaf with a matching `load_when`. The failure is that the
+routing an agent *executes* at task time is not the routing it *loaded* at session start. The
+task-time surfaces — `modes/*.md` "Tools and routing", the playbooks' task-triggered routing
+tables, and the working project's own submission checklist — each named some conventions and
+not this one, and a list that names two conventions reads as complete.
+
+The revised decision keeps the Tier-0 pointer and adds the trigger to every task-time surface
+that can reach batch-script work. The Tier-0 line still guarantees the rule is *present*; the
+task-time surfaces are what make it *fire*. This does not weaken P1: the leaf still holds the
+content and Tier 0 still holds only the pointer.
 
 **The invariant is positive; the prohibited list is illustrative.** A batch script is
 **append-only with respect to inputs and shared data** — read what exists, create what does

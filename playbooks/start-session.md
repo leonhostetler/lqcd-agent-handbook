@@ -121,6 +121,11 @@ the default. If the profile has multiple entries, leave node type undeclared unt
 operator selects one. Reconcile the resolved type with accelerator telemetry once a job
 runs.
 
+Routing does not end here. `INDEX.md` and the domain indices — `conventions/INDEX.md` included —
+are **task-time** surfaces to re-consult whenever the task narrows or changes, not session-start
+loads. Naming them at orientation is deliberate: a convention whose only pointer is a Tier-0
+standing rule has been observed not to load at the moment it applied.
+
 End with a compact orientation report: frontend, handbook identity/freshness, handbook
 mode, work mode, machine, software/commit, node type, nearest stack, any staleness warning,
 and pending intake — stating the count and tracked state, or that the inbox is empty — plus
