@@ -122,6 +122,36 @@ transfer, communication and per-level efficiency, and therefore sufficient to or
 but never to certify one or to be converted into a time. That caveat is the reason it sits
 beside, not instead of, the rule that a cost model cannot promote a candidate.
 
+On 2026-09-02 the last deferred item from the 0.09-fm campaign was admitted, as two rules
+rather than one, without changing the Slice 4 next action. **Ordering** went into
+`conventions/running.md`: run the contract-governed extractor first and analyse its output,
+because a hand pass performed first makes the *uncontracted* reading decisive and produces a
+defect class — transcription between adjacent records, aggregation over the wrong subset — that
+an executed contract does not. **The periodic audit** became `conventions/repeated-work.md`,
+with the checkpoint named in the `Done` and `Tools and routing` sections of all four work-mode
+documents, so a work-mode change fires it mechanically rather than by memory.
+
+The design point worth keeping is why it is a checkpoint and not a trigger. Every other routing
+obligation attaches to an event; this one cannot, because the set of repeated actions is not
+visible when a campaign starts and changes shape as its phase changes. Study or phase closure
+and work-mode change are the recurring anchors, chosen because they are exactly when that set
+has just shifted. `ARCHITECTURE.md` §7.5d was clarified rather than widened: it governs
+authoring time, the new convention governs working practice, and merging them would conflate a
+carrying-cost argument with a defect-rate argument.
+
+The Tier-0 standing rule that already preferred a tool to prose now also names the recurring
+trigger and points at the leaf, following §7.8's resolution of the same tension: Tier 0
+guarantees "every time" and cannot afford the content, the leaf affords the content and needs
+a trigger. That cost 129 bytes, leaving the entrypoint at 4866 of 5120 and Tier 0 at 5512 of
+6144; `CLAUDE.md` was re-mirrored byte-for-byte, which the frontend preflight checks.
+
+The convention ships with a counterweight, because the rule otherwise manufactures its own
+failure mode. The same campaign recorded a wrapper script that had never worked going
+undetected for a day, and a verification harness that reported success while modifying nothing
+after its negative control was silently dropped in a rewrite. So a new tool is not trusted on a
+passing run: it must be perturbed until it fails, a no-op negative test is vacuous, and
+"leave it manual, reviewed at the next checkpoint" is a recorded outcome rather than a failure.
+
 <a id="current-slice-state"></a>
 ## Current slice state
 
@@ -893,6 +923,7 @@ column is the test. On the move into the repo ([§plan-ships-with-handbook](ARCH
 | **Whether session logging should also archive the raw transcript JSONL** for full provenance, tool I/O included ([§session-logging](ARCHITECTURE.md#session-logging)) | **Prose-only.** The shipped logger stays as the operator wrote it; the JSONL under `~/.claude/projects/` is the true last resort where it survives | The prose record proves insufficient to reconstruct an episode the operator needed back — or a machine rebuild/scratch purge destroys a JSONL that was wanted. Note the cost before adopting: much larger files in the working directory, and a far bigger privacy surface, since the JSONL contains every file read and every command run |
 | **Whether the handbook is measurably cheaper than the rediscovery it replaces** | No measurement. Cold-session tests stay qualitative | The handbook becomes big enough to feel slow to navigate. **If implemented, it is the lightweight version** (below) — not an A/B harness |
 | **A retained validation set for the fitted tool models** — a small, screened set of `(inputs -> measured counter)` rows committed as test fixtures, so a fit's published error is re-derivable in-repo | **None committed.** `tools/quda-staggered-memory.py` carries its population and error strings as prose, and the corpus behind them is not in this repository ([§non-public-evidence](ARCHITECTURE.md#non-public-evidence)). The 2026-09-02 regression test pins the documented examples to the model's **own output**, so it detects drift but cannot detect that a model was wrong to begin with. Under [§decisions-knowledge-contract](ARCHITECTURE.md#decisions-knowledge-contract) no fit may be revised meanwhile, which is conservative but leaves known one-sided errors uncorrected | A fit needs revising rather than annotating — the open case is whether the MG model's phase A genuinely peaks before the coarsest eigensolve, or whether its fitted setup-workspace constant absorbs an eigenspace term that was near-constant across the corpus; those imply opposite repairs and no in-repo evidence distinguishes them. Needs a publishability decision on the fact class first ([§ensemble-numbers](ARCHITECTURE.md#ensemble-numbers)) |
+| **`modes/performance.md` does not exist** — `ARCHITECTURE.md` §7.1 specifies five work modes and sketches performance mode's content, but `modes/` ships only `benchmarking`, `debugging`, `production` and `tuning` | `playbooks/start-session.md` stage 5 reads `modes/<work-mode>.md` **"when it exists"** and otherwise reports the limitation, so a session declaring *performance* orients without a mode document and must fall back to the operator's direction. Conservative, but it means cross-cutting obligations reach four of five modes. **Known to be missing from a performance session today:** the `conventions/batch-scripts.md` trigger and the `conventions/repeated-work.md` automation checkpoint, both of which every other work mode carries | A session actually declares performance mode, or Slice 4 acceptance is prepared — whichever is first. **When it is written it must carry what all four existing modes share**, not merely the §7.1 sketch: an *"Establish the …"* opener fixing what must be settled before acting, a method section, **`Permissions and safeguards`**, **`Tools and routing`**, and **`Done`** — plus, from §7.1, what to ask up front, what may be done unprompted, what must never be done, which tools and playbooks apply, and what "done" looks like. Its `Tools and routing` must name `conventions/batch-scripts.md` and `conventions/repeated-work.md`, and its `Done` must carry the automation checkpoint, or the two rules land unevenly across modes |
 | **Optional follow-up mining from the `ks_spectrum` benchmark corpus** — detailed memory/telemetry analysis, numerical reference-correlator comparison, and broader gauge-I/O-path validation | The admitted guidance requires ordinary resource evidence and structural, numerical, and scientific checks, but claims no telemetry-analysis method, reference-correlator comparison recipe, or preferred gauge-I/O path. Gauge loading is only a candidate tuning dimension when it is a non-negligible production cost | Revisit an item independently when a concrete tuning or validation decision needs it and suitably scoped evidence is available. These investigations are optional; none blocks Slice 4 acceptance |
 
 

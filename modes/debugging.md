@@ -123,6 +123,8 @@ Load `conventions/batch-scripts.md` before writing, modifying, or reviewing any 
 preparing a submit command. A diagnostic rerun is still a submission, and debugging is where a
 script is most likely to be edited quickly under pressure.
 
+Load [`conventions/repeated-work.md`](../conventions/repeated-work.md) at each study or phase closure and at each work-mode change, to decide whether a procedure now repeated by hand should become a tool.
+
 Keep raw outputs, diagnostics, temporary models, and run state in the working directory.
 Only durable conclusions that pass the handbook admission and privacy rules may be proposed
 for canonical knowledge.
@@ -131,6 +133,6 @@ for canonical knowledge.
 
 Debugging is done when the cause is demonstrated or the remaining uncertainty is explicitly
 bounded; the reproducer, environment, and violated invariant are recorded; any hands-on fix
-is validated to its stated scope; and unresolved integration or regression risks are named.
+is validated to its stated scope; and unresolved integration or regression risks are named. Before closing, run the automation checkpoint in [`conventions/repeated-work.md`](../conventions/repeated-work.md) and record its outcome, including candidates deliberately left manual.
 A transition to performance, benchmarking, tuning, or production requires another explicit
 operator declaration.

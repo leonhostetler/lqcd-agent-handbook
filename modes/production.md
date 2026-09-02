@@ -240,7 +240,7 @@ nearest validated stack, build profile, relevant application guide, and relevant
 runtime documents. Load `conventions/running.md` for evidence reconciliation and run disposition,
 `conventions/measurement.md` for run-owned artifact validation and workflow accounting, and
 `conventions/batch-scripts.md` before writing, modifying, or reviewing any batch script or
-preparing a submit command.
+preparing a submit command. Load [`conventions/repeated-work.md`](../conventions/repeated-work.md) at each study or phase closure and at each work-mode change, to decide whether a procedure now repeated by hand should become a tool.
 
 Keep campaign contracts, runbooks, launchers, manifests, ledgers, handoffs, private knowledge,
 monitoring state, and raw evidence in the working project. Route only durable, generalized
@@ -256,6 +256,6 @@ is accepted, explicitly withdrawn by the operator, or recorded with a bounded un
 no duplicate or untracked attempts remain active; scheduler and application evidence and
 resource consumption are reconciled; raw evidence and derived-product provenance are retained;
 and the contract, ledgers, final handoff, and closure summary are consistent and sufficient for
-another operator to audit or resume the campaign safely. Any change to the frozen setup or
+another operator to audit or resume the campaign safely. Before closing, run the automation checkpoint in [`conventions/repeated-work.md`](../conventions/repeated-work.md) and record its outcome, including candidates deliberately left manual. Any change to the frozen setup or
 investigation beyond failure triage requires an explicit transition to debugging, performance,
 tuning, or benchmarking mode.

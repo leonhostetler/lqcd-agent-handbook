@@ -33,6 +33,36 @@ artifact validity, or correctness. A normal application exit does not prove sche
 validate artifacts. Artifact presence does not prove current-run ownership, and application
 progress does not prove that the declared work unit completed.
 
+## Derive before you analyse
+
+Where a contract-governed extractor or report generator exists for a run's observables,
+**run it first and analyse its output.** Do not re-derive by hand quantities the tool
+already emits, and do not generate the authoritative record afterwards to confirm a
+conclusion already reached by hand.
+
+The ordering is what matters, not the tooling. A hand pass performed first and a generated
+record produced second computes the same quantities twice, with the *uncontracted* pass
+deciding the reading; the generated table then arrives as confirmation rather than as the
+source. Two consequences follow, both observed rather than argued:
+
+- **A hand pass produces a defect class a tool does not.** Transcription between adjacent
+  result rows, and aggregation over the wrong subset of calls — a solve-phase mean tallied
+  across setup-phase invocations — are the recorded examples. Neither is a reasoning error;
+  both are artifacts of moving numbers by hand.
+- **A tool can find them after the fact.** In the recorded case a reconciliation tool
+  identified such a defect **on its first run**, in a trial that had already been reconciled
+  by hand and reported complete.
+
+When the generated record and a hand reading disagree, the generated record is the evidence
+and the disagreement is itself a finding: either the tool's contract or the hand reading is
+wrong, and which one must be established before the disposition is assigned. Record the
+generator and its version alongside the disposition so a later reader knows which contract
+produced the numbers.
+
+**Evidence:** empirical, from one operator campaign; the mechanism is that hand-executed
+repetition produces transcription-class defects that an executed contract cannot produce.
+See [`repeated-work.md`](repeated-work.md) for the broader practice this is one instance of.
+
 ## Assign one disposition
 
 | Disposition | Meaning and treatment |

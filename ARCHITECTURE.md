@@ -60,6 +60,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 
 | Decision | Choice | Reopen when |
 |---|---|---|
+| **Automation of repeated work** | Two separate rules, deliberately not merged. **Authoring time** ([§prefer-a-tool](#prefer-a-tool)): a mined fact that can be executed must ship as a script plus an index line. **Working practice** (`conventions/repeated-work.md`): a procedure a campaign repeats should become a tool, surfaced by a checkpoint at each study or phase closure and each work-mode change rather than by an event trigger, because the set of repeated actions is not visible at the start. Every work mode carries the checkpoint in its `Done` and `Tools and routing` sections, so a mode change fires it mechanically, and the Tier-0 standing rule names the trigger and points at the leaf on [§batch-scripts](#batch-scripts)'s pattern. A new tool is not trusted on a passing run: it must be made to fail on purpose, and a no-op negative test is vacuous | A checkpoint proves too weak in practice — the next stronger anchor is a required field in an existing mandatory record, not a louder instruction |
 | **Work mode** | Current, not permanent — may change mid-session, but only by explicit declaration. It follows the immediate decision and deliverable, not every tool used along the way ([§work-mode-currency](#work-mode-currency)) | — |
 | **Task-time Tier-2 routing** | Session startup loads Tier 1 only. Before substantive LQCD analysis or action, and whenever a task narrows or changes, the agent derives named applications, solvers, ensembles, and the immediate decision from the operator request and active project instructions, then uses `INDEX.md` and only the matching domain indices to load the smallest Tier-2 leaves whose `load_when` matches. Interpretation of mechanisms, parameters, failures, campaign evidence, or next candidates waits for this check | A reliable executable task router makes the Tier-0 checkpoint redundant |
 | **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate setup — the solver, build, runtime, resource-placement, and workflow choices being evaluated — while benchmarking measures a candidate setup and workload frozen before the measured series. A campaign may move from tuning to confirmatory benchmarking, but never occupies a hybrid mode, and an exploratory winner needs an independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
@@ -1778,6 +1779,14 @@ between institutional memory and folklore.
 
 <a id="prefer-a-tool"></a>
 #### 7.5d. Prefer a tool to a document
+
+**This section is about authoring time.** It governs how a *fact* enters the handbook. The
+working-practice counterpart — when a procedure a campaign performs repeatedly should become
+a tool, and how that gets noticed mid-campaign rather than at orientation — is
+`conventions/repeated-work.md`, reached from every work mode. The two are kept separate
+because they answer different questions: this one asks what form knowledge should take, that
+one asks what an operator should stop doing by hand. Widening this section to cover both
+would conflate a carrying-cost argument with a defect-rate argument.
 
 The most token-efficient form of a mined fact is executable. `memory_model.py` encodes a
 large body of validated knowledge at effectively zero carrying cost — a session pays only

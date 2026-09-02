@@ -119,6 +119,9 @@ Use the detected machine profile, software profile, nearest stack, build profile
 application guide, and relevant solver documents when present. Use the working project's own
 instructions throughout. Prefer executable memory and decomposition checks to informal scaling,
 use `conventions/running.md` to reconcile each trial's outcome,
+[`conventions/repeated-work.md`](../conventions/repeated-work.md) at each study or phase
+closure and at each work-mode change to decide whether a procedure now repeated by hand
+should become a tool,
 `conventions/measurement.md` for per-run observed ledgers, `conventions/batch-scripts.md` before
 writing, modifying, or reviewing any batch script or preparing a submit command, and the shared
 prediction record for every trial.
@@ -132,5 +135,7 @@ Campaign-specific optima and search histories remain in the working directory.
 Tuning is done when a candidate setup is selected against the declared objective and
 constraints; its correctness scope, environment, resource cost, warm state, and sensitivity are
 recorded; rejected and untested alternatives are named; and an independent confirmatory
-benchmark is defined. A transition to benchmarking, production, performance, or debugging
-requires another explicit operator declaration.
+benchmark is defined. Before closing, run the automation checkpoint in
+[`conventions/repeated-work.md`](../conventions/repeated-work.md) and record its outcome,
+including candidates deliberately left manual. A transition to benchmarking, production,
+performance, or debugging requires another explicit operator declaration.

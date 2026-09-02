@@ -164,7 +164,7 @@ documents. Load `conventions/measurement.md` for the steady-state solve series, 
 workflow ledger, artifact manifest, and production projection, and load
 `conventions/running.md` for run disposition and evidence reconciliation, and
 `conventions/batch-scripts.md` before writing, modifying, or reviewing any batch script or
-preparing a submit command. Prefer reusable
+preparing a submit command. Load [`conventions/repeated-work.md`](../conventions/repeated-work.md) at each study or phase closure and at each work-mode change, to decide whether a procedure now repeated by hand should become a tool. Prefer reusable
 timing, environment-capture, memory, and decomposition tools when present. Use the shared
 prediction record and keep all run-specific data outside the handbook.
 
@@ -180,6 +180,6 @@ correctness checks and repetitions are complete; exact artifact checks have no u
 missing or unexpected entries; warm, setup, recurring, and excluded costs are distinguished;
 accepted runs have observed ledgers; any production projection is separate and states its
 recurrence model; prediction misses and uncertainty are explained; and the result answers the
-declared comparison or workflow-cost question without claiming beyond the measured scope. Any
+declared comparison or workflow-cost question without claiming beyond the measured scope. Before closing, run the automation checkpoint in [`conventions/repeated-work.md`](../conventions/repeated-work.md) and record its outcome, including candidates deliberately left manual. Any
 adaptive follow-up requires an explicit transition to tuning, performance, debugging, or
 production mode.
