@@ -37,15 +37,15 @@ column exists so a band cannot be added here without answering that question.
 | Observable | Corpus reference | Fitted at | Correct interpretation |
 |---|---:|---:|---|
 | `setup_l1_iters/setup_maxiter_1` | below `0.5` | 4 levels | healthy-side setup screen; within 1% of the cap is pinned |
-| `nu3 = nvec_3/V3` | fit envelope `0.022...0.250` | 4 levels | spectrum-calibration domain, not a legality or universal health band |
+| `coarsest_vector_density` | fit envelope `0.022...0.250` | 4 levels | spectrum-calibration domain, not a legality or universal health band |
 | TRLM restarts | `4...9` | 4 levels | stable middle reference; the two edges are asymmetric |
 | TRLM restarts | `1...2` | 4 levels | consistent under-resolution warning in the sampled corpus |
 | restarts far above band, cap NOT reached, **empty** `Eval[...]` prefix | — | 4 levels | stalled filter, not a slow solve; see the eigensolve triage below |
-| `l3_res_max` | about `1.5e-4` | 4 levels | middle-band reference at the two fitted spacings; scale and tolerance remain problem-specific |
+| `coarsest_res_max` | about `1.5e-4` | 4 levels | middle-band reference at the two fitted spacings; scale and tolerance remain problem-specific |
 
-The decomposition tool's separate `V3 >= 10000` and coarsest-cell aspect `<= 1.5`
-screens are likewise provisional four-ensemble advisories. Source legality always has
-priority.
+The decomposition tool's separate `coarsest_global_volume >= 10000` and coarsest-cell
+aspect `<= 1.5` screens are likewise provisional three-ensemble advisories. Source
+legality always has priority.
 
 ## Observable extraction contract
 
@@ -63,13 +63,16 @@ the old numerical bands.
 - **`setup_maxiter_1`:** read the literal MILC parameter-file value
   `setup_maxiter 1` used for the same hierarchy build. If it cannot be recovered, report
   `rho_setup` as unavailable rather than borrowing a cap from another level or run.
-- **`eval_max` and `l3_res_max`:** for one coarsest eigensolve event, collect its lines
-  matching
-  `MG level 3 (GPU): Eval[NNNN] = (+real,imag) ... Residual = <r>`.
-  `eval_max` is the maximum printed real eigenvalue and `l3_res_max` is the maximum
-  printed `Residual` over the same delivered prefix. Count the `Eval[...]` lines and
-  compare that count with requested `nvec_3` and the event's convergence summary; a
-  short prefix is partial delivery, not a smaller complete spectrum.
+- **`eval_max` and `coarsest_res_max`:** for one coarsest eigensolve event, collect its
+  lines matching `MG level <C> (GPU): Eval[NNNN] = (+real,imag) ... Residual = <r>`, where
+  `<C>` is the executed index of the **coarsest** level — `3` in a four-level hierarchy and
+  `2` in a three-level one. Reading a fixed `MG level 3` prefix silently returns nothing at
+  three levels. `eval_max` is the maximum printed real eigenvalue and `coarsest_res_max` is
+  the maximum printed `Residual` over the same delivered prefix. Count the `Eval[...]` lines
+  and compare that count with the requested coarsest deflation count — `nvec 3` in a
+  four-level MILC parameter file, `nvec 2` in a three-level one — and the event's
+  convergence summary; a short prefix is partial delivery, not a smaller complete
+  spectrum.
 - **TRLM restarts:** from the summary for that same event, parse the integer immediately
   before `restart steps`. Current variants include
   `TRLM computed the requested ... vectors in <R> restart steps ...` and
@@ -81,9 +84,9 @@ the old numerical bands.
   `deflate_block_size 1` while diagnosing.
 
 Keep separate records when a log contains multiple hierarchy builds or eigensolve
-events; never maximize or average across them silently. Compute global `V3` and `nu3`
-from the global lattice and QUDA's executed blocks with the decomposition tool, not from
-the per-rank coarse volume or requested blocks.
+events; never maximize or average across them silently. Compute `coarsest_global_volume`
+and `coarsest_vector_density` from the global lattice and QUDA's executed blocks with the
+decomposition tool, not from the per-rank coarse volume or requested blocks.
 
 ## An eigensolve delivers nothing: check restarts and the prefix first
 
@@ -131,7 +134,7 @@ Do not begin by tuning the coarsest polynomial when the level-1 setup is already
 ## Too few TRLM restarts
 
 1. Confirm that the eigensolver converged the requested prefix and did not merely stop.
-2. Read `l3_res_max`, not only the mean residual or `eval_max`.
+2. Read `coarsest_res_max`, not only the mean residual or `eval_max`.
 3. Compute `deflate_a_min/eval_max`; a requested eigenvalue near the Chebyshev window
    edge is weakly discriminated.
 4. Reduce filter aggressiveness through one of `deflate_poly_deg`, `deflate_a_min`, or
@@ -142,7 +145,7 @@ quality, not an instruction to maximize restart count.
 
 ## Many TRLM restarts
 
-Inspect convergence and `l3_res_max` before acting. Ten or more restarts accompanied
+Inspect convergence and `coarsest_res_max` before acting. Ten or more restarts accompanied
 both good and failed eigensolves in different fitted populations. If the vectors are
 good and the cap was not hit, the count alone is not a failure. If residuals are poor or
 the cap was reached, change the joint eigensolver controls or reduce the requested
@@ -152,11 +155,11 @@ eigenspace and repeat.
 
 Check, in order:
 
-1. the run used the recorded effective hierarchy and `V3`;
-2. `nu3` and mass are inside the fitted envelope;
+1. the run used the recorded effective hierarchy and `coarsest_global_volume`;
+2. `coarsest_vector_density` and mass are inside the fitted envelope;
 3. `nvec_2` matches the calibration or `A` was refitted;
 4. the ensemble-specific mass coefficient was measured locally; and
-5. the eigensolver delivered a converged prefix with acceptable `l3_res_max`.
+5. the eigensolver delivered a converged prefix with acceptable `coarsest_res_max`.
 
 A large one-sided miss outside the envelope is not evidence for extrapolating the fit.
 Inside the envelope, a printed `eval_max` biased low together with few restarts and poor
@@ -176,9 +179,9 @@ cost model.
 
 ## Minimum incident record
 
-Keep the parameter file, executable and source revisions, build cache, machine/queue,
-global and local lattice, rank geometry, requested and effective blocks, all `nvec`
-values, `V3`, `nu3`, setup iteration ratios, `eval_max`, filter margin, restart count,
-`l3_res_max`, convergence messages, setup/reuse state, memory counters, and correctness
-result. Without that record, a future run cannot distinguish a parameter effect from a
-different executed solver.
+Keep the parameter file, executable and source revisions, build cache, machine/queue, global
+and local lattice, rank geometry, requested and effective blocks, all `nvec` values,
+`coarsest_global_volume`, `coarsest_vector_density`, setup iteration ratios, `eval_max`,
+filter margin, restart count, `coarsest_res_max`, convergence messages, setup/reuse state,
+memory counters, and correctness result. Without that record, a future run cannot
+distinguish a parameter effect from a different executed solver.

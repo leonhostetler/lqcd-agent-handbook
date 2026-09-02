@@ -54,12 +54,13 @@ declared decision.
 
 ## 3. Choose hierarchy candidates under memory
 
-For every source-valid candidate, record global `V3`, coarsest-cell shape, `nu3`, and
-the memory prediction tier. Confirm that the target matches the applicable row of the
-[`calibration manifest`](calibration.md). Use
+For every source-valid candidate, record `coarsest_global_volume`, coarsest-cell shape,
+`coarsest_vector_density`, and the memory prediction tier. Confirm that the target matches
+the applicable row of the [`calibration manifest`](calibration.md). Use
 [`hierarchy-and-setup.md`](hierarchy-and-setup.md) for the empirical ordering and
-[`../staggered-memory.md`](../staggered-memory.md) for capacity. Retain alternatives
-when a larger `V3`, better cell shape, and memory headroom pull in different directions.
+[`../staggered-memory.md`](../staggered-memory.md) for capacity. Retain alternatives when a
+larger `coarsest_global_volume`, better cell shape, and memory headroom pull in different
+directions.
 
 Measure the final candidate on the target stack. A prediction inside an error or
 advisory band is unresolved, not a safe fit.
@@ -137,8 +138,10 @@ old hierarchy are not evidence for the new one.
 
 ## 5. Stabilize coarse deflation
 
-Express the requested eigenspace as `nu3`, predict or probe `eval_max`, set an explicit
-`deflate_a_min/eval_max` margin, and inspect `l3_res_max` and TRLM restarts. Tune
+Express the requested eigenspace as `coarsest_vector_density`, predict or probe
+`eval_max`, set an explicit `deflate_a_min/eval_max` margin, and inspect
+`coarsest_res_max` — the worst residual over the delivered coarsest eigenvector prefix —
+and TRLM restarts. Tune
 `deflate_poly_deg`, `deflate_a_min`, and `deflate_n_kr` through that joint diagnostic,
 using the corpus bands only inside their declared scope.
 
@@ -148,9 +151,9 @@ a symptom of aggressive filtering and under-resolved vectors.
 ## 6. Derive the workload schedule
 
 At each mass that can change the decision, compare matched deflated and undeflated
-configurations and compute the setup/recurring crossover for the declared solve count.
-Store the result as `nu3(m)`, not as a transferable bare-mass table. Do not interpolate
-an entire schedule from an unmeasured pair.
+configurations and compute the setup/recurring crossover for the declared solve count. Store
+the result as `coarsest_vector_density(m)`, not as a transferable bare-mass table. Do not
+interpolate an entire schedule from an unmeasured pair.
 
 Pooled measurements must keep hierarchy reuse compatible. Combining setup from one
 operator state with solve time from another does not define a crossover.
@@ -176,7 +179,7 @@ Stop or return to an earlier gate when:
 - setup or coarse solves hit their iteration ceilings without the required residual;
 - the spectrum prediction is used outside its envelope without a refit;
 - a coarse eigensolve reports few restarts but poor worst-vector residual;
-- an upper restart count is judged without checking convergence and `l3_res_max`;
+- an upper restart count is judged without checking convergence and `coarsest_res_max`;
 - memory lands inside the uncertainty/advisory band or MRHS-MG relies on an absolute
   width model that does not exist;
 - the claimed benefit disappears when setup is amortized over the declared compatible

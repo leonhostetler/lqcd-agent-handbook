@@ -96,8 +96,14 @@ For the four-level optimized-KD hierarchy, use this index crosswalk:
 | `2`, intermediate coarse | `nvec 2`, `geo_block_size 2`, `setup_* 2` | `--nvec2`, `--block2` | second user aggregation constructs level 3 |
 | `3`, coarsest solve/deflation | `nvec 3` | `--nvec3` | requested deflation-vector count, not a coarse color |
 
-Only `nvec_1` and `nvec_2` select generated coarse-color kernels and must appear in
-`QUDA_MULTIGRID_NVEC_LIST`; `nvec_3` does not.
+Which keys select generated coarse-color kernels — and so must appear in
+`QUDA_MULTIGRID_NVEC_LIST` — depends on the level count, because the last `nvec` key is a
+deflation count rather than a coarse colour. **At four levels** `nvec 1` and `nvec 2` are
+coarse colours and must be in the list; `nvec 3` is the coarsest deflation count and must
+not. **At three levels** only `nvec 1` is a coarse colour; `nvec 2` is the coarsest
+deflation count, and there is no `nvec 3`. Checking the four-level rule against a
+three-level file therefore requires a compiled colour that the run never uses, and misses
+none that it does.
 
 <a id="level-naming"></a>
 ### Numbered symbols are level indices; role names are roles
@@ -196,10 +202,11 @@ MILC must link QUDA, enable its improved-staggered GPU CG backend, and define th
 path (`HAVE_QUDA`, `USE_CG_GPU`, and `MULTIGRID` in the observed source; corresponding
 CMake controls are `WANTQUDA`, `WANT_FN_CG_GPU`, and `WANT_MULTIGRID`).
 
-QUDA compiles coarse-color and multi-right-hand-side kernels for configured lists. The
-requested `nvec_1` and `nvec_2` must be represented in
-`QUDA_MULTIGRID_NVEC_LIST`, while a selected active multi-source batch shape must be
-represented in `QUDA_MULTIGRID_MRHS_LIST`. These are separate checks from the runtime
+QUDA compiles coarse-color and multi-right-hand-side kernels for configured lists. Every
+requested coarse colour must be represented in `QUDA_MULTIGRID_NVEC_LIST` — `nvec 1` and
+`nvec 2` at four levels, `nvec 1` alone at three, since the last `nvec` key is a deflation
+count — while a selected active multi-source batch shape must be represented in
+`QUDA_MULTIGRID_MRHS_LIST`. These are separate checks from the runtime
 `use_mma` switch. The QUDA defaults are not proof that an arbitrary MILC `nvec` or batch
 size was instantiated.
 
@@ -281,11 +288,11 @@ aggregate has coarse-space capacity `3*b1/2`, while the next uses
 even though the corresponding coarse **gauge** field combines them into color
 `2*nvec_1`.
 
-Adding `--corpus-advisories` applies a separate, provisional screen mined from four
-ensembles: warn below global `V3 = 10000` sites or above coarsest-cell aspect 1.5 — both fitted at four
-levels, and the tool declines to evaluate them at any other level count
-([level naming](#level-naming)). Those
-warnings are empirical tuning evidence, not QUDA errors. The tool's source status remains
+Adding `--corpus-advisories` applies a separate, provisional screen mined from three
+ensembles: warn below `coarsest_global_volume = 10000` sites or above coarsest-cell aspect
+1.5 — both fitted at four levels, and the tool declines to evaluate them at any other level
+count ([level naming](#level-naming)). Those warnings are empirical tuning evidence, not
+QUDA errors. The tool's source status remains
 independent, and runtime `Transfer: using block size ...` output remains authoritative.
 
 ## Empirical tuning guidance
@@ -297,7 +304,8 @@ for the separately labelled `perlmutter-a100-staggered-mg-2024-2026` retrospecti
 The following action leaves carry its guidance:
 
 - [`staggered-multigrid/hierarchy-and-setup.md`](staggered-multigrid/hierarchy-and-setup.md)
-  for global coarse geometry, `nu3`, and the level-1 setup-tolerance knee;
+  for global coarse geometry, `coarsest_vector_density`, and the level-1
+  setup-tolerance knee;
 - [`staggered-multigrid/coarse-deflation.md`](staggered-multigrid/coarse-deflation.md)
   for the fitted coarse-spectrum envelope, filter-window feedback, restart diagnostics,
   and workload-derived deflation schedules;

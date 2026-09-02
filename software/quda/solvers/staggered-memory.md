@@ -242,15 +242,16 @@ all. If B wins, block size, level-2 volume, coarse color, and MMA copies are dir
 the capacity path. A field inventory added without lifetimes overstates phases that never
 coexist and can still miss the real peak phase.
 
-**The winning phase decides whether `nvec_3` is visible at all.** The coarsest eigenspace
+**The winning phase decides whether the coarsest deflation count is visible at all.** The
+coarsest eigenspace
 is carried in exactly one phase — A at two levels, B at three, C at four — and the
-four-level term is sized by `max(nvec_2, nvec_3)`. When another phase wins, or when
-`nvec_3 <= nvec_2` at four levels, the reported total is **flat in `nvec_3`** and its
+four-level term is sized by `max(nvec 2, nvec 3)`. When another phase wins, or when
+`nvec 3 <= nvec 2` at four levels, the reported total is **flat in the deflation count** and its
 headroom is not eigenspace-aware. This is not a corner case: a large-volume four-level
 candidate frequently peaks in phase A, where the fitted setup workspace dominates, so a
 requested eigenspace of several thousand vectors can contribute nothing to the estimate.
 `mg-fit` reports `detail.deflation_enters_total` and `detail.deflation_phase`, and emits a
-`LOUD WARNING` whenever a positive `nvec_3` does not reach the total. Never rank an
+`LOUD WARNING` whenever a positive coarsest deflation count does not reach the total. Never rank an
 eigenspace-blind candidate's headroom against a responsive one's.
 
 **A measured peak can also fall outside every modelled phase.** The phases above are setup
@@ -362,7 +363,8 @@ level 2:                2 single full + 27 single parity
 level 3:                2 single full + 32 single parity
 ```
 
-For the matched hierarchy with `V0 = 884736`, `V2 = 1024`, `V3 = 64`,
+For the matched four-level hierarchy with fine volume `884736`, level-2 volume `1024`,
+and `coarsest_global_volume = 64`,
 `nvec_1 = 64`, and `nvec_2 = 96`, this field inventory is `1475.1875 MiB` per
 additional active RHS. A historical build-`7519b9dcf` width-2 to width-3 pair measured
 `1481.4 MiB`, 0.42% above that source slope.

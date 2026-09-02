@@ -458,7 +458,7 @@ def evaluate_decomposition(
             "metrics": metrics,
             "empirical_screen": {
                 "enabled": corpus_advisories,
-                "evidence": "retrospective four-ensemble corpus; threshold provisional",
+                "evidence": "retrospective three-ensemble corpus; threshold provisional",
                 # fitted_levels and evaluated exist so a consumer can tell "screens ran and
                 # this candidate passed" from "screens never ran". Both otherwise produce an
                 # empty advisories list, and the second silently reads as a pass.

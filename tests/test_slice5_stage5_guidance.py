@@ -46,9 +46,14 @@ class Stage5GuidanceTests(unittest.TestCase):
 
     def test_hierarchy_metrics_are_advisories_not_source_constraints(self):
         text = (MG_DIR / "hierarchy-and-setup.md").read_text()
-        self.assertIn("nu3  = nvec_3 / V3", text)
+        # Role names, not level indices -- ARCHITECTURE.md 5.4. The definition and the
+        # non-separability caveat must both survive the rename.
+        self.assertIn(
+            "coarsest_vector_density = coarsest_deflation_count / coarsest_global_volume",
+            text,
+        )
         self.assertIn("cannot, however, separate", text)
-        self.assertIn("nvec_3/V3", text)
+        self.assertIn("#level-naming", text)
         self.assertIn("not a QUDA convergence requirement", text)
         self.assertIn("rho_setup < 0.5", text)
         self.assertIn("$LQCD_HANDBOOK/tools/quda-staggered-decomposition.py", text)
@@ -63,7 +68,8 @@ class Stage5GuidanceTests(unittest.TestCase):
             "20.4% p90",
             "0.022...0.250",
             "0.000569...0.01555",
-            "nvec_2",
+            "near-null count on the level above the coarsest",
+            "`nvec 2` in a four-level MILC",
             "optimum was not located",
             "4...9",
         ):
@@ -77,11 +83,15 @@ class Stage5GuidanceTests(unittest.TestCase):
             "Observable extraction contract",
             "MG level 1 (GPU): CG:",
             "setup_maxiter 1",
-            "MG level 3 (GPU): Eval[NNNN]",
+            "MG level <C> (GPU): Eval[NNNN]",
             "restart steps",
             "partial delivery",
         ):
             self.assertIn(detail, text)
+        # The coarsest level is 3 at four levels and 2 at three; a fixed prefix reads
+        # nothing at three levels, and the contract must say so.
+        self.assertIn("`2` in a three-level one", text)
+        self.assertNotIn("matching\n  `MG level 3 (GPU)", text)
 
     def test_timing_class_is_procedural_and_not_a_public_threshold(self):
         tuning = (MG_DIR / "tuning.md").read_text()

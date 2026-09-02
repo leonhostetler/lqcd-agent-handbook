@@ -32,8 +32,9 @@ The numerical guidance below belongs to the named
 [`calibration manifest`](calibration.md) defines the ensembles, literal mass convention,
 population used by each advisory, exclusions, and the test for a closely matched target.
 It is an advisory starting point, not a QUDA convergence requirement or a portable
-default. Use the overview's level/index crosswalk when translating `V3`, `nvec_1`,
-`nvec_2`, and `nvec_3` into a MILC parameter file.
+default. Use the overview's level/index crosswalk when translating these quantities into
+MILC parameter-file keys, and see [level naming](../staggered-multigrid.md#level-naming)
+for why the keys differ by level count.
 
 ## Describe the executed hierarchy
 
@@ -41,27 +42,15 @@ Record the effective block sizes printed by QUDA, not only the requested values.
 the global lattice and executed blocks, calculate:
 
 ```text
-coarsest global volume  = product of the global coarsest-grid extents
-coarsest vector density = requested coarsest-deflation count / coarsest global volume
+coarsest_global_volume  = product of the global coarsest-grid extents
+coarsest_vector_density = coarsest_deflation_count / coarsest_global_volume
 ```
 
-Written with four-level indices, the same two quantities are:
-
-```text
-V3   = product of the global coarsest-grid extents
-nu3  = nvec_3 / V3
-```
-
-**`V3` and `nu3` are the four-level names for those two quantities, not level-independent
-ones.** The digit is an executed-level index: at four levels the coarsest grid is level 3,
-so `V3` and `nu3 = nvec_3 / V3` are correct; **at three levels the coarsest grid is level
-2**, and the same two quantities are `V2` and `nvec_2 / V2`. Read a numbered symbol as a
-level index, and a numbered symbol from a page or corpus written for another level count as
-referring to a *different grid*. The decomposition tool encodes exactly this: it always
-reports role-based `coarsest_global_volume` and `coarsest_vector_density`, and emits the
-numbered aliases `V3_global`/`nu3` only for a four-level hierarchy and `V2_global` for a
-three-level one. Prefer the role-based names in any statement meant to hold at more than one
-level count.
+Both are named for the **role** of the grid, not its index, because the coarsest grid is
+level 3 in a four-level hierarchy and level 2 in a three-level one. The decomposition tool
+reports exactly these names. See
+[level naming](../staggered-multigrid.md#level-naming) for the rule and for the
+parameter-file keys each maps to.
 
 The coarsest global volume describes the problem seen by the coarsest solver. Per-rank
 coarse volume primarily changes communication and is not a substitute for it. Also record
@@ -69,15 +58,18 @@ the four physical or lattice extents of one coarsest cell and their aspect ratio
 volume does not make a strongly anisotropic cell equivalent to a balanced one.
 
 **Every numerical band on this page and in the calibration manifest was fitted on
-four-level hierarchies**, so `nu3` there means the four-level quantity. Applying such a band
-to a three-level hierarchy by substituting its coarsest density is an extrapolation across
-level count, which [`calibration.md`](calibration.md) already excludes.
+four-level hierarchies.** Applying one to a three-level hierarchy by substituting its
+coarsest density is an extrapolation across level count, which
+[`calibration.md`](calibration.md) already excludes — renaming the quantity to its role
+name does not rescope the band.
 
-Use `nu3` to compare requested coarse eigenspaces across different hierarchies. Equal
-`nvec_3` values at different `V3` request different fractions of the coarse problem.
-The corpus cannot, however, separate `nvec_3/V3` from the fraction of the complete
-coarse colour space because `nvec_2` was nearly fixed. If `nvec_2` changes, treat the
-existing `nu3` calibration as needing a refit.
+Use `coarsest_vector_density` to compare requested coarse eigenspaces across different
+hierarchies. Equal coarsest deflation counts at different coarsest volumes request
+different fractions of the coarse problem. The corpus cannot, however, separate that
+density from the fraction of the complete coarse colour space, because the near-null count
+on the level above the coarsest — `nvec 2` in a four-level MILC parameter file, `nvec 1` in
+a three-level one — was nearly fixed. If it changes, treat the existing calibration as
+needing a refit.
 
 The decomposition tool reports these quantities without treating them as legality
 conditions:
@@ -89,11 +81,11 @@ python3 "$LQCD_HANDBOOK/tools/quda-staggered-decomposition.py" \
   --nvec1 NV1 --nvec2 NV2 --nvec3 NV3 --corpus-advisories
 ```
 
-The existing opt-in screen warns at global `V3 < 10000` or coarsest-cell aspect above
-`1.5`, both fitted at four levels
-([level naming](../staggered-multigrid.md#level-naming)). Those cutoffs came from four ensembles and remain provisional. They are useful
-for ranking legal candidates, not rejecting a new discretization or machine without a
-measurement.
+The existing opt-in screen warns at `coarsest_global_volume < 10000` or coarsest-cell
+aspect above `1.5`,
+both fitted at four levels ([level naming](../staggered-multigrid.md#level-naming)). Those
+cutoffs came from three ensembles and remain provisional. They are useful for ranking legal
+candidates, not rejecting a new discretization or machine without a measurement.
 
 ## Locate the setup-tolerance knee
 
@@ -115,11 +107,11 @@ tightening the tolerance primarily buys setup quality and moves only a minority 
 component. At the ceiling, the setup solve is capped rather than demonstrably converged,
 and the resulting vectors can degrade every downstream level.
 
-As a corpus advisory fitted at four levels, `rho_setup < 0.5` was the healthy-side screen; a run within one
-percent of the ceiling is pinned. These are diagnostic bands, not QUDA success criteria.
-Locate the knee on the target problem by varying the tolerance while holding the
-hierarchy, setup cap, stack, and reuse state fixed. Keep the tightest value that remains
-comfortably below the rising-cost region and passes the downstream checks in
+As a corpus advisory fitted at four levels, `rho_setup < 0.5` was the healthy-side screen; a
+run within one percent of the ceiling is pinned. These are diagnostic bands, not QUDA
+success criteria. Locate the knee on the target problem by varying the tolerance while
+holding the hierarchy, setup cap, stack, and reuse state fixed. Keep the tightest value that
+remains comfortably below the rising-cost region and passes the downstream checks in
 [`diagnostics.md`](diagnostics.md).
 
 Do not transfer this numeric screen blindly to `setup_tol_2`: it acts on a different
@@ -128,12 +120,14 @@ level and its iteration counter and cap must first be identified explicitly.
 ## Decision sequence
 
 1. Reject source-invalid blocks, aggregate spaces, and uncompiled coarse colours.
-2. Rank the remaining candidates by global `V3`, coarsest-cell shape, memory headroom,
-   and `nu3`; retain more than one candidate when the empirical screens disagree.
+2. Rank the remaining candidates by `coarsest_global_volume`, coarsest-cell shape, memory
+   headroom, and `coarsest_vector_density`; retain more than one candidate when the
+   empirical screens disagree.
 3. Run a bounded setup probe and confirm the executed blocks and `rho_setup`.
 4. Check coarse-spectrum and eigensolver health before measuring production cost.
 5. Measure setup and recurring solve cost for the declared compatible solve count.
 
 Changing levels, blocks, `nvec_1`, or `nvec_2` changes the meaning of later calibrations.
-Return to the first step rather than carrying forward an old `nvec_3`, spectrum fit, or
+Return to the first step rather than carrying forward an old coarsest deflation count,
+spectrum fit, or
 setup-tolerance conclusion.

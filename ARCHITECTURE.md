@@ -1367,6 +1367,53 @@ Run it in CI and from `lqcd-capture-learning` before anything is committed.
 not admissible. A bare device-memory number is not usable later; a value tagged
 `[reproduced ×3]` with its measurement tool, machine, software commit, and date is.
 
+<a id="role-not-index"></a>
+### 5.4. Name a quantity by its role, never by a level index
+
+A hierarchical solver numbers its levels, and the number is not stable across
+configurations. In staggered multigrid the coarsest grid is level 3 in a four-level
+hierarchy and level 2 in a three-level one, so a symbol like `V3` or `nu3` or `l3_res_max`
+names **a different grid** depending on a fact the symbol does not carry. Every such symbol
+is a latent defect: correct where it was written, silently wrong where it is read.
+
+**The rule.** A quantity defined by its *position* in a hierarchy — coarsest, terminal,
+fine, the level above the coarsest — is named by that position:
+`coarsest_global_volume`, `coarsest_vector_density`, `coarsest_deflation_count`,
+`coarsest_res_max`, `nvec_(L-1)`. A level index may not be appended to such a name, and a
+numbered alias may not be introduced as a synonym for one.
+
+**Two exceptions, both requiring the mapping inline.** A numbered symbol is admissible when
+it is (a) a literal parameter-file key the reader must type, or (b) a literal token the
+application prints. In both cases the level mapping appears in the same sentence, and the
+role leads:
+
+```text
+the near-null count on the level above the coarsest, `nvec_(L-1)` — `nvec 2` in a
+four-level MILC parameter file, `nvec 1` in a three-level one
+```
+
+Not `nvec_2 (4-level MG)`. The difference is that the first form is **self-describing**: a
+line reached by grep, with no surrounding context, still resolves correctly. The second
+requires the reader to already know the level count, which is frequently the very thing
+being decided.
+
+**Why a crosswalk table is not the mitigation.** A table is a lookup you must know to
+perform. An agent that greps a symbol gets a line, not the table, which is the same reason
+[§batch-scripts](#batch-scripts) exists: a correctly indexed pointer does not fire at the moment it
+applies. The mapping therefore travels *in the sentence*, and the table remains explanatory
+only.
+
+**Why not separate documents per level count.** Splitting staggered-MG guidance into
+three-level and four-level pages would duplicate the source contract — operator, transfer
+rules, lifecycle, memory objects, runtime confirmation — none of which depends on level
+count, and duplication is what drifts. The genuinely level-scoped content is the fitted
+numerical bands, which already carry their fitted level count
+([§ensemble-numbers](#ensemble-numbers) governs their admission). A future three-level band
+set is a separate *calibration*, not a separate guide.
+
+Enforced by `tests/test_role_not_index.py`, because a naming convention that nothing checks
+is the class of rule this document already records as not firing.
+
 <a id="privacy-screening"></a>
 ## 6. Public-repo screening
 

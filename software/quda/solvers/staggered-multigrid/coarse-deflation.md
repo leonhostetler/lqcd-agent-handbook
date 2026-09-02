@@ -29,7 +29,8 @@ observed_on:
 Coarsest-level deflation is an eigensolver setup investment followed by a recurring
 coarse-solve effect. Configure it from the executed hierarchy, measured spectrum,
 eigenvector quality, compatible reuse count, and target workload. Do not copy a bare
-`nvec_3` or mass switch from another ensemble.
+coarsest deflation count — `nvec 3` in a four-level MILC parameter file, `nvec 2` in a
+three-level one — or a mass switch from another ensemble.
 
 All numerical bands and fitted constants below belong to the named
 `perlmutter-a100-staggered-mg-2024-2026` retrospective. Its
@@ -91,28 +92,31 @@ hazard with a cheap runtime guard, not as a measured failure.
 The corpus fit for the largest requested coarse eigenvalue is
 
 ```text
-eval_max = A * nu3^alpha + (c * m)^2
-nu3      = nvec_3 / V3
+eval_max                 = A * coarsest_vector_density^alpha + (c * m)^2
+coarsest_vector_density  = coarsest_deflation_count / coarsest_global_volume
 
 A        = 0.0585
 alpha    = 1.551
 ```
 
 The joint fit has 11.9% RMS and 20.4% p90 relative error over
-`nu3 = 0.022...0.250` vectors per coarsest site and
-`m = 0.000569...0.01555`, all four-level, in the calibration manifest's literal MILC input-mass
-convention. The coefficient `c` is ensemble-specific: it was `10.74` and `8.00` on the
+`coarsest_vector_density = 0.022...0.250` vectors per coarsest site and
+`m = 0.000569...0.01555`, all four-level, in the calibration manifest's literal MILC
+input-mass convention. The coefficient `c` is ensemble-specific: it was `10.74` and `8.00` on the
 two fitted ensembles, specifically `c(0.04 fm) = 10.74` and `c(0.06 fm) = 8.00`. On a
 new ensemble, estimate it at two or more heavy-mass probes
-from `c_i = sqrt(max(eval_max - A*nu3^alpha, 0))/m_i` while holding the hierarchy fixed.
+from `c_i = sqrt(max(eval_max - A*coarsest_vector_density^alpha, 0))/m_i` while holding
+the hierarchy fixed.
 Agreement among the probes is an applicability check; do not transfer either fitted
 value.
 
-The shared exponent and coefficient are an empirical prior, not a source law. A changed
-`nvec_2` invalidates `A` because the calibration cannot distinguish `nu3` from the
-fraction of the full coarse colour space. Refit rather than extrapolate. In all cases,
-compare the prediction with the run's printed `eval_max`; a large, one-sided mismatch
-can indicate a partially delivered eigenspace instead of a new spectral law.
+The shared exponent and coefficient are an empirical prior, not a source law. Changing the
+near-null count on the level above the coarsest — `nvec 2` in a four-level MILC parameter
+file, `nvec 1` in a three-level one — invalidates `A`, because the calibration cannot
+distinguish `coarsest_vector_density` from the fraction of the full coarse colour space.
+Refit rather than extrapolate. In all cases, compare the prediction with the run's printed
+`eval_max`; a large, one-sided mismatch can indicate a partially delivered eigenspace
+instead of a new spectral law.
 
 ## Set `deflate_a_min` by feedback
 
@@ -136,12 +140,14 @@ universal lower bound, and do not describe the combined evidence as an `8x...26x
 optimum.
 
 Use the [`observable extraction contract`](diagnostics.md#observable-extraction-contract)
-so `eval_max`, `l3_res_max`, and restart counts refer to one delivered eigensolve event.
+so `eval_max`, `coarsest_res_max`, and restart counts refer to one delivered eigensolve
+event.
 Then use this loop:
 
 1. predict `eval_max` inside the fitted envelope or obtain it from a cheap probe;
 2. choose an explicit trial margin and hold the other eigensolver controls fixed;
-3. record printed `eval_max`, `l3_res_max`, convergence state, and TRLM restarts; and
+3. record printed `eval_max`, `coarsest_res_max`, convergence state, and TRLM restarts;
+   and
 4. move the window edge based on vector quality and restart behavior, then remeasure.
 
 Solve time alone did not resolve the window-edge direction in the corpus and is not the
@@ -156,10 +162,10 @@ together with their failure modes. Both keep acceleration on and are easier to r
 `deflate_block_size 1`.
 
 What is specific to this level: the spectrum law above is the curve to fit in Method A, so
-the reach of an extrapolation is set by its exponent, and `nu3` rather than a bare
-`nvec_3` is what transfers between hierarchies. A fully delivered sibling spectrum at a
-different coarse colour is usually the better ratio source than a short prefix at the same
-one.
+the reach of an extrapolation is set by its exponent, and `coarsest_vector_density` rather
+than a bare coarsest deflation count is what transfers between hierarchies. A fully
+delivered sibling spectrum at a different coarse colour is usually the better ratio source
+than a short prefix at the same one.
 
 ## Tune the joint eigensolver channel
 
@@ -167,12 +173,12 @@ one.
 restarts. Use that restart count as their joint observable instead of assigning three
 independent optimum values.
 
-The corpus reference band is `4...9` restarts, fitted at four levels. One or two restarts were a consistent
-warning for worse `l3_res_max` across all sampled spacings. The upper side is asymmetric:
-ten or more restarts were benign in one fitted population and accompanied failed
-convergence in another. Above the reference band, inspect `l3_res_max`, the convergence
-prefix, and whether `deflate_max_restarts` was reached; do not declare failure from the
-count alone.
+The corpus reference band is `4...9` restarts, fitted at four levels. One or two restarts
+were a consistent warning for worse `coarsest_res_max` across all sampled spacings. The
+upper side is asymmetric: ten or more restarts were benign in one fitted population and
+accompanied failed convergence in another. Above the reference band, inspect
+`coarsest_res_max`, the convergence prefix, and whether `deflate_max_restarts` was reached;
+do not declare failure from the count alone.
 
 `deflate_block_size` belongs in this channel too, and the page previously omitted it. It is
 the MILC multigrid spelling of the eigensolver's `block_size`: **source-exact**, the MILC
@@ -186,12 +192,12 @@ the sawtooth reconstruction is a fallback rather than an equivalent source — a
 appears to require substantially more **autotuning** for a small performance gain, so on a
 cold tunecache it can consume the walltime the coarsest eigensolve itself needs.
 **Default to `1`**, and reserve a larger block for later-stage performance tuning or
-benchmarking, once the cache is warm for that terminal shape **and** coarse colour — the
-two are separate cache identities, as [`../../internals/autotuning.md`](../../internals/autotuning.md)
-records. **Evidence label: operator experience plus one uncontrolled observation** — a
-cold-cache run at a large block size accumulated a full coarse-operator retune and was cut
-off mid-eigensolve. The controlled pair has not been run. Mechanism-plus-caveat, never a
-fitted band.
+benchmarking, once the cache is warm for that terminal shape **and** coarse colour — the two
+are separate cache identities, as
+[`../../internals/autotuning.md`](../../internals/autotuning.md) records. **Evidence label:
+operator experience plus one uncontrolled observation** — a cold-cache run at a large block
+size accumulated a full coarse-operator retune and was cut off mid-eigensolve. The
+controlled pair has not been run. Mechanism-plus-caveat, never a fitted band.
 
 The retrospective `deflate_poly_deg` solve-side slowdown has no established mechanism.
 It is excluded as a tuning rule. Adjusting polynomial degree to move the restart count
@@ -199,7 +205,8 @@ is supported; predicting recurring solve performance from that incident is not.
 
 ## Derive a deflation schedule for the workload
 
-At every sampled mass and `nu3`, measure a matched deflated and undeflated configuration
+At every sampled mass and `coarsest_vector_density`, measure a matched deflated and
+undeflated configuration
 with the same hierarchy, stack, tolerances, and reuse contract. Let
 
 ```text
@@ -212,7 +219,8 @@ coarse eigenspace only when the declared compatible solve count exceeds that mea
 crossover and memory remains feasible. When `Delta R >= 0`, that pair provides no
 positive performance crossover.
 
-Write the resulting schedule as `nu3(m)` and derive the actual integer `nvec_3` from the
-selected `V3`. A bare mass threshold does not transfer, and two runs at one mass do not
-justify interpolation across an unmeasured mass range. No corpus timing, crossover, or
-switch-point value is a public default; measure all of them on the target workload.
+Write the resulting schedule as `coarsest_vector_density(m)` and derive the actual integer
+coarsest deflation count from the selected `coarsest_global_volume`. A bare mass threshold
+does not transfer, and two runs at one mass do not justify interpolation across an
+unmeasured mass range. No corpus timing, crossover, or switch-point value is a public
+default; measure all of them on the target workload.
