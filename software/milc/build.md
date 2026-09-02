@@ -126,6 +126,11 @@ Before allocating a node, confirm that the executable has no unresolved shared l
 that it resolves the dependencies required by the profile. A successful link is compatibility
 evidence, not runtime validation.
 
+Record which accelerator library the executable actually carries, not only that it linked.
+MILC binds it by absolute path at link time, so the environment cannot redirect it later and
+the executable's own hash does not identify it — see
+[`quda-linkage.md`](quda-linkage.md).
+
 ## Validate the application contract
 
 Use the smallest workload that exercises the requested profile capabilities on the resolved node

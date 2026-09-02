@@ -182,8 +182,10 @@ The `mg-staggered` build profile and
 validated native QUDA path on `gpu-a100-40`. Its synthetic unit-gauge test covers the
 listed hierarchy, generated coarse-color set, QMP backend, and `sm_80` target; it does
 not validate a linked MILC executable, other hierarchy shapes, `gpu-a100-80`, or
-production performance. Require a stack whose scope matches the intended run rather
-than generalizing from this bounded validation.
+production performance. The linked MILC layer is recorded separately in
+[`milc-cuda13-quda-ks-spectrum-mg-2026q3`](../../../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md),
+which is itself narrow. Require a stack whose scope matches the intended run rather
+than generalizing from either bounded validation.
 
 ## Geometry and decomposition constraints
 

@@ -49,6 +49,59 @@ profiles:
       - Capabilities describe compiled paths; each stack records which paths its runtime validation actually exercised.
       - WANT_FN_CG_GPU forces WANT_EIG_GPU in the observed MILC Makefile, so this profile compiles the native-CG deflation path even when a run supplies no eigenspace.
       - QMP and QIO are supplied by the composed QUDA installation in the validated Frontier stack.
+  ks-spectrum-hisq-quda-mg:
+    summary: Double-precision, multi-rank ks_spectrum_hisq application with HISQ links and QUDA staggered multigrid, built with the MILC MULTIGRID and MULTISOURCE dispatch defines.
+    application_guide: software/milc/applications/ks-spectrum.md
+    targets: [ks_spectrum_hisq]
+    options:
+      PRECISION: 2
+      MPP: true
+      OMP: true
+      WANTQUDA: true
+      WANT_FN_CG_GPU: true
+      WANT_FL_GPU: true
+      WANT_GF_GPU: true
+      WANT_FF_GPU: true
+      WANT_MIXED_PRECISION_GPU: 2
+      WANT_GAUGEFIX_OVR_GPU: true
+      WANT_GSMEAR_GPU: true
+      WANTQMP: true
+      WANTQIO: true
+      CGEOM: -DFIX_NODE_GEOM -DFIX_IONODE_GEOM
+      KSCGMULTI: -DKS_MULTICG=HYBRID -DMULTISOURCE -DMULTIGRID
+      CTIME: -DNERSC_TIME -DCGTIME -DFFTIME -DFLTIME -DGFTIME -DREMAP -DPRTIME -DIOTIME -DGS_TIME
+    capabilities:
+      applications: [ks_spectrum_hisq]
+      fermion_actions: [hisq]
+      precision: [double with double-single QUDA solves]
+      parallelism: [qmp, openmp]
+      quda_paths:
+        - staggered-cg
+        - staggered-deflated-cg
+        - staggered-multigrid
+        - fermion-links
+        - gauge-fixing
+        - gauge-force
+        - fermion-force
+        - gaussian-smearing
+      io: [qio-linked]
+    composes:
+      quda:
+        profile: mg-staggered
+        required_capabilities:
+          dirac: [staggered, improved-staggered]
+          solvers: [cg, deflated-cg, gcr, multigrid]
+          preconditioners: [staggered multigrid]
+          application_interfaces: [milc]
+          communication: [qmp]
+          io: [qio]
+    notes:
+      - This profile differs from ks-spectrum-hisq-quda in exactly two respects, and both matter. KSCGMULTI adds -DMULTIGRID and -DMULTISOURCE, and the composed QUDA profile is mg-staggered rather than milc-cg.
+      - MULTIGRID is a KSCGMULTI preprocessor define in the observed GNU Make path, not a WANT_* switch. software/milc/project.yaml records WANT_MULTIGRID as the corresponding CMake control; a Make-driven build that sets only WANT_* variables does not compile the MG dispatch.
+      - -DMULTISOURCE selects the multi-right-hand-side dispatch that reaches qudaInvertMsrcMG. It is independent of the QUDA_MULTIGRID_MRHS_LIST compiled shapes and of the runtime use_mma switch.
+      - Capabilities describe compiled paths; each stack records which paths its runtime validation actually exercised.
+      - WANT_FN_CG_GPU forces WANT_EIG_GPU in the observed MILC Makefile, so this profile also compiles the native-CG deflation path even when a run supplies no eigenspace.
+      - The composed QUDA installation must instantiate the requested coarse colours in QUDA_MULTIGRID_NVEC_LIST. A legal aggregation whose nvec is absent from that list fails at runtime, not at configure time.
   wilson-flow-quda:
     summary: Double-precision, multi-rank Wilson-flow applications using QUDA for gauge evolution and observables.
     application_guide: software/milc/applications/wilson-flow.md

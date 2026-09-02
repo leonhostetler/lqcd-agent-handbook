@@ -94,7 +94,7 @@ profiles:
         - "64"
     build_cost: expensive
     notes:
-      - The named profile records compiled capability; the validated stack exercises QUDA's native staggered GCR-MG test path, not plain or deflated CG and not a linked MILC executable.
+      - The named profile records compiled capability. The quda-cuda13-mg-staggered-2026q3 stack exercises QUDA's native staggered GCR-MG test path only, not plain or deflated CG. A linked MILC executable composing this profile is validated separately by machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3, through the milc ks-spectrum-hisq-quda-mg profile.
       - Deflated CG uses the same eigensolver-enabled library capability as milc-cg; a linked MILC build must still enable and validate its deflation path.
       - The all-tests options are the handbook default. The historical build behind the first validated stack compiled the focused staggered inverter target separately; its cost is not an all-tests estimate.
 evidence: source

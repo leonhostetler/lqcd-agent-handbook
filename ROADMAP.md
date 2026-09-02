@@ -152,6 +152,34 @@ after its negative control was silently dropped in a rewrite. So a new tool is n
 passing run: it must be perturbed until it fails, a no-op negative test is vacuous, and
 "leave it manual, reviewed at the next checkpoint" is a recorded outcome rather than a failure.
 
+Later on 2026-09-02 the first linked-MILC staggered-multigrid stack was admitted, without
+changing the Slice 4 next action. It closes the gap this document recorded on 2026-08-20: the
+native `mg-staggered` stack established QUDA's own GCR-MG path but not a linked MILC MG
+application stack. A new `ks-spectrum-hisq-quda-mg` MILC profile was required first, because a
+stack references a profile and the existing `ks-spectrum-hisq-quda` compiles no MG dispatch —
+`MULTIGRID` is a `KSCGMULTI` preprocessor define in the Make path, not a `WANT_*` switch, so a
+build that sets every `WANT_*` variable correctly still silently takes the CG fallback.
+
+The stack records a deliberate deviation rather than a correction. Its composed QUDA
+installation predates the 2026-08-20 all-tests policy and was configured with
+`QUDA_BUILD_ALL_TESTS` and `QUDA_INSTALL_ALL_TESTS` `OFF`; every other option matches the
+`mg-staggered` profile. Rebuilding to conform would produce a different installation that the
+validation does not cover, and — because `ks_spectrum_hisq` bakes `DT_RPATH` rather than
+`DT_RUNPATH` with an absolute path to the QUDA it linked against — the executable would have to
+be relinked, not redirected by environment. That linkage fact is recorded in the stack notes
+because it governs how two QUDA configurations can coexist at all.
+
+Three limits are recorded in `scope_limits` rather than smoothed over: the run loaded stored
+near-null and eigenvector sets, so hierarchy setup from scratch is not validated; the tunecache
+was warm, so this is not cold-start or benchmark evidence; and the repeatability gate was met
+by an operator-accepted determinism observation taken on a different, four-level configuration
+rather than by a repeat. No solver timing, iteration count, setup cost, or crossover was
+admitted — those remain campaign measurements in the working directory. The recorded build cost
+is an instrumented rebuild of the same recipe in a copy of the application directory, narrower
+in scope than the sibling `ks-spectrum-hisq-quda` cost because the dependent MILC libraries were
+already present; the two figures land within a second of each other while measuring different
+work, and the notes say so.
+
 <a id="current-slice-state"></a>
 ## Current slice state
 
@@ -852,8 +880,9 @@ spacing-default convention are prepared independently of the private tuning corp
 batch now includes source-backed staggered CG, deflated-CG, and multigrid overviews; audited
 compiled-versus-runtime capability coverage; linked-application plain-CG and bounded native-MG
 evidence; cross-solver selection and tuning procedures; and the staged memory/accounting
-tools. Deflated-CG and linked MILC MG runtime validation, ensemble-scoped operational
-imports, and the slice acceptance checks remain pending. A mechanistic MRHS memory model
+tools. Linked MILC MG runtime validation landed on 2026-09-02 for one hierarchy and
+placement. Deflated-CG runtime validation, ensemble-scoped operational imports, and the slice
+acceptance checks remain pending. A mechanistic MRHS memory model
 is also an explicit future obligation: observed increments may guide its design but may
 not be promoted as a transferable capacity formula without allocation-lifetime analysis
 and validation across MRHS widths.

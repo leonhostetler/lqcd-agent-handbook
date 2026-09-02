@@ -70,7 +70,10 @@ recorded scope.
 The included Perlmutter
 [`mg-staggered` stack](../machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/notes.md)
 is a native GCR-MG reproduction seed. For a MILC workload it establishes bounded QUDA
-feasibility, not linked-application validation.
+feasibility, not linked-application validation. That layer is supplied separately by the
+[linked-MILC MG stack](../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md)
+for its one recorded hierarchy and placement; read its `scope_limits` before treating it as
+coverage for a different hierarchy, node count, or a cold-tunecache run.
 
 ## 3. Freeze the measurement contract
 

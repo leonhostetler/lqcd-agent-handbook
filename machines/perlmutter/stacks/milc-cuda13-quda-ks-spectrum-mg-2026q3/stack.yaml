@@ -1,0 +1,154 @@
+schema_version: 1
+machine: perlmutter
+software: milc
+profile: ks-spectrum-hisq-quda-mg
+validated_on:
+  - gpu-a100-40
+tested_software:
+  milc:
+    commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    branch: develop
+  quda:
+    commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+tested_toolchain:
+  environment: cpe/26.03
+  programming_environment: PrgEnv-gnu/8.7.0
+  host_compiler:
+    module: gcc-native/14
+    version: 14.3.0
+    wrappers:
+      c: cc
+      cxx: CC
+  cuda:
+    module: cudatoolkit/13.2
+    compiler_version: 13.2.78
+  mpi:
+    module: cray-mpich/9.1.0
+  craype: 2.7.36
+build:
+  type: optimized double precision with debug information
+  target: CUDA
+  gpu_arch: sm_80
+  generator: GNU Make
+  install_layout: <milc-checkout>/ks_spectrum/ks_spectrum_hisq
+  profile_options_from: software/milc/build-profiles.yaml#ks-spectrum-hisq-quda-mg
+  portable_recipe: software/milc/applications/ks-spectrum.md
+  nearest_application_stack: machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-2026q3/stack.yaml
+  machine_options:
+    OFFLOAD: CUDA
+    MY_CC: cc
+    MY_CXX: CC
+    COMPILER: gnu
+    ARCH: ""
+    GPU_ARCH: nvidia
+    OPT: -O3 -Ofast -g
+    LDFLAGS: -g
+    CUDA_HOME: <cuda-toolkit-prefix>
+    QUDA_HOME: <quda-build-dir>
+    QMPPAR: <quda-build-dir>/usqcd
+    QIOPAR: <quda-build-dir>/usqcd
+  dependency_acquisition:
+    mode: existing QUDA installation built from the mg-staggered profile
+    composed_profile: software/quda/build-profiles.yaml#mg-staggered
+    network_required: false
+  cost:
+    where: login
+    command: make -j1 ks_spectrum_hisq
+    parallelism: 1
+    wallclock: 54.97s
+    timing_scope: >-
+      Instrumented rebuild of the identical recipe against the same QUDA installation, run in a
+      copy of the application directory: 95 application objects and the final link. The
+      dependent MILC libraries su3.2.a and complex.2.a were already present and were NOT
+      rebuilt, so this scope is narrower than the ks-spectrum-hisq-quda stack's cost. The
+      validated executable itself was built on a compute node inside an interactive allocation;
+      this measurement was taken on a login node.
+    maximum_reported_rss_kib: 145724
+    memory_scope: >-
+      Maximum RSS reported by GNU time for the make command, not aggregate build-process memory.
+validation:
+  date: "2026-08-31"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 8
+    mpi_ranks: 32
+    cpus_per_rank: 16
+    gpus_per_rank: 1
+    accelerator: NVIDIA A100-SXM4-40GB
+    constraint: "gpu&hbm40g"
+    global_lattice: [64, 64, 64, 96]
+    rank_grid: [2, 2, 2, 4]
+    local_lattice_per_rank: [32, 32, 32, 24]
+  runtime:
+    communication: QMP over Cray MPICH
+    outer_solver: GCR on the full staggered system with a QUDA multigrid preconditioner
+    milc_inverter_selector: MG
+    hierarchy_levels: 3
+    near_null_and_terminal_eigenspace: loaded from previously saved single-file vector sets, not regenerated in this run
+    quda_resource_path: Pre-warmed tunecache carried in from the study baseline.
+    application_payload_exit_code: 0
+  tests:
+    - name: mg_execution_path
+      implementation_marker: "fn_QUDA_MG timer lines present; no CG or UML fallback warning"
+      timer_lines: 12
+      result: pass
+    - name: mg_hierarchy_construction
+      markers:
+        - "mat_invert_mg_field_gpu: setting up the MG inverter"
+        - "mat_invert_mg_field_gpu: MG inverter setup complete"
+      result: pass
+    - name: application_completion
+      terminal_marker: RUNNING COMPLETED
+      payload_exit_code: 0
+      result: pass
+    - name: residual_target_attainment
+      requested_targets: [1.0e-8, 1.0e-9, 1.0e-10, 1.0e-12]
+      note: Every requested target was met in both the multigrid and the reference arm.
+      result: pass
+    - name: cross_solver_propagator_agreement
+      reference_arm: MILC inv_type CG at the same placement, mass, source, and gauge configuration
+      criterion: Predeclared before either arm ran; per-timeslice propagator difference must fall monotonically as the residual target is tightened and end below a bound derived from the measured same-solver floor.
+      outcome: Monotone across four rungs and inside the bound at the tightest rung.
+      result: pass
+  scope_limits:
+    - This is the first stack to validate a linked MILC multigrid executable. It supersedes nothing; the native QUDA mg-staggered stack remains the only validation of QUDA's own staggered GCR-MG test path.
+    - The composed QUDA installation was configured with QUDA_BUILD_ALL_TESTS and QUDA_INSTALL_ALL_TESTS OFF, which the mg-staggered profile now sets ON. The library is otherwise option-identical to that profile. No QUDA native test executable is installed alongside this build.
+    - Validation exercised one hierarchy at one placement on one gauge configuration. No other level count, aggregation block, near-null count, coarse solver, rank decomposition, or node count is validated.
+    - The run loaded stored near-null and terminal eigenvector sets. Hierarchy setup from scratch is not what this record validates, and the stored sets carry the QIO partfile layout binding described in software/quda/internals/vector-io-layout.md.
+    - The repeatability gate was not satisfied by a repeat of this study. The operator accepted a substitute determinism observation taken on a different, four-level configuration. End-to-end reproducibility of this result is therefore not established.
+    - Deflated CG and plain CG are compiled. Plain CG ran only as the correctness reference arm; no deflated solve is validated.
+    - The tunecache was pre-warmed, so this is not cold-start evidence and is not benchmark evidence of any kind.
+    - No solver timing, iteration count, setup cost, or crossover is recorded here. Those are campaign measurements and remain in the working directory.
+evidence: experiment
+observed: "2026-08-31"
+observed_on:
+  machine: perlmutter
+  node_type: gpu-a100-40
+  software:
+    milc:
+      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      branch: develop
+    quda:
+      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+      branch: develop
+  toolchain:
+    cuda: 13.2.78
+    host_compiler: GNU 14.3.0 through Cray wrappers
+sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/imp_actions/hisq/hisq_u3_action.h
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
+  - operator-submitted validation run reviewed in the working directory; raw scheduler output, ensemble identity, and campaign measurements are not committed

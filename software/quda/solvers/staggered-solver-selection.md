@@ -42,7 +42,7 @@ selection procedure.
 |---|---|---|---|
 | Plain CG | selected-parity Hermitian staggered normal equation | no eigenspace or hierarchy; ordinary process and autotuning state may still recur | `milc-cg` and `ks-spectrum-hisq-quda` compile the path; native QUDA and linked MILC stacks exercise plain CG with true-residual checks |
 | Deflated CG | the same selected-parity normal equation with a low-mode projection attached to native CG | an eigenspace valid for the exact links, action, parity, mass-shift contract, and interface lifecycle | `milc-cg`, `mg-staggered`, and `ks-spectrum-hisq-quda` compile the path, but no current stack exercises eigensolve or load, projection, deflated solve, or reuse; treat it as experimental |
-| Multigrid | full staggered system solved by outer GCR with a multigrid preconditioner | a hierarchy valid for the exact operator, parameter set, update policy, and decomposition | `mg-staggered` and the Perlmutter CUDA 13 stack validate one native unit-gauge hierarchy and solve; no current profile or stack validates a linked MILC MG executable |
+| Multigrid | full staggered system solved by outer GCR with a multigrid preconditioner | a hierarchy valid for the exact operator, parameter set, update policy, and decomposition | `mg-staggered` and the Perlmutter CUDA 13 native stack validate one unit-gauge hierarchy and solve; `ks-spectrum-hisq-quda-mg` and the Perlmutter linked-MILC MG stack additionally validate one production-gauge hierarchy through the MILC caller, with stored setup state loaded rather than generated |
 
 Reject a candidate before performance work when its mathematical path does not satisfy
 the application contract. Then require a named build profile whose compiled capabilities
@@ -50,10 +50,19 @@ cover the path and a machine stack whose runtime validation covers the behavior 
 claimed. Distinguish linked-application validation, narrower native-harness validation,
 and compiled-only capability; evidence from one layer does not silently satisfy another.
 
-The included
+Two multigrid stacks now exist and they validate different layers. The
 [`mg-staggered` stack](../../../machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/notes.md)
-closes the former source-only gap for its exact native Perlmutter path. It does not validate MILC linkage, application input, production gauge fields, a
-different hierarchy, or benchmark performance. Deflated CG remains compiled but runtime-unvalidated in the current catalog.
+covers QUDA's own native Perlmutter path on a synthetic unit-gauge system. The
+[linked-MILC MG stack](../../../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md)
+covers one hierarchy on a production gauge configuration through the MILC caller, with a
+predeclared cross-solver correctness criterion against plain CG at the same placement.
+
+Neither licenses a different hierarchy, placement, level count, or node type, and neither is
+benchmark evidence: the native run populated a fresh tunecache and the linked run reused a
+warm one. The linked stack additionally loaded stored near-null and eigenvector sets, so
+hierarchy setup from scratch is not what it validates, and its repeatability gate was met by
+an operator-accepted substitute rather than by a repeat. Deflated CG remains compiled but
+runtime-unvalidated in the current catalog.
 
 Apply memory, local-geometry, decomposition, and operator-lifecycle constraints before
 timing. Failure to fit, an invalid aggregation hierarchy, or an eigenspace that cannot
