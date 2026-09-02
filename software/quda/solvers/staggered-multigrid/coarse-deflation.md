@@ -100,7 +100,7 @@ alpha    = 1.551
 
 The joint fit has 11.9% RMS and 20.4% p90 relative error over
 `nu3 = 0.022...0.250` vectors per coarsest site and
-`m = 0.000569...0.01555` in the calibration manifest's literal MILC input-mass
+`m = 0.000569...0.01555`, all four-level, in the calibration manifest's literal MILC input-mass
 convention. The coefficient `c` is ensemble-specific: it was `10.74` and `8.00` on the
 two fitted ensembles, specifically `c(0.04 fm) = 10.74` and `c(0.06 fm) = 8.00`. On a
 new ensemble, estimate it at two or more heavy-mass probes
@@ -128,7 +128,7 @@ eigensolver behaviour and are stated with their consequences in
 **first** hypothesis when a coarsest eigensolve fails to converge — before setup-cap,
 spectrum, or vector-count analysis.
 
-In seven controlled ladders at one fitted spacing, raising the margin within
+In seven controlled four-level ladders at one fitted spacing, raising the margin within
 `1.6x...14.5x` improved the coarse-vector residual in every ladder and usually increased
 the restart count. The direction is established only over that scanned range; the
 optimum was not located. Treat margins near or below `2x` as a corpus warning, not a
@@ -167,7 +167,7 @@ one.
 restarts. Use that restart count as their joint observable instead of assigning three
 independent optimum values.
 
-The corpus reference band is `4...9` restarts. One or two restarts were a consistent
+The corpus reference band is `4...9` restarts, fitted at four levels. One or two restarts were a consistent
 warning for worse `l3_res_max` across all sampled spacings. The upper side is asymmetric:
 ten or more restarts were benign in one fitted population and accompanied failed
 convergence in another. Above the reference band, inspect `l3_res_max`, the convergence

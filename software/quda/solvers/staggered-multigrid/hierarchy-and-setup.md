@@ -90,7 +90,8 @@ python3 "$LQCD_HANDBOOK/tools/quda-staggered-decomposition.py" \
 ```
 
 The existing opt-in screen warns at global `V3 < 10000` or coarsest-cell aspect above
-`1.5`. Those cutoffs came from four ensembles and remain provisional. They are useful
+`1.5`, both fitted at four levels
+([level naming](../staggered-multigrid.md#level-naming)). Those cutoffs came from four ensembles and remain provisional. They are useful
 for ranking legal candidates, not rejecting a new discretization or machine without a
 measurement.
 
@@ -114,7 +115,7 @@ tightening the tolerance primarily buys setup quality and moves only a minority 
 component. At the ceiling, the setup solve is capped rather than demonstrably converged,
 and the resulting vectors can degrade every downstream level.
 
-As a corpus advisory, `rho_setup < 0.5` was the healthy-side screen; a run within one
+As a corpus advisory fitted at four levels, `rho_setup < 0.5` was the healthy-side screen; a run within one
 percent of the ceiling is pinned. These are diagnostic bands, not QUDA success criteria.
 Locate the knee on the target problem by varying the tolerance while holding the
 hierarchy, setup cap, stack, and reuse state fixed. Keep the tightest value that remains

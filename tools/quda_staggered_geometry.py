@@ -20,6 +20,13 @@ SOURCE_REVISION = "quda-b6998853f"
 MMA_COARSE_GAUGE_COLORS = (12, 48, 64, 128, 192)
 CORPUS_V3_MIN = 10_000
 CORPUS_ASPECT_MAX = 1.5
+# Every corpus band in this module was fitted on four-level hierarchies. This constant is the
+# single place that fact is stated in code, and the guard below is the only place it is applied.
+# See software/quda/solvers/staggered-multigrid.md#level-naming: renaming a quantity to a
+# role-based name does not rescope the band attached to it.
+CORPUS_FITTED_LEVELS = 4
+CORPUS_NU3_MIN = 0.022
+CORPUS_NU3_MAX = 0.250
 
 
 class GeometryError(ValueError):
@@ -413,9 +420,13 @@ def evaluate_decomposition(
             if levels == 4:
                 metrics["nu3"] = nvec3 / coarsest_global_volume
         if corpus_advisories:
-            if levels != 4:
+            if levels != CORPUS_FITTED_LEVELS:
+                # Not a warning about this candidate: a refusal to evaluate. Every corpus band
+                # here was fitted at CORPUS_FITTED_LEVELS levels, so at any other level count
+                # the honest output is "not applicable", never a pass.
                 advisories.append(
-                    "the provisional V3/aspect screen was calibrated only for four-level MG"
+                    f"corpus screens not evaluated: every band was fitted at "
+                    f"{CORPUS_FITTED_LEVELS} levels and this hierarchy has {levels}"
                 )
             else:
                 if coarsest_global_volume < CORPUS_V3_MIN:
@@ -428,6 +439,15 @@ def evaluate_decomposition(
                         f"coarsest-cell aspect={aspect:.3g} exceeds the provisional "
                         f"corpus screen {CORPUS_ASPECT_MAX}"
                     )
+                density = metrics.get("coarsest_vector_density")
+                if density is not None and not (
+                    CORPUS_NU3_MIN <= density <= CORPUS_NU3_MAX
+                ):
+                    advisories.append(
+                        f"nu3={density:.4g} is outside the fitted spectrum envelope "
+                        f"{CORPUS_NU3_MIN}...{CORPUS_NU3_MAX}; the coarse-spectrum law is "
+                        f"an extrapolation here"
+                    )
 
     hierarchy.update(
         {
@@ -439,8 +459,18 @@ def evaluate_decomposition(
             "empirical_screen": {
                 "enabled": corpus_advisories,
                 "evidence": "retrospective four-ensemble corpus; threshold provisional",
+                # fitted_levels and evaluated exist so a consumer can tell "screens ran and
+                # this candidate passed" from "screens never ran". Both otherwise produce an
+                # empty advisories list, and the second silently reads as a pass.
+                "fitted_levels": CORPUS_FITTED_LEVELS,
+                "evaluated": bool(
+                    corpus_advisories and levels == CORPUS_FITTED_LEVELS
+                ),
                 "V3_min": CORPUS_V3_MIN if corpus_advisories else None,
                 "aspect_max": CORPUS_ASPECT_MAX if corpus_advisories else None,
+                "nu3_envelope": (
+                    [CORPUS_NU3_MIN, CORPUS_NU3_MAX] if corpus_advisories else None
+                ),
                 "advisories": advisories,
             },
         }

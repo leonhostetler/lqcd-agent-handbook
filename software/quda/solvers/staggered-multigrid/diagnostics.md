@@ -29,14 +29,19 @@ substitutes for target-stack validation.
 
 ## Quick reference
 
-| Observable | Corpus reference | Correct interpretation |
-|---|---:|---|
-| `setup_l1_iters/setup_maxiter_1` | below `0.5` | healthy-side setup screen; within 1% of the cap is pinned |
-| `nu3 = nvec_3/V3` | fit envelope `0.022...0.250` | spectrum-calibration domain, not a legality or universal health band |
-| TRLM restarts | `4...9` | stable middle reference; the two edges are asymmetric |
-| TRLM restarts | `1...2` | consistent under-resolution warning in the sampled corpus |
-| restarts far above band, cap NOT reached, **empty** `Eval[...]` prefix | — | stalled filter, not a slow solve; see the eigensolve triage below |
-| `l3_res_max` | about `1.5e-4` | middle-band reference at the two fitted spacings; scale and tolerance remain problem-specific |
+Every band below was fitted on **four-level** hierarchies. A numbered symbol is an executed
+level index, so at three levels the coarsest grid is level 2 and these bands do not apply to it
+until refitted — see [level naming](../staggered-multigrid.md#level-naming). The `Fitted at`
+column exists so a band cannot be added here without answering that question.
+
+| Observable | Corpus reference | Fitted at | Correct interpretation |
+|---|---:|---:|---|
+| `setup_l1_iters/setup_maxiter_1` | below `0.5` | 4 levels | healthy-side setup screen; within 1% of the cap is pinned |
+| `nu3 = nvec_3/V3` | fit envelope `0.022...0.250` | 4 levels | spectrum-calibration domain, not a legality or universal health band |
+| TRLM restarts | `4...9` | 4 levels | stable middle reference; the two edges are asymmetric |
+| TRLM restarts | `1...2` | 4 levels | consistent under-resolution warning in the sampled corpus |
+| restarts far above band, cap NOT reached, **empty** `Eval[...]` prefix | — | 4 levels | stalled filter, not a slow solve; see the eigensolve triage below |
+| `l3_res_max` | about `1.5e-4` | 4 levels | middle-band reference at the two fitted spacings; scale and tolerance remain problem-specific |
 
 The decomposition tool's separate `V3 >= 10000` and coarsest-cell aspect `<= 1.5`
 screens are likewise provisional four-ensemble advisories. Source legality always has

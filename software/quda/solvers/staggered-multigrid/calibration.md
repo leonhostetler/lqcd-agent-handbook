@@ -58,7 +58,9 @@ units and no replacement by QUDA's internal sign-flipped full-system mass. This 
 ## Population by advisory
 
 The calibration name is shared, but each advisory uses a different screened
-subpopulation:
+subpopulation. **Every band below was fitted on four-level hierarchies**; see
+[level naming](../staggered-multigrid.md#level-naming). A band has no value at another level
+count until it is refitted there, whatever role-based name it is written in:
 
 | Advisory | Population and exclusions |
 |---|---|

@@ -104,16 +104,30 @@ class SolverImportTests(unittest.TestCase):
                     or "gcr-mg only" in limits
                 )
 
-    def test_native_mg_validation_is_not_promoted_to_linked_milc(self):
+    def test_native_and_linked_mg_validation_stay_distinguished(self):
+        """The two MG stacks validate different layers and must not be conflated.
+
+        Until 2026-09-02 this guarded a stronger claim -- that NO stack validated a
+        linked MILC MG executable -- because none did. One now does, so the assertion
+        that would have caught an overclaim has to change or it merely pins a stale
+        fact. It is replaced by assertions that the linked stack's own scope limits
+        are stated, which is the overclaim actually available today: reading a
+        production-gauge, warm-cache, stored-setup run as general MG validation.
+        """
         selection = (
             ROOT / "software/quda/solvers/staggered-solver-selection.md"
         ).read_text()
         playbook = (ROOT / "playbooks/tune-solver.md").read_text()
-        self.assertIn("native unit-gauge hierarchy", selection)
+        # The native stack is still described as native and unit-gauge.
+        self.assertIn("native stack validate one unit-gauge hierarchy", selection)
+        # The linked stack is admitted, but never without its two load-bearing limits.
         self.assertIn(
-            "no current profile or stack validates a linked MILC MG executable",
-            selection,
+            "with stored setup state loaded rather than generated", selection
         )
+        self.assertIn(
+            "hierarchy setup from scratch is not what it validates", selection
+        )
+        # The playbook keeps the native seed scoped to bounded QUDA feasibility.
         self.assertIn("native GCR-MG reproduction seed", playbook)
         self.assertIn("not linked-application validation", playbook)
 

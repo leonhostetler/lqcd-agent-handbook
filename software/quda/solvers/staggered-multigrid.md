@@ -96,14 +96,40 @@ For the four-level optimized-KD hierarchy, use this index crosswalk:
 | `2`, intermediate coarse | `nvec 2`, `geo_block_size 2`, `setup_* 2` | `--nvec2`, `--block2` | second user aggregation constructs level 3 |
 | `3`, coarsest solve/deflation | `nvec 3` | `--nvec3` | requested deflation-vector count, not a coarse color |
 
-Thus `V2` and `V3` name the global grid volumes at executed levels 2 and 3 — **level
-indices, not roles.** They coincide with "the coarsest grid" only for the four-level
-hierarchy tabulated above; a three-level hierarchy's coarsest grid is level 2, so its
-coarsest volume is `V2`. See
-[`hierarchy-and-setup.md`](staggered-multigrid/hierarchy-and-setup.md) for the role-based
-names to use when a statement must hold at more than one level count. Only
-`nvec_1` and `nvec_2` select generated coarse-color kernels and must appear in
+Only `nvec_1` and `nvec_2` select generated coarse-color kernels and must appear in
 `QUDA_MULTIGRID_NVEC_LIST`; `nvec_3` does not.
+
+<a id="level-naming"></a>
+### Numbered symbols are level indices; role names are roles
+
+**A numbered symbol names an executed level, not a position in the hierarchy.** `V2` and `V3`
+are the global grid volumes at executed levels 2 and 3. They coincide with "the coarsest grid"
+only for the four-level hierarchy tabulated above; a three-level hierarchy's coarsest grid is
+level 2, so its coarsest volume is `V2` and its coarsest density is `nvec_2 / V2`.
+
+Three rules follow, and the third is the one that is easy to get wrong:
+
+1. **Use role names in any statement meant to hold at more than one level count** —
+   `coarsest_global_volume`, `coarsest_vector_density`, `coarsest_cell_aspect`. These are what
+   [`quda-staggered-decomposition.py`](../../../tools/quda-staggered-decomposition.py) always
+   reports. It emits the numbered aliases `V3_global` and `nu3` only for a four-level hierarchy
+   and `V2_global` only for a three-level one, so an alias cannot outlive its level count.
+   `coarsest` is the canonical role word throughout this handbook; `terminal` appears in some
+   campaign records as a synonym for the same grid and is normalized to `coarsest` on import.
+2. **Use a numbered symbol only where the level count is fixed** by the surrounding text or by
+   an explicit statement. Read a numbered symbol from another page or corpus as naming a
+   *different grid* unless that page's level count matches.
+3. **Renaming a quantity does not rescope a band.** `coarsest_global_volume` is well defined at
+   any level count; `V3 >= 10000` is a threshold fitted on four-level hierarchies. Rewriting the
+   threshold in role-based form does not make it apply at three levels — it silently converts a
+   level-scoped advisory into a level-independent one, which is the extrapolation
+   [`calibration.md`](staggered-multigrid/calibration.md) excludes. **Every numerical band
+   therefore carries its fitted level count inline, next to the number**, and the decomposition
+   tool declines to evaluate a band outside the level count it was fitted at, reporting
+   `empirical_screen.evaluated = false` rather than an empty advisory list.
+
+The distinction is between a *quantity*, which is role-based, and a *band*, which is
+population-scoped. Only the first travels for free.
 
 MILC `use_mma` selects QUDA's tensor-core matrix-multiply-accumulate path. In the
 observed memory path it can retain extra MILC-order/AoS coarse-gauge copies and ghosts.
@@ -256,7 +282,9 @@ even though the corresponding coarse **gauge** field combines them into color
 `2*nvec_1`.
 
 Adding `--corpus-advisories` applies a separate, provisional screen mined from four
-ensembles: warn below global `V3 = 10000` sites or above coarsest-cell aspect 1.5. Those
+ensembles: warn below global `V3 = 10000` sites or above coarsest-cell aspect 1.5 — both fitted at four
+levels, and the tool declines to evaluate them at any other level count
+([level naming](#level-naming)). Those
 warnings are empirical tuning evidence, not QUDA errors. The tool's source status remains
 independent, and runtime `Transfer: using block size ...` output remains authoritative.
 
