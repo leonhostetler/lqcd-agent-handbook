@@ -31,6 +31,28 @@ amended to record that a Tier-0 pointer alone does not achieve "every time", and
 added to the four `modes/*.md` routing sections, `playbooks/tune-solver.md`, and
 `playbooks/start-session.md` stage 6.
 
+On 2026-09-02 the staggered memory-model toolchain was repaired without changing the Slice 4
+next action. Three defects were fixed, all found by comparing predictions with measured QUDA
+counters on an independent 0.09-fm target. (1) `mg-fit` reported a total that is flat in
+`nvec_3` whenever the winning allocation phase does not carry the coarsest eigenspace, which
+includes the page's own 0.04-fm example at the strongest prediction tier; it now reports
+`detail.deflation_enters_total` and warns. (2) `quda_staggered_geometry.py` omitted QUDA's
+asqtad long-link rule, so a level-1 aggregation extent below three was reported
+`source_status: pass` although QUDA aborts on it; `--allow-truncation` exposes the truncated
+space deliberately. (3) Neither tool checked QUDA's MMA coarse-gauge-colour restriction, under
+which `2*nvec_(L-1)` must be one of 12, 48, 64, 128, 192 — a constraint on a derived quantity
+that a legal, compiled `nvec` can still violate at runtime.
+
+**No fitted constant was changed and no predicted value moved.** The empirical accuracy
+observations from that target are recorded on the memory page as scoped observations, never as
+correction factors: their population is one workspace, one build, and one ensemble, and the
+corpus that justifies the published errors is not in this repository, so a refit could not be
+re-validated — only asserted. A new regression test pins the documented 0.04-fm and 0.06-fm
+examples so a later model change cannot move them silently. One pre-existing fixture in
+`tests/test_slice5_memory.py` asserted that a hierarchy with a level-1 extent of two was
+source-valid; it was corrected to a legal geometry, preserving the test's arbitrary-lattice
+intent.
+
 <a id="current-slice-state"></a>
 ## Current slice state
 
@@ -801,6 +823,7 @@ column is the test. On the move into the repo ([§plan-ships-with-handbook](ARCH
 | **Whether any part of the handbook should be served over MCP** rather than as files, skills and scripts | **None.** Knowledge stays as markdown and YAML read directly; procedures stay as skills plus `tools/` scripts. Works on every machine with no runtime | Any of three: (a) the handbook needs to reach data **too large to commit** — a cross-machine run database is plausible, and would be a *separate* server the handbook talks to, not handbook infrastructure; (b) something genuinely **remote** becomes necessary, such as live job status across machines from one session; (c) slice 6 finds **PerfAdvisor is already service-shaped**, making this a question about preserving an existing shape rather than adding one |
 | **Whether session logging should also archive the raw transcript JSONL** for full provenance, tool I/O included ([§session-logging](ARCHITECTURE.md#session-logging)) | **Prose-only.** The shipped logger stays as the operator wrote it; the JSONL under `~/.claude/projects/` is the true last resort where it survives | The prose record proves insufficient to reconstruct an episode the operator needed back — or a machine rebuild/scratch purge destroys a JSONL that was wanted. Note the cost before adopting: much larger files in the working directory, and a far bigger privacy surface, since the JSONL contains every file read and every command run |
 | **Whether the handbook is measurably cheaper than the rediscovery it replaces** | No measurement. Cold-session tests stay qualitative | The handbook becomes big enough to feel slow to navigate. **If implemented, it is the lightweight version** (below) — not an A/B harness |
+| **A retained validation set for the fitted tool models** — a small, screened set of `(inputs -> measured counter)` rows committed as test fixtures, so a fit's published error is re-derivable in-repo | **None committed.** `tools/quda-staggered-memory.py` carries its population and error strings as prose, and the corpus behind them is not in this repository ([§non-public-evidence](ARCHITECTURE.md#non-public-evidence)). The 2026-09-02 regression test pins the documented examples to the model's **own output**, so it detects drift but cannot detect that a model was wrong to begin with. Under [§decisions-knowledge-contract](ARCHITECTURE.md#decisions-knowledge-contract) no fit may be revised meanwhile, which is conservative but leaves known one-sided errors uncorrected | A fit needs revising rather than annotating — the open case is whether the MG model's phase A genuinely peaks before the coarsest eigensolve, or whether its fitted setup-workspace constant absorbs an eigenspace term that was near-constant across the corpus; those imply opposite repairs and no in-repo evidence distinguishes them. Needs a publishability decision on the fact class first ([§ensemble-numbers](ARCHITECTURE.md#ensemble-numbers)) |
 | **Optional follow-up mining from the `ks_spectrum` benchmark corpus** — detailed memory/telemetry analysis, numerical reference-correlator comparison, and broader gauge-I/O-path validation | The admitted guidance requires ordinary resource evidence and structural, numerical, and scientific checks, but claims no telemetry-analysis method, reference-correlator comparison recipe, or preferred gauge-I/O path. Gauge loading is only a candidate tuning dimension when it is a non-negligible production cost | Revisit an item independently when a concrete tuning or validation decision needs it and suitably scoped evidence is available. These investigations are optional; none blocks Slice 4 acceptance |
 
 

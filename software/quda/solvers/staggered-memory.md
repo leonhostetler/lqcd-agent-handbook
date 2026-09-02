@@ -17,6 +17,7 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/targets/cuda/malloc.cpp
+  - operator's screened tuning records
 observed: "2026-08-20"
 observed_on:
   software:
@@ -241,6 +242,23 @@ all. If B wins, block size, level-2 volume, coarse color, and MMA copies are dir
 the capacity path. A field inventory added without lifetimes overstates phases that never
 coexist and can still miss the real peak phase.
 
+**The winning phase decides whether `nvec_3` is visible at all.** The coarsest eigenspace
+is carried in exactly one phase — A at two levels, B at three, C at four — and the
+four-level term is sized by `max(nvec_2, nvec_3)`. When another phase wins, or when
+`nvec_3 <= nvec_2` at four levels, the reported total is **flat in `nvec_3`** and its
+headroom is not eigenspace-aware. This is not a corner case: a large-volume four-level
+candidate frequently peaks in phase A, where the fitted setup workspace dominates, so a
+requested eigenspace of several thousand vectors can contribute nothing to the estimate.
+`mg-fit` reports `detail.deflation_enters_total` and `detail.deflation_phase`, and emits a
+`LOUD WARNING` whenever a positive `nvec_3` does not reach the total. Never rank an
+eigenspace-blind candidate's headroom against a responsive one's.
+
+**A measured peak can also fall outside every modelled phase.** The phases above are setup
+phases, treated as alternatives; a run whose high-water occurs in the steady solve, with the
+complete hierarchy and a resident eigenspace co-allocated, has no term here. The resulting
+error is one-sided — the model under-predicts — and it is not detected by any tier label.
+Measure the winner on the target stack.
+
 Most terms are enumerated from source. The model also uses `setup_ws = 17,787 B` per
 fine local site for setup workspace and `copy_factor = 1.718` on coarse Y-sets. Those
 constants were fitted to four-level, half-precision, `nvec_1 = 64` runs in the named
@@ -311,6 +329,17 @@ corpus; its detailed error is in the companion script metadata, while the histor
 value appears only in an adjacent source comment. It is not an API guarantee and should be replaced by a target-build
 measurement when available.
 
+**Scope limit: the coefficient is calibrated on fully-partitioned geometries and
+over-predicts when few directions are partitioned.** On a target with all four directions
+partitioned (32 ranks, `2x2x2x4`) it was accurate to `0.4%` — predicted `1,361` MiB against
+`1,366.9` MiB observed, and the observed value repeated on every run of that geometry. With
+only `t` partitioned (4 ranks, `1x1x1x4`) it over-predicted by `31%`: about `3,350` MiB
+predicted against `2,304.0` MiB observed. The likely mechanism is that current source keeps
+four buffers grown to the largest encountered ghost requirement, so a coefficient fitted
+against fully-partitioned geometries stops tracking the surface sum once few directions are
+partitioned; that is a hypothesis, not a measured cause. The error direction is the safe
+one. Empirical, one low-partition point.
+
 ### Kähler–Dirac current-code calibration
 
 The calculator targets QUDA at or after `0006627c1` and applies the current-code
@@ -344,6 +373,44 @@ Its source owner, build transfer, and behavior on another hierarchy are unresolv
 The calculator therefore has no MRHS-MG width option: use the slope only as a scoped
 marginal diagnostic for the named topology, and measure the complete high-water at the
 target widths and stack.
+
+## Independent target measurements
+
+The following were measured on a single 0.09-fm HISQ target (`64^3 x 96`, Perlmutter
+A100-40, QUDA `b6998853f`, MILC `6b9b8a06e`, 32 ranks at `2x2x2x4`, `nvec_1 = 64`,
+`use_mma` true), comparing each prediction with the QUDA `Device memory used` counter
+like for like. **They are accuracy observations against the named calibration, not
+correction factors.** Do not multiply a prediction by any ratio below: the population is
+one workspace, one build, and one ensemble, and
+[`staggered-multigrid/calibration.md`](staggered-multigrid/calibration.md) places the
+0.09-fm population outside the fitted envelope for exactly this reason.
+
+| Path | Prediction tier reported | Measured / predicted |
+|---|---|---|
+| Plain CG, two local volumes an eight-fold span apart | `corpus-calibrated` | `1.318`, `1.339` |
+| Three-level MG, one hierarchy at three eigenspace sizes | `unvalidated-structural-extrapolation` | `0.902`, `0.923`, `0.980` |
+| Four-level MG, three coarsest-grid shapes | `caveated-extrapolation` | `1.080`, `1.091`, `1.135` |
+
+Three consequences are worth carrying:
+
+- **The plain-CG fit under-predicted by about a third at both volumes**, against its
+  published device rms of `7.2%` and maximum of `12.6%`, with both points inside the
+  stated envelope. The near-constant *relative* offset across an eight-fold volume span
+  suggests a missing term that scales with `V0` rather than a fixed per-rank constant.
+  Confounds that were not excluded: a `multimass` set dispatch issuing two solver calls
+  per checked solve, resident application-side gauge state, and the build's
+  `KS_MULTICG` option. **Treat a predicted plain-CG device figure as a lower bound for a
+  MILC `ks_spectrum` multimass workload**, and measure before committing to a capacity
+  decision inside the advisory band.
+- **The sign of the MG error flipped with level count** — three levels over-predicted,
+  four levels under-predicted — so no single correction exists, and a level count is not
+  a free parameter for a capacity estimate. The four-level errors are the unsafe
+  direction.
+- **The tier labels did not order the outcomes.** The three-level path, which this page
+  warns has never been empirically validated, was the more accurate of the two and erred
+  conservatively; two of the three four-level points were eigenspace-blind in the sense
+  described above, which inflates their spread. A tier states what evidence exists, never
+  how accurate a given prediction will be.
 
 ## Capacity decisions and A100 margin
 

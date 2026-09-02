@@ -201,7 +201,19 @@ Additional hard constraints include:
 - each smoother solve type must be direct or direct-preconditioned; and
 - improved-staggered long-link coarsening requires aggregate extent at least three in
   each coarsened direction unless `allow_truncation` explicitly permits dropping those
-  long-link contributions.
+  long-link contributions. This binds on the **first** aggregation, where the improved
+  operator still carries long links, and never on a coarse-to-coarse stage; with
+  `allow_truncation` false, QUDA's default, it is a hard error rather than a silent
+  adjustment. Combined with the level-1 even requirement, a first-stage extent must be
+  even and at least four; and
+- with `use_mma true`, the coarse gauge colour `2*nvec_(L-1)` must be one of `12, 48,
+  64, 128, 192`; other values abort in coarse-operator construction. This restricts the
+  usable near-null counts to `{6, 24, 32, 64, 96}` and is **independent of**
+  `QUDA_MULTIGRID_NVEC_LIST`. The constraint acts on the derived coarse gauge colour, not
+  on the requested `nvec`, which is why a value such as `nvec_1 = 48` can be a legal
+  aggregation and a compiled coarse colour and still fail at runtime. This is the second
+  constraint that turns on `2*nvec_(L-1)` rather than `nvec` itself — coarse-operator
+  cost, which scales as `(2*nvec)^2`, is the other.
 
 Decomposition choice therefore changes both legality and the executed hierarchy. Check
 it before allocating a long setup job; do not infer validity from global lattice
@@ -218,8 +230,12 @@ python3 "$LQCD_HANDBOOK/tools/quda-staggered-decomposition.py" \
 ```
 
 It emulates the current transfer constructor's halving, keeps requested and effective
-blocks separate, checks aggregate and compiled-`nvec` constraints, and reports global and
-local coarse volumes. Every result is derived from the supplied global lattice and rank
+blocks separate, checks aggregate, long-link, and compiled-`nvec` constraints, and reports
+global and local coarse volumes. Pass `--mma` to check the coarse gauge colour against
+QUDA's supported MMA set; the result appears as
+`build_capability.QUDA_MMA_COARSE_GAUGE_COLOR.status`, which is `unchecked` unless `--mma`
+or `--no-mma` is supplied. Pass `--allow-truncation` to enumerate the truncated long-link
+space deliberately. Every result is derived from the supplied global lattice and rank
 geometry; there is no built-in lattice size or lattice-spacing default. The
 `build_capability.QUDA_MULTIGRID_NVEC_LIST.status` field is `pass` or `fail` only when
 `--compiled-nvecs` is supplied; otherwise it is explicitly `unchecked`. A geometry

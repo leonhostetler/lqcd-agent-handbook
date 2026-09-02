@@ -58,6 +58,27 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="apply the provisional four-level V3/aspect screen",
     )
+    out.add_argument(
+        "--allow-truncation",
+        action="store_true",
+        help=(
+            "model MILC allow_truncation=true, permitting a level-1 aggregation extent "
+            "below 3 by dropping long-link contributions; QUDA defaults to false, where "
+            "such an extent is a hard error"
+        ),
+    )
+    mma = out.add_mutually_exclusive_group()
+    mma.add_argument(
+        "--mma", dest="mma", action="store_true", default=None,
+        help=(
+            "check MILC use_mma=true against QUDA's supported coarse gauge colors; "
+            "omit both flags to leave the MMA capability explicitly unchecked"
+        ),
+    )
+    mma.add_argument(
+        "--no-mma", dest="mma", action="store_false", default=None,
+        help="model MILC use_mma=false; the MMA color restriction does not bind",
+    )
     return out
 
 
@@ -79,6 +100,8 @@ def main() -> int:
             args.compiled_nvecs,
             args.lattice_spacing_fm,
             args.corpus_advisories,
+            args.allow_truncation,
+            args.mma,
         )
     except GeometryError as exc:
         command.error(str(exc))

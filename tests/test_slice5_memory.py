@@ -547,11 +547,13 @@ class StaggeredMemoryTests(unittest.TestCase):
     def test_decomposition_accepts_arbitrary_lattice_sizes(self):
         cases = (
             (
+                # Ranks chosen so every level-1 extent is even and at least four: an
+                # extent of two is rejected by the long-link rule, not silently halved.
                 ("80", "96", "112", "128"),
-                ("2", "3", "4", "4"),
-                ("4", "4", "2", "4"),
+                ("2", "3", "2", "4"),
+                ("4", "4", "4", "4"),
                 ("1", "2", "1", "2"),
-                [40, 32, 28, 32],
+                [40, 32, 56, 32],
             ),
             (
                 ("72", "120", "96", "144"),
@@ -581,6 +583,121 @@ class StaggeredMemoryTests(unittest.TestCase):
                 self.assertEqual(payload["source_status"], "pass")
                 self.assertEqual(payload["local_dims"], expected_local)
                 self.assertEqual(payload["global_dims"], [int(value) for value in global_dims])
+
+    def test_documented_mg_examples_do_not_drift(self):
+        """Pin the published 0.04/0.06 fm examples so a model change cannot move them.
+
+        The MG fit is calibrated on four-level 0.04 and 0.06 fm runs whose raw records are
+        not in this repository, so a drift here cannot be re-validated -- it can only be
+        detected.  Update these numbers only with a deliberate, documented refit.
+        """
+        cases = (
+            (
+                "0.04fm",
+                ("--global", "144", "144", "144", "288", "--ranks", "6", "3", "6", "8",
+                 "--block1", "4", "6", "6", "6", "--block2", "3", "2", "2", "3",
+                 "--nvec1", "64", "--nvec2", "96", "--nvec3", "4000"),
+                23.433064,
+            ),
+            (
+                "0.06fm",
+                ("--global", "96", "96", "96", "192", "--ranks", "4", "4", "4", "8",
+                 "--block1", "6", "6", "6", "4", "--block2", "2", "2", "2", "2",
+                 "--nvec1", "64", "--nvec2", "96", "--nvec3", "2048"),
+                8.212193,
+            ),
+        )
+        for label, args, expected_gib in cases:
+            with self.subTest(label):
+                _, payload = run_json(
+                    MEMORY, "mg-fit", *args, "--levels", "4", "--mma",
+                    "--machine", "perlmutter-a100-40",
+                )
+                self.assertAlmostEqual(payload["device_gib"], expected_gib, places=5)
+
+    def test_eigenspace_that_does_not_reach_the_total_is_announced(self):
+        """A flat response to nvec_3 must never be silent -- see the phase discussion."""
+        base = ("--global", "64", "64", "64", "96", "--ranks", "2", "2", "2", "4",
+                "--levels", "4", "--block1", "4", "4", "4", "6",
+                "--nvec1", "64", "--nvec2", "96", "--mma",
+                "--machine", "perlmutter-a100-40")
+
+        # Terminal 4096 sites: phase B wins, so the eigenspace is invisible.
+        _, blind = run_json(
+            MEMORY, "mg-fit", *base, "--block2", "2", "2", "2", "2", "--nvec3", "1024"
+        )
+        self.assertFalse(blind["detail"]["deflation_enters_total"])
+        self.assertEqual(blind["detail"]["deflation_phase"], "C")
+        self.assertTrue(
+            any("does not enter this total" in warning for warning in blind["warnings"])
+        )
+
+        # Terminal 16384 sites: phase C wins and nvec_3 exceeds nvec_2, so it is carried.
+        _, aware = run_json(
+            MEMORY, "mg-fit", *base, "--block2", "2", "2", "1", "1", "--nvec3", "1024"
+        )
+        self.assertTrue(aware["detail"]["deflation_enters_total"])
+        self.assertFalse(
+            any("does not enter this total" in warning for warning in aware["warnings"])
+        )
+
+        # nvec_3 at or below nvec_2 is absorbed by max(nvec_2, nvec_3) even in phase C.
+        _, absorbed = run_json(
+            MEMORY, "mg-fit", *base, "--block2", "2", "2", "1", "1", "--nvec3", "64"
+        )
+        self.assertFalse(absorbed["detail"]["deflation_enters_total"])
+
+    def test_level_one_long_link_aggregation_below_three_is_source_invalid(self):
+        """coarse_op.cuh aborts long-link coarsening below extent three; not a halving."""
+        args = ("--global", "64", "64", "64", "96", "--ranks", "2", "2", "2", "4",
+                "--block1", "4", "4", "2", "6", "--block2", "2", "2", "2", "2",
+                "--nvec1", "64", "--nvec2", "96")
+        result, payload = run_json(DECOMPOSITION, *args, check=False)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(payload["source_status"], "error")
+        self.assertTrue(
+            any("long-link aggregation" in error for error in payload["source_errors"])
+        )
+
+        # The truncated space stays reachable, but only on an explicit request.
+        allowed, permitted = run_json(DECOMPOSITION, *args, "--allow-truncation")
+        self.assertEqual(allowed.returncode, 0)
+        self.assertEqual(permitted["source_status"], "pass")
+
+    def test_mma_coarse_gauge_color_restriction_is_checked_and_opt_in(self):
+        """N = 2*nvec must be an instantiated MMA color; nvec alone does not reveal it."""
+        args = ("--global", "64", "64", "64", "96", "--ranks", "2", "2", "2", "4",
+                "--block1", "4", "4", "4", "6", "--block2", "2", "2", "2", "2",
+                "--nvec2", "96")
+
+        # nvec1 = 48 is a legal aggregation and a compiled coarse color, and still aborts.
+        result, payload = run_json(
+            DECOMPOSITION, *args, "--nvec1", "48",
+            "--compiled-nvecs", "24", "48", "64", "96", "--mma", check=False,
+        )
+        self.assertEqual(result.returncode, 2)
+        check = payload["build_capability"]["QUDA_MMA_COARSE_GAUGE_COLOR"]
+        self.assertEqual(check["status"], "fail")
+        self.assertEqual(check["supported_nvec"], [6, 24, 32, 64, 96])
+        self.assertEqual(
+            payload["build_capability"]["QUDA_MULTIGRID_NVEC_LIST"]["status"], "pass"
+        )
+
+        # The same hierarchy is legal without MMA, and unchecked when neither flag is given.
+        _, without = run_json(DECOMPOSITION, *args, "--nvec1", "48", "--no-mma")
+        self.assertEqual(
+            without["build_capability"]["QUDA_MMA_COARSE_GAUGE_COLOR"]["status"],
+            "not-applicable",
+        )
+        _, silent = run_json(DECOMPOSITION, *args, "--nvec1", "48")
+        self.assertEqual(
+            silent["build_capability"]["QUDA_MMA_COARSE_GAUGE_COLOR"]["status"],
+            "unchecked",
+        )
+        _, supported = run_json(DECOMPOSITION, *args, "--nvec1", "64", "--mma")
+        self.assertEqual(
+            supported["build_capability"]["QUDA_MMA_COARSE_GAUGE_COLOR"]["status"], "pass"
+        )
 
     def test_new_public_files_contain_no_private_paths_or_job_identifiers(self):
         paths = (

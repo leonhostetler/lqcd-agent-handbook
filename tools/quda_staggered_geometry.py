@@ -14,6 +14,10 @@ from dataclasses import dataclass
 
 
 SOURCE_REVISION = "quda-b6998853f"
+# coarse_op_preconditioned_mma_launch.h:156 -- QUDA instantiates MMA coarse-operator
+# kernels only for these coarse gauge colors.  The coarse gauge field combines spin and
+# color as N = 2 * nvec_(L-1), so the restriction acts on a DERIVED quantity.
+MMA_COARSE_GAUGE_COLORS = (12, 48, 64, 128, 192)
 CORPUS_V3_MIN = 10_000
 CORPUS_ASPECT_MAX = 1.5
 
@@ -87,6 +91,7 @@ def source_checks(
     nvec: int,
     fine_color: int,
     spin_block: int,
+    allow_truncation: bool = False,
 ) -> tuple[list[int] | None, list[str], dict[str, object]]:
     errors: list[str] = []
     block = adjusted.effective
@@ -105,6 +110,21 @@ def source_checks(
         for axis, size in enumerate(block):
             if size % 2:
                 errors.append(f"level 1 axis {axis}: KD aggregation size {size} must be even")
+        # coarse_op.cuh:1217-1220 -- an asqtad-family operator refuses to coarsen long
+        # links when an aggregation extent is below three, because the long links span
+        # three sites.  The branch is gated on the asqtad diracs, so it binds on this
+        # FIRST aggregation, where the improved operator still carries long links, and
+        # never on a coarse-to-coarse stage.  allow_truncation defaults to false in QUDA
+        # (check_params.h:1080); without it the rejection is a hard errorQuda, not the
+        # silent halving that transfer_adjust models.
+        if not allow_truncation:
+            for axis, size in enumerate(block):
+                if size < 3:
+                    errors.append(
+                        f"level 1 axis {axis}: long-link aggregation size {size} is below "
+                        "3; QUDA aborts improved-staggered long-link coarsening unless "
+                        "allow_truncation is enabled"
+                    )
     aggregate_size = block_volume * fine_color
     aggregate_size = aggregate_size // 2 if spin_block == 0 else aggregate_size * spin_block
     if nvec > aggregate_size:
@@ -123,6 +143,7 @@ def source_checks(
         "fine_color_for_transfer": fine_color,
         "spin_block": spin_block,
         "aggregate_space_capacity": aggregate_size,
+        "long_link_truncation_allowed": allow_truncation if level == 1 else None,
     }
     return coarse, errors, detail
 
@@ -135,6 +156,8 @@ def evaluate_local_hierarchy(
     nvec1: int,
     nvec2: int,
     compiled_nvecs: list[int] | None = None,
+    allow_truncation: bool = False,
+    use_mma: bool | None = None,
 ) -> dict[str, object]:
     """Adjust and validate every aggregation step for a supplied local lattice."""
     require_four_positive("local dimensions", local_dims)
@@ -162,7 +185,7 @@ def evaluate_local_hierarchy(
         assert requested is not None
         adjusted = transfer_adjust(current, requested)
         coarse, step_errors, detail = source_checks(
-            current, adjusted, level, nvec, fine_color, spin_block
+            current, adjusted, level, nvec, fine_color, spin_block, allow_truncation
         )
         errors.extend(step_errors)
         level_details.append(detail)
@@ -185,9 +208,10 @@ def evaluate_local_hierarchy(
         ),
         "runtime_confirmation": "confirm every `Transfer: using block size ...` line",
     }
-    return attach_compiled_nvec_check(
+    hierarchy = attach_compiled_nvec_check(
         hierarchy, levels, nvec1, nvec2, compiled_nvecs
     )
+    return attach_mma_capability_check(hierarchy, levels, nvec1, nvec2, use_mma)
 
 
 def compiled_nvec_check(
@@ -240,6 +264,74 @@ def attach_compiled_nvec_check(
     return hierarchy
 
 
+def mma_capability_check(
+    levels: int,
+    nvec1: int,
+    nvec2: int,
+    use_mma: bool | None,
+) -> dict[str, object]:
+    """Describe QUDA's MMA coarse-gauge-color restriction without implying it ran.
+
+    The restriction acts on the derived coarse gauge color N = 2 * nvec_(L-1), not on
+    the requested near-null count, which is why a value can be a legal aggregation AND
+    a compiled coarse color and still abort in coarse-operator construction.  It is
+    independent of QUDA_MULTIGRID_NVEC_LIST.
+    """
+    required = []
+    if levels >= 3:
+        required.append(
+            {"parameter": "nvec1", "value": nvec1, "coarse_gauge_color": 2 * nvec1}
+        )
+    if levels == 4:
+        required.append(
+            {"parameter": "nvec2", "value": nvec2, "coarse_gauge_color": 2 * nvec2}
+        )
+    if use_mma is None:
+        status, unsupported = "unchecked", []
+    elif not use_mma:
+        status, unsupported = "not-applicable", []
+    else:
+        unsupported = [
+            item
+            for item in required
+            if item["coarse_gauge_color"] not in MMA_COARSE_GAUGE_COLORS
+        ]
+        status = "fail" if unsupported else "pass"
+    return {
+        "status": status,
+        "required": required,
+        "supported_coarse_gauge_colors": list(MMA_COARSE_GAUGE_COLORS),
+        "supported_nvec": [value // 2 for value in MMA_COARSE_GAUGE_COLORS],
+        "unsupported": unsupported,
+        "scope": (
+            "binds only when MILC use_mma is true; acts on the derived coarse gauge "
+            "color 2*nvec and is independent of QUDA_MULTIGRID_NVEC_LIST"
+        ),
+    }
+
+
+def attach_mma_capability_check(
+    hierarchy: dict[str, object],
+    levels: int,
+    nvec1: int,
+    nvec2: int,
+    use_mma: bool | None,
+) -> dict[str, object]:
+    """Attach the MMA check and make a checked failure source-invalid."""
+    check = mma_capability_check(levels, nvec1, nvec2, use_mma)
+    capability = hierarchy.setdefault("build_capability", {})
+    capability["QUDA_MMA_COARSE_GAUGE_COLOR"] = check
+    if check["status"] == "fail":
+        for item in check["unsupported"]:
+            hierarchy["source_errors"].append(
+                f"{item['parameter']}={item['value']} gives coarse gauge color "
+                f"N={item['coarse_gauge_color']}, for which QUDA builds no MMA "
+                "coarse-operator kernel; use_mma aborts in coarse-operator construction"
+            )
+        hierarchy["source_status"] = "error"
+    return hierarchy
+
+
 def evaluate_decomposition(
     global_dims: list[int],
     ranks: list[int],
@@ -252,6 +344,8 @@ def evaluate_decomposition(
     compiled_nvecs: list[int] | None = None,
     lattice_spacing_fm: float | None = None,
     corpus_advisories: bool = False,
+    allow_truncation: bool = False,
+    use_mma: bool | None = None,
 ) -> dict[str, object]:
     """Derive local geometry, adjust blocks, and keep source errors separate from advice."""
     local, errors = derive_local(global_dims, ranks)
@@ -271,13 +365,15 @@ def evaluate_decomposition(
         }
     else:
         hierarchy = evaluate_local_hierarchy(
-            local, levels, block1, block2, nvec1, nvec2, compiled_nvecs
+            local, levels, block1, block2, nvec1, nvec2, compiled_nvecs,
+            allow_truncation, use_mma,
         )
         hierarchy["source_errors"] = errors + list(hierarchy["source_errors"])
         hierarchy["source_status"] = "error" if hierarchy["source_errors"] else "pass"
 
     if local is None:
         attach_compiled_nvec_check(hierarchy, levels, nvec1, nvec2, compiled_nvecs)
+        attach_mma_capability_check(hierarchy, levels, nvec1, nvec2, use_mma)
 
     metrics: dict[str, object] = {}
     advisories: list[str] = []

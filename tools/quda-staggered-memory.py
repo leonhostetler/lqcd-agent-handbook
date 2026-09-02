@@ -505,8 +505,30 @@ def mg_corpus_fit(
 
     totals = {name: sum(terms.values()) for name, terms in phases.items()}
     peak = max(totals, key=totals.get)
+    # Does the requested coarsest eigenspace actually reach the reported total?  The
+    # deflation term lives in exactly one phase per level count, and the four-level term
+    # is sized by max(nvec2, nvec3), so a winning phase without it -- or an nvec3 at or
+    # below nvec2 -- leaves the total flat in nvec3.  Silence here reads as "the
+    # eigenspace is free", which is the opposite of the truth.
+    deflation_phase = {2: "A", 3: "B", 4: "C"}[levels]
+    deflation_enters_total = bool(
+        nvec3 > 0 and peak == deflation_phase and (levels != 4 or nvec3 > nvec2)
+    )
     precision_names = {value: name for name, value in PRECISION.items()}
     extrapolations: list[str] = []
+    if nvec3 > 0 and not deflation_enters_total:
+        extrapolations.append(
+            f"LOUD WARNING: nvec_3={nvec3} does not enter this total. The high-water "
+            f"model peaks in phase {peak}; the coarsest eigenspace is carried only in "
+            f"phase {deflation_phase}"
+            + (
+                f", sized by max(nvec_2, nvec_3)={max(nvec2, nvec3)}"
+                if levels == 4
+                else ""
+            )
+            + ". Reported headroom is NOT eigenspace-aware here, so do not rank this "
+            "candidate against one whose total does respond to nvec_3."
+        )
     if levels != 4:
         extrapolations.append(
             f"LOUD WARNING: {levels}-level MG high-water has never been empirically validated"
@@ -543,6 +565,8 @@ def mg_corpus_fit(
                 else f"{levels}-level phase model is an unvalidated structural extrapolation"
             ),
             "winning_phase": peak,
+            "deflation_phase": deflation_phase,
+            "deflation_enters_total": deflation_enters_total,
             "phase_gib": {name: value / GIB for name, value in totals.items()},
             "winning_terms_gib": {name: value / GIB for name, value in phases[peak].items()},
             "model_controls": {
@@ -787,6 +811,7 @@ def search_mg_decompositions(
     compiled_nvecs: list[int] | None = None,
     min_nodes: int = 1,
     min_local: int = 1,
+    allow_truncation: bool = False,
 ) -> dict[str, object]:
     """Enumerate every tiling rank geometry below an exclusive Perlmutter node bound."""
     if nodes_lt <= min_nodes:
@@ -814,6 +839,10 @@ def search_mg_decompositions(
                 nvec2,
                 nvec3,
                 compiled_nvecs,
+                None,
+                False,
+                allow_truncation,
+                use_mma,
             )
             if hierarchy["source_status"] != "pass":
                 source_invalid += 1
@@ -988,6 +1017,15 @@ def add_mg_parameters(parser: argparse.ArgumentParser) -> None:
         help="model MILC use_mma=false; this does not set MRHS batch width",
     )
     parser.add_argument(
+        "--allow-truncation",
+        action="store_true",
+        help=(
+            "model MILC allow_truncation=true, permitting a level-1 aggregation extent "
+            "below 3 by dropping long-link contributions; QUDA defaults to false, where "
+            "such an extent is a hard error"
+        ),
+    )
+    parser.add_argument(
         "--null-precision", choices=PRECISION, default="half",
         help="near-null/preconditioner vector precision; calibrated default: half",
     )
@@ -1023,6 +1061,8 @@ def resolve_mg_hierarchy(args: argparse.Namespace) -> tuple[dict[str, object], l
             args.compiled_nvecs,
             args.lattice_spacing_fm,
             args.corpus_advisories,
+            args.allow_truncation,
+            args.mma,
         )
         partitioned = hierarchy["partitioned"]
     else:
@@ -1038,6 +1078,8 @@ def resolve_mg_hierarchy(args: argparse.Namespace) -> tuple[dict[str, object], l
             args.nvec1,
             args.nvec2,
             args.compiled_nvecs,
+            args.allow_truncation,
+            args.mma,
         )
         hierarchy.update(
             {
@@ -1334,6 +1376,7 @@ def main() -> int:
                 args.compiled_nvecs,
                 args.min_nodes,
                 args.min_local,
+                allow_truncation=args.allow_truncation,
             )
             search_warnings: list[str] = []
             for category in (
