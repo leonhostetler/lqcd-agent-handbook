@@ -91,6 +91,34 @@ new row. The dangerous case is changed generated code, candidate enumeration, pa
 or execution environment under an unchanged key: QUDA silently returns the old row and checks
 basic launch validity, not current optimality.
 
+## An `aux` field is evidence about the cache, not about the run
+
+Auxiliary strings are printed as part of a tuning event, and a tuning event happens only on
+the **first** execution of each distinct kernel shape. Reading them as a record of what the
+run did is a live inference error.
+
+The concrete case: QUDA's `parity=` field appears inside autotuning `aux` strings. **The
+absence of `parity=0` from a log is evidence about the tunecache, not about which parities
+executed** — a warm cache simply does not re-tune, and so does not re-print. Determine
+parity behaviour from the calling application's inverter semantics
+([`MILC staggered inverter types`](../../milc/internals/staggered-inverter-types.md)),
+never from which kernel tags happen to appear.
+
+The general rule: an `aux` field tells you a key was tuned at that moment. It does not tell
+you how often the operation ran, and its absence does not tell you the operation did not run.
+
+## Cache warmth is per shape, not per parameter name
+
+A cache is warm for the exact keys it holds. Changing a parameter that alters a kernel's
+**shape** produces new keys and a fresh round of tuning, even when the surrounding
+configuration looks unchanged and the geometry is identical.
+
+For staggered multigrid this bites on coarse colour specifically: changing a near-null
+count at an unchanged coarsest volume still pays a full coarse-operator retune, because the
+coarse-operator kernels are instantiated per coarse colour. **Treat warmth as per terminal
+shape *and* colour.** Budget a cold retune whenever either moves, and do not carry a warm
+measurement across such a change without re-warming.
+
 ## Benchmark-scoped compatibility test
 
 Define the cache's scope by the exact workload and measured region, not by the QUDA repository as

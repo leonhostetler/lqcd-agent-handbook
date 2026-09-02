@@ -124,6 +124,12 @@ MG blocks were used, or that the intended precision and batching path executed. 
 compare iteration counts or nominal FLOP rates across CG and GCR-MG as though they
 represented equal work.
 
+**Count timer lines per delivered propagator, not per line.** MILC's `inv_type CG` emits
+two `CONGRAD5` lines per propagator, one per parity, while `inv_type MG` emits one, so a
+comparison built per line understates CG by about a factor of two and silently favours
+multigrid. See
+[`MILC staggered inverter types`](../../milc/internals/staggered-inverter-types.md).
+
 ## Decision and stop rules
 
 Apply these gates in order:

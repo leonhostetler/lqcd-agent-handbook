@@ -140,6 +140,13 @@ and expected decision impact before running, and compare against the original ob
   and outer-solve work. Do not lengthen iteration ceilings until the upstream cause of a
   ceiling is identified.
 
+**A screening cost model ranks candidates; it cannot promote one.** A model that predicts
+per-iteration or per-application cost does not predict how many iterations the candidate
+will need, and a candidate whose predicted cost saving is confirmed can still lose
+decisively on iteration count. Treat such a model as an ordering device for what to
+measure next, never as a selection criterion, and re-check its validity whenever the
+structure it was calibrated on changes.
+
 When a parameter affects setup quality rather than measured solve time directly, declare
 the quieter mechanism metric that will decide the trial before running it. A quality
 improvement with no production-cost consequence is diagnostic evidence, not automatically

@@ -22,6 +22,12 @@ surfaces:
     error_option: "--error"
     error_option_short: "-e"
     append_output_option: "--open-mode=append"
+    exclude_nodes_option: "--exclude"
+    exclude_nodes_option_short: "-x"
+    nodelist_option: "--nodelist"
+    nodelist_option_short: "-w"
+    constraint_option: "--constraint"
+    constraint_option_short: "-C"
     job_id_variable: SLURM_JOB_ID
     array_job_id_variable: SLURM_ARRAY_JOB_ID
     array_task_id_variable: SLURM_ARRAY_TASK_ID

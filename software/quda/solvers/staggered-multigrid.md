@@ -96,7 +96,12 @@ For the four-level optimized-KD hierarchy, use this index crosswalk:
 | `2`, intermediate coarse | `nvec 2`, `geo_block_size 2`, `setup_* 2` | `--nvec2`, `--block2` | second user aggregation constructs level 3 |
 | `3`, coarsest solve/deflation | `nvec 3` | `--nvec3` | requested deflation-vector count, not a coarse color |
 
-Thus `V2` and `V3` name the global grid volumes at executed levels 2 and 3. Only
+Thus `V2` and `V3` name the global grid volumes at executed levels 2 and 3 — **level
+indices, not roles.** They coincide with "the coarsest grid" only for the four-level
+hierarchy tabulated above; a three-level hierarchy's coarsest grid is level 2, so its
+coarsest volume is `V2`. See
+[`hierarchy-and-setup.md`](staggered-multigrid/hierarchy-and-setup.md) for the role-based
+names to use when a statement must hold at more than one level count. Only
 `nvec_1` and `nvec_2` select generated coarse-color kernels and must appear in
 `QUDA_MULTIGRID_NVEC_LIST`; `nvec_3` does not.
 
@@ -332,6 +337,39 @@ The current interface also fixes behavior that should not be mistaken for a tune
 The interface flips the mass sign on entry to match the full-parity convention and flips
 the solution sign on return. These are current compatibility workarounds, not user
 tunables.
+
+### A CA coarse solver's `maxiter` and basis size jointly select its execution mode
+
+`coarse_solver_maxiter` and `coarse_solver_ca_basis_size` are not independent knobs. For a
+coarse CA solver, QUDA sets `fixed_iteration` when
+`param.sloppy_converge && n_krylov == param.maxiter && !param.compute_true_res`, where the
+local `n_krylov` comes from the solver parameter field `Nkrylov`. The multigrid setup
+already forces `sloppy_converge` true and `compute_true_res` false for **every** coarse
+solver, so the condition reduces to **`Nkrylov == maxiter`** — and at level `l` the
+multigrid setup assigns `Nkrylov` from the MILC key `coarse_solver_ca_basis_size` and
+`maxiter` from `coarse_solver_maxiter`.
+
+Under `fixed_iteration` the solver stops being a restarted convergent solver and becomes a
+**fixed-degree polynomial preconditioner**: it computes no residual norm and applies no
+stopping test. `b2` is forced to `1.0` and the stopping value to `0`, so the run prints
+
+```text
+iterated = 1.000000e+00 (requested = 0.000000e+00)
+```
+
+**That line is the mode's signature, and it is easily misread as a failed solve.** The mode
+is also invisible in a parameter-file diff, because neither parameter looks unusual alone.
+
+**A second, related trap in the MILC interface.** It clamps `ca_basis_size` to `maxiter`,
+then selects a power basis at `<= 8` and a Chebyshev basis above it, with the Chebyshev
+lower bound hard-coded to zero. A single parameter-file line therefore changes the basis
+type, and a solver-name change alone can silently change it too. QUDA emits an
+approximate-lambda-max line only on the Chebyshev branch, so the **absence** of that line
+is how to confirm the power branch actually executed.
+
+**Actionable consequence.** When configuring or diagnosing a CA coarse solver, record
+`Nkrylov` and `maxiter` together and state which mode they select. Do not judge a terminal
+that misses its requested tolerance as unhealthy before checking the mode.
 
 ## Memory model
 

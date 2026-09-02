@@ -53,6 +53,75 @@ examples so a later model change cannot move them silently. One pre-existing fix
 source-valid; it was corrected to a legal geometry, preserving the test's arbitrary-lattice
 intent.
 
+Later on 2026-09-02 the remaining deferred feedback from the same 0.09-fm campaign was
+triaged and admitted, again without changing the Slice 4 next action. Eight items landed
+across five fact classes: coarse-deflation solver support and its silent-disable branch, the
+`deflate_a_min` convergence gate with a two-method probe recipe and its measured
+low-bias limitation, and `deflate_block_size` (`coarse-deflation.md`); the CA coarse solver's
+`Nkrylov == maxiter` mode selection (`staggered-multigrid.md`) and an eigensolve triage gate
+that reads restart count and delivered prefix before anything else (`diagnostics.md`); the
+`CONGRAD5` timer-line asymmetry between MILC's CG and MG inverters, with the rule to build
+comparisons per delivered propagator (`staggered-inverter-types.md`, cross-referenced from
+`staggered-solver-selection.md`), plus the tunecache `aux`-field inference trap and
+warmth-is-per-shape-and-colour (`autotuning.md`); Slurm host-selection options
+(`scheduler-surfaces.yaml`, with `schemas/scheduler-surface.schema.json` extended to admit
+them as optional); and a cost model ranks candidates but cannot promote one
+(`staggered-multigrid/tuning.md` and `playbooks/tune-solver.md`).
+
+Four candidates were **rejected or folded** rather than admitted, and the reasons are the
+reusable part: a strong-scaling figure from one ensemble at two node counts stayed an
+episode; a duplicate timer-line entry was folded into the inverter-types fact so there is one
+canonical home; a sandbox subprocess defect was not LQCD knowledge at all; and a proposal to
+give the work modes a periodic "what should now be a tool" checkpoint is a design change to
+`ARCHITECTURE.md` §7.5d's scope rather than a fact, so it is left for its own decision.
+Empirical items carry explicit labels — the `deflate_block_size` note is mechanism-plus-caveat
+on one uncontrolled observation, and the coarse-deflation silent-disable branch is
+source-derived and has never been observed at runtime.
+
+A review of that batch then corrected two placement and naming defects, and both are worth
+recording because they are the same class of error. **First, a campaign-local extractor field
+name reached the handbook**: an actionable check was written against `deflating_vectors_applied`,
+which exists only in the working project's own tooling, so a reader had no way to obtain it. It is
+now expressed as the literal `Deflating <N> ...` lines QUDA emits, including the distinction that
+the two wordings are **not** the same quantity. A campaign cost-model symbol reached
+`staggered-multigrid/tuning.md` the same way and now uses the handbook's own `V3`. Every
+identifier in the batch was then re-checked against QUDA/MILC source or an existing handbook
+definition.
+
+**Second, general eigensolver knowledge had been filed under staggered multigrid.** The
+completion-only printing rule, the deflation-application log forms, the filter-window
+convergence gate, the two window-establishment methods, and the block-variant diagnostics apply
+to every QUDA eigensolver caller, so they moved to `software/quda/solvers/eigensolver.md`, with
+`staggered-multigrid/coarse-deflation.md` reduced to what is specific to the coarsest level of an
+MG hierarchy plus pointers. That move exposed a naming hazard worth its own section: **the same
+parameter has a different name at every entry point.** The MILC multigrid parameter file's
+`deflate_` prefix is not a QUDA field prefix, the standalone and MG-embedded test CLIs use
+`--eig-*` and `--mg-eig-*`, and MILC's non-multigrid deflation path uses unprefixed members with
+an `n_ev_deflate` that has no `deflate_`-prefixed counterpart at all. `eigensolver.md` now carries
+the mapping table, and guidance written in one spelling must be translated before it is applied
+through another.
+
+A second review pass then found that **`V3` was ambiguous and the handbook contradicted itself
+about it.** The MG overview defined `V2`/`V3` as executed-level indices while
+`hierarchy-and-setup.md` defined `V3` as "the global coarsest-grid extents" — readings that
+coincide only at four levels, since a three-level hierarchy's coarsest grid is level 2. The
+decomposition tool had it right all along, emitting role-based `coarsest_global_volume` and
+`coarsest_vector_density` always and the numbered aliases `V3_global`/`nu3` only at four levels,
+so the prose was corrected to match the tool: role-based names first, `V3`/`nu3` labelled as the
+four-level spellings with the three-level mapping given, and an explicit warning that every
+numerical band on those pages was fitted at four levels.
+
+The same pass admitted the **coarse/fine work ratio** the campaign had been screening on,
+`(coarsest global volume x (2*nvec_(L-1))^2) / (fine global volume x N_c^2)`, at `mechanism`
+tier in `staggered-multigrid/tuning.md`. It is dimensionless and reads as how many full
+fine-operator applications one coarsest apply costs, and its mechanism — the coarse operator is
+dense in coarse colour, so aggregation cuts sites while raising per-site work, making **depth
+rather than block size** the lever — is source-backed. It carries a mandatory proxy caveat: an
+uninstrumented `volume x dof^2` count, never calibrated against a profiler, excluding smoother,
+transfer, communication and per-level efficiency, and therefore sufficient to order candidates
+but never to certify one or to be converted into a time. That caveat is the reason it sits
+beside, not instead of, the rule that a cost model cannot promote a candidate.
+
 <a id="current-slice-state"></a>
 ## Current slice state
 

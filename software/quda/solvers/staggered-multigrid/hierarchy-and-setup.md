@@ -41,14 +41,37 @@ Record the effective block sizes printed by QUDA, not only the requested values.
 the global lattice and executed blocks, calculate:
 
 ```text
+coarsest global volume  = product of the global coarsest-grid extents
+coarsest vector density = requested coarsest-deflation count / coarsest global volume
+```
+
+Written with four-level indices, the same two quantities are:
+
+```text
 V3   = product of the global coarsest-grid extents
 nu3  = nvec_3 / V3
 ```
 
-`V3` describes the global problem seen by the coarsest solver. Per-rank coarse volume
-primarily changes communication and is not a substitute for `V3`. Also record the four
-physical or lattice extents of one coarsest cell and their aspect ratio; equal `V3`
-does not make a strongly anisotropic cell equivalent to a balanced one.
+**`V3` and `nu3` are the four-level names for those two quantities, not level-independent
+ones.** The digit is an executed-level index: at four levels the coarsest grid is level 3,
+so `V3` and `nu3 = nvec_3 / V3` are correct; **at three levels the coarsest grid is level
+2**, and the same two quantities are `V2` and `nvec_2 / V2`. Read a numbered symbol as a
+level index, and a numbered symbol from a page or corpus written for another level count as
+referring to a *different grid*. The decomposition tool encodes exactly this: it always
+reports role-based `coarsest_global_volume` and `coarsest_vector_density`, and emits the
+numbered aliases `V3_global`/`nu3` only for a four-level hierarchy and `V2_global` for a
+three-level one. Prefer the role-based names in any statement meant to hold at more than one
+level count.
+
+The coarsest global volume describes the problem seen by the coarsest solver. Per-rank
+coarse volume primarily changes communication and is not a substitute for it. Also record
+the four physical or lattice extents of one coarsest cell and their aspect ratio; equal
+volume does not make a strongly anisotropic cell equivalent to a balanced one.
+
+**Every numerical band on this page and in the calibration manifest was fitted on
+four-level hierarchies**, so `nu3` there means the four-level quantity. Applying such a band
+to a three-level hierarchy by substituting its coarsest density is an extrapolation across
+level count, which [`calibration.md`](calibration.md) already excludes.
 
 Use `nu3` to compare requested coarse eigenspaces across different hierarchies. Equal
 `nvec_3` values at different `V3` request different fractions of the coarse problem.

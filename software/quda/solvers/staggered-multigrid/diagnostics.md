@@ -35,6 +35,7 @@ substitutes for target-stack validation.
 | `nu3 = nvec_3/V3` | fit envelope `0.022...0.250` | spectrum-calibration domain, not a legality or universal health band |
 | TRLM restarts | `4...9` | stable middle reference; the two edges are asymmetric |
 | TRLM restarts | `1...2` | consistent under-resolution warning in the sampled corpus |
+| restarts far above band, cap NOT reached, **empty** `Eval[...]` prefix | — | stalled filter, not a slow solve; see the eigensolve triage below |
 | `l3_res_max` | about `1.5e-4` | middle-band reference at the two fitted spacings; scale and tolerance remain problem-specific |
 
 The decomposition tool's separate `V3 >= 10000` and coarsest-cell aspect `<= 1.5`
@@ -68,12 +69,46 @@ the old numerical bands.
   before `restart steps`. Current variants include
   `TRLM computed the requested ... vectors in <R> restart steps ...` and
   `BLOCK TRLM ... in <R> restart steps with ...`. An absent summary is missing data,
-  not zero restarts.
+  not zero restarts. **Block TRLM (`deflate_block_size > 1`) has been observed to emit no
+  summary line at all**, in which case the count must be reconstructed from the
+  `blockLanczosStep` sequence, which descends once per restart and so forms a sawtooth.
+  That reconstruction is a fallback, not an equivalent source; prefer
+  `deflate_block_size 1` while diagnosing.
 
 Keep separate records when a log contains multiple hierarchy builds or eigensolve
 events; never maximize or average across them silently. Compute global `V3` and `nu3`
 from the global lattice and QUDA's executed blocks with the decomposition tool, not from
 the per-rank coarse volume or requested blocks.
+
+## An eigensolve delivers nothing: check restarts and the prefix first
+
+When a coarsest eigensolve fails or delivers no vectors, read the **restart count and the
+delivered `Eval[...]` prefix together, before** any setup-cap, spectrum, or filter-window
+analysis. That one pair separates "stalled" from "slow" immediately, and it is cheap; the
+alternative is spending a second submission to learn the same thing. This gate is scoped
+to that symptom and does not displace the dependency order for the others.
+
+| restarts | delivered prefix | reading |
+|---|---|---|
+| inside `4...9` | full | eigensolve healthy; look elsewhere |
+| far above band, cap **not** reached | **empty** | **stalled** — the filter is not separating. Re-derive the window from a measured `eval_max` before spending more walltime |
+| cap reached | partial or none | request too large, or the eigensolver controls are wrong |
+| `1...2` | full | under-resolution warning; see below |
+
+Two things make this gate work, and both are general eigensolver behaviour rather than
+staggered-MG specifics — see [`../eigensolver.md`](../eigensolver.md): eigenvalues print
+**only on completion**, so a stalled run yields no spectrum to inspect, and a filter window
+placed below the largest requested eigenvalue causes **non-convergence** rather than merely
+poor vectors. A stall with an empty prefix therefore points at the window before it points
+at anything else. The MILC multigrid spelling of that window is `deflate_a_min`; see
+[`coarse-deflation.md`](coarse-deflation.md) for what is specific to the coarsest level.
+
+Before concluding that a coarse solver is unhealthy, also confirm which **mode** it is in:
+a CA coarse solver with `Nkrylov == maxiter` runs as a fixed-degree preconditioner that
+applies no stopping test and reports `iterated = 1.000000e+00 (requested =
+0.000000e+00)`. See
+[`the MG overview`](../staggered-multigrid.md). That output is a mode signature, not a
+failure.
 
 ## Setup pinned at its ceiling
 

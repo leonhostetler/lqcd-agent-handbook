@@ -130,8 +130,30 @@ and block calls. Also record:
 - mass count and whether eigenvectors forced separate inversions;
 - source parity and whether a zero-source parity reported zero iterations;
 - initial-propagator use and any forced `single`/`CG` substitution;
-- MG rebuild choice and whether the UML fallback ran; and
+- MG rebuild choice and whether the UML fallback ran;
+- **how many `CONGRAD5` timer lines the inverter emitted per delivered propagator**; and
 - backend, precision, convergence, residuals, and elapsed time.
+
+### The timer-line count differs by inverter type, and a comparison built per line is wrong
+
+The parity structure above has a measurement consequence that the algorithm description
+alone does not make obvious:
+
+> **`inv_type CG` emits TWO `CONGRAD5` timer lines per delivered propagator — one per
+> parity, with unequal iteration counts — while `inv_type MG` emits ONE.** A CG-versus-MG
+> comparison built per timer line therefore mis-states the ratio by about a factor of two,
+> in multigrid's favour. **Build the comparison per delivered propagator**, attributing and
+> summing every `CONGRAD5` line belonging to one propagator before averaging.
+
+This follows directly from the mechanism already on this page: `CG` forms `Mdag * src` and
+then solves the normal equation independently on even and odd sites, while `MG` solves the
+full staggered system through QUDA without exposing separate parity solves. The unequal
+split is what the `Mdag`-populates-both-parities behaviour predicts, and a second call
+reporting zero iterations is the documented zero-source shortcut, not a missing solve.
+
+The failure mode is quiet, which is why it belongs here: a benchmarker who divides by timer
+lines does not get an obviously wrong answer, but a plausible one that flatters multigrid
+by roughly `2x`.
 
 This source-backed page deliberately makes no universal speed ranking among the
 four choices.

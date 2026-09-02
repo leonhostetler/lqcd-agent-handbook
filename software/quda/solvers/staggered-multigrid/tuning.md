@@ -8,6 +8,8 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/transfer.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/eig_block_trlm.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/coarse_op.cuh
+  - operator's screened tuning records
 observed: "2026-08-20"
 observed_on:
   software:
@@ -62,6 +64,66 @@ when a larger `V3`, better cell shape, and memory headroom pull in different dir
 Measure the final candidate on the target stack. A prediction inside an error or
 advisory band is unresolved, not a safe fit.
 
+**An absolute coarsest volume is necessary but not sufficient.** It measures whether the
+coarse *problem* is well posed; it carries no information about whether the coarse *grid* is
+cheap relative to the fine grid, and cost turns on the latter. Screen additionally on the
+coarse/fine work ratio
+
+```text
+coarse_fine_work = (coarsest global volume * (2 * nvec_(L-1))^2)
+                 / (fine global volume * N_c^2)
+```
+
+with `N_c = 3` for the staggered fine operator and `2 * nvec_(L-1)` the coarse gauge colour
+defined in [`the MG overview`](../staggered-multigrid.md). The ratio is dimensionless and
+reads directly: its value is **how many full fine-operator applications one coarsest apply
+costs.**
+
+**Mechanism.** The coarse operator is dense in coarse colour. Aggregation cuts sites but
+raises per-site work by `(2 * nvec_(L-1))^2 / N_c^2`, and for a **single** aggregation stage
+the volume reduction is very nearly cancelled by that density growth. **Depth, not block
+size, is therefore the lever**: each additional level multiplies the volume reduction, while
+`nvec` grows only once per level. That asymmetry is the reason a three-level hierarchy can
+be terminal-dominated where a four-level one built on the same fine problem is not.
+
+For scale, on one operator corpus the ratio was near `4.7` for a three-level hierarchy at
+0.09 fm — the coarsest apply costing several full fine applications — against roughly `0.13`
+for a four-level hierarchy at 0.04 fm, a factor of order thirty. Those two numbers are
+illustrative of the spread, not a band: compute the ratio for the candidate in hand.
+
+> **Proxy caveat, and it is not optional.** This is an **uninstrumented `volume x dof^2`
+> proxy**. The mechanism is source-backed; **the number is not measured.** It counts neither
+> the smoother, the transfer operators, communication, nor any per-level efficiency
+> difference, and it has never been calibrated against a profiler on any machine. Treat it
+> as `mechanism` tier: sound enough to *order* candidates and to explain a measured terminal
+> share after the fact, never sufficient to certify one. In particular it must not be
+> reported as a predicted cost or converted into a time.
+
+**A cost model ranks candidates; it cannot promote one.** A screening model that predicts
+coarse-grid *per-iteration* work — anything built from the coarsest global volume and the
+coarse colour, whatever local symbol it is given — says nothing about how many outer
+iterations the resulting hierarchy will need, and convergence is a separate axis it does
+not model. **Never select a hierarchy from such a screen without a measured outer-iteration
+count.**
+
+The failure has been observed in two distinct forms, which is what makes it worth stating
+rather than treating as bad luck:
+
+- **The model is right and the candidate still loses.** Reducing the terminal-defining
+  near-null count at three levels dropped per-iteration cost *exactly* as predicted, twice
+  at two different counts, and the outer iteration count rose enough to destroy the gain
+  both times — in the second case stalling outright.
+- **The model is wrong, because its own validity moved.** Repeating the reduction at four
+  levels, the predicted per-iteration saving did not materialise: the coarsest apply was
+  only a minority of per-outer work there (order `40%`), against the great majority at
+  three levels (order `95%`). A terminal-cost model calibrated where the terminal dominates
+  silently stops applying when it does not.
+
+So before trusting a terminal-cost model at a new level count, **measure what fraction of
+per-outer work the coarsest apply actually represents.** Both observations are empirical,
+from one ensemble at one spacing; the mechanism — a cost axis and a convergence axis that
+the screen does not connect — is what transfers.
+
 ## 4. Stabilize setup before timing production
 
 Locate the level-1 setup-tolerance knee with the counters defined by the
@@ -108,6 +170,8 @@ solve count, and objective; the measurement procedure is the transferable result
 
 Stop or return to an earlier gate when:
 
+- a candidate was ranked by a cost or terminal-volume screen and no outer-iteration count
+  has been measured for it;
 - QUDA adjusts a requested block or selects a fallback path unexpectedly;
 - setup or coarse solves hit their iteration ceilings without the required residual;
 - the spectrum prediction is used outside its envelope without a refit;
