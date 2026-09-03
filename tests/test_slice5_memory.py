@@ -58,6 +58,14 @@ class StaggeredMemoryTests(unittest.TestCase):
         )
         self.assertEqual(payload["evidence"], "corpus-calibrated")
         self.assertIn("12 measurements", payload["calibration"]["cg_population"])
+        # The MG fit's spacing support is named, not counted. It read "four lattice
+        # spacings" until 2026-09-03 while multigrid had never run on the fourth
+        # (0.12 fm), and no test caught it because none asserted the population.
+        mg_pop = payload["calibration"]["mg_population"]
+        for spacing in ("0.04", "0.06", "0.09"):
+            self.assertIn(spacing, mg_pop)
+        self.assertNotIn("0.12", mg_pop)
+        self.assertNotIn("four lattice spacings", mg_pop)
         self.assertIn("whole-process scheduler RSS", payload["calibration"]["outside_scope"])
         self.assertNotIn("fits", payload)
 

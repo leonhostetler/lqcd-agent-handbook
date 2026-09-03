@@ -126,7 +126,8 @@ CALIBRATION = {
     "software_scope": "MILC HISQ with QUDA staggered solvers",
     "precision_scope": "half-precision MG preconditioner; single-precision deflation vectors",
     "mg_population": (
-        "57 multi-rank groups, four lattice spacings, 2-216 nodes, about 20 "
+        "57 multi-rank groups, three lattice spacings (0.04, 0.06, 0.09 fm), "
+        "2-216 nodes, about 20 "
         "decompositions, 11 QUDA builds; four MG levels; nvec_1 fixed at 64"
     ),
     "mg_accuracy": "QUDA Device counter: rms 3.9%, maximum 10.7%",
