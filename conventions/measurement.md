@@ -106,6 +106,26 @@ and tens wide near `3400`. An observable that repeats exactly in a tight regime 
 in a looser one, so a determinism check belongs at the operating point being used, not at a
 convenient one.
 
+## Compare two implementations on a ladder, not a threshold
+
+When two implementations of the same mathematical solve disagree, the question is whether
+the difference is **convergence error** — both are converging to the same answer and neither
+has arrived — or **structural**, meaning they converge to different answers. A single
+tolerance cannot separate those. It yields one number, and the threshold that number is
+judged against then has to be chosen with the number already on screen, which is fitting the
+acceptance criterion to the data it judges.
+
+**Declare a monotone ladder instead, before either run.** Repeat the comparison at
+successively tighter residual targets and require the difference to fall monotonically and to
+reach a bound derived from something independent — the same-implementation floor, measured by
+comparing an implementation against itself, is the natural choice, because no comparison of
+two different implementations can be expected to beat it.
+
+That turns a threshold into a **trend**, and it is falsifiable in a way a threshold is not: a
+difference that plateaus above the floor as the tolerance tightens is a structural
+disagreement and a defect report, whatever its absolute size. Fix the ladder and the bound in
+the study record before running, so that neither can be chosen to fit the outcome.
+
 ## Pair a screening rate with the guard that makes it meaningful
 
 A screening metric expressed as work-per-unit-time can usually be improved by loosening a

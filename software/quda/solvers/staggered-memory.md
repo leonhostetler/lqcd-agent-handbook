@@ -114,6 +114,19 @@ populations, errors, build sensitivity, and exclusions live beside the constants
 [`quda-staggered-memory.py`](../../../tools/quda-staggered-memory.py). These are planning
 models, not source invariants; inspect both records when applying or updating a fit.
 
+**The error direction is not shared across solvers, so do not carry one solver's bias to
+another.** On one workload the plain-CG device estimate **under**-predicted the measured
+high-water by roughly a third, while the single matched three-level MG point ran the other
+way and **over**-predicted by about a tenth. Treat a CG device estimate as a **lower bound**.
+Treat an MG device estimate as **neither bound** until a matched-phase measurement exists on
+the target.
+
+That MG over-prediction is weak evidence and must not be read as headroom: it came from a
+warm run whose measured peak fell in the steady solve while the model's winning term was a
+setup phase, so the two numbers describe different moments. It is one point, phase-mismatched,
+and it is **not** licence to shave a cold setup-phase prediction — where the model's known
+failure is the opposite direction, below.
+
 For MG, inspect `prediction_assessment.tier` before using the number:
 
 - `calibrated-envelope-current-code` means every checked machine, hierarchy, precision,
@@ -336,6 +349,12 @@ where `nvec_(L-1)` is the near-null count on the level above the coarsest — th
 — which is `nvec 2` in a four-level MILC parameter file and `nvec 1` in a three-level one.
 Compute exact bytes with the source-exact object layer above rather than from this
 proportionality; what follows is the ranking consequence.
+
+**This relation predicts stored bytes on disk, not a device-memory peak.** The eigenspace is
+resident in exactly one allocation phase, and whether that phase is the winner decides
+whether it appears in the high-water figure at all — see the phase model above. Ranking
+candidates by predicted device peak using this relation will silently rank an
+eigenspace-blind candidate against a responsive one.
 
 **Affordable density falls as the square of coarsest volume.** Under a fixed memory budget the
 affordable `coarsest_vector_density` scales as `1/coarsest_global_volume^2`, because the

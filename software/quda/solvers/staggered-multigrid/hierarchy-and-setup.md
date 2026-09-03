@@ -89,6 +89,20 @@ aspect above `1.5`, both fitted at four levels
 ensembles and remain provisional. They are useful for ranking legal candidates, not
 rejecting a new discretization or machine without a measurement.
 
+**The aspect half of the screen has counter-evidence of its own, in both directions.** On
+one 0.09 fm population it mis-ranked feasibility at three levels: it preferred a candidate
+with the better cell aspect *and* the larger coarsest volume, and that candidate was
+retired while the one it ranked below became the family's validated class. At four levels a
+matched pair moved aspect from `1.33` to `3.00` for only about `9%` more outer iterations —
+and recurring cost went the **other way**, the higher-aspect candidate finishing some `13%`
+cheaper. Applying the screen there would have discarded the cheaper candidate.
+
+Aspect does appear to act strongly at three levels in that population, and much more weakly
+at four, so the level count changes not just the magnitude but whether the screen is worth
+consulting. Treat the aspect cutoff as the volume cutoff: a ranking prior among legal
+candidates, never a rejection, and not a substitute for measuring the candidate you are
+about to discard.
+
 **A later four-level population converged below the volume screen, and that matters for
 how the screen is used.** At 0.09 fm on a `64^3 x 96` lattice, two four-level classes at
 `coarsest_global_volume = 8192` — below the `10000` cutoff — reached the requested `1e-8`,

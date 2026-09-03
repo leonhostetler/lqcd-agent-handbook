@@ -207,6 +207,23 @@ ensemble at one global lattice and two masses; the alignment rule is expected to
 and it is invalidated by a level-count change that alters which level is coarsest without
 updating the position mapping, or by a coarsest-operator change.
 
+## A non-convergence result is bounded by the budget it was drawn at
+
+An outer-iteration bound is part of any conclusion drawn under it. A candidate that fails to
+converge within the bound has not been shown not to converge — it has been shown not to
+converge *within that budget*, and the two are different claims.
+
+The distinction is not academic. In one recorded case an apparent adequacy **cliff** — a
+coarsest volume below which hierarchies did not converge, and above which they did — turned
+out to be an artefact of the outer bound in use. Raised, the same candidates converged, one of
+them well past the original limit. What had looked like a property of the coarsest grid was a
+property of the budget.
+
+So before reporting a boundary in any hierarchy parameter, re-run at least one failing
+candidate at a materially larger bound. If it converges, the boundary was the budget. Record
+the bound alongside the result either way; a non-convergence result quoted without it cannot
+be interpreted later, and cannot be compared against a result taken under a different one.
+
 ## A performance comparison looks surprising
 
 Before attributing it to a tuning knob, match the operator, mass, hierarchy, rank
