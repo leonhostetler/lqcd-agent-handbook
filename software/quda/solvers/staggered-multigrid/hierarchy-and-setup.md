@@ -82,24 +82,32 @@ python3 "$LQCD_HANDBOOK/tools/quda-staggered-decomposition.py" \
 ```
 
 The existing opt-in screen warns at `coarsest_global_volume < 10000` or coarsest-cell
-aspect above `1.5`,
-both fitted at four levels ([level naming](../staggered-multigrid.md#level-naming)). Those
-cutoffs came from three ensembles and remain provisional. They are useful for ranking legal
-candidates, not rejecting a new discretization or machine without a measurement.
+aspect above `1.5`, both fitted at four levels
+([level naming](../staggered-multigrid.md#level-naming)). Those cutoffs came from three
+ensembles and remain provisional. They are useful for ranking legal candidates, not
+rejecting a new discretization or machine without a measurement.
 
 ## Locate the setup-tolerance knee
 
 For each level-1 setup solve, monitor
 
 ```text
-rho_setup = setup_l1_iters / setup_maxiter_1.
+setup_l1_capped_fraction = (level-1 near-null CG streams ending at setup_maxiter 1)
+                         / (level-1 near-null CG streams)
 ```
 
-Derive both terms with the
-[`observable extraction contract`](diagnostics.md#observable-extraction-contract):
-`setup_l1_iters` is the arithmetic mean of terminal counters across the level-1
-near-null CG streams in one hierarchy build, while `setup_maxiter_1` is the literal
-MILC `setup_maxiter 1` value. It is not a solve-side level-1 GCR counter.
+Derive it with the
+[`observable extraction contract`](diagnostics.md#observable-extraction-contract). The
+denominator of the cap comparison is the literal MILC `setup_maxiter 1` value, not a
+solve-side level-1 GCR counter.
+
+**Count capped streams; do not average their iteration counts.** A capped stream
+contributes exactly the cap to any mean, so a mean-to-cap ratio saturates near 1 once a
+minority of streams cap out and stops distinguishing a mostly converged setup from a
+completely pinned one. One measured set of five builds spanning 16/32 to 64/64 capped
+streams gave mean-to-cap ratios of 0.963, 0.975, 0.982, 1.000 and 1.000 — visually
+identical — where the capped fraction gave 0.500, 0.667, 0.750, 1.000 and 1.000. The
+superseded `rho_setup` was that ratio, and its name also omitted which level it described.
 
 The retrospective data support one mechanism: changing `setup_tol_1` materially changes
 total setup cost when the solve approaches its iteration ceiling. Well below that knee,
@@ -107,11 +115,14 @@ tightening the tolerance primarily buys setup quality and moves only a minority 
 component. At the ceiling, the setup solve is capped rather than demonstrably converged,
 and the resulting vectors can degrade every downstream level.
 
-As a corpus advisory fitted at four levels, `rho_setup < 0.5` was the healthy-side screen; a
-run within one percent of the ceiling is pinned. These are diagnostic bands, not QUDA
-success criteria. Locate the knee on the target problem by varying the tolerance while
-holding the hierarchy, setup cap, stack, and reuse state fixed. Keep the tightest value that
-remains comfortably below the rising-cost region and passes the downstream checks in
+**A nonzero capped fraction is the pinned signal**, and it is structural rather than a
+fitted band: that share of streams stopped because the cap stopped them, so their setup
+tolerance was not demonstrably reached. The retrospective screened this axis with a
+mean-to-cap ratio instead, which cannot be recomputed as a fraction from the published
+manifest; see the setup-knee row in [`calibration.md`](calibration.md). Locate the knee on
+the target problem by varying the tolerance while holding the hierarchy, setup cap, stack,
+and reuse state fixed. Keep the tightest value that remains comfortably below the
+rising-cost region and passes the downstream checks in
 [`diagnostics.md`](diagnostics.md).
 
 Do not transfer this numeric screen blindly to `setup_tol_2`: it acts on a different
@@ -123,11 +134,11 @@ level and its iteration counter and cap must first be identified explicitly.
 2. Rank the remaining candidates by `coarsest_global_volume`, coarsest-cell shape, memory
    headroom, and `coarsest_vector_density`; retain more than one candidate when the
    empirical screens disagree.
-3. Run a bounded setup probe and confirm the executed blocks and `rho_setup`.
+3. Run a bounded setup probe and confirm the executed blocks and
+   `setup_l1_capped_fraction`.
 4. Check coarse-spectrum and eigensolver health before measuring production cost.
 5. Measure setup and recurring solve cost for the declared compatible solve count.
 
 Changing levels, blocks, `nvec_1`, or `nvec_2` changes the meaning of later calibrations.
 Return to the first step rather than carrying forward an old coarsest deflation count,
-spectrum fit, or
-setup-tolerance conclusion.
+spectrum fit, or setup-tolerance conclusion.

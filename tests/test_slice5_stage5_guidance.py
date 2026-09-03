@@ -55,7 +55,12 @@ class Stage5GuidanceTests(unittest.TestCase):
         self.assertIn("cannot, however, separate", text)
         self.assertIn("#level-naming", text)
         self.assertIn("not a QUDA convergence requirement", text)
-        self.assertIn("rho_setup < 0.5", text)
+        # The setup screen counts capped streams; it does not average their iteration
+        # counts. A mean-to-cap ratio saturates near 1 once a minority cap out, and
+        # `rho_setup` also elided which level it described.
+        self.assertIn("setup_l1_capped_fraction", text)
+        self.assertIn("Count capped streams; do not average", text)
+        self.assertNotIn("`rho_setup <", text)
         self.assertIn("$LQCD_HANDBOOK/tools/quda-staggered-decomposition.py", text)
 
     def test_spectrum_fit_carries_full_envelope_and_feedback_limits(self):

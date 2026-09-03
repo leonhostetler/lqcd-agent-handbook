@@ -129,7 +129,7 @@ the screen does not connect — is what transfers.
 
 Locate the level-1 setup-tolerance knee with the counters defined by the
 [`observable extraction contract`](diagnostics.md#observable-extraction-contract):
-`setup_l1_iters/setup_maxiter_1`. Check that the setup does not repeatedly hit its cap
+`setup_l1_capped_fraction`. Check that the setup does not repeatedly hit its cap
 and that the resulting residual improves when the tolerance is tightened. Hold blocks,
 near-null counts, stack, and setup cap fixed during this scan.
 

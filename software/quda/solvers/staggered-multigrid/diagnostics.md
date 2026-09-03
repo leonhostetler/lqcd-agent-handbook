@@ -36,7 +36,7 @@ column exists so a band cannot be added here without answering that question.
 
 | Observable | Corpus reference | Fitted at | Correct interpretation |
 |---|---:|---:|---|
-| `setup_l1_iters/setup_maxiter_1` | below `0.5` | 4 levels | healthy-side setup screen; within 1% of the cap is pinned |
+| `setup_l1_capped_fraction` | `0` is healthy | structural | any nonzero share of level-1 streams stopped by the cap; not a fitted band |
 | `coarsest_vector_density` | fit envelope `0.022...0.250` | 4 levels | spectrum-calibration domain, not a legality or universal health band |
 | TRLM restarts | `4...9` | 4 levels | stable middle reference; the two edges are asymmetric |
 | TRLM restarts | `1...2` | 4 levels | consistent under-resolution warning in the sampled corpus |
@@ -62,7 +62,8 @@ the old numerical bands.
   iterations.
 - **`setup_maxiter_1`:** read the literal MILC parameter-file value
   `setup_maxiter 1` used for the same hierarchy build. If it cannot be recovered, report
-  `rho_setup` as unavailable rather than borrowing a cap from another level or run.
+  `setup_l1_capped_fraction` as unavailable rather than borrowing a cap from another
+  level or run.
 - **`eval_max` and `coarsest_res_max`:** for one coarsest eigensolve event, collect its
   lines matching `MG level <C> (GPU): Eval[NNNN] = (+real,imag) ... Residual = <r>`, where
   `<C>` is the executed index of the **coarsest** level — `3` in a four-level hierarchy and
@@ -122,7 +123,10 @@ failure.
 
 1. Confirm the denominator is the matching level-1 setup cap and that the counter is
    from the current hierarchy build rather than a reuse event.
-2. Compute `setup_l1_iters/setup_maxiter_1` and check repeated trials, not only one row.
+2. Compute `setup_l1_capped_fraction` — the share of level-1 streams that ended **at**
+   the cap — and check repeated trials, not only one row. Do not average the iteration
+   counts instead: a capped stream contributes exactly the cap, so a mean-to-cap ratio
+   saturates near 1 and hides how much of the setup actually converged.
 3. If pinned, loosen the requested work or repair hierarchy quality before interpreting
    downstream solve behavior. A capped setup does not prove that the requested setup
    tolerance was achieved.
