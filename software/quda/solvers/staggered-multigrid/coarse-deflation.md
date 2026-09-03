@@ -139,6 +139,28 @@ optimum was not located. Treat margins near or below `2x` as a corpus warning, n
 universal lower bound, and do not describe the combined evidence as an `8x...26x`
 optimum.
 
+**Re-derive `deflate_a_min` from a measured `eval_max` on every hierarchy that moves the
+coarsest operator** — its volume, its coarse colour, the mass, or the operator itself.
+Carrying one value across a scan does not hold the margin fixed; it lets the margin **walk**.
+`eval_max` rises with `coarsest_vector_density` by the fit above, so a fixed numerator over a
+rising denominator falls monotonically toward the weak-discrimination edge. In one scan the
+margin drifted from roughly `2.7` to below `1.8` with no parameter having been deliberately
+changed — the scan itself moved it.
+
+**What re-deriving buys is vector quality, not iteration count.** On two classes it cut the
+worst delivered coarsest-vector residual by about half while the outer iteration count moved
+within a few percent. Do not expect a re-derived window to shorten the solve; expect it to
+make the delivered vectors worth deflating with.
+
+**On the colour axis the same drift is a convergence failure, not a quality regression.** A
+coarse-colour change moves `eval_max` too, and carrying the window across one produced a
+recorded eigensolve of sixty restarts that delivered **zero** of its 1024 requested vectors.
+Re-deriving the window fixed it. That is the same non-convergence mode as a window below the
+largest requested eigenvalue, reached by drift rather than by a mis-set value — which is why
+it is worth checking after a change nobody thought of as touching the window. See also
+[`tuning.md`](tuning.md) on why a coarsest-defining near-null count change is never a
+one-variable move.
+
 Use the [`observable extraction contract`](diagnostics.md#observable-extraction-contract)
 so `eval_max`, `coarsest_res_max`, and restart counts refer to one delivered eigensolve
 event.

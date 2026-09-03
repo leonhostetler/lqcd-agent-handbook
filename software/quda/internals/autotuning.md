@@ -119,6 +119,22 @@ coarse-operator kernels are instantiated per coarse colour. **Treat warmth as pe
 shape *and* colour.** Budget a cold retune whenever either moves, and do not carry a warm
 measurement across such a change without re-warming.
 
+**Budget a shape QUDA has never built as two submissions, not one.** The first execution of
+a new coarsest shape pays its whole tuning cost at once, and that cost is of the same order
+as a short-queue walltime — it can consume the allocation before the run reaches the stage
+it was submitted for. Submit a **build stage** whose declared purpose is to tune and save
+the cache, then a **warm stage** seeded from it.
+
+In one measured scan every one of five first attempts timed out and every one of five warm
+retries completed its setup, with new cache entries in the high hundreds on the first
+execution against a few to a few hundred on the retry. The entry counts are properties of
+that placement and shape; what transfers is that the cost is **one-time per shape** and
+large enough to be scheduled around rather than absorbed.
+
+Two of those build stages also completed and saved work beyond the cache — an eigensolve, in
+that case — which turned the second submission into a cheap load. So the two-submission rule
+bounds the first stage; it does not imply the second costs the same.
+
 ## Benchmark-scoped compatibility test
 
 Define the cache's scope by the exact workload and measured region, not by the QUDA repository as
@@ -203,10 +219,10 @@ replacement mechanism.
    reusing a complete cache. Use application timers or a current-run profiler for benchmark
    evidence. If any compatibility question remains open, stop and build a fresh cache.
 
-If a cross-build cache gains even one new row, QUDA writes the entire combined map with the current
-header. Old rows then appear beneath the new build identity even though they were not retuned.
-Preserve the immutable source cache and external provenance record so this rewrite does not erase
-the cache's lineage.
+If a cross-build cache gains even one new row, QUDA writes the entire combined map with the
+current header. Old rows then appear beneath the new build identity even though they were
+not retuned. Preserve the immutable source cache and external provenance record so this
+rewrite does not erase the cache's lineage.
 
 ## Tunecache timing is not current-run timing
 
@@ -215,6 +231,10 @@ counter but do not update the stored time. QUDA's `profile*.tsv` reports are fir
 formed from cached time multiplied by current call count, and full trace records likewise carry
 the cached time. After cross-build reuse, these files can contain stale timing estimates even
 when the selected parameters remain optimal.
+
+**Per-call stability across trials that share a cache is a signature of that sharing, not of
+measurement precision.** Two runs reporting the same per-call time for a key are reporting the
+same stored number, and will do so however much their actual execution differed.
 
 Use a level-2 trace as a key and execution-order inventory, not as proof of present performance.
 Base a benchmark comparison on measurements made by the current run, with tunecache population
