@@ -218,7 +218,7 @@ Accept an output block for performance analysis only when:
 - its input was parsed without error and the intended gauge field was loaded;
 - the expected `RUNNING COMPLETED` count is present;
 - all required solves report convergence under the frozen correctness contract;
-- executed solver, batching, precision, and backend records match the intended candidate setup;
+- executed solver, batching, precision, and backend records match the intended candidate;
 - the requested output route was used, no artifact-writer error occurred, and the exact expected
   artifact paths and internal records pass structural validation with no unresolved missing or
   unexpected entries; and

@@ -189,7 +189,7 @@ at `fa9001a`. Slice 1 began with the Perlmutter machine profile, operational not
 detector, and focused tests committed and published at `b116b8f` on 2026-08-15.
 
 On 2026-08-18 Slice 4 began by defining tuning and benchmarking as consecutive rather than
-hybrid modes: tuning adaptively selects a candidate setup, and benchmarking confirms a frozen
+hybrid modes: tuning adaptively selects a candidate, and benchmarking confirms a frozen
 candidate and workload. MILC application guides now keep `ks_spectrum`, `ks_measure`,
 `ks_imp_rhmc`, and `wilson_flow` input/output and timing semantics out of the software-independent
 modes. The `ks_spectrum` guide incorporates screened operational lessons; `ks_measure` and

@@ -31,7 +31,7 @@ index. For MILC-facing QUDA staggered work, load every matching row:
 | Task signal | Required Tier-2 leaves |
 | --- | --- |
 | Solver selection, comparison, or setup-versus-solve economics | [`staggered-solver-selection.md`](../software/quda/solvers/staggered-solver-selection.md) and the active candidate solver pages |
-| Any multigrid configuration, mechanism, parameter, or result | [`staggered-multigrid.md`](../software/quda/solvers/staggered-multigrid.md) |
+| Any multigrid hierarchy, mechanism, parameter, or result | [`staggered-multigrid.md`](../software/quda/solvers/staggered-multigrid.md) |
 | Campaign summary, parameter ordering, or next-candidate choice | [`tuning.md`](../software/quda/solvers/staggered-multigrid/tuning.md) |
 | Hierarchy, setup, V-cycle, null-vector count, or grid-density question | [`hierarchy-and-setup.md`](../software/quda/solvers/staggered-multigrid/hierarchy-and-setup.md) |
 | Unhealthy setup, eigensolve, convergence, or residual behavior | [`diagnostics.md`](../software/quda/solvers/staggered-multigrid/diagnostics.md) |

@@ -59,7 +59,7 @@ Thus GCR solves the full naive or improved-staggered Dirac system. The parity fi
 right-hand side, not a request for an even-only or odd-only MG solve.
 
 Each preconditioner application executes a recursive multigrid cycle. Depending on the
-level and configuration, that cycle performs pre-smoothing, residual construction and
+level and its parameters, that cycle performs pre-smoothing, residual construction and
 restriction, a coarse solve or another recursive cycle, prolongation of the correction,
 and post-smoothing. The outer flexible GCR recurrence retains a Krylov basis and applies
 the full fine operator to converge the requested residual.
@@ -339,7 +339,7 @@ Use this path when:
 - the hierarchy can be reused or updated across enough compatible solves to justify
   setup and resident memory;
 - a validated machine stack supports the selected precision, communication, MMA, and
-  multi-source configuration; and
+  multi-source batch width; and
 - setup, solve, true residual, and application correctness can all be measured.
 
 MG is structurally suited to cases where eliminating slow error components through a

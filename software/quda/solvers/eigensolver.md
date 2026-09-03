@@ -162,7 +162,7 @@ prefixed with that level, for example `MG level 3 (GPU): Deflating <N> vectors`.
 
 Assert that `<N>` equals the requested count on **every** invocation, not merely the first:
 a count that changes mid-run, or a short prefix of invocations, is the observable form of a
-partially applied space. Absence of the line altogether, in a configuration that requested
+partially applied space. Absence of the line altogether, in a run that requested
 deflation, means the space was constructed and then not used.
 
 **A block solver can suppress the diagnostics a scalar solver prints.** `block_size > 1`
@@ -190,7 +190,7 @@ above, and both are easier to read at `block_size = 1`.
 > count is roughly a `74x` increase in eigenvalue.
 
 > **The extrapolation is unreliable and biased low.** Backtested against a hierarchy whose
-> full spectrum was known, fitting a short prefix under-predicted in every configuration
+> full spectrum was known, fitting a short prefix under-predicted in every case
 > tried, and the error did not improve with more probe points. The cause is structural:
 > where the spectrum bottom is dominated by a constant term, a short prefix largely measures
 > that constant and carries little information about the power-law amplitude. Under-

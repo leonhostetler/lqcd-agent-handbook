@@ -25,7 +25,7 @@ not handbook knowledge.
 Before a measured series, state:
 
 - the decision, target quantity, and comparison or acceptance threshold;
-- the frozen candidate setup and workload;
+- the frozen candidate and workload;
 - the production work unit and how application input sets compose it;
 - the correctness and completion checks;
 - the warm-state contract and repetition plan;
@@ -38,7 +38,7 @@ work to tuning; it does not revise the current benchmark in place.
 ## Measure a homogeneous solver series
 
 To estimate steady-state production solve cost, run multiple solves using the same solver and
-candidate setup, differing only in source or right-hand-side content. Exclude the first solve by
+candidate, differing only in source or right-hand-side content. Exclude the first solve by
 default because it may contain allocation, initialization, or autotuning overhead, and summarize
 the remaining solves. A single solve is not representative evidence of steady-state cost.
 
@@ -152,7 +152,7 @@ The run header records:
 
 - run identifier, stage, and intended question;
 - executable, software and dependency revisions, and build profile;
-- candidate setup, workload, input, and generated-input identity;
+- candidate, workload, input, and generated-input identity;
 - machine, node type, scheduler request, placement, decomposition, and binding;
 - tunecache and other persistent setup state;
 - expected application work units, expected-artifact manifest, and validation root; and
@@ -311,7 +311,7 @@ A performance quantity enters a comparison or projection only when:
 - its boundary and evidence source are known;
 - the required application work is complete and the exact artifact-set and structural checks
   pass;
-- the executed path matches the frozen candidate setup;
+- the executed path matches the frozen candidate;
 - numerical and scientific checks required by the contract pass;
 - scheduler and application exit states are reconciled;
 - its accounting and recurrence roles are declared; and

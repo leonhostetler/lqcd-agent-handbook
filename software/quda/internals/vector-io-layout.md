@@ -93,7 +93,7 @@ stack and workload if the tradeoff is close.
 - **Reusing saved partfile vectors constrains placement independently of hierarchy
   legality.** A decomposition or memory preflight that validates block legality, aggregate
   limits, compiled coarse colours, and capacity does not cover stored I/O layout, and will
-  pass a configuration that cannot load its own inputs.
+  pass a placement that cannot load its own inputs.
 - **When a study must vary rank decomposition over stored fields there are three options**,
   with different costs: match the writing placement, regenerate the fields under the new
   placement, or hold the fields in single-file format and pay the I/O time. Price the option

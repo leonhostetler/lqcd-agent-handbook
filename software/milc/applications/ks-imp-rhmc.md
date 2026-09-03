@@ -115,7 +115,7 @@ An input set is acceptable benchmark evidence only when:
 
 - the expected warmup and measured trajectory counts are present;
 - every measured trajectory has the required action and `ACCEPT`/`REJECT` records;
-- solver, force, and link paths match the intended candidate setup and satisfy the numerical
+- solver, force, and link paths match the intended candidate and satisfy the numerical
   contract;
 - all measurements required by the cadence are present;
 - the requested ending gauge field is successfully written and validated separately from the

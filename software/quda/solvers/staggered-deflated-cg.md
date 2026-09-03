@@ -142,7 +142,7 @@ MILC must compile with QUDA CG and eigensolver support (`HAVE_QUDA`, `USE_CG_GPU
 `USE_EIG_GPU` in the observed source). Current MILC build logic forces eigensolver
 support on when improved-staggered QUDA CG is enabled, but the selected QUDA revision,
 precision set, communication backend, eigenvector I/O path, and intended block-TRLM
-configuration still require stack validation.
+settings still require stack validation.
 
 ## When to use it
 
@@ -173,10 +173,10 @@ Do not use or reuse this path when:
 - eigensolver setup cannot be amortized by the expected compatible solve count;
 - the retained/search vectors leave insufficient memory for gauge fields, CG workspace,
   communication buffers, and application allocations; or
-- the run cannot distinguish native CG deflation from EigCG/IncEigCG in configuration
-  and logs.
+- the run cannot distinguish native CG deflation from EigCG/IncEigCG in its
+  parameters and logs.
 
-Do not treat successful return from an unconverged eigensolver configuration as proof of
+Do not treat successful return from an unconverged eigensolver run as proof of
 a useful deflation space. The observed MILC path sets `require_convergence` true; other
 callers may not.
 

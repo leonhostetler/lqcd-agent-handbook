@@ -1,10 +1,10 @@
 # Benchmarking Mode
 
-Benchmarking mode measures the performance or cost of a candidate setup and workload frozen
-before the measured series begins. A candidate setup is the combination of solver and build
+Benchmarking mode measures the performance or cost of a candidate and workload frozen
+before the measured series begins. A candidate is the combination of solver and build
 choices, runtime parameters, resource placement, decomposition, batching, I/O, and other
-workflow choices being measured. A gauge configuration is part of the workload, not a synonym
-for this setup. The mode changes only when the operator explicitly declares a different work
+workflow choices being measured. A gauge configuration is part of the workload and never a synonym
+for a candidate; `setup` in this handbook means a solver setup phase. The mode changes only when the operator explicitly declares a different work
 mode. If the next candidate depends on a measured result, the work is tuning, not benchmarking.
 
 ## Establish the benchmark contract
@@ -25,7 +25,7 @@ Before preparing, submitting, or analyzing a measured series:
 4. Detect the software commit and branch, working-tree state, machine, node type, nearest
    validated stack, build capabilities, runtime environment, and tunecache state. Report every
    unvalidated dimension.
-5. Freeze the set of candidate setups, workload, node and process placement, solver and runtime
+5. Freeze the set of candidates, workload, node and process placement, solver and runtime
    parameters, input and output definitions, warm-state contract, metrics, repetition plan, and
    correctness checks. Record them in the working directory before observing the measured
    results.
@@ -60,7 +60,7 @@ Record four cost classes separately whenever they exist:
 4. **recurring workflow cost** — the end-to-end work that each production unit or job pays.
 
 For a steady-state solver comparison, populate the required tunecache and run multiple
-homogeneous solves under the same solver and candidate setup, differing only in source or
+homogeneous solves under the same solver and candidate, differing only in source or
 right-hand-side content. Exclude the first solve by default because it may contain allocation,
 initialization, or autotuning overhead, and summarize the remaining solves. A single solve is
 not representative steady-state evidence. A material solver, precision, batching, decomposition,
@@ -131,7 +131,7 @@ starts cold each time, include the cold cost.
   truncated dimensions and classify each extrapolated component as fixed, proportional,
   empirically modeled, or not safely extrapolatable.
 - Establish memory feasibility and the minimum viable resource shape before costing the final
-  candidate setup. Report both elapsed time and node- or GPU-hours so faster execution with more
+  candidate. Report both elapsed time and node- or GPU-hours so faster execution with more
   resources is not mistaken for greater efficiency.
 - Break the total into recurring components such as setup, input, lattice or field loading,
   link construction, solves, contractions, output, and unaccounted time. State which components

@@ -111,7 +111,7 @@ you how often the operation ran, and its absence does not tell you the operation
 
 A cache is warm for the exact keys it holds. Changing a parameter that alters a kernel's
 **shape** produces new keys and a fresh round of tuning, even when the surrounding
-configuration looks unchanged and the geometry is identical.
+build looks unchanged and the geometry is identical.
 
 For staggered multigrid this bites on coarse colour specifically: changing a near-null
 count at an unchanged coarsest volume still pays a full coarse-operator retune, because the

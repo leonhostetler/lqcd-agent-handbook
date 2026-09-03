@@ -63,7 +63,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Automation of repeated work** | Two separate rules, deliberately not merged. **Authoring time** ([§prefer-a-tool](#prefer-a-tool)): a mined fact that can be executed must ship as a script plus an index line. **Working practice** (`conventions/repeated-work.md`): a procedure a campaign repeats should become a tool, surfaced by a checkpoint at each study or phase closure and each work-mode change rather than by an event trigger, because the set of repeated actions is not visible at the start. Every work mode carries the checkpoint in its `Done` and `Tools and routing` sections, so a mode change fires it mechanically, and the Tier-0 standing rule names the trigger and points at the leaf on [§batch-scripts](#batch-scripts)'s pattern. A new tool is not trusted on a passing run: it must be made to fail on purpose, and a no-op negative test is vacuous | A checkpoint proves too weak in practice — the next stronger anchor is a required field in an existing mandatory record, not a louder instruction |
 | **Work mode** | Current, not permanent — may change mid-session, but only by explicit declaration. It follows the immediate decision and deliverable, not every tool used along the way ([§work-mode-currency](#work-mode-currency)) | — |
 | **Task-time Tier-2 routing** | Session startup loads Tier 1 only. Before substantive LQCD analysis or action, and whenever a task narrows or changes, the agent derives named applications, solvers, ensembles, and the immediate decision from the operator request and active project instructions, then uses `INDEX.md` and only the matching domain indices to load the smallest Tier-2 leaves whose `load_when` matches. Interpretation of mechanisms, parameters, failures, campaign evidence, or next candidates waits for this check | A reliable executable task router makes the Tier-0 checkpoint redundant |
-| **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate setup — the solver, build, runtime, resource-placement, and workflow choices being evaluated — while benchmarking measures a candidate setup and workload frozen before the measured series. A campaign may move from tuning to confirmatory benchmarking, but never occupies a hybrid mode, and an exploratory winner needs an independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
+| **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate — the solver, build, runtime, resource-placement, and workflow choices being evaluated — while benchmarking measures a candidate and workload frozen before the measured series. A campaign may move from tuning to confirmatory benchmarking, but never occupies a hybrid mode, and an exploratory winner needs an independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
 | **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; missing session logging produces a non-blocking offer in the orientation report ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
 | **Privacy-screening boundary** | Screen only the exact material crossing into the handbook: a user-mode inbox entry or a direct developer-mode change. Handbook privacy rules never mandate scanning, redacting, or rewriting the working project that holds source evidence ([§privacy-screening](#privacy-screening), [§handbook-modes](#handbook-modes)) | The repository's publication boundary changes |
@@ -1414,6 +1414,36 @@ set is a separate *calibration*, not a separate guide.
 Enforced by `tests/test_role_not_index.py`, because a naming convention that nothing checks
 is the class of rule this document already records as not firing.
 
+<a id="reserved-terms"></a>
+### 5.5. Reserved terms: configuration, setup, candidate
+
+Two words carry an established meaning in lattice QCD that a general-software reading would
+miss, and both were used in the other sense here before this rule existed.
+
+**`configuration` means a gauge configuration.** Nothing else. A set of solver, build,
+runtime, placement or decomposition choices is a **candidate**. Writing "this configuration
+was 10% slower" in a field where a configuration is an element of the ensemble invites a
+reader to think a different gauge field was used.
+
+**`setup` means a solver's setup phase** — near-null generation, hierarchy construction,
+eigenspace generation — because that is what `setup_tol`, `setup_maxiter` and the setup/solve
+cost split already mean throughout `software/`. It is therefore not available as a word for
+the thing being tuned. The mode documents originally said "candidate setup"; that term is
+retired for this reason, and `candidate` alone carries it.
+
+| Sense | Term | Not |
+|---|---|---|
+| element of a gauge ensemble | `configuration` | — |
+| solver setup phase | `setup` | — |
+| the parameter set under evaluation | `candidate` | `configuration`, `setup`, `candidate setup` |
+
+A numbered symbol also has a reserved reading; see
+[§role-not-index](#role-not-index).
+
+Enforced by `tests/test_reserved_terms.py`, which allows `configuration` only where a gauge
+configuration is meant. The check is a word-level heuristic and so is deliberately narrow: it
+catches the phrasings that recur, not every possible misuse.
+
 <a id="privacy-screening"></a>
 ## 6. Public-repo screening
 
@@ -1601,7 +1631,7 @@ distinguishing content:
   is analysis-only or hands-on (build/run/edit/recompile); `compute-sanitizer`,
   `valgrind4hpc`; **may submit jobs only under an explicit node-hour budget** ([§budget-rule](#budget-rule)).
 - **performance** — Nsight Systems / RocProfiler Systems output; harvests PerfAdvisor.
-- **benchmarking** — needs a frozen candidate setup and workload, the target quantity, the
+- **benchmarking** — needs a frozen candidate and workload, the target quantity, the
   benchmark intent (fixed solver or component comparison, or workflow-cost estimation), a
   correctness reference, and the division of labour (prepare+submit+analyze, or
   analyze-only). Warm-up and setup are included, excluded, or separately amortized according
@@ -1611,7 +1641,7 @@ distinguishing content:
   and returns the decision to tuning.
 - **tuning** — needs the hypothetical production campaign, machine, objective, constraints,
   and tunable parameter space. It adaptively searches node placement, decomposition, solver,
-  build, runtime, and workflow choices and produces a candidate setup by following
+  build, runtime, and workflow choices and produces a candidate by following
   `playbooks/tune-solver.md` when applicable, with the relevant
   `software/<name>/solvers/`, resolved build profile and stack, ensemble knowledge, and
   memory model. **Predict before every allocation-consuming trial**

@@ -1,9 +1,10 @@
 # Tuning Mode
 
-Tuning mode searches for an efficient candidate setup for a declared production workload. A
-candidate setup is the combination of solver and build choices, runtime parameters, resource
+Tuning mode searches for an efficient candidate for a declared production workload. A
+candidate is the combination of solver and build choices, runtime parameters, resource
 placement, decomposition, batching, I/O, and other workflow choices being evaluated. A gauge
-configuration is part of the workload, not a synonym for this setup. The mode changes only when
+configuration is part of the workload and never a synonym for a candidate; and `setup` in
+this handbook means a solver's setup phase, which is why a candidate is not called one. The mode changes only when
 the operator explicitly declares a different work mode. Measurements made while selecting the
 next candidate are exploratory; they do not become benchmark claims merely because one candidate
 wins.
@@ -68,7 +69,7 @@ Before changing a build, parameter, decomposition, or runtime setting:
 
 Performance analysis may be used inside tuning when it is subordinate to choosing the next
 candidate. If the immediate deliverable becomes explaining a bottleneck rather than selecting a
-candidate setup, recommend performance mode. Timing a candidate does not by itself change the
+candidate, recommend performance mode. Timing a candidate does not by itself change the
 current mode to benchmarking.
 
 ## Handoff to benchmarking
@@ -132,7 +133,7 @@ Campaign-specific optima and search histories remain in the working directory.
 
 ## Done
 
-Tuning is done when a candidate setup is selected against the declared objective and
+Tuning is done when a candidate is selected against the declared objective and
 constraints; its correctness scope, environment, resource cost, warm state, and sensitivity are
 recorded; rejected and untested alternatives are named; and an independent confirmatory
 benchmark is defined. Before closing, run the automation checkpoint in

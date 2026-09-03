@@ -88,7 +88,7 @@ qualifying that checkout.
 The one-sided selector path is not confined to `ks_measure`. `spin_taste_op_ape_fn` dispatches
 the APE rho forward and backward indices to `mult_rhois_ape_field`, and the observed MILC source
 has callers in external-source, current-measurement, and meson-momentum code. This establishes
-source reachability, not that every configuration executes those indices. When qualifying an old
+source reachability, not that every build executes those indices. When qualifying an old
 checkout, inventory the requested spin-taste indices across its consumers and test every
 reachable one-sided case.
 

@@ -53,7 +53,7 @@ deflation entry points, including MILC's own non-multigrid path. The
 
 ## Which coarse solvers support deflation, and how one disables it silently
 
-Deflation is not available for an arbitrary coarse solver, and one configuration turns it
+Deflation is not available for an arbitrary coarse solver, and one setting turns it
 off without failing. Establish both before tuning a window or a vector count.
 
 **Supported set.** `multigrid.cpp` accepts coarse-level deflation for `CGNR`, `CA_CGNR`,
@@ -84,7 +84,7 @@ eigenspace was applied.
 **Evidence label.** The supported set, the operator families, and the disabling branch are
 read from source at the observed revision. The supported branch has been confirmed at
 runtime by the count check above; **the silent-disable branch has not been observed here**,
-because the configurations in use were on the safe branch. Treat it as a source-derived
+because the settings in use were on the safe branch. Treat it as a source-derived
 hazard with a cheap runtime guard, not as a measured failure.
 
 ## Predict, then verify, the requested spectrum
@@ -216,7 +216,7 @@ is supported; predicting recurring solve performance from that incident is not.
 ## Derive a deflation schedule for the workload
 
 At every sampled mass and `coarsest_vector_density`, measure a matched deflated and
-undeflated configuration
+undeflated candidate
 with the same hierarchy, stack, tolerances, and reuse contract. Let
 
 ```text

@@ -46,7 +46,7 @@ from the same MILC source, so confirm the tag rather than assuming either behavi
 
 ## Actionable consequences
 
-1. **Two QUDA configurations mean two executables.** There is no environment-variable path to
+1. **Two QUDA builds mean two executables.** There is no environment-variable path to
    sharing one binary between them. Budget the relink, and give each executable a name that
    says which library it carries.
 2. **An executable's identity is incomplete without its library's.** A recorded build hash
@@ -65,8 +65,8 @@ Observed at one MILC revision through the Cray wrappers. The emission of a bare 
 is a property of MILC's build files and is expected to transfer; **which tag results is a
 linker-default property and is not.**
 
-The scope is `software:milc` alone deliberately. Nothing here depends on QUDA's version or
-configuration — QUDA is simply the library most often swapped. The same binding applies to the
+The scope is `software:milc` alone deliberately. Nothing here depends on QUDA's version or build
+options — QUDA is simply the library most often swapped. The same binding applies to the
 QMP and QIO paths MILC emits the same way, so a stack that rebuilds any of them inherits it. See
 [`build.md`](build.md) for the surrounding build contract and
 [`../../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md`](../../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md)
