@@ -84,6 +84,20 @@ Three consequences:
 A floor is a limit on resolution, not an error bar: it says which comparisons a single
 measurement cannot decide, not how uncertain a given number is.
 
+**A wide spread across few pairs may mean an occasional effect rather than a wide band, and the
+two call for different responses.** One corpus accumulated five pairs of runs whose parameters were byte-identical:
+two swung by roughly a quarter to a third, three by about one percent. That is consistent with a
+uniform band, but equally with a swing that appears only under conditions nobody has isolated —
+and the second reading is the worse one, because **an occasional effect does not average down.**
+Repetition shrinks the uncertainty on a uniform band; it does not help against a disturbance that
+is absent from most runs and large in a few, where more repeats mainly change how likely you are
+to catch one.
+
+So when the pairs are few and their spread is bimodal rather than graded, **do not treat the
+largest observed swing as a band to average against**. Either isolate the condition that produces
+it, or keep the ranking unresolved and move the decision onto a deterministic observable as above.
+Reporting a mean swing over such a set states a number the data does not support.
+
 ### A deterministic-looking observable is not a determinism claim
 
 The advice above pushes a study toward observables that repeat exactly. That creates its own

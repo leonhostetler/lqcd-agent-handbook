@@ -97,9 +97,20 @@ Additional Lanczos constraints are enforced by the concrete solvers:
 - TRLM3D requires `n_kr >= n_ev + 6` and supports only spatial splitting with
   `ortho_dim = 3`.
 
-If `require_convergence` is true, exhausting `max_restarts` is an error. If it is false,
-the solver warns and continues with the current factorization; callers must then inspect the
-recomputed eigenvalues and residuals rather than treating return as convergence.
+If `require_convergence` is true, exhausting `max_restarts` **terminates the job**: both TRLM
+and block TRLM call `errorQuda` with a message ending `Exiting.`, which is the fatal handler,
+not a status a caller can inspect. If it is false, the solver warns and continues with the
+current factorization; callers must then inspect the recomputed eigenvalues and residuals
+rather than treating return as convergence.
+
+**The consequence for trial design is the trap, because restart caps do not behave like
+iteration caps.** A run that deliberately caps `max_restarts` below convergence — to exercise
+the eigensolver kernels cheaply, or to bound a probe — does not return a truncated eigenspace;
+it aborts, and the whole allocation of that run is lost along with any later stage. A recorded
+case set the cap to one restart on that assumption and was killed with a small fraction of the
+requested eigenvalues converged. **Where a partial factorization is genuinely wanted, set
+`require_convergence` false and inspect what came back; where it is not, size the cap for
+convergence rather than for cost.**
 
 ## Interpret Chebyshev acceleration correctly
 

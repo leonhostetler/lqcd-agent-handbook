@@ -124,6 +124,18 @@ illustrative of the spread, not a band: compute the ratio for the candidate in h
 > share after the fact, never sufficient to certify one. In particular it must not be
 > reported as a predicted cost or converted into a time.
 
+**A cost model over hierarchies must carry the coarsest solver's iterations per invocation as a
+variable, not a constant.** It is natural to price coarsest work as invocations times per-apply
+cost and to treat the iterations each invocation takes as a property of the solver settings, which
+are held fixed. They are not: the conditioning of the coarsest problem changes with the hierarchy,
+and in one measured pair the mean coarsest iterations per invocation differed by roughly a factor
+of three between a three-level and a four-level hierarchy at the same lattice and mass. Omitting
+that factor understated the deeper hierarchy's advantage by about the same factor and inverted the
+model's verdict, which is how a screening model comes to recommend against the candidate it should
+have ranked first. **Read the achieved iteration counts out of the run rather than assuming the cap
+or the previous hierarchy's value**, and note this is the same failure as the intermediate-cap
+chain above — an achieved count, not a configured one, is what multiplies.
+
 **A cost model ranks candidates; it cannot promote one.** A screening model that predicts
 coarse-grid *per-iteration* work — anything built from the coarsest global volume and the
 coarse colour, whatever local symbol it is given — says nothing about how many outer

@@ -223,6 +223,22 @@ are not simply meeting the new cap instead. Evidence: empirical, two same-direct
 on one ensemble; the mechanism is expected to transfer, no correction factor is offered,
 and a fit-window change invalidates the reading.
 
+**The tail does not extrapolate exponentially either, so the curve misleads at both ends.** On
+one measured level-1 trajectory the residual gain per additional block of iterations flattened
+badly — roughly a factor of two for the first extension and well under a further factor of two
+for the next two, with a late extension buying under one percent — while a naive exponential fit
+to the tail predicted more than twice the gain actually measured. Taken with the paragraph above:
+**a fit to the head under-predicts the iterations needed, and a fit to the tail over-predicts the
+gain from buying more.** Neither end supports extrapolation, so treat measured points as the only
+reliable statement about that curve and budget from them.
+
+**Setup effort is worth balancing across levels, because the weakest generated level governs.** In
+the same hierarchy the level-1 vectors were deep into diminishing returns while the level below was
+stopped mid-descent, orders of magnitude short of level 1 and plainly the weakest object saved.
+Spending further iterations on the already-converged level cannot repair that; check where each
+generated level actually stopped before extending any cap. Evidence: empirical, one hierarchy on
+one ensemble; the ordering is the transferable part and the numbers are not.
+
 ## Decision sequence
 
 1. Reject source-invalid blocks, aggregate spaces, and uncompiled coarse colours.
