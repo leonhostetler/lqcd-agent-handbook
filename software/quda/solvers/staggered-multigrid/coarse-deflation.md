@@ -195,6 +195,24 @@ than a short prefix at the same one.
 restarts. Use that restart count as their joint observable instead of assigning three
 independent optimum values.
 
+**A joint quality observable is not a cost observable.** Restart count orders these three
+knobs for vector quality; it does not order them for eigensolve time, and the two orderings
+can disagree. In one measured ladder, raising `deflate_n_kr` cut restarts by more than half
+and setup time by about `13%` **at unchanged worst-vector residual**, paying roughly a
+gigabyte of extra device memory for the larger search space. Reaching a similar restart count
+by raising `deflate_poly_deg` instead moved wall time the other way. **To cut eigensolve cost
+at fixed vector quality, raise `deflate_n_kr`; do not read a restart reduction as a saving
+until the wall time is measured.**
+
+**Do not shrink the requested vector count to save eigensolve time.** TRLM wall time grows
+**sublinearly** with the requested coarsest deflation count, so the cost per delivered vector
+*falls* as the request grows over the measured range. Worse, a request too small for the
+spectrum costs more per delivered vector than a larger one, because the solve thrashes
+restarts trying to separate vectors the filter cannot resolve — one measured small request
+spent several seconds per delivered vector against a fraction of that for a request an order
+of magnitude larger. Size the request from the spectrum and the memory budget, never from a
+wish to shorten the eigensolve.
+
 The corpus reference band is `4...9` restarts, fitted at four levels. One or two restarts
 were a warning for worse `coarsest_res_max` across the spacings sampled by that fit.
 

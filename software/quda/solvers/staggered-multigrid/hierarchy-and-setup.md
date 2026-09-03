@@ -138,6 +138,23 @@ mass, carry the coarsest deflation count across **unchanged**. Do not match
 smaller, and starves the deeper hierarchy of the modes the fine problem still has. Watch
 coarsest-level cap hits and outer iteration count to confirm.
 
+**The failure side is what makes this actionable, because an inadequate coarsest grid does
+not look like one.** Two consequences follow from the same mechanism:
+
+- **Solving the coarsest grid more accurately cannot compensate for it being too small.**
+  The diagnostic signature is specific and easy to misread: the coarsest level *meets* its
+  requested tolerance, with **no** invocations hitting its iteration limit, while the level
+  directly above it barely contracts. Everything at the coarsest level looks healthy, because
+  the problem is not that the solve is inaccurate — it is that the space being solved cannot
+  represent what the level above needs. Suspect coarsest **volume** before coarsest solve
+  accuracy whenever those two readings appear together.
+- **Setup-side eigensolver knobs cannot repair a starved coarsest level.** `deflate_a_min`,
+  `deflate_n_kr`, `deflate_poly_deg` and the setup tolerance move setup cost and vector
+  quality. They do not make an inadequate grid contract. A recorded case ran full ladders on
+  all three filter knobs, delivered every requested vector and converged the eigensolve, while
+  the level above stayed at a residual of `1.0` throughout. Tuning them there spends
+  allocation on the wrong axis.
+
 **Evidence and scope.** Mechanism, with empirical support: three independent observations
 for the count rule, on one ensemble at one global lattice, two masses, across three- and
 four-level hierarchies. The mechanism is expected to transfer; the specific volumes and

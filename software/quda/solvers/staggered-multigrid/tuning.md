@@ -223,6 +223,14 @@ the CA basis size jointly select the coarse solver's execution mode, so a cap ch
 silently change what the solver *is* — see
 [`the MG overview`](../staggered-multigrid.md).
 
+**Post-smoothing is nearly free on an intermediate level and is not on the fine level.**
+The two are not interchangeable knobs. In one measured pair, quadrupling the post-smoother
+sweep count on the level below the fine grid changed per-outer-iteration cost by about
+`-2%` while cutting outer iterations from `22` to `19`; doubling it on the **fine** level
+cost over `12%` per iteration. The asymmetry follows the grid the smoother runs on — fine-grid
+work is full-operator work, and no iteration saving on that level is free. Price a smoothing
+change against the level it acts on before treating an iteration reduction as a gain.
+
 **Changing the coarsest-defining near-null count is never a one-variable move.** It moves
 three things at once, and two of them are invisible in a parameter-file diff:
 
