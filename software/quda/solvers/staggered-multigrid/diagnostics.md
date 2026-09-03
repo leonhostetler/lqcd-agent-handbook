@@ -55,6 +55,25 @@ source revision in this page's frontmatter, extract them as follows. If a later 
 changes a message format, preserve the raw lines and update this contract before using
 the old numerical bands.
 
+**This contract is executable.** `tools/quda-mg-observables.py` implements it over one or
+more application logs and an optional MILC multigrid parameter file:
+
+```bash
+python3 "$LQCD_HANDBOOK/tools/quda-mg-observables.py" <log> --mgparams <mgparams.txt>
+```
+
+`--mgparams` is required and is never guessed from the log's location. A workspace may
+keep one parameter file per run, one shared across many, or any other arrangement, so a
+path inferred from a directory convention can bind the wrong file and report a confident,
+wrong cap — and a wrongly attributed value is worse than a missing one.
+
+Prefer it to a hand read, and prefer its output to a remembered value. **The contract below
+remains the specification and the tool is its implementation**, which matters because a
+message-format change degrades the parse *silently*: the fields simply stop matching and
+report `unavailable` or, worse, match something adjacent. Confirm the literal lines below
+still appear in the log before trusting a field from a new build, and update contract and
+tool together. A field the tool reports `unavailable` is missing data, never a zero.
+
 - **`setup_l1_iters`:** within one hierarchy-build event, read the ordered lines matching
   `MG level 1 (GPU): CG: <k> iterations, n = <j>, ...`. A reset of `k` to zero starts a
   new level-1 near-null CG stream. Take the terminal printed `k` before the next reset
