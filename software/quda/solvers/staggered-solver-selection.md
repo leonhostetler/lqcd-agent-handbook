@@ -127,6 +127,12 @@ without rewriting the observed ledger. For a MILC decision, native-harness evide
 establish build and solver feasibility, but the final comparison must execute through the
 linked MILC path unless the declared workload is itself the native test.
 
+**Where a memory or decomposition floor keeps one candidate off the placement that makes
+another cheap — which is the normal case for multigrid against plain CG — report the
+production comparison and the matched-placement comparison separately, and never let one
+stand in for the other.** They have been measured pointing in opposite directions. See
+[`../../../conventions/measurement.md`](../../../conventions/measurement.md).
+
 Confirm the execution path from runtime evidence. Solver names in an input file do not
 prove that deflation was active, that a preserved space was restored, that the requested
 MG blocks were used, or that the intended precision and batching path executed. Do not

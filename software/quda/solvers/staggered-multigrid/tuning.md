@@ -191,13 +191,43 @@ the coarsest level cannot reduce recurring solve time by more than that level's 
 it, so it cannot close a deficit larger than `1/(1-f)`. The break-even share is
 `f* = 1 - t_target/t_current`; compare the deficit against `f*` before paying for the trial.
 
+**The same bound has a second, often cheaper form: a break-even iteration count.** A candidate
+that is dramatically cheaper per outer iteration but converges more slowly breaks even at
+
+```text
+n* = t_comparator / cost_per_outer_of_the_cheap_candidate
+```
+
+outer iterations. Measure — or merely **bound** — the candidate's converged count against `n*`
+and the decision follows with no extrapolation: a candidate still unconverged at a bound below
+`n*` cannot win, whatever its per-iteration cost. In one recorded case a terminal candidate was
+more than an order of magnitude cheaper per outer iteration and still lost, because `n*` sat far
+below where it was still unconverged. **This is the form to reach for when a candidate will not
+converge at all within an affordable run**, since it converts an unfinished trial into a decision
+instead of a missing measurement. Fitting the residual trajectory to guess the converged count is
+the weaker move and should be labelled an extrapolation when used.
+
 **The relation is arithmetic; `f` is not a coefficient.** It is a per-candidate ratio and
-must be measured for the candidate in hand. One campaign's internal estimates for `f`
-spanned roughly `0.44` to `0.69` — a range wide enough to flip the conclusion — and none of
-them was a measurement: they derived from QUDA profile times, which report stored tuning time
-multiplied by call count rather than current-run time
-([`../../internals/autotuning.md`](../../internals/autotuning.md)). A later direct measurement
-on that candidate put `f` above `0.95`, which makes the ceiling nearly vacuous there.
+must be measured for the candidate in hand.
+
+**Before measuring it, fix which `f` you mean — the two obvious readings differ by roughly a
+factor of two and only one belongs in this bound.** On one corpus the coarsest `DslashCoarse`
+**kernel** accounted for about `44`-`54%` of recurring solve wall time, while the whole coarsest
+**solve** — that kernel plus its residual norms, global reductions and communication — was
+bounded below at about `0.95` of per-outer wall, on a matched pair whose only parameter
+difference was the coarsest solver. **Both numbers are correct and they do not conflict**; they
+have different numerators. The share that governs this ceiling is the second, because a
+terminal-side change replaces the whole coarsest solve and not merely its dominant kernel.
+
+**The gap between them is itself the useful part**: something like a third to a half of the
+recurring solve sits in the reductions and communication wrapped around the coarsest kernel,
+which a kernel-level profile does not show and which making the kernel cheaper does not remove.
+
+Obtain `f` from a difference of two runs whose only parameter difference is the coarsest solver.
+A profile-derived figure is not a current-run measurement — QUDA profile output reports stored
+tuning time multiplied by call count
+([`../../internals/autotuning.md`](../../internals/autotuning.md)).
+
 **Use this rule to make `f` a measurement target, never to declare a candidate dominated
 before `f` is known.** Where `f` approaches one the ceiling stops binding and the constraint
 is again the product `n_outer x cost_per_outer`, whose two terms move in opposite directions
@@ -222,6 +252,19 @@ intermediate iterations, not the cap, when pricing the change. Note also that `m
 the CA basis size jointly select the coarse solver's execution mode, so a cap change can
 silently change what the solver *is* — see
 [`the MG overview`](../staggered-multigrid.md).
+
+**A terminal-side optimum belongs to the grid it was found on, not to the parameter value.**
+Re-applying a coarse-solver tolerance that was optimal on one hierarchy gave, on three
+hierarchies differing in coarsest volume and cell shape, a substantial gain, a small gain, and a
+**genuine null** — the null verified as reached-and-bought-nothing, with every terminal call
+meeting the new target and none at its cap, rather than as a failure to apply. This is the second
+terminal-side parameter observed not to travel across a change of coarsest grid; the first is
+`deflate_a_min`, whose re-derivation rule is in
+[`coarse-deflation.md`](coarse-deflation.md). **Treat "it worked at the other hierarchy" as a
+reason to re-scan a terminal-side parameter, never as a reason to carry its value**, and read a
+null as information about that grid rather than about the parameter. Evidence: empirical, three
+hierarchies on one ensemble; the pattern across two distinct parameters is the transferable part
+and no magnitude is quoted.
 
 **Post-smoothing is nearly free on an intermediate level and is not on the fine level.**
 The two are not interchangeable knobs. In one measured pair, quadrupling the post-smoother

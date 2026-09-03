@@ -285,6 +285,35 @@ Classify every projected term:
 The same operation can have a different recurrence in another production design. State the
 reuse scope rather than assigning recurrence from its position in one output file.
 
+## When a constraint bars a candidate from its rival's best placement, report two comparisons
+
+A hard constraint — device memory, a legal decomposition, a minimum node count — can prevent
+one candidate from ever running where its rival is cheapest. **Two different comparisons then
+exist, they answer different questions, and they can point in opposite directions.**
+
+| comparison | what it answers |
+|---|---|
+| each candidate at **its own** cheapest feasible placement | the production decision, when the objective is cost per unit of work and production takes the cheapest thing that exists |
+| both candidates at a **matched** placement | a diagnostic that isolates the algorithm from the placement |
+
+In one recorded case the two disagreed outright: the constrained candidate was **cheaper at
+matched placement and substantially more expensive** on the production comparison, because its
+floor kept it off the placement that made its rival cheap. Reporting either number alone is
+defensible; reporting one while implying the other is not.
+
+**Rules that follow.**
+
+- **The production decision uses the first row.** A candidate cannot be credited with a
+  placement it is structurally barred from occupying.
+- **The matched comparison is diagnostic and must be labelled as such.** It is the right number
+  for "is this algorithm better", and the wrong one for "what should we run".
+- **Name the binding constraint whenever the two diverge**, because that constraint — not the
+  algorithm — is then the thing a future change would have to move. A deficit that is mostly a
+  placement floor is a different engineering problem from a deficit that is mostly per-unit cost,
+  and the two invite different next steps.
+- **Neither half transfers on its own.** Carrying the matched ratio to another machine or volume
+  assumes the floor moves with it; carrying the production ratio assumes it does not.
+
 ## Keep production projection separate
 
 Construct a projection only after the observed ledgers pass their validity checks. Keep measured
