@@ -12,9 +12,9 @@ review_by: "2027-09-03"
 
 # Campaign records, ownership, and what must stay computed
 
-[§records-in-working-directory](../ARCHITECTURE.md#records-in-working-directory) settles *where* a
-campaign's observations live: with the campaign, not in this repository. This convention is the
-next question down — how to organise them so they stay true over months of runs.
+Where a campaign's observations live is already settled: with the campaign, not in this
+repository. This convention is the next question down — how to organise them so they stay
+true over months of runs.
 
 **These rules are corrections, not a template.** They come from a multi-study campaign that
 reorganised its own records while running, and each one is stated with the failure that produced
@@ -95,9 +95,8 @@ reservation computed from expected duration understates the worst case exactly w
 happens.
 
 **An authority record naming a ceiling, a maximum submission count, and the chargeable account.**
-The Tier-0 rule already forbids submitting without a ceiling
-([§budget-rule](../ARCHITECTURE.md#budget-rule)) and forbids inferring the account
-([§account-rule](../ARCHITECTURE.md#account-rule)). What this adds is that the grant
+The Tier-0 standing rules already forbid submitting without a ceiling and forbid inferring
+the chargeable account, and every session carries them. What this adds is that the grant
 is a **record with a lifetime**: it is opened explicitly, consumed against a counter, and closed
 explicitly with its unused ceiling and submissions stated. An expired or exhausted grant that was
 never closed reads like live authority to the next session.

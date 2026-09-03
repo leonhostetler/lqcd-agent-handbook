@@ -48,8 +48,7 @@ bands.
 
 **Conventions route the same way, and the table above holds software leaves only.** A
 convention that is not itself in a walked table is invisible to the walk, which is how a
-correctly indexed batch-script rule failed to fire
-([`ARCHITECTURE.md` §7.8](../ARCHITECTURE.md#batch-scripts)). Load every matching row:
+correctly indexed batch-script rule has failed to fire. Load every matching row:
 
 | Task signal | Required convention |
 | --- | --- |

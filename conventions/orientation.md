@@ -28,6 +28,8 @@ Use these terms consistently:
   reusable rule.
 
 Evidence kinds are `source`, `docs`, `observed`, `reproduced`, `experiment`, `operator`,
-and `inferred`; use the contract in `ARCHITECTURE.md`. Do not read `session_*.log` unless the
+and `inferred`; each knowledge file declares one in its frontmatter, and the full contract
+behind them is developer-mode reading rather than something to open while working.
+Do not read `session_*.log` unless the
 operator explicitly requests it. An authorized review treats the transcript as private
 evidence, not canonical knowledge, and does not bypass privacy or publishability gates.
