@@ -65,6 +65,15 @@ directions.
 Measure the final candidate on the target stack. A prediction inside an error or
 advisory band is unresolved, not a safe fit.
 
+**Screen legality and capacity as two questions, in that order.** First establish which node
+counts are legal for the candidate's aggregation blocks, then the device high-water floor at
+each. They are separate because a block change moves the first and not the second: at a
+placement already chosen the floor is set by fine local volume and does not respond to level
+count, blocks, coarse counts or MMA — see
+[`../staggered-memory.md`](../staggered-memory.md). Run them together and a hierarchy change
+gets credited with a memory improvement that actually came from the placement change it
+enabled.
+
 **An absolute coarsest volume is necessary but not sufficient.** It measures whether the
 coarse *problem* is well posed; it carries no information about whether the coarse *grid* is
 cheap relative to the fine grid, and cost turns on the latter. Screen additionally on the

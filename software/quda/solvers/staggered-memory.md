@@ -296,6 +296,69 @@ does not prove build capability. If only local dimensions are available, `--loca
 remains supported but requires an explicit `--partitioned` mask and cannot establish
 that the rank geometry itself lies in the calibration envelope.
 
+### The floor at a fixed placement is phase A, and hierarchy tuning cannot lower it
+
+At a placement already chosen, the device high-water **floor** is phase A — near-null
+generation on the fine grid. Phase A scales with fine **local** volume and is invariant to
+level count, aggregation blocks, the coarse near-null counts, the coarsest deflation count
+and MMA. Only the level-1 near-null count moves it, and weakly: roughly `4%` between counts
+of `64` and `24`.
+
+**So retuning the hierarchy cannot rescue a placement whose local volume has already broken
+the fit.** No choice of levels, blocks or coarse counts reaches the floor.
+
+**But it can change which placements legally exist**, and that is a different question. An
+aggregation block change can make a node count legal that was source-invalid before, and a
+legal smaller node count carries a larger local volume and therefore a higher floor. The
+order in which to screen those two questions is a tuning decision, not a memory fact; it is
+stated once, at
+[`tuning.md` gate 3](staggered-multigrid/tuning.md).
+
+This rule was filed with a stronger operational clause — that no hierarchy retuning can
+restore a fit that local volume has already broken — and that clause was **falsified the same
+day** by a block change that opened a node count where the original blocking was
+source-invalid. The floor claim survived; the enumeration around it did not. Evidence:
+mechanism, at one ensemble and placement family; the fitted setup-workspace coefficient it
+rests on is corpus-fitted, so a refit invalidates the magnitude but not the invariance.
+
+### What the coarsest eigenspace costs, and how that scales
+
+Stored coarsest eigenvectors are the term most often traded against hierarchy shape, so its
+scaling is worth stating directly. Storage runs as
+
+```text
+coarsest eigenvector storage  ~  coarsest_deflation_count
+                                 * coarsest_global_volume
+                                 * nvec_(L-1)
+```
+
+where `nvec_(L-1)` is the near-null count on the level above the coarsest — the coarse colour
+— which is `nvec 2` in a four-level MILC parameter file and `nvec 1` in a three-level one.
+Compute exact bytes with the source-exact object layer above rather than from this
+proportionality; what follows is the ranking consequence.
+
+**Affordable density falls as the square of coarsest volume.** Under a fixed memory budget the
+affordable `coarsest_vector_density` scales as `1/coarsest_global_volume^2`, because the
+budget caps the count while the density divides it by the volume again. Halving coarsest
+volume quadruples the density you can afford. This is the term that decides whether an
+eigenspace-heavy candidate fits, and it is why two candidates with similar coarsest volumes
+can differ sharply in what deflation they can carry.
+
+**Coarsest volume is set by the product of the effective aggregation blocks, not by level
+count.** Removing a final aggregation multiplies coarsest volume by that block's effective
+volume. Matching density across two such hierarchies then costs a storage ratio of
+`(V_a/V_b)^2 * (colour_a/colour_b)` — which is the quantified price of the substitution that
+[`hierarchy-and-setup.md`](staggered-multigrid/hierarchy-and-setup.md) already tells you not
+to make: carry the coarsest deflation count across a level-count change, do not match density.
+
+**Use effective blocks, never requested ones.** QUDA halves a block it cannot use, and the
+difference is not marginal: in one recorded case a requested `2x2x2x2` second aggregation
+became `2x2x2x1`, because the level-2 local `t` extent of `6` would have given an odd coarse
+extent — doubling the coarsest volume against what the requested blocks implied. Every
+quantity in this section is wrong by that factor if requested blocks are used. The `mg-fit`
+command above adjusts and validates blocks inside the same invocation for exactly this
+reason.
+
 ### Unvalidated hierarchy, precision, and fit controls
 
 Pass `--levels 2` with no aggregation blocks or `--levels 3` with `--block1`. Both modes
