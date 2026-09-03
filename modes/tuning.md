@@ -124,7 +124,9 @@ use `conventions/running.md` to reconcile each trial's outcome,
 closure and at each work-mode change to decide whether a procedure now repeated by hand
 should become a tool,
 `conventions/measurement.md` for per-run observed ledgers, `conventions/batch-scripts.md` before
-writing, modifying, or reviewing any batch script or preparing a submit command, and the shared
+writing, modifying, or reviewing any batch script or preparing a submit command,
+[`conventions/campaign-records.md`](../conventions/campaign-records.md) when opening or
+reorganising a multi-study campaign against an allocation, and the shared
 prediction record for every trial.
 
 Route reusable software mechanisms to `software/<name>/`; machine-specific placement and
