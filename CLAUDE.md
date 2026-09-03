@@ -65,10 +65,15 @@ Exactly one handbook mode is current:
 ## Route each task
 
 Orientation loads Tier 1, not all task-specific knowledge. Before substantive
-LQCD analysis or action, and whenever the task narrows or changes, derive named
-applications, solvers, ensembles, and the immediate decision from the operator
-request and active project instructions. Use `INDEX.md` and only the matching
-domain indices to load the smallest Tier-2 leaves whose `load_when` matches.
+LQCD analysis or action, whenever the task narrows or changes, and after a
+context compaction, derive named applications, solvers, ensembles, and the
+immediate decision from the operator request and active project instructions.
+Use `INDEX.md` and only the matching domain indices to load the smallest Tier-2
+leaves whose `load_when` matches.
+
+A compaction keeps these rules and summarizes the rest, so loaded leaf text can
+be gone. Reload the leaves the task needs, re-read live authority and ledgers,
+and never restate a band or parameter meaning from recall.
 
 Interpret solver mechanisms, parameters, failures, campaign evidence, or next
 candidates only after this check. Report when no matching leaf exists.
