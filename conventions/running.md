@@ -63,6 +63,38 @@ produced the numbers.
 repetition produces transcription-class defects that an executed contract cannot produce.
 See [`repeated-work.md`](repeated-work.md) for the broader practice this is one instance of.
 
+## What a completion watch may treat as the end of a job
+
+A long job should be watched, and an unattended agent should not end a work session while a study
+has budget and queued work left. But a watch is only as good as its terminal condition, and a
+wrong one is worse than none.
+
+**Do not decide a job has ended from a scheduler query.** A query issued from inside a monitoring
+subprocess can fail and return **empty**, which is indistinguishable from "the job is no longer
+queued" — while the same command run directly succeeds. One recorded campaign saw four false
+completions this way, one of which was reported to the operator as a finished job while it was
+still running. **A single empty result is never evidence of termination.**
+
+**Prefer a marker the job writes itself.** A lifecycle record the job appends in its own teardown
+means the job reached teardown; nothing else needs consulting, and its absence is informative in a
+way a failed query is not. Give the watch a wall-clock backstop somewhat longer than the requested
+limit so it cannot wait forever.
+
+**Anchor failure patterns precisely.** A bare match on a word like `ERROR` will fire on parameter
+and symbol names that legitimately contain it, reporting failures in every healthy start. **A watch
+that cries wolf on a normal run is worse than no watch**, because it trains its reader to ignore it.
+
+**When the two kinds of error trade off, prefer a false negative in the failure filter to a false
+positive in the terminal condition.** A missed error costs a look at the log. A wrongly declared
+completion invites acting on a running job — resubmitting it, or reporting an outcome that does not
+exist.
+
+**A watch must die with the job it watches.** Retire it in the same step that reconciles the job,
+and confirm none is still bound to something finished. A watch outliving its job is not
+untidiness: it is indistinguishable from a live watch on a running one, which degrades the only
+signal this arrangement provides. Note also that a watch exiting on its own is not proof the job
+ended — confirm against the job's own record before reconciling.
+
 ## Assign one disposition
 
 | Disposition | Meaning and treatment |

@@ -236,6 +236,11 @@ Additional hard constraints include:
 - optimized KD requires unit geometric block volume and fine-color `Nvec`;
 - coarse KD requires block size two in all four dimensions and `Nvec = 24`;
 - an aggregation coarse space may not exceed the degrees of freedom in its aggregate;
+- the aggregate itself is capped: `block_orthogonalize.in.cu` requires the **product of the
+  requested block extents** to be at most `1024`. **The cap is on the block, not on the local
+  extent**, so it does not move with rank geometry: it places a hard floor of
+  `fine global volume / 1024` under the coarsest volume of any single aggregation, at every
+  placement;
 - the current top-level MG constructor accepts only `QUDA_DIRECT_SOLVE` for the outer
   system;
 - each smoother solve type must be direct or direct-preconditioned; and

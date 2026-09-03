@@ -135,6 +135,34 @@ Two of those build stages also completed and saved work beyond the cache — an 
 that case — which turned the second submission into a cheap load. So the two-submission rule
 bounds the first stage; it does not imply the second costs the same.
 
+## An absent cache and an empty one are not the same file
+
+QUDA cold-starts when the cache file is **missing** and **aborts** when it is present and
+zero-byte. A run intended to start cold must therefore ship with the file **absent**, not
+truncated, and a guard asserting cold state must test **absence**: a size test such as
+`[[ -s FILE ]]` is satisfied by an empty file and passes exactly the case that aborts. One
+recorded submission was lost to this.
+
+The inverse guard, for a run seeded from a known cache, is the mirror image: require the seed to
+be **present**, verify its checksum against the recorded value, refuse to overwrite an existing
+working copy, and check the seeded entry count against a floor. Negative-test both an absent and a
+corrupted seed before relying on either.
+
+## Verifying reuse can cost as much as retuning, and cannot see the risk that matters
+
+The controlled workflow below is sound, and it is not always the economical choice. It requires a
+warm run followed by a second warm run demonstrating no tuning diagnostics and no new rows —
+**about the same expenditure as simply populating a fresh cache** — while leaving in place the one
+failure it cannot detect: a stale row returned under an unchanged key, since the loader validates
+that a launch is *legal*, never that it is still *optimal*.
+
+So when the compiled capability set changes, **default to a fresh cache and justify reuse, not the
+reverse.** Reuse is worth verifying when the cache is large relative to the work and the changed
+surface is genuinely narrow; it is poor value when much of the cache is invalidated anyway. A
+worked case: after a rebuild that changed only the compiled coarse-colour set, roughly `70%` of
+entries carried a coarse colour and could not survive the change, leaving only fine-level and
+untagged policy keys able to hit at all.
+
 ## Benchmark-scoped compatibility test
 
 Define the cache's scope by the exact workload and measured region, not by the QUDA repository as

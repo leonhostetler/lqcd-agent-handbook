@@ -36,6 +36,40 @@ choosing for the operator.
 - **Scheduler class.** Compare purpose, node count, walltime, and concurrency against the
   machine profile's policy, and record the class chosen and why.
 
+### The work must be projected to fit, and the limit belongs to the queue class
+
+**No job should be submitted whose projected work cannot finish inside the limit it is
+authorized for.** Project from *measured* stage times — setup, the slowest compatible recurring
+unit times the number required, and the workload's own overhead — with a margin, and require the
+total to fit. Where no measurement exists, the first job is itself the bounded probe that produces
+one; that is a different thing from submitting a full run and hoping.
+
+**The walltime limit is a property of the selected queue class, not of the site**, so never
+hardcode it into a plan or a stop rule. Record the class, its limit, and where that limit came
+from, and recompute whenever the class changes. The asymmetry is worth stating because it is easy
+to get backwards: **a projection that fits a short queue also fits a long one; a projection that
+fits a long queue says nothing about a short one.**
+
+When the projection does not fit, the move is a bounded probe or a different queue — never a
+submission in the hope that the work finishes.
+
+### A record field may contain only variables, never a typed constant
+
+Where a job writes its own provenance — the hierarchy it built, the state it started from, the
+parameters it used — **every such field must be derived from the variable that drives the run.** A
+hand-typed constant records what the author believed when they wrote the line, not what executed,
+and the two part company silently the moment the script is copied and edited. The result is a
+provenance record that is confidently wrong, which is worse than an absent one because nothing
+downstream has reason to doubt it.
+
+The exception worth naming is a value *computed* from the run's own inputs, which cannot drift from
+them.
+
+**One instance of this is not the fix.** In a recorded case the defect was found and patched, and
+reappeared one event later in a line the patch did not cover — three times in all. When a typed
+constant is found in a record, search every other field of the same kind rather than correcting the
+one that was noticed.
+
 ### A runnable artifact is not one of these
 
 **The presence of something that would run is not a precondition satisfied.** A workspace that
@@ -116,6 +150,14 @@ temporary directory at all. An explicit `null` there means the site provides non
 key means nobody has established it, so ask rather than assume. The mechanism matters: under
 `set -u` an undeclared variable aborts the job, and without `set -u` it expands to nothing,
 turning a path into an absolute one at the filesystem root.
+
+**Command substitution takes the status of the command inside it, and that reaches teardown.**
+`sum=$(checksum "$f" | field 1)` assigns the *pipeline's* status, so under `set -euo pipefail` a
+missing file aborts the script at that line. In a teardown path this is doubly costly: the job
+loses the terminal records it was about to write — including the ones that say how it ended — and
+exits with a status describing the teardown rather than the run, so the failure is reported as
+something it was not. Guard such assignments explicitly, or accept a failing status with `|| true`
+where absence is legitimate, and never let the last records depend on a file that may not exist.
 
 Never build a destructive target from an unvalidated variable, a `..` segment, a wildcard, or
 command substitution. **Never rely on a preceding `cd` for safety** — a failed or unexpected

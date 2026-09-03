@@ -198,6 +198,17 @@ and cost tracks it — in the recorded scan, total recurring cost then jumped to
 times the band. **Do not screen or rank aggregation-block candidates on iteration count**,
 and do not assume flat cost outside the sampled regime either.
 
+**Placement changes which candidates are legal; it can never re-price one.** Neither the
+coarse/fine work ratio nor the coarsest volume contains the rank geometry — both are built from
+the global lattice and the blocks — so a bound proved over all block choices holds automatically
+at every placement. Re-running a class enumeration at other placements to escape such a bound
+rediscovers the same arithmetic once per placement. Combined with the aggregate cap in
+[`the MG overview`](../staggered-multigrid.md), which floors the coarsest volume of a single
+aggregation independently of rank geometry, this is why a squeeze between the cheapness and
+adequacy screens is a property of the lattice and the level count rather than of a placement
+choice — and why the lever that moves it is the coarsest-defining near-null count, which enters
+the ratio quadratically.
+
 **Before costing a coarsest-side candidate, bound what it can win.** A change acting only on
 the coarsest level cannot reduce recurring solve time by more than that level's share `f` of
 it, so it cannot close a deficit larger than `1/(1-f)`. The break-even share is

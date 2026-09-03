@@ -160,6 +160,57 @@ a candidate the original had rejected, and nothing in either record would look w
 the guard as an expression, apply it mechanically, and reconcile the written and executed
 forms before the result is used elsewhere.
 
+## Excluding the first sample is necessary and not sufficient
+
+A first measured unit carries one-time work — setup, allocation, first-use tuning — and is
+excluded from a recurring figure for that reason. **That exclusion handles only work that happens
+*first*.** Where a runtime tunes itself opportunistically, a tuning event can land *after* the
+first retained sample and contaminate a later one; in a recorded pair of trials it did, in a
+different sample each time.
+
+So for every recurring figure:
+
+- **Locate the last tuning event relative to the first retained sample**, and say whether any
+  occurred later and in which samples.
+- **Label the figure `clean` or `contaminated`**, naming the affected samples.
+- **When contaminated, report the sensitivity** — the figure recomputed without them — beside the
+  headline. A ratio that crosses a decision threshold under that recomputation is **unresolved**,
+  not measured.
+- **Never silently drop a contaminated sample.** Dropping changes the retained-sample count, which
+  a recurring figure must report.
+
+State the check explicitly rather than asserting a warm state: the comparison is between the last
+tuning event and the first retained sample, and it either holds or it does not.
+
+**A cumulative profiler total divided by the sample count is not a substitute.** It removes setup
+but leaves the first sample's one-time work in the numerator, so it is biased high — measurably so,
+and worst at small sample counts, which is exactly the regime a short queue class imposes. Use it
+as an upper-bound sanity check on the primary figure, and label it as one.
+
+**Record the workload's source or input type with every figure.** A change of source type alters
+recurring cost substantially — enough to swamp the parameter effects a study is usually chasing —
+so figures from different types are different populations and must not be pooled silently.
+
+## Queue wait is a cost per submission that a resource ledger does not show
+
+A node-hour ledger prices the work a job does. **It does not price waiting to run, and that cost is
+charged per submission regardless of how little the job does.** One measured session waited
+`7,243` s across five submissions, and its shortest run — under three minutes of work — waited
+over ninety, a queue-to-run ratio near `40x`.
+
+Three consequences for planning:
+
+- **A submission whose only product is a check is close to pure overhead.** Fold verification into
+  a run that also produces an artifact or a measurement.
+- **Prefer fewer, fuller runs** once offline screens have bounded the risk. This does not license
+  splitting one job's work across several submissions.
+- **Order work so each submission leaves something usable.** A first job that banks an expensive
+  setup can survive a later timeout; one that only measures has to queue again to make progress.
+
+**Node-hours and wall-clock are different budgets and they can pull opposite ways.** When they do,
+say which one the plan is optimising and why, rather than letting the ledger decide by default
+because it is the one being written down.
+
 ## Keep the timing layers distinct
 
 Retain the enclosing clocks even when a narrow component timer answers the immediate question:
