@@ -87,6 +87,17 @@ aspect above `1.5`, both fitted at four levels
 ensembles and remain provisional. They are useful for ranking legal candidates, not
 rejecting a new discretization or machine without a measurement.
 
+**A later four-level population converged below the volume screen, and that matters for
+how the screen is used.** At 0.09 fm on a `64^3 x 96` lattice, two four-level classes at
+`coarsest_global_volume = 8192` — below the `10000` cutoff — reached the requested `1e-8`,
+with worst true residuals `7.8e-09` and `8.5e-09` at outer counts of `32...33` and
+`35...36`. A third class at `16384` converged at outer count `24`. So the **ordering** the
+screen encodes survives — larger coarsest volume bought iterations, monotonically across
+those three points — while the **absolute cutoff did not act as a feasibility boundary**.
+Treat `10000` as a ranking prior, never as a rejection threshold; a candidate below it
+needs a measured outer-iteration count, not a veto. Evidence: one ensemble, one spacing,
+three classes, four levels; the screen has still not been refitted.
+
 ## Locate the setup-tolerance knee
 
 For each level-1 setup solve, monitor
@@ -117,13 +128,22 @@ and the resulting vectors can degrade every downstream level.
 
 **A nonzero capped fraction is the pinned signal**, and it is structural rather than a
 fitted band: that share of streams stopped because the cap stopped them, so their setup
-tolerance was not demonstrably reached. The retrospective screened this axis with a
-mean-to-cap ratio instead, which cannot be recomputed as a fraction from the published
-manifest; see the setup-knee row in [`calibration.md`](calibration.md). Locate the knee on
-the target problem by varying the tolerance while holding the hierarchy, setup cap, stack,
-and reuse state fixed. Keep the tightest value that remains comfortably below the
-rising-cost region and passes the downstream checks in
-[`diagnostics.md`](diagnostics.md).
+tolerance was not demonstrably reached.
+
+**The knee is not always reachable, and a population exists where it never was.** In a
+0.09 fm campaign spanning three- and four-level hierarchies, every build that generated
+its own level-1 near-null vectors was capped: `setup_l1_capped_fraction` ran `0.500`,
+`0.667`, `0.750`, `1.000` and `1.000` at caps of `20000`, `20000`, `20000`, `8000` and `8`.
+Raising the cap from `8000` to `20000` reduced the fraction but did not clear it. Where that
+holds, the tolerance scan below cannot be run as written — there is no unpinned side to
+locate a knee against — and the first move is to establish whether any setup tolerance
+converges at an affordable cap before treating `setup_tol_1` as a tunable at all. The
+retrospective screened this axis with a mean-to-cap ratio instead, which cannot be
+recomputed as a fraction from the published manifest; see the setup-knee row in
+[`calibration.md`](calibration.md). Locate the knee on the target problem by varying the
+tolerance while holding the hierarchy, setup cap, stack, and reuse state fixed. Keep the
+tightest value that remains comfortably below the rising-cost region and passes the
+downstream checks in [`diagnostics.md`](diagnostics.md).
 
 Do not transfer this numeric screen blindly to `setup_tol_2`: it acts on a different
 level and its iteration counter and cap must first be identified explicitly.

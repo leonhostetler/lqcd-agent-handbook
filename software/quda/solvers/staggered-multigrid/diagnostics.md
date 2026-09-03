@@ -39,7 +39,7 @@ column exists so a band cannot be added here without answering that question.
 | `setup_l1_capped_fraction` | `0` is healthy | structural | any nonzero share of level-1 streams stopped by the cap; not a fitted band |
 | `coarsest_vector_density` | fit envelope `0.022...0.250` | 4 levels | spectrum-calibration domain, not a legality or universal health band |
 | TRLM restarts | `4...9` | 4 levels | stable middle reference; the two edges are asymmetric |
-| TRLM restarts | `1...2` | 4 levels | consistent under-resolution warning in the sampled corpus |
+| TRLM restarts | `1...2` | 4 levels | under-resolution warning in the fitted corpus; **not reproduced** in a later 0.09 fm population — check `coarsest_res_max` directly |
 | restarts far above band, cap NOT reached, **empty** `Eval[...]` prefix | — | 4 levels | stalled filter, not a slow solve; see the eigensolve triage below |
 | `coarsest_res_max` | about `1.5e-4` | 4 levels | middle-band reference at the two fitted spacings; scale and tolerance remain problem-specific |
 
@@ -144,8 +144,12 @@ Do not begin by tuning the coarsest polynomial when the level-1 setup is already
 4. Reduce filter aggressiveness through one of `deflate_poly_deg`, `deflate_a_min`, or
    `deflate_n_kr` while holding the other two fixed, then repeat.
 
-One or two restarts were worse in every sampled spacing. This is a warning about vector
-quality, not an instruction to maximize restart count.
+One or two restarts were worse in every spacing sampled by the fit. This is a warning
+about vector quality, not an instruction to maximize restart count — and it is
+**unconfirmed outside that fit**: a later 0.09 fm population did not reproduce the
+direction. See [`coarse-deflation.md`](coarse-deflation.md) before acting on a low count
+alone. Read `coarsest_res_max` first either way; the residual is the quantity of interest
+and the restart count is only its proxy.
 
 ## Many TRLM restarts
 

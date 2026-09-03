@@ -174,7 +174,17 @@ restarts. Use that restart count as their joint observable instead of assigning 
 independent optimum values.
 
 The corpus reference band is `4...9` restarts, fitted at four levels. One or two restarts
-were a consistent warning for worse `coarsest_res_max` across all sampled spacings. The
+were a warning for worse `coarsest_res_max` across the spacings sampled by that fit.
+
+**That direction did not reproduce in a later population, and the warning should be read
+as unconfirmed outside its fit.** Across 22 completed coarsest eigensolves at 0.09 fm
+spanning three- and four-level hierarchies, the eight rows at one or two restarts gave
+`coarsest_res_max` of `6.3e-05...3.4e-04` — at or below the corpus middle-band reference —
+while the five rows at five or six restarts gave `2.0e-04...3.3e-03`. **The contrast is
+not clean and does not overturn the warning:** the two worst residuals both come from a
+single class that was later retired, and with those excluded the two groups overlap. Read
+this as a flag for a controlled one-parameter check before relying on the low-restart
+warning at a new spacing or level count, not as a refutation. The
 upper side is asymmetric: ten or more restarts were benign in one fitted population and
 accompanied failed convergence in another. Above the reference band, inspect
 `coarsest_res_max`, the convergence prefix, and whether `deflate_max_restarts` was reached;
