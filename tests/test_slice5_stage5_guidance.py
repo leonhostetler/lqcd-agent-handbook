@@ -52,7 +52,12 @@ class Stage5GuidanceTests(unittest.TestCase):
             "coarsest_vector_density = coarsest_deflation_count / coarsest_global_volume",
             text,
         )
-        self.assertIn("cannot, however, separate", text)
+        # Assert the claim, not its punctuation: the corpus cannot distinguish the
+        # requested density from the fraction of the complete coarse colour space.
+        self.assertIn(
+            "separate that density from the fraction of the complete coarse colour space",
+            " ".join(text.split()),
+        )
         self.assertIn("#level-naming", text)
         self.assertIn("not a QUDA convergence requirement", text)
         # The setup screen counts capped streams; it does not average their iteration

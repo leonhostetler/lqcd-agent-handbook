@@ -173,6 +173,40 @@ A large one-sided miss outside the envelope is not evidence for extrapolating th
 Inside the envelope, a printed `eval_max` biased low together with few restarts and poor
 worst-vector residual can indicate a partially delivered eigenspace.
 
+## Comparing a failing hierarchy against one that converges
+
+Align the two by **position relative to the coarsest level**, never by absolute level
+index. At three levels the coarsest is level 2 and at four it is level 3, so lining up
+equal indices sets a coarsest level beside a non-coarsest one and misreads the result —
+this is [level naming](../staggered-multigrid.md#level-naming) applied to a comparison.
+Use two aligned positions: coarsest against coarsest, and level-directly-above-coarsest
+against level-directly-above-coarsest.
+
+At each aligned position, record for **both** hierarchies:
+
+- the residual actually reached;
+- that level's requested tolerance;
+- the iteration limit granted to it; and
+- how many of its invocations hit that limit.
+
+Then record each hierarchy's outer GCR iteration count.
+
+**What this buys, and what it does not.** The alignment **eliminates** candidate causes: a
+limit hit in both hierarchies is normal and cannot explain a difference between them. It
+**cannot attribute** the remaining difference while the two coarsest positions differ in
+more than one property. So enumerate the differing properties first; if more than one
+differs, attribution needs a controlled trial that holds the suspected-irrelevant property
+fixed and moves the other alone. Reporting an attribution from the aligned comparison alone,
+with several properties differing, is the failure this procedure exists to prevent.
+
+The reference hierarchy must be **independently known to converge** on the same lattice. A
+comparison against one that merely has not yet been shown to fail carries no information.
+
+**Evidence and scope.** Mechanism. Observed across three- and four-level hierarchies on one
+ensemble at one global lattice and two masses; the alignment rule is expected to transfer,
+and it is invalidated by a level-count change that alters which level is coarsest without
+updating the position mapping, or by a coarsest-operator change.
+
 ## A performance comparison looks surprising
 
 Before attributing it to a tuning knob, match the operator, mass, hierarchy, rank

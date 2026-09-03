@@ -63,13 +63,15 @@ coarsest density is an extrapolation across level count, which
 [`calibration.md`](calibration.md) already excludes — renaming the quantity to its role
 name does not rescope the band.
 
-Use `coarsest_vector_density` to compare requested coarse eigenspaces across different
-hierarchies. Equal coarsest deflation counts at different coarsest volumes request
-different fractions of the coarse problem. The corpus cannot, however, separate that
-density from the fraction of the complete coarse colour space, because the near-null count
-on the level above the coarsest — `nvec 2` in a four-level MILC parameter file, `nvec 1` in
-a three-level one — was nearly fixed. If it changes, treat the existing calibration as
-needing a refit.
+`coarsest_vector_density` says what fraction of the coarse space was requested, and it is
+the fit variable for the coarse-spectrum law in
+[`coarse-deflation.md`](coarse-deflation.md). Equal coarsest deflation counts at different
+coarsest volumes do request different fractions of the coarse problem. **It is not,
+however, the quantity to hold fixed when the fine problem is unchanged and only the
+hierarchy moved** — see the next section. The corpus also cannot separate that density from
+the fraction of the complete coarse colour space, because the near-null count on the level
+above the coarsest — `nvec 2` in a four-level MILC parameter file, `nvec 1` in a three-level
+one — was nearly fixed. If it changes, treat the existing calibration as needing a refit.
 
 The decomposition tool reports these quantities without treating them as legality
 conditions:
@@ -97,6 +99,37 @@ those three points — while the **absolute cutoff did not act as a feasibility 
 Treat `10000` as a ranking prior, never as a rejection threshold; a candidate below it
 needs a measured outer-iteration count, not a veto. Evidence: one ensemble, one spacing,
 three classes, four levels; the screen has still not been refitted.
+
+## What the coarsest level has to represent
+
+The coarsest eigensolve approximates the **fine** operator's low modes. The number of those
+below a given threshold is a property of the physical problem — set by volume and mass —
+and coarsening does not change it. A hierarchy only changes how those modes are
+represented, never how many there are.
+
+Two consequences follow, and both say the same thing: the quantity to hold fixed across a
+hierarchy change is **absolute**, not relative.
+
+**Adequacy is absolute.** Screen a candidate on `coarsest_global_volume` — whether the
+coarsest grid retains enough sites to represent that low-mode space at all. The coarsening
+ratio between the coarsest level and the level above it carries no information about this
+and must not be substituted for it. That substitution was tried on one corpus and
+**refuted**, which is worth more than the argument above: a ratio can be held constant
+while the absolute volume falls through the floor.
+
+**The requested count is absolute.** When level count changes at fixed lattice, gauge and
+mass, carry the coarsest deflation count across **unchanged**. Do not match
+`coarsest_vector_density` between the two hierarchies: density rescales the request by
+`coarsest_global_volume`, so matching it shrinks the request exactly when the grid got
+smaller, and starves the deeper hierarchy of the modes the fine problem still has. Watch
+coarsest-level cap hits and outer iteration count to confirm.
+
+**Evidence and scope.** Mechanism, with empirical support: three independent observations
+for the count rule, on one ensemble at one global lattice, two masses, across three- and
+four-level hierarchies. The mechanism is expected to transfer; the specific volumes and
+counts are not portable, and no threshold here is fitted. Both consequences are invalidated
+by a mass, ensemble, global-volume or coarsest-operator change, and by a change to the
+near-null count on the level above the coarsest, which alters the coarsest coarse colour.
 
 ## Locate the setup-tolerance knee
 
