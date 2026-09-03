@@ -74,6 +74,12 @@ count, blocks, coarse counts or MMA — see
 gets credited with a memory improvement that actually came from the placement change it
 enabled.
 
+The legality screen is not a formality: an aggregation block extent that is not a power of
+two propagates its odd factors into the legal rank counts, and can leave a node ladder with
+no rung between two counts you have already run — see
+[the geometry constraints](../staggered-multigrid.md). Enumerate the ladder with the
+decomposition tool rather than assuming an intermediate node count exists.
+
 **An absolute coarsest volume is necessary but not sufficient.** It measures whether the
 coarse *problem* is well posed; it carries no information about whether the coarse *grid* is
 cheap relative to the fine grid, and cost turns on the latter. Screen additionally on the
@@ -95,6 +101,15 @@ the volume reduction is very nearly cancelled by that density growth. **Depth, n
 size, is therefore the lever**: each additional level multiplies the volume reduction, while
 `nvec` grows only once per level. That asymmetry is the reason a three-level hierarchy can
 be terminal-dominated where a four-level one built on the same fine problem is not.
+
+**The squeeze, and why it is not about lattice spacing.** A single aggregation on a small
+lattice cannot make `coarse_fine_work` small *and* keep the coarsest volume adequate at the
+same time. Coarsen gently and the ratio stays of order one; coarsen hard and the coarsest
+volume falls below the adequacy floor of
+[`hierarchy-and-setup.md`](hierarchy-and-setup.md). The two screens close on each other, and
+depth is what opens the gap between them. That squeeze — not the lattice spacing directly —
+is why a fixed-degree terminal preconditioner can fail on a coarse lattice and succeed on a
+fine one: the fine lattice has enough sites to spend on depth.
 
 For scale, on one operator corpus the ratio was near `4.7` for a three-level hierarchy at
 0.09 fm — the coarsest apply costing several full fine applications — against roughly `0.13`
@@ -141,14 +156,100 @@ V-cycle change moves both, usually in opposite directions, because work added pe
 is what buys the iteration reduction. A measured case cut outer iterations `22 -> 8` — a
 factor of `2.75` — and came out **`10.7%` slower**, per-iteration cost having risen `3.05x`.
 A separate pair went the other way: `104` against `240` outer iterations, with the
-240-iteration configuration `8.4%` **faster**. Iterations falling with slowness, and rising
+240-iteration candidate `8.4%` **faster**. Iterations falling with slowness, and rising
 with speed, bracket the failure from both sides.
 
 **Always report the per-iteration cost that links an iteration count to a time**, and never
-rank V-cycle work changes on either factor alone. The quoted factors are one configuration
+rank V-cycle work changes on either factor alone. The quoted factors are one candidate
 pair each and do not transfer; what transfers is that their product decides. This does not
 weaken the rule above — a measured outer-iteration count is still required before selecting
 from a cost screen. It says that count is a *convergence* observable, not a cost one.
+
+**Depth can only move one of the two factors.** A hierarchy that adds a level *below* an
+existing coarsest grid cannot converge in fewer outer iterations than the hierarchy it
+replaces: it demotes an accurately solved grid to an intermediate one solved to a finite
+iteration cap, substituting an approximate solve for an exact one. Formally, if `B` is `A`
+with `A`'s coarsest level demoted, then `n_B >= n_A` at fixed lattice, gauge, mass, transfer
+and smoother. **So a deeper hierarchy buys per-iteration cost, never iteration count, and
+must win on the cost term alone** — which also means its per-iteration budget has to beat
+`n_A` before a trial is worth buying. Read the inequality, not any particular `n_A`: that is
+a per-candidate measurement and moves with mass. Evidence: derived from the hierarchy's
+own structure and **not yet independently tested**; the inequality is arithmetic, its
+usefulness as a screen is not yet demonstrated.
+
+**A measured instance of the same cancellation, with its limit.** Across an aggregation-block
+scan at fixed lattice, mass and near-null counts, outer iteration count and recurring solve
+time moved in **opposite** directions, and total cost stayed inside a narrow band while the
+iteration count more than tripled. **The cancellation is bounded.** It holds only while
+per-outer cost is still falling; once per-outer cost saturates, the iteration term dominates
+and cost tracks it — in the recorded scan, total recurring cost then jumped to roughly three
+times the band. **Do not screen or rank aggregation-block candidates on iteration count**,
+and do not assume flat cost outside the sampled regime either.
+
+**Before costing a coarsest-side candidate, bound what it can win.** A change acting only on
+the coarsest level cannot reduce recurring solve time by more than that level's share `f` of
+it, so it cannot close a deficit larger than `1/(1-f)`. The break-even share is
+`f* = 1 - t_target/t_current`; compare the deficit against `f*` before paying for the trial.
+
+**The relation is arithmetic; `f` is not a coefficient.** It is a per-candidate ratio and
+must be measured for the candidate in hand. One campaign's internal estimates for `f`
+spanned roughly `0.44` to `0.69` — a range wide enough to flip the conclusion — and none of
+them was a measurement: they derived from QUDA profile times, which report stored tuning time
+multiplied by call count rather than current-run time
+([`../../internals/autotuning.md`](../../internals/autotuning.md)). A later direct measurement
+on that candidate put `f` above `0.95`, which makes the ceiling nearly vacuous there.
+**Use this rule to make `f` a measurement target, never to declare a candidate dominated
+before `f` is known.** Where `f` approaches one the ceiling stops binding and the constraint
+is again the product `n_outer x cost_per_outer`, whose two terms move in opposite directions
+with coarsest-level accuracy.
+
+### Pricing a parameter change through the chain it actually moves
+
+Two parameters look like single knobs and are not. Price both through their chain before
+attributing a result to them.
+
+**An intermediate level's `coarse_solver_maxiter` multiplies coarsest-solver invocations.**
+Raising it raises the number of coarsest solves per outer iteration by the ratio of
+*achieved* intermediate iterations, and per-outer cost follows, because the coarsest operator
+dominates that cost. In one measured three-level case a cap raised from `2` to `8` took
+coarsest calls per outer iteration from `2.0` to `6.9` and per-iteration cost up by `3.0x` —
+matching a prediction stated before the run to about one percent.
+
+**It is the achieved ratio that multiplies, not the cap ratio.** Raising the intermediate
+tolerance alongside the cap breaks the arithmetic in the favourable direction, because the
+intermediate solve then exits early and never reaches the new cap. Record achieved
+intermediate iterations, not the cap, when pricing the change. Note also that `maxiter` and
+the CA basis size jointly select the coarse solver's execution mode, so a cap change can
+silently change what the solver *is* — see
+[`the MG overview`](../staggered-multigrid.md).
+
+**Changing the coarsest-defining near-null count is never a one-variable move.** It moves
+three things at once, and two of them are invisible in a parameter-file diff:
+
+1. **Coarsest cost**, source-derived and quadratic — it is the `nvec_(L-1)` in
+   `coarse_fine_work` above.
+2. **The coarsest spectrum.** The coarse space dimension is
+   `coarsest_global_volume * 2 * nvec_(L-1)`, so a smaller coarse colour pushes the same
+   deflation request further up a smaller spectrum and `eval_max` moves. **`deflate_a_min`
+   must therefore be re-derived from a measured `eval_max` on the new hierarchy; carrying it
+   across is a convergence failure, not a quality regression** — see
+   [`coarse-deflation.md`](coarse-deflation.md).
+3. **Coarse-space quality.** Fewer near-null vectors give a poorer coarse space and more
+   outer iterations, and that degradation can be a collapse rather than a slope.
+
+Effects 1 and 3 oppose. So price such a candidate on measured recurring cost *only after*
+re-deriving `deflate_a_min` and confirming the outer solve still converges — a comparison
+made without both is not measuring the parameter it claims to.
+
+**Which count is coarsest-defining depends on level count:** `nvec 1` at three levels,
+`nvec 2` at four ([level naming](../staggered-multigrid.md#level-naming)). At four levels a
+`nvec 1` change leaves the coarsest cost term untouched but still perturbs the coarsest
+spectrum indirectly, by altering the level-2 operator its near-null vectors are generated
+from. Re-derive `deflate_a_min` there too.
+
+Evidence for the three-effect decomposition: effect 1 is source-derived; effects 2 and 3 rest
+on two points of one three-level hierarchy at one mass, so treat their magnitudes as
+indicative and the coupling itself as the transferable part.
 
 ## 4. Stabilize setup before timing production
 
@@ -176,7 +277,7 @@ a symptom of aggressive filtering and under-resolved vectors.
 ## 6. Derive the workload schedule
 
 At each mass that can change the decision, compare matched deflated and undeflated
-configurations and compute the setup/recurring crossover for the declared solve count. Store
+candidates and compute the setup/recurring crossover for the declared solve count. Store
 the result as `coarsest_vector_density(m)`, not as a transferable bare-mass table. Do not
 interpolate an entire schedule from an unmeasured pair.
 

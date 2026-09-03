@@ -211,14 +211,14 @@ count — while a selected active multi-source batch shape must be represented i
 size was instantiated.
 
 The `mg-staggered` build profile and
-`machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/stack.yaml` record one
-validated native QUDA path on `gpu-a100-40`. Its synthetic unit-gauge test covers the
-listed hierarchy, generated coarse-color set, QMP backend, and `sm_80` target; it does
-not validate a linked MILC executable, other hierarchy shapes, `gpu-a100-80`, or
-production performance. The linked MILC layer is recorded separately in
+`machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/stack.yaml` record one validated
+native QUDA path on `gpu-a100-40`. Its synthetic unit-gauge test covers the listed
+hierarchy, generated coarse-color set, QMP backend, and `sm_80` target; it does not validate
+a linked MILC executable, other hierarchy shapes, `gpu-a100-80`, or production performance.
+The linked MILC layer is recorded separately in
 [`milc-cuda13-quda-ks-spectrum-mg-2026q3`](../../../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md),
-which is itself narrow. Require a stack whose scope matches the intended run rather
-than generalizing from either bounded validation.
+which is itself narrow. Require a stack whose scope matches the intended run rather than
+generalizing from either bounded validation.
 
 ## Geometry and decomposition constraints
 
@@ -258,6 +258,16 @@ Additional hard constraints include:
 Decomposition choice therefore changes both legality and the executed hierarchy. Check
 it before allocating a long setup job; do not infer validity from global lattice
 divisibility alone.
+
+**A block extent that is not a power of two restricts which rank counts are legal, not
+merely which are efficient.** The local extent in that direction must stay divisible by the
+block, so the block's odd factors propagate into the rank count. A first-aggregation `t`
+extent of `6` on a global `t` of `96`, for instance, admits only `1, 2, 4, 8, 16` ranks in
+`t`; with spatial ranks dividing a power-of-two extent the total rank count is then itself a
+power of two, and the node ladder has no intermediate rung. A rank geometry outside that set
+does not merely perform poorly — the block is halved until it reaches an illegal odd or unit
+extent and the build errors out. Enumerate the legal ladder with the decomposition tool
+before assuming a node count exists between two you have already run.
 
 Use the source-scoped preflight tool before sizing:
 

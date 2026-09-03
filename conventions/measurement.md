@@ -60,7 +60,7 @@ usually the larger.
 
 **A machine therefore has a resolution floor for single unrepeated measurements, and it must
 be measured rather than assumed.** Establish it with a zero-variable repeat: submit the same
-configuration twice, changing nothing, and compare. Until that floor is known, no wall-time
+parameter set twice, changing nothing, and compare. Until that floor is known, no wall-time
 or rate ratio within it is resolved, and a ranking built on one is not a result.
 
 The failure is not noisy-looking data — it is data that looks clean. A controlled repeat can
@@ -88,9 +88,9 @@ measurement cannot decide, not how uncertain a given number is.
 
 The advice above pushes a study toward observables that repeat exactly. That creates its own
 trap, and it is worth stating in the same place: **constancy observed within one run is not
-evidence that an observable is deterministic for that configuration.**
+evidence that an observable is deterministic for that parameter set.**
 
-One measured case: a configuration returned an identical iteration count on every solve of a
+One measured case: a run returned an identical iteration count on every solve of a
 trial, and its **byte-identical repeat** — same inputs, same placement, same build — did not.
 The count moved by one. Constancy within a single run can be luck, and a study that has
 already been blocked from ranking on wall time is exactly the study most tempted to treat it
