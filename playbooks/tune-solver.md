@@ -46,8 +46,14 @@ the diagnostics and calibration leaves. Do not load calibration merely to
 define a source invariant; load it when applying or contrasting its numerical
 bands.
 
-Load [`../conventions/batch-scripts.md`](../conventions/batch-scripts.md) before writing,
-modifying, or reviewing any batch script or preparing a submit command.
+**Conventions route the same way, and the table above holds software leaves only.** A
+convention that is not itself in a walked table is invisible to the walk, which is how a
+correctly indexed batch-script rule failed to fire
+([`ARCHITECTURE.md` §7.8](../ARCHITECTURE.md#batch-scripts)). Load every matching row:
+
+| Task signal | Required convention |
+| --- | --- |
+| Writing, modifying, or reviewing a batch script, or preparing a submit command | [`../conventions/batch-scripts.md`](../conventions/batch-scripts.md) |
 
 ## 2. Build the candidate matrix
 

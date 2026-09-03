@@ -1356,10 +1356,26 @@ exception with a landing slice. The completed validator enforces:
    checked, never "passed"** ([§validator-not-clearance](#validator-not-clearance));
 7. **a restated *value* with no canonical pointer** — the P2 check. Restating a reference
    is fine; restating a number that could drift is not (advisory, heuristic);
-8. **cross-reference integrity in the long documents** — every `](#slug)` and every bare
+8. **cross-reference integrity** — in the long documents, every `](#slug)` and every bare
    `§slug` resolves to a declared `<a id="slug">`, and a link's visible text matches its
-   target. See [§stable-anchors](#stable-anchors) for why this is a check and not a
-   convention.
+   target; **and repository-wide, every explicit `](<relative-path>.md#slug)` resolves to a
+   declared anchor in an existing target file.** See [§stable-anchors](#stable-anchors) for
+   why this is a check and not a convention.
+
+   **Amended 2026-09-03: the check was scoped to the long documents and that scope hid three
+   broken links.** `playbooks/`, `modes/` and the knowledge leaves point at each other by
+   anchor too, and those are the *task-time* surfaces — the ones a session follows while
+   working, where a dead pointer means guidance silently fails to load. The limit was found
+   by planting a bogus anchor in `playbooks/tune-solver.md` and observing that the validator
+   stayed silent, then confirmed by widening the check: three leaves
+   (`hierarchy-and-setup.md`, `tuning.md`, `coarse-deflation.md`) linked
+   `diagnostics.md#observable-extraction-contract`, whose section existed while the anchor
+   did not. A GitHub reader followed those links successfully on the auto-generated heading
+   slug, which is exactly why nobody noticed: the repository's own anchor contract and the
+   renderer's fallback disagreed, and only the contract survives a heading rename. **A guard
+   whose scope excludes the surfaces most likely to break is a guard that cannot fire** — the
+   same defect class as [§batch-scripts](#batch-scripts), where a correctly indexed rule did
+   not reach the moment it applied.
 
 Run it in CI and from `lqcd-capture-learning` before anything is committed.
 

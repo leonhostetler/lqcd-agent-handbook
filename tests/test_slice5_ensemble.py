@@ -11,6 +11,12 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SUPPORT_SPEC = importlib.util.spec_from_file_location(
+    "handbook_test_support", ROOT / "tests/support.py"
+)
+SUPPORT = importlib.util.module_from_spec(SUPPORT_SPEC)
+assert SUPPORT_SPEC.loader is not None
+SUPPORT_SPEC.loader.exec_module(SUPPORT)
 VALIDATOR_SPEC = importlib.util.spec_from_file_location(
     "validate_knowledge_slice5", ROOT / "tools/validate-knowledge.py"
 )
@@ -38,7 +44,7 @@ class MilcHisqCatalogTests(unittest.TestCase):
 
         errors: list[str] = []
         count = VALIDATOR.validate_schemas(ROOT, errors)
-        self.assertEqual(count, 28)
+        self.assertEqual(count, SUPPORT.EXPECTED_SCHEMA_OBJECTS)
         self.assertEqual(errors, [])
 
     def test_published_core_has_unique_suffix_free_names(self):

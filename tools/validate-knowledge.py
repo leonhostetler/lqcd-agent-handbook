@@ -27,6 +27,11 @@ LONG_DOCS = ("ARCHITECTURE.md", "ROADMAP.md")
 ANCHOR_RE = re.compile(r'<a\s+id="([a-z0-9][a-z0-9-]*)"\s*></a>')
 LINK_RE = re.compile(r'\[([^\]]+)\]\((?:(ARCHITECTURE|ROADMAP)\.md)?#([a-z0-9][a-z0-9-]*)\)')
 BARE_SECTION_RE = re.compile(r'§([a-z][a-z0-9-]*)')
+# Cross-file anchored links from anywhere in the repo, not only the long documents.
+# The target is a relative path so it is resolved against the linking file's directory.
+CROSS_LINK_RE = re.compile(r'\[([^\]]+)\]\(([^)#]+\.md)#([a-z0-9][a-z0-9-]*)\)')
+# Frontend tooling paths a sandbox materialises as unreadable placeholders; see tests/support.py.
+REFERENCE_SKIP_DIRS = {".git", ".claude", ".agents"}
 NUMERIC_VALUE_RE = re.compile(r"(?<![A-Za-z0-9_.-])([0-9]+(?:\.[0-9]+)?)(?![A-Za-z0-9_.-])")
 
 DENY_PATTERNS = {
@@ -702,6 +707,44 @@ def validate_references(root: Path, errors: list[str]) -> int:
             checked += 1
             if slug not in all_anchors:
                 errors.append(f"{name}: unresolved bare section reference §{slug}")
+
+    # Cross-file anchored links outside the long documents. A pointer from a playbook,
+    # mode or knowledge leaf into another file is exactly the task-time routing the
+    # handbook relies on, and until this check existed a broken one shipped silently.
+    file_anchors: dict[Path, set[str]] = {}
+
+    def anchors_of(path: Path) -> set[str]:
+        if path not in file_anchors:
+            try:
+                file_anchors[path] = set(ANCHOR_RE.findall(path.read_text(encoding="utf-8")))
+            except (OSError, UnicodeDecodeError):
+                file_anchors[path] = set()
+        return file_anchors[path]
+
+    for path in sorted(root.rglob("*.md")):
+        relative = path.relative_to(root)
+        if REFERENCE_SKIP_DIRS & set(relative.parts):
+            continue
+        if relative.as_posix() in LONG_DOCS:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for visible, target, slug in CROSS_LINK_RE.findall(text):
+            destination = (path.parent / target).resolve()
+            try:
+                destination.relative_to(root)
+            except ValueError:
+                continue
+            if not destination.is_file():
+                errors.append(f"{relative.as_posix()}: cross-reference target missing {target}")
+                continue
+            checked += 1
+            if slug not in anchors_of(destination):
+                errors.append(
+                    f"{relative.as_posix()}: unresolved cross-reference {target}#{slug}"
+                )
     return checked
 
 

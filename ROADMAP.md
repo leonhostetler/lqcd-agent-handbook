@@ -198,14 +198,14 @@ asserted a four-spacing corpus including 0.12 fm, where multigrid had never run;
 memory fit's declared population repeated the same claim, and neither was guarded by a test.
 
 **Two naming rules were added because the import kept tripping over them.**
-[§role-not-index](#role-not-index) forbids naming a hierarchy quantity by level index: the
+[§role-not-index](ARCHITECTURE.md#role-not-index) forbids naming a hierarchy quantity by level index: the
 coarsest grid is level 3 at four levels and level 2 at three, so `V3`, `nu3`, `nvec_3` and
 `l3_res_max` named a different grid depending on a fact the symbol did not carry. They are
 purged in favour of `coarsest_*` role names. The trap worth recording is that the *obvious*
 fix is a regression — renaming a quantity does not rescope the band attached to it, so every
 band now carries its fitted level count inline and the decomposition tool refuses to evaluate
 one off four levels, reporting `evaluated: false` rather than an empty advisory list.
-[§reserved-terms](#reserved-terms) reserves `configuration` for gauge configurations and
+[§reserved-terms](ARCHITECTURE.md#reserved-terms) reserves `configuration` for gauge configurations and
 `setup` for a solver setup phase; the parameter set is a `candidate`, and the mode documents'
 former "candidate setup" is retired for colliding with the second. Both rules are enforced by
 tests, because this document already records that a correctly indexed pointer does not fire at

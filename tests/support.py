@@ -14,6 +14,13 @@ from pathlib import Path
 #
 # The handbook-owned `skills/` directories are kept: the validator checks the frontend
 # adapters they hold, so a copy without them fails for an unrelated reason.
+
+# Schema objects the validator checks: the six files in `schemas/` plus every YAML
+# instance bound to one of them in `validate_schemas`. Adding a stack, machine, project
+# or build-profile file changes this number, and the assertion is a deliberate tripwire
+# that makes the addition visible rather than silent. Update it in this one place.
+EXPECTED_SCHEMA_OBJECTS = 29
+
 TOOLING_FILES = (".mcp.json",)
 TOOLING_DIRECTORIES = (".claude", ".agents")
 TOOLING_KEEP = ("skills",)

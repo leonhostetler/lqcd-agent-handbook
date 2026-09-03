@@ -47,6 +47,7 @@ The decomposition tool's separate `coarsest_global_volume >= 10000` and coarsest
 aspect `<= 1.5` screens are likewise provisional three-ensemble advisories. Source
 legality always has priority.
 
+<a id="observable-extraction-contract"></a>
 ## Observable extraction contract
 
 The retrospective field names are derived quantities, not literal QUDA labels. For the
