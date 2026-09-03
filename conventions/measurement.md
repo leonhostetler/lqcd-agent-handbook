@@ -51,6 +51,81 @@ unit, measure it separately and include or amortize it in the workflow projectio
 first solve is a steady-state solver convention, not an instruction to remove recurring cost
 from an end-to-end workflow benchmark.
 
+## Establish the machine's single-measurement resolution before ranking on time
+
+Repeating solves inside one job bounds solve-to-solve spread. It does not bound the spread
+between two otherwise identical **jobs**, which is set by node allocation, machine state and
+other factors a campaign does not control. Those are different quantities, and the second is
+usually the larger.
+
+**A machine therefore has a resolution floor for single unrepeated measurements, and it must
+be measured rather than assumed.** Establish it with a zero-variable repeat: submit the same
+configuration twice, changing nothing, and compare. Until that floor is known, no wall-time
+or rate ratio within it is resolved, and a ranking built on one is not a result.
+
+The failure is not noisy-looking data — it is data that looks clean. A controlled repeat can
+reproduce a run **bit-for-bit** in every deterministic observable, iteration counts and peak
+memory included, and still differ materially in wall time. Nothing in either run appears
+anomalous, so the difference is silently attributed to whichever parameter the study happened
+to be varying.
+
+Three consequences:
+
+- **Report the floor with the ranking**, not separately. A candidate ordering whose gaps sit
+  inside it is unresolved, whatever the point estimates say.
+- **Prefer deterministic observables for anything the floor would swallow.** Iteration counts,
+  convergence behaviour, memory high-water and residuals repeat exactly when the numerical
+  path is deterministic, so they can separate candidates that wall time cannot. Design the
+  study around them rather than discovering afterwards that its comparisons are unresolvable.
+- **Re-establish the floor after a machine, scheduler or placement change.** It is a property
+  of the system as configured, not a constant, and a value measured elsewhere does not
+  transfer.
+
+A floor is a limit on resolution, not an error bar: it says which comparisons a single
+measurement cannot decide, not how uncertain a given number is.
+
+### A deterministic-looking observable is not a determinism claim
+
+The advice above pushes a study toward observables that repeat exactly. That creates its own
+trap, and it is worth stating in the same place: **constancy observed within one run is not
+evidence that an observable is deterministic for that configuration.**
+
+One measured case: a configuration returned an identical iteration count on every solve of a
+trial, and its **byte-identical repeat** — same inputs, same placement, same build — did not.
+The count moved by one. Constancy within a single run can be luck, and a study that has
+already been blocked from ranking on wall time is exactly the study most tempted to treat it
+as a noise-free discriminator.
+
+**Establish determinism the same way the resolution floor is established: with a
+zero-variable repeat.** Until then, a separation resting on such an observable is suggestive,
+and should be reported as suggestive rather than as a resolved difference.
+
+Determinism can also **degrade with magnitude**. In the same corpus the spread widened as the
+count grew — exact to within one at a count near `24`, a few units wide near `32` and `60`,
+and tens wide near `3400`. An observable that repeats exactly in a tight regime may not repeat
+in a looser one, so a determinism check belongs at the operating point being used, not at a
+convenient one.
+
+## Pair a screening rate with the guard that makes it meaningful
+
+A screening metric expressed as work-per-unit-time can usually be improved by loosening a
+downstream tolerance. The rate rises because less work is being done per unit of result, and
+the quantity the study actually cares about gets worse. **The rate ranking and the quality
+ranking then disagree in sign**, which is the failure that makes an unguarded rate dangerous
+rather than merely noisy.
+
+So **declare a quality guard on the same probe, before running the scan**, and rank on the
+pair. One measured case: the trial posting the best screening rate in an entire study — a
+large improvement over baseline — was correctly rejected because the residual it actually
+reached had degraded by more than an order of magnitude.
+
+**Then check that the guard you executed is the guard you wrote.** In that same study the
+recorded guard was looser than the one applied at reconciliation: a trial the study rejected
+would have **passed** the written rule. A later study copying the written guard would retain
+a candidate the original had rejected, and nothing in either record would look wrong. Write
+the guard as an expression, apply it mechanically, and reconcile the written and executed
+forms before the result is used elsewhere.
+
 ## Keep the timing layers distinct
 
 Retain the enclosing clocks even when a narrow component timer answers the immediate question:

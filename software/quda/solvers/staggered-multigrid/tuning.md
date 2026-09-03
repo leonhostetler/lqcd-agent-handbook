@@ -125,6 +125,22 @@ per-outer work the coarsest apply actually represents.** Both observations are e
 from one ensemble at one spacing; the mechanism — a cost axis and a convergence axis that
 the screen does not connect — is what transfers.
 
+**And the converse holds, which is what makes this a single rule rather than two cautions.**
+An outer-iteration count is not a cost proxy either. Recurring cost is
+`outer iterations x per-iteration cost`, and **neither factor predicts the product**: a
+V-cycle change moves both, usually in opposite directions, because work added per iteration
+is what buys the iteration reduction. A measured case cut outer iterations `22 -> 8` — a
+factor of `2.75` — and came out **`10.7%` slower**, per-iteration cost having risen `3.05x`.
+A separate pair went the other way: `104` against `240` outer iterations, with the
+240-iteration configuration `8.4%` **faster**. Iterations falling with slowness, and rising
+with speed, bracket the failure from both sides.
+
+**Always report the per-iteration cost that links an iteration count to a time**, and never
+rank V-cycle work changes on either factor alone. The quoted factors are one configuration
+pair each and do not transfer; what transfers is that their product decides. This does not
+weaken the rule above — a measured outer-iteration count is still required before selecting
+from a cost screen. It says that count is a *convergence* observable, not a cost one.
+
 ## 4. Stabilize setup before timing production
 
 Locate the level-1 setup-tolerance knee with the counters defined by the
