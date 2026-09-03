@@ -180,6 +180,49 @@ in scope than the sibling `ks-spectrum-hisq-quda` cost because the dependent MIL
 already present; the two figures land within a second of each other while measuring different
 work, and the notes say so.
 
+On 2026-09-03 an operator-directed import brought the adjacent 0.09-fm hierarchy campaign's
+exportable heuristics in, **without changing the Slice 4 next action**. Twenty-eight of that
+campaign's fifty rules are now here; nine more were found already carried, two are partial by
+operator decision, one was declined, and ten remain with the campaign awaiting a second
+observation. The dedup was the highest-yield part of the exercise: two rules had been
+re-derived by the campaign after this handbook already documented them, which is why the
+campaign registry now carries an enforced `handbook_status` column.
+
+**Three defects in published leaves were found by the import rather than by review.** A
+statement that only `nvec_1` and `nvec_2` select compiled coarse colours is false at three
+levels, where `nvec 2` is the coarsest deflation count and must *not* appear in
+`QUDA_MULTIGRID_NVEC_LIST` — and the same error appeared twice, in the crosswalk and in the
+build requirements. The observable extraction contract keyed its eigenvalue lines to a fixed
+`MG level 3` prefix, which silently returns nothing at three levels. And `calibration.md`
+asserted a four-spacing corpus including 0.12 fm, where multigrid had never run; the MG
+memory fit's declared population repeated the same claim, and neither was guarded by a test.
+
+**Two naming rules were added because the import kept tripping over them.**
+[§role-not-index](#role-not-index) forbids naming a hierarchy quantity by level index: the
+coarsest grid is level 3 at four levels and level 2 at three, so `V3`, `nu3`, `nvec_3` and
+`l3_res_max` named a different grid depending on a fact the symbol did not carry. They are
+purged in favour of `coarsest_*` role names. The trap worth recording is that the *obvious*
+fix is a regression — renaming a quantity does not rescope the band attached to it, so every
+band now carries its fitted level count inline and the decomposition tool refuses to evaluate
+one off four levels, reporting `evaluated: false` rather than an empty advisory list.
+[§reserved-terms](#reserved-terms) reserves `configuration` for gauge configurations and
+`setup` for a solver setup phase; the parameter set is a `candidate`, and the mode documents'
+former "candidate setup" is retired for colliding with the second. Both rules are enforced by
+tests, because this document already records that a correctly indexed pointer does not fire at
+the moment it applies.
+
+**Two guard tests were failing against reality and were rewritten, not deleted.**
+`test_native_mg_validation_is_not_promoted_to_linked_milc` asserted that no stack validated a
+linked MILC MG executable — true when written, false once one did — and now asserts the
+linked stack's own scope limits instead, which is the overclaim actually available. A second
+pinned a claim to comma placement rather than to its content. A third defect class appeared
+twice during the work and is worth naming: a negative control that does not perturb anything
+proves nothing, and both instances were phrase replacements that silently matched nothing
+because the phrase wrapped across a line.
+
+The `test_session_logging.py::test_validator_rejects_missing_declared_logger` failure predates
+this work; it was failing at `65652ce` and is unrelated to the import.
+
 <a id="current-slice-state"></a>
 ## Current slice state
 
