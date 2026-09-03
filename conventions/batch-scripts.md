@@ -153,6 +153,7 @@ In this order, because the irreversible items come first:
 5. Verify each write lands under a named, approved root.
 6. Check for unsafe expansion, indirect execution, and nested submission.
 7. Show the operator anything that could touch pre-existing data, and wait.
+8. Run the script with every external effect stubbed, and prove each guard fires.
 
 `tools/run-batch-script-check` mechanises the parts of steps 3 to 6 that a machine can
 decide — nested submission, destructive operations, hardening, indirect execution, and the
@@ -163,3 +164,37 @@ discharge this review; failing to run it is not an excuse for skipping one.
 
 When uncertain whether an operation could affect shared or pre-existing data, leave it out and
 ask. A non-destructive alternative that costs disk space is always the better trade.
+
+### Step 8: a guard that never fires looks exactly like one that passes
+
+Steps 3 to 7 and the checker are **static**. They can tell you a guard is present and
+plausible; **none of them can tell you it fires.** A guard with an inverted test, a variable
+that is empty at the moment it is read, or a condition that silently exits zero reads as
+correct on every inspection and protects nothing on the night. Submissions have been lost
+this way, to defects catchable on a login node for no allocation at all.
+
+So execute the script before submitting it, with everything that reaches outside replaced by
+a stub:
+
+- **Run a copy, never the real job directory.** The point is to reach *past* the preflight,
+  which means the script will create and write things.
+- **Stub every external effect**: the parallel launcher, the modules system, scheduler
+  queries, compiler or version probes, and any sleep. Stub the submission command itself so
+  that it **refuses** — a batch script must never submit another job, and the refusal turns
+  that mistake into a visible failure.
+- **Make sure the stubs win.** A shell startup file or an exported shell function can put the
+  real command back ahead of them; clear both, or the run silently tests nothing.
+- **Do not fake anything verified by checksum.** No stand-in satisfies a hash, and those
+  inputs are read-only, so leave them at their real paths. A guard that checks only a *size*
+  can be satisfied by a sparse file, so even a very large input costs no space.
+- **Positive control:** on correct inputs the script must run to completion. If it does not,
+  that is a defect in the script, not in the harness — do not submit.
+- **Negative test, one guard at a time:** perturb the input that guard protects and require
+  the run to fail. **A perturbation that changed nothing is not a test** — confirm the file
+  actually differs before believing the result, because an expression that matched nothing
+  produces the same clean output as a guard that works.
+
+A workspace that submits often should script this rather than repeat it by hand. If it does,
+the harness itself is subject to the same rule it enforces: it must be made to fail on
+purpose before it is trusted, since a harness that cannot fail is the same defect as a guard
+that cannot fire.
