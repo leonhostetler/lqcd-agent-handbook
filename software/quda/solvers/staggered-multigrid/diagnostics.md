@@ -85,6 +85,12 @@ the old numerical bands.
   That reconstruction is a fallback, not an equivalent source; prefer
   `deflate_block_size 1` while diagnosing.
 
+- **`first_cycle_contraction`:** from the **outer** GCR trace — the lines with no
+  `MG level` prefix, `GCR: <k> iterations, <r,r> = <s>, |r|/|b| = <v>` — take `<v>` at
+  `k = 1`. The `k = 0` line prints `|r|/|b| = 1.000000e+00`, so that single value already
+  is the first cycle's contraction of the initial residual. Read it per solve and never
+  across solves; an inner-level line carrying the same shape is a different quantity.
+
 Keep separate records when a log contains multiple hierarchy builds or eigensolve
 events; never maximize or average across them silently. Compute `coarsest_global_volume`
 and `coarsest_vector_density` from the global lattice and QUDA's executed blocks with the
@@ -119,6 +125,67 @@ applies no stopping test and reports `iterated = 1.000000e+00 (requested =
 0.000000e+00)`. See
 [`the MG overview`](../staggered-multigrid.md). That output is a mode signature, not a
 failure.
+
+## A one-cycle screen is valid for V-cycle work and invalid for deflation
+
+`first_cycle_contraction` is cheap — one solve, one line — which makes it tempting as a
+general screen. **It is a legitimate screen for one parameter class and actively
+misleading for another, and the two must be stated together**; either half alone gives the
+wrong instruction.
+
+- **Valid for V-cycle work.** Across a ladder varying smoother sweeps and an intermediate
+  level's iteration cap at a fixed hierarchy and eigenspace, the first-cycle contraction
+  ordered monotonically with the eventual outer iteration count. Work added inside the
+  cycle changes what one cycle achieves, so one cycle can see it.
+- **Blind to coarse deflation.** Across a deflation ladder from none to a large coarsest
+  eigenspace at one hierarchy, the first-cycle contraction moved by a fraction of a
+  percent **in the adverse direction** while the multi-cycle behaviour and the recurring
+  solve cost improved substantially.
+
+**Mechanism, and it is the transferable part.** Deflation does not change what a single
+V-cycle achieves on the initial residual; it removes the slowly-converging modes that
+otherwise dominate the outer Krylov recurrence over *many* cycles. A one-cycle statistic
+cannot observe an effect defined across cycles. Work placed inside the cycle is the
+opposite case, which is why the same number is diagnostic for one and null for the other.
+
+**Actionable consequence.** Screen V-cycle work changes with the first cycle if you like,
+but **never screen a deflation candidate on it** — and never read a flat or slightly
+adverse first cycle as evidence that deflation is not helping. Use a multi-cycle
+contraction or the outer iteration count with its per-iteration cost instead.
+
+**Scope and evidence.** Empirical, one ensemble at one spacing, three-level hierarchies,
+one hierarchy per ladder; the mechanism is expected to transfer and the magnitudes are not
+quoted because the sign and the ordering are the content. Invalidated by a change of
+smoother or terminal solver, or by a hierarchy in which the coarsest apply is a small
+minority of per-cycle work.
+
+## Do not blame the eigenspace for a stagnating coarsest solve
+
+When a coarsest-level solve stagnates in a run that **loads** a persisted eigenspace, the
+eigenspace is the intuitive suspect and is often the wrong one.
+
+Two runs loading the **same** eigenspace file, whose worst loaded-eigenvector residual
+agreed to every printed digit, behaved oppositely: one converged, the other stagnated with
+nearly every coarsest invocation pinned at its iteration cap. Identical input vectors
+cannot explain a difference in outcome, so the cause lay in the coarsest solver and its
+parameters, not in the vectors. In the same episode a third run loading that file reported
+an elevated worst residual and remains unexplained — recorded as unexplained rather than
+attributed.
+
+**Actionable consequence.** Before spending a trial on eigensolver quality —
+`deflate_a_min`, `deflate_n_kr`, `deflate_poly_deg`, or a larger request — establish
+independently that the vectors differ. The cheapest test is the one above: compare the
+worst loaded-eigenvector residual across the runs being contrasted. **If it is identical,
+eigenspace quality is excluded and the coarsest solver is the place to look.** This
+complements the adequacy chain in
+[`hierarchy-and-setup.md`](hierarchy-and-setup.md), where a coarsest grid that is too
+*small* also presents as healthy at the coarsest level.
+
+**Scope and evidence.** The argument is a controlled comparison rather than a fitted
+result and does not depend on ensemble, mass or level count; it holds wherever an
+eigenspace is loaded rather than regenerated. Invalidated if the compared runs differ in
+terminal solver or cap other than the variable under test, or if the eigenspace is
+regenerated in one of them.
 
 ## Setup pinned at its ceiling
 

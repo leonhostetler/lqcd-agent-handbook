@@ -139,6 +139,27 @@ optimum was not located. Treat margins near or below `2x` as a corpus warning, n
 universal lower bound, and do not describe the combined evidence as an `8x...26x`
 optimum.
 
+**The direction also holds at three levels and over a much wider span.** A separate
+five-point ladder on a three-level hierarchy at a coarser spacing, at fixed `deflate_n_kr`
+and `deflate_poly_deg`, improved the worst coarse-eigenvector residual monotonically from
+a margin of roughly `2x` out to two orders of magnitude — **with the measured spectrum
+unmoved**, so the gain is filter quality rather than a different set of eigenvalues being
+found. That widens the scanned range considerably and adds a second level count, and it
+still does not locate an optimum. Evidence: empirical, one ladder, one ensemble.
+
+**Below the fitted range there is a floor where the coarsest level stops paying at all.**
+The joint fit above is calibrated over `coarsest_vector_density = 0.022...0.250`, and that
+lower end is where the *fit* stops, not where the *usefulness* stops — the two are easy to
+conflate. On one three-level hierarchy, requests near an order of magnitude below that
+floor left the coarsest solve unable to contract, with outer iteration counts staying high
+**regardless of how the eigensolver was tuned**. That is the deflation-side companion to
+the adequacy result in [`hierarchy-and-setup.md`](hierarchy-and-setup.md): setup-side
+eigensolver knobs cannot repair a coarsest level that has too little to work with, whether
+the shortfall is in grid size or in requested vectors. Treat a density far below the fitted
+floor as a candidate to measure, never as a cheap setting to adopt on the strength of
+the fit. Evidence: empirical, one ensemble, three levels; the numerical floor is not
+portable and no threshold is asserted.
+
 **Re-derive `deflate_a_min` from a measured `eval_max` on every hierarchy that moves the
 coarsest operator** — its volume, its coarse colour, the mass, or the operator itself.
 Carrying one value across a scan does not hold the margin fixed; it lets the margin **walk**.
@@ -188,6 +209,48 @@ the reach of an extrapolation is set by its exponent, and `coarsest_vector_densi
 than a bare coarsest deflation count is what transfers between hierarchies. A fully
 delivered sibling spectrum at a different coarse colour is usually the better ratio source
 than a short prefix at the same one.
+
+## Prefer a preconditioned coarsest operator for the eigensolve
+
+Where the coarsest eigensolve can be posed on either the preconditioned or the full
+operator, the preconditioned form has been the better choice on both axes at once rather
+than presenting a trade-off. In a matched pair the full-operator eigensolve **peaked
+higher in device memory and delivered only a small fraction of its requested prefix** after
+substantially more restarts, while the preconditioned control delivered the complete
+requested prefix in fewer restarts. The storage side follows from the object layer in
+[`../staggered-memory.md`](../staggered-memory.md): the full operator carries the larger
+field.
+
+**Actionable consequence.** Do not treat the full-operator form as a neutral alternative
+worth a trial slot, and in particular do not reach for it when the preconditioned
+eigensolve is delivering short — a short prefix there is partial delivery to be diagnosed
+with the chains in [`diagnostics.md`](diagnostics.md), not a reason to change operator.
+
+**Scope and evidence.** Empirical, one ensemble, three levels, two runs; magnitudes are
+withheld because the transferable content is that both axes moved the same way, and the
+sizes are hierarchy-specific. Invalidated by a change in the terminal operator
+implementation or in deflation-vector precision.
+
+## Deflation's recurring gain arrives as iteration count, not as cheaper iterations
+
+In a matched deflated/undeflated pair the recurring solve speedup decomposed with the
+**large majority of the log gain carried by the reduction in outer iteration count**, and
+only a minor part by a lower cost per outer iteration. Mechanically that is what deflation
+is for: removing the low modes shortens the outer Krylov recurrence, and it does not make
+an individual cycle cheaper.
+
+**This is the one place where an iteration count is the right thing to look at, and it
+does not license the general habit.** For a *deflation* change, the iteration term is
+where the benefit lives. For a **V-cycle work** change it is not, and reading across is
+the documented failure: recurring cost is `outer iterations x per-iteration cost`, neither
+factor predicts the product, and measured candidates have gone both ways — see the
+cost-versus-convergence rule in [`tuning.md`](tuning.md). **Report the per-iteration cost
+alongside the count even here**, so the decomposition is visible rather than assumed.
+
+**Scope and evidence.** Empirical, one matched pair, one ensemble, three levels; the split
+is quoted as a dominance rather than a ratio because a single pair does not fix a
+magnitude. Invalidated by a change of terminal solver cap or tolerance, level-1 smoother
+cap, blocking, mass, level count or ensemble.
 
 ## Tune the joint eigensolver channel
 

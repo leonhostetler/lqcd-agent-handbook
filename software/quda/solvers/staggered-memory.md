@@ -496,6 +496,50 @@ Three consequences are worth carrying:
   described above, which inflates their spread. A tier states what evidence exists, never
   how accurate a given prediction will be.
 
+## A loading run and a generating run are not the same capacity problem
+
+Near-null generation allocates a fine-grid workspace that a run **loading** stored vectors
+never allocates at all, so a loading run's device high-water sits materially below an
+otherwise identical generating run's. The gap is structural — it is the presence or
+absence of an allocation, not a fitted difference — so **size the two separately and never
+quote one as a bound on the other.** A capacity plan built from a loading run will
+under-provision the run that has to create the vectors in the first place.
+
+Two consequences follow for planning:
+
+- **The expensive placement and the recurring placement can be decoupled.** Because
+  single-file vectors carry no rank-grid binding, generation and later solves need not run
+  at the same decomposition — the partfile format does bind, and that distinction is the
+  subject of [`../internals/vector-io-layout.md`](../internals/vector-io-layout.md). A
+  one-off generation run may therefore be placed where it fits rather than where the
+  production solve is cheapest.
+- **A run that loads some levels and generates others is neither case** and must be sized
+  as a generating run.
+
+**Scope and evidence.** Empirical at four levels on one ensemble, plus the source-level
+fact that the workspace is allocated only on the generating path; the mechanism is
+expected to transfer and no ratio is quoted, since the magnitude depends on the fine local
+volume. Invalidated by a change to the setup-workspace model or to the vector format's
+placement binding.
+
+## Disabling MMA is a coupled memory-throughput lever, not a memory remedy
+
+Turning `use_mma` off measurably lowers device high-water — consistent with the extra
+MILC-order coarse-gauge copies and ghosts that the MMA path can retain, recorded in
+[`../staggered-multigrid.md`](../staggered-multigrid.md) — but it is not free. In the one
+recorded attempt the memory saving was real and substantial while the same eigensolve made
+only marginal progress in the time available, so the throughput cost was large and remains
+**unquantified**.
+
+**Actionable consequence.** Treat `use_mma false` as a coupled axis to be measured on both
+memory and time together, never as a capacity fix reached for when a candidate does not
+fit. Where it is being considered for fit alone, prefer a decomposition or placement change
+first — those move the fine local volume, which is what actually sets the floor.
+
+**Scope and evidence.** Empirical, a single observation on one ensemble at three levels;
+the direction of both effects is the transferable content and neither magnitude is quoted.
+Invalidated by a change in QUDA's MMA implementation or in the coarse colour.
+
 ## Capacity decisions and A100 margin
 
 Three sampled Perlmutter A100 runs placed whole-device `nvidia-smi` high-water 1.8–2.8

@@ -212,6 +212,17 @@ downstream checks in [`diagnostics.md`](diagnostics.md).
 Do not transfer this numeric screen blindly to `setup_tol_2`: it acts on a different
 level and its iteration counter and cap must first be identified explicitly.
 
+**Budget the cap above a fitted convergence point, not at it.** Where the setup iteration
+cap has been chosen by fitting the measured head of a near-null convergence curve and
+extrapolating to a target residual, the fit has **under-predicted** the iterations actually
+required, in the same direction on more than one occasion. The mechanism is the ordinary
+shape of such a curve: the head falls steeply while the easy modes are removed and the tail
+is shallower, so a fit dominated by the head is optimistic about the tail. Set the cap with
+margin above the fitted point and confirm from `setup_l1_capped_fraction` that the streams
+are not simply meeting the new cap instead. Evidence: empirical, two same-direction misses
+on one ensemble; the mechanism is expected to transfer, no correction factor is offered,
+and a fit-window change invalidates the reading.
+
 ## Decision sequence
 
 1. Reject source-invalid blocks, aggregate spaces, and uncompiled coarse colours.
