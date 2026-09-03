@@ -36,6 +36,27 @@ choosing for the operator.
 - **Scheduler class.** Compare purpose, node count, walltime, and concurrency against the
   machine profile's policy, and record the class chosen and why.
 
+### A runnable artifact is not one of these
+
+**The presence of something that would run is not a precondition satisfied.** A workspace that
+has submitted before is full of launchers, parameter files and input sets that still execute:
+an earlier study's trial directory, a frozen campaign kept for provenance, a handoff or example
+tree. None of them establishes a node type, an account, a ceiling or a scheduler class, and
+finding one is not a reason to submit.
+
+**The mechanism is that the two halves of a past submission decay at different rates.** What
+made it legitimate — a live grant, a balance, a declared account, a verified baseline, an open
+question worth the allocation — was external to the file and has since expired. What remains in
+the tree is the executable half, complete and plausible, carrying no trace of the half that is
+gone. A script cannot look expired, so its presence reads as permission when it is only
+residue.
+
+So treat a historical study directory as **evidence to read, not a template to run**. Where a
+past launcher is genuinely the right starting point, copy it into the new job's own directory
+and re-resolve all four preconditions from scratch rather than inheriting them — every value it
+carries is a claim about a submission that already happened. The stale-account trap below is the
+most expensive instance of this, not a separate rule.
+
 ### The chargeable account is never inferred
 
 Operators routinely hold several submission accounts, and a wrong one spends someone else's
