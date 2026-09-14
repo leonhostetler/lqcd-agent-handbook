@@ -1041,8 +1041,15 @@ working directory as the observations that calibrate the contract, under
 the rule and never the numbers. Capture a current baseline before Stage 2, so there is a
 before-number to compare against.
 
-*State:* Stages 0 and 1 landed 2026-09-14. The "Current limitation" paragraph in
-`modes/performance.md` is deleted by the change that lands Stage 2.
+*State:* Stages 0, 1 and 2 landed 2026-09-14. Stage 2 ports ingestion, metrics, phase
+segmentation, cross-rank alignment and the structural diff for both Nsight Systems and rocpd as
+stdlib-only modules — 8,307 lines across 18 files — whose summary output was verified
+field-for-field against the source implementation on both formats. Every guard carries a
+negative control. Two of those controls initially passed when they should have failed: one
+`sed` pattern silently matched nothing, and one perturbation hit a function the assertion did
+not route through, so a perturbation is now verified to have landed *and* to have reached the
+path under test. Rank loading is serial; the source implementation's worker pool was left out
+as a separate change rather than bundled into a port. Stage 3 remains.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check

@@ -10,11 +10,12 @@ A profile is evidence about one execution, on one machine, under one set of capt
 is not a description of the application, and every number read out of it inherits the conditions
 of the run that produced it.
 
-**Current limitation.** The shared extraction tool and the profile-analysis playbook have not
-landed. Until they do, aggregations are computed ad hoc from the profiler's own export, and an
-analysis must say so: state which quantities were derived by hand, and treat the readings named
-below as the specific errors that omission invites. Their absence does not relax the submission
-ceiling, the evidence rule, or the capability rule.
+**Current limitation.** `tools/gpu-profile-summary.py` and `tools/gpu-profile-diff.py` extract
+and compare Nsight Systems and rocpd profiles, single-rank and multi-rank. The profile-analysis
+playbook, the shared metric-definition convention, and the hypothesis record schema have not
+landed, so the hypothesis format below is stated here rather than enforced anywhere. Where a
+quantity is derived by hand rather than by the tool, an analysis must say so. What is absent
+relaxes neither the submission ceiling, the evidence rule, nor the capability rule.
 
 ## Establish the task
 
@@ -67,7 +68,8 @@ Three further readings are unfounded on a trace alone and recur anyway:
 
 ## Analysis method
 
-1. Summarise with a tool rather than by querying the database by hand in the session. The
+1. Summarise with `tools/gpu-profile-summary.py` rather than by querying the database by hand
+   in the session. The
    correct aggregations — concurrency-aware busy time, kernel totals grouped by full demangled
    name, per-phase figures clipped to their window, numerically stable duration spread — are each
    easy to get wrong in a way that reads as plausible.
@@ -91,7 +93,8 @@ Three further readings are unfounded on a trace alone and recur anyway:
    that results is an artefact that reads exactly like load imbalance.
 7. Treat one rank's profile as one rank's view. Imbalance is a cross-rank quantity and is not
    visible from a single rank, where a rank waiting on its neighbours looks like a rank with a
-   communication problem of its own.
+   communication problem of its own. Use the `cross-rank` subcommand across the per-rank
+   captures; it refuses a mixed-format set rather than producing a delta with no denominator.
 
 ## What a hypothesis carries
 
@@ -161,7 +164,13 @@ supporting a confident restatement — so the metric rules above can be gone pre
 analysis is deepest. Re-read them rather than recalling them.
 
 Use the detected machine profile, software profile, nearest stack, build profile, and the
-relevant application guide and solver documents when they exist. Load the profiled software's
+relevant application guide and solver documents when they exist.
+Extract with `tools/gpu-profile-summary.py` — `summary`, `phases`, `kernels`, `gaps`, `memcpy`,
+`mpi`, `streams`, `markers`, `cross-rank`, `schema`, `query` — and reach for `query` only when no
+subcommand answers the question, since it is capped and read-only by design rather than by
+convention. Compare a before and an after capture with `tools/gpu-profile-diff.py`, which is how
+a hypothesis's claimed runtime fraction gets checked against what actually changed.
+Load the profiled software's
 autotuning and solver leaves before interpreting kernel duration or its spread. Open the
 [solver-tuning playbook](../playbooks/tune-solver.md) when the analysis becomes solver-specific.
 
