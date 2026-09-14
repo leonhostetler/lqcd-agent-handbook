@@ -654,6 +654,25 @@ class RocpdProfile:
         value = rows[0]["hostname"]
         return str(value) if value else None
 
+    def capture_time_base(self):
+        """rocpd timestamps come from a monotonic clock with no recorded origin.
+
+        Every capture inspected carries only a schema version and identifiers in
+        rocpd_metadata -- nothing temporal -- so a profile cannot be aligned to
+        application output unless the capture recorded an anchor itself. Reported
+        rather than inferred, so the gap reads as a gap.
+        """
+        from .models import CaptureTimeBase
+
+        return CaptureTimeBase(
+            kind="monotonic",
+            note=(
+                "rocpd carries no wall-clock anchor; correlating this trace with "
+                "application output requires an anchor recorded at capture time "
+                "(see conventions/profile-capture.md)"
+            ),
+        )
+
     def device_info(self) -> DeviceInfo:
         """Return hardware info for the first GPU agent, plus the capture host.
 

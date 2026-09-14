@@ -145,7 +145,9 @@ the application, phase, suspected bottleneck, or immediate decision changes.
 Open the [profile-analysis playbook](../playbooks/analyze-profile.md) before beginning an
 analysis; it owns the procedure this mode governs. Load
 [`conventions/profile-metrics.md`](../conventions/profile-metrics.md) before reading or quoting
-any extracted quantity; it is the canonical home for what each one means.
+any extracted quantity; it is the canonical home for what each one means, and
+[`conventions/profile-capture.md`](../conventions/profile-capture.md) before submitting a
+capture, for what cannot be recovered after the run.
 
 **Reload the routing this mode depends on after a context compaction.** A deep drill-down is the
 session shape most likely to compact, and a compaction removes every Tier-2 leaf while still

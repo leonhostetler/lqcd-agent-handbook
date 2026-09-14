@@ -24,6 +24,7 @@ Entries are grouped by scoped machine.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
+| [Capturing a GPU profile on Perlmutter](perlmutter/profile-capture.md) | Nsight Systems cannot write a report on the home filesystem; capture from scratch and validate the artifact rather than the exit status. | Planning or submitting a profiled run on Perlmutter. |
 | [MILC CUDA 12 QUDA ks_spectrum stack on Perlmutter](perlmutter/stacks/milc-cuda12-quda-ks-spectrum-2026q3/notes.md) | Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack. | Rebuilding or validating the Perlmutter MILC ks_spectrum_hisq stack with QUDA. |
 | [MILC CUDA 13 QUDA ks_spectrum stack on Perlmutter](perlmutter/stacks/milc-cuda13-quda-ks-spectrum-2026q3/notes.md) | Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack. | Rebuilding or validating the Perlmutter MILC ks_spectrum_hisq stack with QUDA. |
 | [MILC CUDA 13 QUDA staggered-MG ks_spectrum stack on Perlmutter](perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md) | Reproduction notes for the first validated linked-MILC staggered multigrid ks_spectrum_hisq stack, and the two build facts that make it reproducible. | Rebuilding or validating the Perlmutter MILC ks_spectrum_hisq stack with QUDA staggered multigrid. |

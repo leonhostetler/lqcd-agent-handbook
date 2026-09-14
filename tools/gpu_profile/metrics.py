@@ -640,6 +640,7 @@ def compute_profile_summary(
         timings["metrics_s"] = (t_end - t_start) - (t_phase_done - t_phase)
 
     return ProfileSummary(
+        capture_time_base=profile.capture_time_base(),
         profile_path=str(profile.path),
         device_info=device_info,
         profile_span_s=round(span_s, 3),
@@ -722,6 +723,7 @@ def compute_profile_summary_and_state(
         timings["metrics_s"] = (t_end - t_start) - (t_phase_done - t_phase)
 
     summary = ProfileSummary(
+        capture_time_base=profile.capture_time_base(),
         profile_path=str(profile.path),
         device_info=device_info,
         profile_span_s=round(span_s, 3),

@@ -133,6 +133,26 @@ class DeviceInfo:
 
 
 @dataclass(kw_only=True)
+class CaptureTimeBase:
+    """What a profile's timestamps are relative to, and whether they can be
+    correlated with application output after the fact.
+
+    See conventions/profile-capture.md: a format carrying no wall-clock anchor
+    cannot be aligned to stdout absolutely unless the capture recorded one.
+    """
+
+    #: 'session_relative' (timestamps offset from a recorded session start) or
+    #: 'monotonic' (a clock with no recorded wall-clock origin).
+    kind: str = "unknown"
+    #: UTC epoch nanoseconds of the time origin; None when the file carries none.
+    utc_epoch_ns: int | None = None
+    #: Human-readable form of the same origin, when the file records one.
+    utc_time: str | None = None
+    #: Stated when no anchor is present, so the gap reads as a gap.
+    note: str | None = None
+
+
+@dataclass(kw_only=True)
 class PhaseSummary:
     """Metrics for a single execution phase within a profile.
 
@@ -202,6 +222,9 @@ class ProfileSummary:
     memcpy_by_kind: list[MemcpySummary]
     streams: list[StreamSummary]
     marker_ranges: list[MarkerRangeSummary] = field(default_factory=list)
+
+    #: What the timestamps above are relative to.
+    capture_time_base: CaptureTimeBase = field(default_factory=CaptureTimeBase)
 
     # GPU hardware info (absent in older or format-limited profiles)
     #: Hardware properties from device metadata; injected into the agent system prompt

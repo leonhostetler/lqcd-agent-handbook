@@ -35,6 +35,12 @@ are not metadata. A figure read without them is not interpretable later, includi
 Report every capability gap as a gap. Absent instrumentation supports no hypothesis about the
 absent subsystem, and equally supports no claim that it is healthy.
 
+Where capture is in scope rather than already done, read
+[`conventions/profile-capture.md`](../conventions/profile-capture.md) **before** submitting. It
+covers what cannot be recovered afterwards: that a profiler can exit 0 having written no report,
+and that a format carrying no wall-clock anchor needs the capture to record one, or application
+output can never be aligned to the trace absolutely.
+
 ## 3. Account for the elapsed time
 
 Segment before aggregating: `phases`. A whole-profile average over a run whose parts differ

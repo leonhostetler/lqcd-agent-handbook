@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple, Protocol
 
 if TYPE_CHECKING:
-    from .models import DeviceInfo
+    from .models import CaptureTimeBase, DeviceInfo
 
 
 class MpiOpAgg(NamedTuple):
@@ -152,6 +152,8 @@ class Profile(Protocol):
     def long_marker_ranges(self, *, min_duration_ns: int, limit: int = 200) -> list[RangeRow]: ...
 
     def device_info(self) -> DeviceInfo: ...
+
+    def capture_time_base(self) -> CaptureTimeBase: ...
 
     def profile_bounds_ns(self) -> tuple[int, int]: ...
 

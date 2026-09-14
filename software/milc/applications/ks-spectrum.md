@@ -123,6 +123,34 @@ Do not add `Aggregate time to compute propagators` to its constituent `CONGRAD5`
 parent for workflow accounting and the child records for solver attribution, then report any
 compatible residual against the top-level or scheduler clock.
 
+## Aligning application phases with a GPU profile
+
+The phase structure above lives in **application output, not in the trace**. A profiler records
+launches, transfers and durations; it does not record that a given interval was gauge fixing or
+propagator construction. So a profiled `ks_spectrum` run carries its phase names in stdout and
+its phase *costs* in the profile, and the two have to be joined before either is interpreted.
+
+Joining them needs a shared time base, and whether one exists is a property of the capture
+format rather than of this application — see
+[`conventions/profile-capture.md`](../../../conventions/profile-capture.md), which is canonical
+for it. Where the format records a wall-clock origin, place the `Aggregate time to ...` records
+on the trace timeline directly. Where it does not, the anchor has to have been written by the
+capture itself; failing that, align **structurally** — by the order of the phases listed above
+and their relative durations — and say that the alignment is structural, because a structural
+match to a repeating sequence is weaker evidence than a timestamp.
+
+Two cautions specific to this application:
+
+- **Inferred phases and application phases are different objects.** A profile-side segmentation
+  derives boundaries from kernel activity; it will happily split one `Aggregate time to ...`
+  interval across several segments, or merge two. Report them as two alignments, never as one
+  phase list.
+- **Check which level any annotation sits at before treating it as a phase boundary.** Marker
+  ranges in a profiled run may come from the solver library rather than from the application,
+  in which case they name internal operations and not physics stages. Annotation depth is a
+  build-time property; establish it for the build in hand rather than assuming the ranges mark
+  the stages named above.
+
 ## Artifact prediction and exact validation
 
 Derive the expected artifacts from the final generated input submitted to `ks_spectrum`, not

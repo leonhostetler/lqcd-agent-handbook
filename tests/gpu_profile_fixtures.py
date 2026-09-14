@@ -132,6 +132,19 @@ def _build_synthetic_db(path: Path) -> None:
         (108, 64, 32, 2_000_000_000_000),  # 2 TB/s HBM
     )
 
+    # --- TARGET_INFO_SESSION_START_TIME ---
+    # Real captures carry this in every profile inspected; it is the anchor that
+    # makes trace timestamps correlatable with application output.
+    cur.execute("""
+        CREATE TABLE TARGET_INFO_SESSION_START_TIME (
+            utcEpochNs INTEGER, utcTime TEXT, localTime TEXT
+        )
+    """)
+    cur.execute(
+        "INSERT INTO TARGET_INFO_SESSION_START_TIME VALUES (?, ?, ?)",
+        (1_784_597_271_426_118_694, "2026-07-21T01:27:51", "2026-07-20T18:27:51"),
+    )
+
     # --- NVTX_EVENTS ---
     cur.execute("""
         CREATE TABLE NVTX_EVENTS (

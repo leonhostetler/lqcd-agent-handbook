@@ -124,6 +124,38 @@ class RocpdIngestionTests(unittest.TestCase):
         """rocprofv3 does not intercept MPI. Absent tables must read as a gap."""
         self.assertFalse(self.payload("mpi", str(self.rocpd))["mpi_present"])
 
+    # -- the capture time base ------------------------------------------------
+
+    def test_nsys_reports_a_wall_clock_anchor(self):
+        """The anchor is what makes a trace correlatable with application output.
+        Every real capture inspected carried one."""
+        base = self.payload("summary", str(self.nsys))["capture_time_base"]
+        self.assertEqual(base["kind"], "session_relative")
+        self.assertIsNotNone(base["utc_epoch_ns"])
+        self.assertIsNone(base["note"])
+
+    def test_rocpd_reports_the_absent_anchor_as_a_gap(self):
+        """rocpd timestamps come from a monotonic clock and the file records no
+        origin. Reported explicitly, because silence would read as 'fine'."""
+        base = self.payload("summary", str(self.rocpd))["capture_time_base"]
+        self.assertEqual(base["kind"], "monotonic")
+        self.assertIsNone(base["utc_epoch_ns"])
+        self.assertIn("anchor", base["note"])
+
+    def test_a_capture_without_a_session_start_row_says_so(self):
+        """Negative control for the first check: strip the anchor and the tool must
+        report the gap rather than silently emitting a null that reads as absent
+        data of no consequence."""
+        stripped = Path(self._tmp.name) / "no_anchor.sqlite"
+        stripped.write_bytes(self.nsys.read_bytes())
+        conn = sqlite3.connect(stripped)
+        conn.execute("DROP TABLE TARGET_INFO_SESSION_START_TIME")
+        conn.commit()
+        conn.close()
+        base = self.payload("summary", str(stripped))["capture_time_base"]
+        self.assertIsNone(base["utc_epoch_ns"])
+        self.assertIsNotNone(base["note"])
+
     # -- parity between the two formats ---------------------------------------
 
     def test_both_formats_yield_the_same_summary_shape(self):

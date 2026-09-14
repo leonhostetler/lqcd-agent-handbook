@@ -635,6 +635,36 @@ class NsysProfile:
         value = rows[0]["value"]
         return str(value) if value else None
 
+    def capture_time_base(self):
+        """Nsight timestamps are offsets from session start; the file records the origin.
+
+        TARGET_INFO_SESSION_START_TIME.utcEpochNs plus an event's start gives an
+        absolute time, which is what makes correlation with application output
+        possible after the fact.
+        """
+        from .models import CaptureTimeBase
+
+        if not self.has_table("TARGET_INFO_SESSION_START_TIME"):
+            return CaptureTimeBase(
+                kind="session_relative",
+                note="no session-start row; timestamps cannot be anchored to wall clock",
+            )
+        cols = set(self.columns("TARGET_INFO_SESSION_START_TIME"))
+        rows = self.query("SELECT * FROM TARGET_INFO_SESSION_START_TIME LIMIT 1")
+        if not rows:
+            return CaptureTimeBase(
+                kind="session_relative",
+                note="session-start table is empty; timestamps cannot be anchored",
+            )
+        row = rows[0]
+        epoch = row["utcEpochNs"] if "utcEpochNs" in cols else None
+        return CaptureTimeBase(
+            kind="session_relative",
+            utc_epoch_ns=int(epoch) if epoch else None,
+            utc_time=row["utcTime"] if "utcTime" in cols else None,
+            note=None if epoch else "no utcEpochNs column; timestamps cannot be anchored",
+        )
+
     def device_info(self):
         """Query TARGET_INFO_GPU for hardware properties, plus the capture host."""
         from .models import DeviceInfo
