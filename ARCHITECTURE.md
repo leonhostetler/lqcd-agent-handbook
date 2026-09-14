@@ -29,6 +29,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Build profiles** | Named option sets with **capabilities** live in `software/<name>/build-profiles.yaml`; stacks reference a profile and record what it **cost** here. Where a build may run is machine knowledge; a compute-node build is a job under [§budget-rule](#budget-rule) ([§build-profiles](#build-profiles)) | — |
 | **Application guides** | A suite's version-scoped input grammar, work units, output structure, timing-marker semantics, and completion/correctness signals live in `software/<name>/applications/`. They are application guides, not build profiles: work modes own the experimental method, build profiles own compiled capabilities and instrumentation, and stacks own the exact combinations validated on a machine ([§application-guides](#application-guides)) | Several suites expose a stable, useful application schema that is better represented as validated structured data than as prose |
 | **Development conventions** | Software-specific code-change and contribution rules live in `software/<name>/development.md`. Because they vary by project and cut across work modes, they load whenever that software is modified or prepared for review; modes and playbooks point there rather than duplicate them. Only software-independent rules belong in `conventions/`. When a rule is executable, its project-specific helper stays centrally discoverable in `tools/`, carries the software name, and is routed only from that development leaf ([§directory-layout](#directory-layout)) | — |
+| **Profile-analysis capability** | Split on what the artifact is. Deterministic extraction from a profiler database — vendor SQL, string-table joins, concurrency-aware interval merging, phase segmentation, cross-rank alignment — ships as a handbook tool that makes no model call and opens no socket. The interpretation contract — what each metric means, what it may not be read to say, what a hypothesis must carry — ships as leaves the session executes itself. The handbook never wraps a second agent ([§profile-analysis](#profile-analysis)) | A profile format arrives whose extraction cannot be made offline and deterministic |
 | **Solver placement** | Solver availability and behavior are software-specific. Implementation knowledge lives in `software/<name>/solvers/`; build profiles declare enabled capabilities, and stacks record what was validated. Software-independent terminology belongs in `conventions/`, while `playbooks/tune-solver.md` owns the selection procedure | A body of actionable solver knowledge proves genuinely software-independent |
 | **Indexing** | Tier-0 `INDEX.md` is a ~dozen-line routing table; per-domain indices are **generated**, committed, and grouped by scoped object ([§indexing](#indexing)) | A domain has enough objects that grouping obscures rather than improves cold reading |
 | **Version pins** | `project.yaml` carries **none**. Pins live in stacks; the checkout in front of you is session state ([§version-lifetimes](#version-lifetimes)) | — |
@@ -66,6 +67,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Work mode** | Current, not permanent — may change mid-session, but only by explicit declaration. It follows the immediate decision and deliverable, not every tool used along the way ([§work-mode-currency](#work-mode-currency)) | — |
 | **Task-time Tier-2 routing** | Session startup loads Tier 1 only. Before substantive LQCD analysis or action, and whenever a task narrows or changes, the agent derives named applications, solvers, ensembles, and the immediate decision from the operator request and active project instructions, then uses `INDEX.md` and only the matching domain indices to load the smallest Tier-2 leaves whose `load_when` matches. Interpretation of mechanisms, parameters, failures, campaign evidence, or next candidates waits for this check | A reliable executable task router makes the Tier-0 checkpoint redundant |
 | **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate — the solver, build, runtime, resource-placement, and workflow choices being evaluated — while benchmarking measures a candidate and workload frozen before the measured series. A campaign may move from tuning to confirmatory benchmarking, but never occupies a hybrid mode, and an exploratory winner needs an independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
+| **Performance and tuning boundary** | Performance mode **diagnoses**: it captures or ingests a profile and produces a ranked, evidenced hypothesis list. Tuning mode **searches**: it applies a change, rebuilds, remeasures, and selects a candidate. A profile-driven optimisation loop therefore crosses a mode boundary and is declared at the crossing; it is never one mode doing both, for the same reason tuning and benchmarking are not ([§work-modes](#work-modes), [§profile-analysis](#profile-analysis)) | A diagnosis phase proves to carry no decision content distinct from the search that follows it |
 | **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; missing session logging produces a non-blocking offer in the orientation report ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
 | **Privacy-screening boundary** | Screen only the exact material crossing into the handbook: a user-mode inbox entry or a direct developer-mode change. Handbook privacy rules never mandate scanning, redacting, or rewriting the working project that holds source evidence ([§privacy-screening](#privacy-screening), [§handbook-modes](#handbook-modes)) | The repository's publication boundary changes |
@@ -1648,7 +1650,16 @@ distinguishing content:
 - **debugging** — needs the problem statement and where the code is; must ask whether it
   is analysis-only or hands-on (build/run/edit/recompile); `compute-sanitizer`,
   `valgrind4hpc`; **may submit jobs only under an explicit node-hour budget** ([§budget-rule](#budget-rule)).
-- **performance** — Nsight Systems / RocProfiler Systems output; harvests PerfAdvisor.
+- **performance** — needs the profile or the capture plan, the application and the build that
+  produced it, the region of interest, and the division of labour. It answers *where does the
+  time go, and why*: capture or ingest a profiler database, extract a structured summary with a
+  tool rather than by reading the database in the session, and produce a **ranked list of
+  hypotheses**, each naming the evidence it rests on and the fraction of runtime it claims.
+  **Every figure a hypothesis cites is one the extraction tool emitted**
+  ([§profile-analysis](#profile-analysis)). It diagnoses and does not search: applying a change
+  and remeasuring is tuning, and that transition is declared, not drifted into
+  ([§work-mode-currency](#work-mode-currency)). A capture run consumes allocation like any other,
+  so it **may submit jobs only under an explicit node-hour budget** ([§budget-rule](#budget-rule)).
 - **benchmarking** — needs a frozen candidate and workload, the target quantity, the
   benchmark intent (fixed solver or component comparison, or workflow-cost estimation), a
   correctness reference, and the division of labour (prepare+submit+analyze, or
@@ -1672,7 +1683,8 @@ distinguishing content:
   holds only how to *structure* that state, how to interpret it, and how to recover from
   failure. Otherwise the repo becomes a distributed job database as well as a knowledge base.
 
-The mode follows the **immediate decision**, not the presence of a timer or profiler. Measuring
+The mode follows the **immediate decision**, not the presence of a timer or profiler. Reading a
+profile to find out where the time goes is performance. Measuring
 a candidate while deciding what to try next is tuning. Measuring a fixed candidate to estimate
 its performance or cost is benchmarking. A campaign may pass through debugging, performance,
 tuning, benchmarking, and production in sequence; exactly one governs each phase.
@@ -2045,6 +2057,77 @@ same conclusion [§deferred-decisions](ROADMAP.md#deferred-decisions) already re
 enforcing the budget. It is calibrated against scripts already trusted in the working project,
 because a lint that fires on known-good input trains the operator to ignore it —
 [§tolerances](#tolerances) applied to a checker.
+
+<a id="profile-analysis"></a>
+### 7.9. Profile analysis: extraction is a tool, interpretation is a leaf
+
+A GPU profile is a multi-gigabyte database, and the capability to read one was built outside this
+handbook as a standalone analyzer with its own model calls. Importing it whole would be the wrong
+shape twice over, because its two halves are different kinds of object and fail differently.
+
+**Extraction is code and ships as a tool.** Vendor SQL, string-table joins, concurrency-aware
+interval merging, phase segmentation and cross-rank alignment are thousands of lines that no
+session should re-derive and none would re-derive identically twice.
+[§prefer-a-tool](#prefer-a-tool) already settles this. The tool makes no model call, opens no
+socket and needs no key — which is also what keeps it usable on a login node behind MFA, where
+[§deferred-decisions](ROADMAP.md#deferred-decisions) rejected a served handbook for the same
+reason. **It carries no third-party import it can avoid**: a 2026-08-28 Perlmutter session found
+the mandatory validator unable to run at all because no interpreter on `PATH` carried its one
+dependency, and an analyzer that fails to import fails exactly when it is wanted.
+
+**Interpretation is knowledge and ships as leaves.** The valuable half of that analyzer is not
+its SQL; it is a written contract about what each metric may and may not be read to say — that
+summed kernel time is work and not elapsed time, that a launch-geometry fill ratio is not
+occupancy and must never be named as though it were, that a per-phase breakdown lists events
+unclipped so one long event appears under two phases. That is Tier-2 leaf content, carried as a
+prompt string only because the analyzer had nowhere else to put it. A software-independent rule
+goes to `conventions/`; an application-specific one — how a kernel name resolves to the source
+that generated it — goes to `software/<name>/` under P3.
+
+**The tool exposes the aggregations, not only the database.** Concurrency-aware busy time,
+name-grouped kernel totals, windowed phase breakdowns and stable variance are each a correct
+answer that an ad-hoc query gets wrong in a way that reads as plausible — summing durations
+returns work where the reader wanted elapsed time. Raw query access remains, as the escape
+hatch it is: read-only, row-capped and interruptible, because an uncapped scan of a
+multi-gigabyte profile is the ordinary accident and not the exotic one.
+
+**The handbook does not wrap a second agent.** A session is already an agent with tools, a
+transcript and a working directory. Calling another one across a network adds a key, a provider,
+an egress path and a verdict the session cannot audit, leaving it to relay a conclusion instead
+of reaching one. The session performs the analysis; the tool supplies the numbers.
+
+**A hypothesis is an `inferred` claim and carries that tier's obligations.** Under
+[§evidence-vocabulary](#evidence-vocabulary) an inference names its premises and stays labelled
+as one. Here that is a hard rule rather than a style note: **every figure a hypothesis cites must
+be one the extraction tool emitted**, and the tool re-checks quoted values rather than the session
+vouching for them. A hypothesis also records the queries its evidence came from, so the analysis
+can be re-derived rather than re-trusted; the prose session log deliberately omits tool output
+([§session-logging](#session-logging)), so the record is the only durable trace. The failure this
+guards was observed in the source analyzer's own evaluation — a hypothesis citing fabricated
+numbers scored identically to one citing real ones, because nothing compared the evidence against
+the profile. A confident wrong answer is the expensive
+failure in this mode, not a missed finding.
+
+**Derived quantities are computed, never asked for.** A speedup bound that follows arithmetically
+from a claimed runtime fraction is computed by the tool. The session supplies judgement and
+evidence; the tool supplies arithmetic. Same division [§the-loop](#the-loop) already applies to
+predictions, for the same reason: a wrong number produced by a model reads as a precise,
+profile-grounded fact.
+
+**And that bound is a prediction, so the loop closes on it.** A hypothesis asserting that a
+bottleneck holds a stated fraction of runtime predicts what removing it is worth. Under
+[§predict-compare-loop](#predict-compare-loop) the prediction is recorded before the next run and
+compared after it, which makes a hypothesis falsifiable and turns a systematically inflated
+fraction into a detectable defect rather than an invisible one. The records stay in the working
+directory ([§records-in-working-directory](#records-in-working-directory)); the handbook holds
+the contract and never the numbers.
+
+**Measured profile numbers are not handbook facts.** Kernel timings, call counts and phase
+breakdowns from a real run are observations about one application on one machine on one day —
+episode tier under [§scope-levels](#scope-levels), campaign state under
+[§no-escape-hatch](#no-escape-hatch). What may be admitted is the durable residue: a metric
+definition, a mechanism, a capture hazard, a name-resolution rule. The distinction needs stating
+because a profile is unusually rich in numbers that look publishable and are not.
 
 ---
 

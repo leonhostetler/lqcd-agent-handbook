@@ -1,13 +1,15 @@
 # LQCD Agent Handbook — Roadmap
 
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
-matrix, including both Claude cases, has passed. Slice 4 remains in progress. The
+matrix, including both Claude cases, has passed. Slice 4 remains in progress. Slice 6 is in
+progress: its architecture decision and `modes/performance.md` landed on 2026-09-14. The
 operator-directed solver import through Stage 5 is published; solver-import Stage 6 is
 indefinitely deferred while split-grid deflated CG remains in development, testing, and
 tuning.
 
-**NEXT ACTION:** Complete Slice 4's remaining scheduler-placement, capture, and
-budget-ledger work, then run its cold-session acceptance test.
+**NEXT ACTION:** Land Slice 6 Stage 2 — the offline profile-extraction tool — then its
+Stage 3 analysis-contract leaves. Slice 4's remaining scheduler-placement, capture, and
+budget-ledger work stays open behind it.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -223,6 +225,69 @@ because the phrase wrapped across a line.
 The `test_session_logging.py::test_validator_rejects_missing_declared_logger` failure predates
 this work; it was failing at `65652ce` and is unrelated to the import.
 
+On 2026-09-14 the deferred decision that `modes/performance.md` does not exist was closed by its
+own stated trigger: a session declared performance mode, orientation reported the mode document
+absent, and the work that closes it ran in that session. Two changes landed, in the order
+[§developer-obligations](ARCHITECTURE.md#developer-obligations) requires — the authority first,
+the tree after.
+
+`ARCHITECTURE.md` gained [§profile-analysis](ARCHITECTURE.md#profile-analysis) and two
+locked-decision rows. The question was how to absorb a profile-analysis capability built outside
+the handbook as a standalone analyzer with its own model calls, and the answer splits it on what
+each half **is**. Deterministic extraction — vendor SQL, string-table joins, concurrency-aware
+interval merging, phase segmentation, cross-rank alignment — is code and ships as an offline
+tool under [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool). The interpretation contract is
+knowledge and ships as leaves. **The handbook does not wrap a second agent**: a session already
+is one, and calling another across a network adds a key, a provider, an egress path and a verdict
+the session cannot audit — the same reasoning that rejected a served handbook in
+[§deferred-decisions](#deferred-decisions).
+
+Two consequences were recorded because neither follows from the decision alone. The extraction
+tool **owns the correct aggregations** rather than merely exposing the database, because an
+ad-hoc query returns work where the reader wanted elapsed time and the error reads as plausible;
+raw query access stays as a read-only, row-capped escape hatch. And a hypothesis **records the
+queries its evidence came from**, because the prose session log deliberately omits tool output —
+so in the one mode where the queries *are* the evidence, that record is the only durable trace.
+
+The second change separates **diagnosis from search**. Performance mode produces a ranked,
+evidenced hypothesis list; applying a change and remeasuring is adaptive search, which is tuning
+by the definition [§decisions-operation](ARCHITECTURE.md#decisions-operation) already locks. A
+profile-driven optimisation loop therefore crosses a declared mode boundary instead of becoming
+a hybrid mode, and the performance → tuning → benchmarking chain gains its first link.
+
+`modes/performance.md` then landed against the specification the deferred row had written in
+advance, and that is the part worth keeping: the row named the required sections and the two
+cross-cutting triggers before anyone wrote the file, so the file was checkable against it rather
+than reviewed on taste. The `conventions/batch-scripts.md` trigger and the
+`conventions/repeated-work.md` automation checkpoint now reach all five work modes rather than
+four.
+
+The mode's substantive content is what a **tracer** can and cannot establish. Nsight Systems and
+ROCm Systems Profiler record API calls, launches, durations, transfers and annotation ranges;
+without deliberately collected counters they do not record achieved bandwidth, cache behaviour,
+coalescing, or achieved occupancy. Memory-boundedness, occupancy claims, and the health of an
+uninstrumented subsystem are therefore questions for a counter-collecting run, never findings
+from a trace. That rule is why the source benchmark suite deleted its bandwidth, compute-bound
+and occupancy scenarios rather than keeping them, and it transfers as a mode rule rather than as
+a benchmark note.
+
+**Nothing measured was admitted.** Kernel timings, call counts and phase breakdowns from the
+source working tree are episode tier and stay there; what crossed is metric definitions,
+mechanisms, and the capture-hazard class. The QUDA cold-cache reading of duration spread was
+deliberately *routed to* rather than stated in the mode document, because it is a software-scoped
+fact and belongs in `software/quda/internals/autotuning.md` under its own approval.
+
+Two stale records were found. The automated-evidence block below reported 227 references, 156
+checks and Tier 0 at 5,383 bytes, all of which predate HEAD; it is refreshed below. And
+`test_validator_rejects_missing_declared_logger`, recorded above as failing at `65652ce`, **passes
+at HEAD** — the failure no longer reproduces.
+
+One gap was found and not fixed. The validator's reference check resolves only links carrying an
+`#anchor`; a plain `](../conventions/foo.md)` link is not checked anywhere, so a mistyped path in
+a mode, playbook or convention file is silent. The six such links in `modes/performance.md` were
+verified by hand. This is the same defect class as the 2026-09-03 amendment that widened that
+check after three broken anchors hid in exactly these surfaces, and it deserves its own change.
+
 <a id="current-slice-state"></a>
 ## Current slice state
 
@@ -271,9 +336,11 @@ statistics. Scheduler placement, capture, and budget-ledger portions remain Slic
 
 Three user-facing contracts remain intentional future additions rather than current handbook
 capabilities. Slice 4 will add the append-only submission-budget-ledger format and the shared
-prediction schema and capture workflow. Slice 6 will add `modes/performance.md` and the profile-
-analysis playbook. Until those files land, their absence does not relax the submission ceiling
-or ledger safeguards, and startup must report that performance mode has no recorded conventions.
+prediction schema and capture workflow. Slice 6 will add the profile-analysis playbook and the
+offline extraction tool. Until those files land, their absence does not relax the submission
+ceiling or ledger safeguards. `modes/performance.md` landed on 2026-09-14, so startup no longer
+reports performance mode as lacking a mode document; the mode's own limitation paragraph states
+which contracts are still outstanding.
 
 Also on 2026-08-19, the public-source foundation of Slice 5 was pulled forward without changing
 the current Slice 4 next action. The MILC HISQ catalog records the 24 isospin-symmetric ensembles
@@ -557,11 +624,11 @@ the handbook-owned `skills/` directories the validator needs.
 
 Latest automated evidence:
 
-- `tools/run-validator`: twenty-eight schema objects valid, forty-nine provenance records
+- `tools/run-validator`: twenty-nine schema objects valid, fifty-three provenance records
   complete, four generated indices current, sixteen pre-existing P2 advisories, two frontend
-  adapters and six session-logging assets valid, 227 long-document references resolved, no
-  deny-list match, and Tier 0 at 5,383/6,144 bytes;
-- `python3 -m unittest discover -s tests -v`: all 156 checks pass, including detector-first
+  adapters and six session-logging assets valid, 274 long-document references resolved, no
+  deny-list match, and Tier 0 at 5,759/6,144 bytes;
+- `python3 -m unittest discover -s tests -v`: all 171 checks pass, including detector-first
   bounded startup routing, task-time solver routing, the bounded native staggered-MG stack,
   the batch-script checker and its dispatcher runner, and focused solver-import,
   memory/decomposition, and cold-reader interface regressions;
@@ -573,8 +640,9 @@ Latest automated evidence:
 
 The validator is now invoked through `tools/run-validator` rather than a bare `python3`,
 because on a module-based system no interpreter on `PATH` carries `jsonschema`; the runner
-discovers one. One caveat on the suite: this session's counts were observed under a 3.12
-module, with identical results under 3.11 and 3.14. The eleven errors that used to appear
+discovers one. One caveat on the suite: the 2026-09-14 counts were observed on a workstation
+under Python 3.13.9 on `PATH`, which needed no module; earlier counts were taken under 3.11,
+3.12 and 3.14 modules with identical results. The eleven errors that used to appear
 inside a working tree where an agent frontend has mounted placeholders over `.mcp.json` or
 `.claude/` paths were fixed on 2026-08-28.
 
@@ -947,12 +1015,34 @@ tuning session on an ensemble *not* in the corpus loads no ensemble-scoped mater
 that is the check that narrow knowledge was filed rather than inlined.
 
 ### Slice 6 — performance analysis
-`modes/performance.md`, `playbooks/analyze-profile.md`, harvested from the operator's PerfAdvisor
-working tree with the exact proposed handbook additions screened at intake.
+`modes/performance.md`, `playbooks/analyze-profile.md`, and the offline profile-extraction and
+diff tools, harvested from the operator's PerfAdvisor working tree with the exact proposed
+handbook additions screened at intake. [§profile-analysis](ARCHITECTURE.md#profile-analysis)
+governs the split: extraction ships as a tool, interpretation as leaves, no second agent is
+wrapped.
 
-**Future addition:** `performance` is already a valid mode name for startup routing, but its mode
-document and analysis playbook have not landed. Startup therefore reports the bootstrap limitation
-and uses no unrecorded performance conventions when that mode is selected.
+The import is staged. **Stage 0** recorded the architecture decision. **Stage 1** landed
+`modes/performance.md`. **Stage 2** adds the extraction tool, carrying the ingestion and metric
+layers with the agent, provider, caching and preflight layers dropped; its subcommands must cover
+every aggregation a session would otherwise recompute by hand, and its raw-query path is
+read-only, row-capped and interruptible. **Stage 3** adds the analysis playbook, a shared
+metric-definition convention, and the hypothesis record schema. **Stage 4** adds the
+software-scoped layer the source analyzer could not hold at all: kernel-name-to-source
+resolution, the cold-autotune-cache reading of duration spread, and application-driven phase
+boundaries. **Stage 5** gives tuning mode the code-change axis and closes the prediction loop on
+a hypothesis's claimed runtime fraction. **Stage 6** re-points the source suite's scored
+scenarios at a handbook session's hypothesis record.
+
+**The calibration harness stays outside the handbook.** The source suite's injected-bottleneck
+profiles, ground truth and scorer hold one property — a profile-blind baseline scores near zero —
+and the handbook has no equivalent, its acceptance tests being qualitative. They remain in the
+working directory as the observations that calibrate the contract, under
+[§records-in-working-directory](ARCHITECTURE.md#records-in-working-directory); the handbook ships
+the rule and never the numbers. Capture a current baseline before Stage 2, so there is a
+before-number to compare against.
+
+*State:* Stages 0 and 1 landed 2026-09-14. The "Current limitation" paragraph in
+`modes/performance.md` is deleted by the change that lands Stage 2.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check
@@ -995,7 +1085,6 @@ column is the test. On the move into the repo ([§plan-ships-with-handbook](ARCH
 | **Whether session logging should also archive the raw transcript JSONL** for full provenance, tool I/O included ([§session-logging](ARCHITECTURE.md#session-logging)) | **Prose-only.** The shipped logger stays as the operator wrote it; the JSONL under `~/.claude/projects/` is the true last resort where it survives | The prose record proves insufficient to reconstruct an episode the operator needed back — or a machine rebuild/scratch purge destroys a JSONL that was wanted. Note the cost before adopting: much larger files in the working directory, and a far bigger privacy surface, since the JSONL contains every file read and every command run |
 | **Whether the handbook is measurably cheaper than the rediscovery it replaces** | No measurement. Cold-session tests stay qualitative | The handbook becomes big enough to feel slow to navigate. **If implemented, it is the lightweight version** (below) — not an A/B harness |
 | **A retained validation set for the fitted tool models** — a small, screened set of `(inputs -> measured counter)` rows committed as test fixtures, so a fit's published error is re-derivable in-repo | **None committed.** `tools/quda-staggered-memory.py` carries its population and error strings as prose, and the corpus behind them is not in this repository ([§non-public-evidence](ARCHITECTURE.md#non-public-evidence)). The 2026-09-02 regression test pins the documented examples to the model's **own output**, so it detects drift but cannot detect that a model was wrong to begin with. Under [§decisions-knowledge-contract](ARCHITECTURE.md#decisions-knowledge-contract) no fit may be revised meanwhile, which is conservative but leaves known one-sided errors uncorrected | A fit needs revising rather than annotating — the open case is whether the MG model's phase A genuinely peaks before the coarsest eigensolve, or whether its fitted setup-workspace constant absorbs an eigenspace term that was near-constant across the corpus; those imply opposite repairs and no in-repo evidence distinguishes them. Needs a publishability decision on the fact class first ([§ensemble-numbers](ARCHITECTURE.md#ensemble-numbers)) |
-| **`modes/performance.md` does not exist** — `ARCHITECTURE.md` §7.1 specifies five work modes and sketches performance mode's content, but `modes/` ships only `benchmarking`, `debugging`, `production` and `tuning` | `playbooks/start-session.md` stage 5 reads `modes/<work-mode>.md` **"when it exists"** and otherwise reports the limitation, so a session declaring *performance* orients without a mode document and must fall back to the operator's direction. Conservative, but it means cross-cutting obligations reach four of five modes. **Known to be missing from a performance session today:** the `conventions/batch-scripts.md` trigger and the `conventions/repeated-work.md` automation checkpoint, both of which every other work mode carries | A session actually declares performance mode, or Slice 4 acceptance is prepared — whichever is first. **When it is written it must carry what all four existing modes share**, not merely the §7.1 sketch: an *"Establish the …"* opener fixing what must be settled before acting, a method section, **`Permissions and safeguards`**, **`Tools and routing`**, and **`Done`** — plus, from §7.1, what to ask up front, what may be done unprompted, what must never be done, which tools and playbooks apply, and what "done" looks like. Its `Tools and routing` must name `conventions/batch-scripts.md` and `conventions/repeated-work.md`, and its `Done` must carry the automation checkpoint, or the two rules land unevenly across modes |
 | **Optional follow-up mining from the `ks_spectrum` benchmark corpus** — detailed memory/telemetry analysis, numerical reference-correlator comparison, and broader gauge-I/O-path validation | The admitted guidance requires ordinary resource evidence and structural, numerical, and scientific checks, but claims no telemetry-analysis method, reference-correlator comparison recipe, or preferred gauge-I/O path. Gauge loading is only a candidate tuning dimension when it is a non-negligible production cost | Revisit an item independently when a concrete tuning or validation decision needs it and suitably scoped evidence is available. These investigations are optional; none blocks Slice 4 acceptance |
 
 
