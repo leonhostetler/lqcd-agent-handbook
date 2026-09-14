@@ -73,7 +73,8 @@ A demangled kernel name resolves to the source that launched it. Read that sourc
 suspected pattern rather than inferring it from a duration. Read the build log to establish
 whether an option the suggestion depends on is actually compiled in. Where the software has a
 handbook leaf covering the mechanism, load it: a cited leaf is a stronger premise than recall,
-and it is checkable.
+and it is checkable. For QUDA, [`software/quda/profiling.md`](../software/quda/profiling.md) is
+the leaf that turns a demangled kernel name into the source file that defines it.
 
 Reading source, build logs, and run logs is in scope here. **Changing any of them is not.**
 

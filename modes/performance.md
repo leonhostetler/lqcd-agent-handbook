@@ -71,10 +71,11 @@ health of an uninstrumented subsystem are questions for a counter-collecting run
    source that launched it; a suspected pattern is confirmed by reading that source, not inferred
    from a duration. Reading source, build logs, and run logs is in scope for this mode. Changing
    any of them is not.
-6. Reconcile against what the handbook already records before concluding. When the profiled
-   software autotunes, load its own autotuning document first: on a cold cache the first launch
-   of each kernel shape is a tuning sweep rather than steady-state work, and the duration spread
-   that results is an artefact that reads exactly like load imbalance.
+6. Reconcile against what the handbook already records before concluding. When the software has
+   a leaf on reading its kernels in a profile, load it before interpreting names, call counts,
+   launch geometry or duration spread — for QUDA that is
+   [`software/quda/profiling.md`](../software/quda/profiling.md), which records why a cold
+   tunecache inflates all four.
 7. Treat one rank's profile as one rank's view. Imbalance is a cross-rank quantity and is not
    visible from a single rank, where a rank waiting on its neighbours looks like a rank with a
    communication problem of its own. Use the `cross-rank` subcommand across the per-rank
