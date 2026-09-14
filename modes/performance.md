@@ -10,12 +10,10 @@ A profile is evidence about one execution, on one machine, under one set of capt
 is not a description of the application, and every number read out of it inherits the conditions
 of the run that produced it.
 
-**Current limitation.** `tools/gpu-profile-summary.py` and `tools/gpu-profile-diff.py` extract
-and compare Nsight Systems and rocpd profiles, single-rank and multi-rank. The profile-analysis
-playbook, the shared metric-definition convention, and the hypothesis record schema have not
-landed, so the hypothesis format below is stated here rather than enforced anywhere. Where a
-quantity is derived by hand rather than by the tool, an analysis must say so. What is absent
-relaxes neither the submission ceiling, the evidence rule, nor the capability rule.
+**Current limitation.** No tool validates a hypothesis record against
+`schemas/hypothesis.schema.json`, so conformance to it is a discipline rather than a check.
+Where a quantity is derived by hand rather than by the extraction tool, an analysis must say
+so.
 
 ## Establish the task
 
@@ -41,30 +39,16 @@ Before analysing a profile:
 
 ## What a trace shows, and what it does not
 
-Nsight Systems and ROCm Systems Profiler are **tracers**. They record API calls, kernel launches
-and their durations, memory transfers, synchronization, and annotation ranges. Unless hardware
-counters were deliberately collected, they do not record achieved memory bandwidth, cache
-behaviour, access coalescing, or achieved occupancy.
+[`conventions/profile-metrics.md`](../conventions/profile-metrics.md) defines every extracted
+quantity and the readings that are unfounded on trace data alone. **Load it before quoting any
+figure from a profile.** It is named here rather than only in routing because a correctly
+indexed leaf has been observed not to fire at the moment it applied.
 
-The consequence is a rule, because the temptation is strong and the error is invisible in the
-output: **a bottleneck the capture cannot observe may not be asserted from it.** A kernel that is
-slow in a trace is slow. Whether it is slow *because it is memory-bound* is a different claim,
-and it needs counters the trace does not hold. Record it as a question for a counter-collecting
-run, not as a finding.
-
-Three further readings are unfounded on a trace alone and recur anyway:
-
-- **Launch geometry is not occupancy.** How much of one device wave a launch fills follows from
-  grid and block extents, which the trace records. Register and shared-memory pressure do not,
-  and either can hold achieved occupancy far below what the geometry allows. A launch filling at
-  least one wave establishes only that, and never that occupancy is high.
-- **Summed kernel duration is work, not elapsed time.** Kernels concurrent on different streams
-  each contribute in full, so the sum can exceed the wall-clock span. Anything divided by elapsed
-  time uses the merged busy interval instead. The same rule governs host time blocked in
-  synchronization, which is merged across threads rather than summed.
-- **Absent instrumentation is not an absent bottleneck.** A capture with no communication tables
-  supports no communication hypothesis — and equally supports no claim that communication is
-  healthy. Report a capability gap as a gap.
+The rule it exists to enforce is short enough to carry in the mode: **a bottleneck the capture
+cannot observe may not be asserted from it.** Tracers record API calls, launches, durations,
+transfers and ranges; without deliberately collected counters they record neither achieved
+bandwidth nor cache behaviour nor achieved occupancy. Memory-boundedness, occupancy, and the
+health of an uninstrumented subsystem are questions for a counter-collecting run, not findings.
 
 ## Analysis method
 
@@ -157,6 +141,10 @@ the capture could not observe, so tuning does not treat silence as a clean bill.
 
 Before substantive analysis, run the task-time Tier-2 routing checkpoint, and re-run it whenever
 the application, phase, suspected bottleneck, or immediate decision changes.
+Open the [profile-analysis playbook](../playbooks/analyze-profile.md) before beginning an
+analysis; it owns the procedure this mode governs. Load
+[`conventions/profile-metrics.md`](../conventions/profile-metrics.md) before reading or quoting
+any extracted quantity; it is the canonical home for what each one means.
 
 **Reload the routing this mode depends on after a context compaction.** A deep drill-down is the
 session shape most likely to compact, and a compaction removes every Tier-2 leaf while still

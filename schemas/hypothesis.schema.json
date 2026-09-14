@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hypothesis.schema.json",
+  "title": "GPU profile hypothesis record",
+  "description": "Ranked, evidenced output of a performance-mode analysis. The record lives in the working directory beside the profile it describes, never in the handbook: it is an observation about one run. Array order is the ranking.",
+  "type": "object",
+  "required": ["schema_version", "generated", "profile", "extraction", "hypotheses"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "generated": { "type": "string", "format": "date" },
+    "profile": {
+      "type": "object",
+      "required": ["identity", "capture_conditions"],
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "string",
+          "description": "How to find this capture again, in terms meaningful in the working directory."
+        },
+        "ranks": { "type": "integer", "minimum": 1 },
+        "build": {
+          "type": "object",
+          "description": "What produced the capture. A suggestion is actionable only if the change it names exists in this build.",
+          "additionalProperties": true
+        },
+        "capture_conditions": {
+          "type": "object",
+          "required": ["autotune_cache"],
+          "additionalProperties": true,
+          "properties": {
+            "autotune_cache": { "enum": ["cold", "warm", "unknown", "not_applicable"] },
+            "warmup_inside_window": { "type": ["boolean", "null"] },
+            "ranks_profiled": { "type": ["string", "null"] }
+          }
+        },
+        "capability_gaps": {
+          "type": "array",
+          "description": "What the capture cannot observe. Absent instrumentation supports no hypothesis about the absent subsystem and no claim that it is healthy.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "extraction": {
+      "type": "object",
+      "required": ["tool"],
+      "additionalProperties": false,
+      "properties": {
+        "tool": { "type": "string" },
+        "derived_by_hand": {
+          "type": "array",
+          "description": "Quantities not produced by the tool. Empty is the expected state.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "description": "Ranked most significant first. The ranking is part of the answer.",
+      "items": {
+        "type": "object",
+        "required": [
+          "bottleneck",
+          "phase",
+          "description",
+          "evidence",
+          "queries",
+          "runtime_fraction_pct",
+          "suggestion",
+          "change_class",
+          "grounding",
+          "confidence",
+          "refuted_by"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bottleneck": {
+            "type": "string",
+            "description": "Short name for the pathology. Deliberately not a fixed enum; see the playbook."
+          },
+          "phase": { "type": "string" },
+          "description": { "type": "string" },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Every figure must be one the extraction emitted.",
+            "items": {
+              "type": "object",
+              "required": ["quantity", "value", "from"],
+              "additionalProperties": false,
+              "properties": {
+                "quantity": { "type": "string" },
+                "value": { "type": ["number", "string"] },
+                "unit": { "type": ["string", "null"] },
+                "from": {
+                  "type": "string",
+                  "description": "Subcommand or query index that produced it."
+                }
+              }
+            }
+          },
+          "queries": {
+            "type": "array",
+            "description": "The commands run, so the analysis can be re-derived rather than re-trusted.",
+            "items": { "type": "string" }
+          },
+          "runtime_fraction_pct": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Share of the phase's elapsed time. Null when not computable; never guessed."
+          },
+          "speedup_bounds_pct": {
+            "type": ["object", "null"],
+            "description": "Computed from runtime_fraction_pct, never asserted. Null when the fraction is null or leaves no residual runtime.",
+            "additionalProperties": false,
+            "properties": {
+              "lower": { "type": ["number", "null"] },
+              "upper": { "type": ["number", "null"] }
+            }
+          },
+          "suggestion": { "type": "string" },
+          "change_class": {
+            "enum": ["runtime_options", "launch_geometry", "source", "algorithm"],
+            "description": "If the change alters what is computed it is algorithm; if only how, it is lower."
+          },
+          "grounding": {
+            "type": "object",
+            "required": ["basis"],
+            "additionalProperties": false,
+            "properties": {
+              "basis": { "enum": ["profile", "handbook_leaf", "both"] },
+              "leaves": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Required when basis names a leaf. A cited leaf is checkable; recall is not."
+              }
+            }
+          },
+          "confidence": { "enum": ["high", "medium", "low"] },
+          "refuted_by": {
+            "type": "string",
+            "description": "What observation would overturn this. A hypothesis with no refutation is not one."
+          }
+        }
+      }
+    }
+  }
+}
