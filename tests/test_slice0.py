@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import importlib.util
 import shutil
 import subprocess
@@ -260,6 +261,47 @@ class SliceZeroTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 2, result.stdout)
                 self.assertIn("LQCD_HANDBOOK is not set", result.stdout)
                 self.assertIn("export LQCD_HANDBOOK=", result.stdout)
+
+    def test_validator_rejects_a_relative_link_with_no_anchor(self):
+        """Negative control for the anchorless-link check. Before it existed, 218 such
+        links in this repository were checked nowhere, and one of them was broken."""
+        with tempfile.TemporaryDirectory() as tmp:
+            handbook_copy = Path(tmp) / "handbook"
+            shutil.copytree(
+                ROOT,
+                handbook_copy,
+                ignore=handbook_copy_ignore(
+                    ROOT, ".git", "__pycache__", "*.pyc", "session_*.log"
+                ),
+            )
+            target = handbook_copy / "conventions/orientation.md"
+            target.write_text(target.read_text() + "\n[no such leaf](does-not-exist.md)\n")
+
+            result = subprocess.run(
+                [sys.executable, str(handbook_copy / "tools/validate-knowledge.py")],
+                cwd=handbook_copy,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn("link target missing does-not-exist.md", result.stdout)
+
+    def test_reference_check_covers_the_anchorless_links(self):
+        """A check that silently matches nothing is a recurring failure mode here, so
+        pin that the anchorless pass contributes rather than trusting that it ran."""
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "tools/validate-knowledge.py")],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        match = re.search(r"(\d+) references resolved", result.stdout)
+        self.assertIsNotNone(match, result.stdout)
+        self.assertGreater(int(match.group(1)), 400)
 
     def test_validator_rejects_frontend_manifest_drift(self):
         with tempfile.TemporaryDirectory() as temp_dir:

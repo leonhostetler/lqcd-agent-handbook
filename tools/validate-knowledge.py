@@ -30,6 +30,13 @@ BARE_SECTION_RE = re.compile(r'§([a-z][a-z0-9-]*)')
 # Cross-file anchored links from anywhere in the repo, not only the long documents.
 # The target is a relative path so it is resolved against the linking file's directory.
 CROSS_LINK_RE = re.compile(r'\[([^\]]+)\]\(([^)#]+\.md)#([a-z0-9][a-z0-9-]*)\)')
+# Any relative link, fragment optional and extension unrestricted. CROSS_LINK_RE requires
+# both a '#' and a '.md' suffix, so a link carrying no anchor -- or pointing at a schema or
+# a tool -- was checked nowhere and could ship broken. Anchored links match both patterns:
+# this one resolves the target, CROSS_LINK_RE resolves the slug inside it.
+RELATIVE_LINK_RE = re.compile(
+    r'\[([^\]]+)\]\((?!https?://|mailto:|#)([^)#\s]+)(#[a-z0-9-]+)?\)'
+)
 # Frontend tooling paths a sandbox materialises as unreadable placeholders; see tests/support.py.
 REFERENCE_SKIP_DIRS = {".git", ".claude", ".agents"}
 NUMERIC_VALUE_RE = re.compile(r"(?<![A-Za-z0-9_.-])([0-9]+(?:\.[0-9]+)?)(?![A-Za-z0-9_.-])")
@@ -725,11 +732,28 @@ def validate_references(root: Path, errors: list[str]) -> int:
         relative = path.relative_to(root)
         if REFERENCE_SKIP_DIRS & set(relative.parts):
             continue
-        if relative.as_posix() in LONG_DOCS:
-            continue
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
+            continue
+
+        # Existence of the target, for every relative link in every Markdown file --
+        # the long documents included, since their path-style links to leaves were
+        # skipped here and are not covered by LINK_RE either.
+        for _visible, link_target, _fragment in RELATIVE_LINK_RE.findall(text):
+            destination = (path.parent / link_target).resolve()
+            try:
+                destination.relative_to(root)
+            except ValueError:
+                errors.append(
+                    f"{relative.as_posix()}: link escapes the repository: {link_target}"
+                )
+                continue
+            checked += 1
+            if not destination.exists():
+                errors.append(f"{relative.as_posix()}: link target missing {link_target}")
+
+        if relative.as_posix() in LONG_DOCS:
             continue
         for visible, target, slug in CROSS_LINK_RE.findall(text):
             destination = (path.parent / target).resolve()
@@ -738,8 +762,7 @@ def validate_references(root: Path, errors: list[str]) -> int:
             except ValueError:
                 continue
             if not destination.is_file():
-                errors.append(f"{relative.as_posix()}: cross-reference target missing {target}")
-                continue
+                continue  # already reported by the existence pass above
             checked += 1
             if slug not in anchors_of(destination):
                 errors.append(

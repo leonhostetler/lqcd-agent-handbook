@@ -282,11 +282,22 @@ checks and Tier 0 at 5,383 bytes, all of which predate HEAD; it is refreshed bel
 `test_validator_rejects_missing_declared_logger`, recorded above as failing at `65652ce`, **passes
 at HEAD** — the failure no longer reproduces.
 
-One gap was found and not fixed. The validator's reference check resolves only links carrying an
-`#anchor`; a plain `](../conventions/foo.md)` link is not checked anywhere, so a mistyped path in
-a mode, playbook or convention file is silent. The six such links in `modes/performance.md` were
-verified by hand. This is the same defect class as the 2026-09-03 amendment that widened that
-check after three broken anchors hid in exactly these surfaces, and it deserves its own change.
+A gap was found and then closed. The validator's reference check resolved only links carrying an
+`#anchor`, because `CROSS_LINK_RE` requires both a `#` and a `.md` suffix — so a plain
+`](../conventions/foo.md)` link was checked nowhere, as was every link to a schema or a tool.
+The existence check already sat in that loop; it simply never saw those links. A
+`RELATIVE_LINK_RE` pass now resolves the target of every relative link in every Markdown file,
+the long documents included, whose path-style links to leaves that loop had skipped. The
+reported count went from 274 to 571.
+
+**It found a committed broken link on its first run**: `staggered-memory.md` pointed at
+`../staggered-multigrid.md`, one directory above the file that exists. It had shipped, and a
+reader following it got nothing. That is the same defect class as the 2026-09-03 amendment,
+which widened this check's *scope* to the task-time surfaces but not its *pattern* — a guard
+can be correctly scoped and still blind. Two tests pin the fix: one plants an anchorless broken
+link and requires the validator to reject it, and one asserts the reference count stays above
+400, because a pass that silently matches nothing is the failure mode this session hit twice
+while writing negative controls.
 
 <a id="current-slice-state"></a>
 ## Current slice state
@@ -626,7 +637,7 @@ Latest automated evidence:
 
 - `tools/run-validator`: twenty-nine schema objects valid, fifty-three provenance records
   complete, four generated indices current, sixteen pre-existing P2 advisories, two frontend
-  adapters and six session-logging assets valid, 274 long-document references resolved, no
+  adapters and six session-logging assets valid, 571 references resolved, no
   deny-list match, and Tier 0 at 5,759/6,144 bytes;
 - `python3 -m unittest discover -s tests -v`: all 171 checks pass, including detector-first
   bounded startup routing, task-time solver routing, the bounded native staggered-MG stack,

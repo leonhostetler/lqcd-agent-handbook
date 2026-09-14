@@ -526,7 +526,7 @@ placement binding.
 
 Turning `use_mma` off measurably lowers device high-water — consistent with the extra
 MILC-order coarse-gauge copies and ghosts that the MMA path can retain, recorded in
-[`../staggered-multigrid.md`](../staggered-multigrid.md) — but it is not free. In the one
+[`staggered-multigrid.md`](staggered-multigrid.md) — but it is not free. In the one
 recorded attempt the memory saving was real and substantial while the same eigensolve made
 only marginal progress in the time available, so the throughput cost was large and remains
 **unquantified**.
