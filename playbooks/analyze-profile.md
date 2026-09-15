@@ -54,9 +54,15 @@ share of elapsed time, never by how unusual a number looks. Two of those are the
 change conclusions: `transfer-overlap` because a transfer class only costs what it exposes, and
 `idle-attribution` because idle is the largest line in most phases and is otherwise unnamed.
 
-**The account must close, and `idle-attribution` is what closes it.** It splits inter-kernel
-idle into MPI, host-API and OS time and reports the residual — host time the capture located
-but did not name. A large residual is the finding, not a gap in the analysis: read its gap
+**The account must close, and `idle-attribution` is what closes it — on the window, not only
+on the idle.** Check `outside_kernel_span_s` first: the account closes as
+`kernel_busy + idle + outside_kernel_span == window`, and where that last term is large the
+window is mostly before the first kernel or after the last, so the idle split below describes
+a fraction of it while still balancing exactly. That case is a finding in its own right and is
+usually startup, teardown or a structural stall; the tool warns above 10% of the window.
+Then split the idle: `idle-attribution` divides inter-kernel idle into MPI, host-API and OS
+time and reports the residual — host time the capture located but did not name. A large
+residual is the finding, not a gap in the analysis: read its gap
 histogram, which usually separates diffuse per-launch overhead from a few structural stalls,
 and read
 [`conventions/profile-metrics.md`](../conventions/profile-metrics.md) on what it is an upper

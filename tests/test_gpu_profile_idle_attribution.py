@@ -48,11 +48,11 @@ class AttributionTestBase(unittest.TestCase):
             p.close()
         self._tmp.cleanup()
 
-    def attribution(self, name: str = "a.db", **kwargs):
+    def attribution(self, name: str = "a.db", *, window=None, **kwargs):
         path = build_idle_attribution_nsys_db(self.dir / name, **kwargs)
         profile = open_profile(path)
         self._open.append(profile)
-        return compute_idle_attribution(profile)
+        return compute_idle_attribution(profile, *(window or (None, None)))
 
     def overlap(self, name: str = "a.db", **kwargs) -> dict:
         path = build_idle_attribution_nsys_db(self.dir / name, **kwargs)
@@ -170,6 +170,62 @@ class IdleAttributionTests(AttributionTestBase):
             self.assertTrue(self.category(a, name).available, name)
             self.assertIsNotNone(self.category(a, name).total_s, name)
         self.assertEqual(a.residual_absorbs, [])
+
+
+class OutsideKernelSpanTests(AttributionTestBase):
+    """The window-level account, and the guard that says when the idle split is not it.
+
+    Idle is measured between kernels, so ``kernel_busy + idle`` covers only
+    first-kernel-start to last-kernel-end. A window holding startup, teardown or a
+    structural stall is mostly outside that, and the idle split then balances exactly
+    while describing a sliver of the window -- a closed-looking account of 5% of the
+    phase, measured on a real capture (ROADMAP.md, Slice 6). The control is that the
+    split is *unchanged* by the perturbation and only the new term and the caveat move.
+    """
+
+    SPAN = (1_000_000_000, 1_026_000_000)  # exactly the fixture's kernel span
+
+    def test_a_window_matching_the_kernel_span_has_nothing_outside(self):
+        a = self.attribution(window=self.SPAN)
+        self.assertAlmostEqual(a.outside_kernel_span_s, 0.0, places=9)
+        self.assertFalse([c for c in a.caveats if "lies before the first kernel" in c])
+
+    def test_the_window_identity_closes(self):
+        for name, window in (
+            ("span", self.SPAN),
+            ("wide", (960 * MS, 1_026 * MS)),
+            ("narrow", (998 * MS, 1_026 * MS)),
+        ):
+            with self.subTest(name):
+                a = self.attribution(f"{name}.db", window=window)
+                self.assertAlmostEqual(
+                    a.kernel_busy_s + a.gpu_idle_s + a.outside_kernel_span_s,
+                    a.window_s,
+                    places=9,
+                )
+
+    def test_startup_outside_the_kernel_span_is_reported_and_warned(self):
+        """Perturbation: 40 ms of pre-kernel window must land in the new term."""
+        a = self.attribution(window=(960 * MS, 1_026 * MS))
+        self.assertAlmostEqual(a.outside_kernel_span_s, 0.040, places=9)
+        self.assertTrue([c for c in a.caveats if "lies before the first kernel" in c])
+
+    def test_the_idle_split_is_unchanged_by_that_perturbation(self):
+        """The reason the guard is needed: every idle figure balances identically."""
+        span = self.attribution("span.db", window=self.SPAN)
+        wide = self.attribution("wide.db", window=(960 * MS, 1_026 * MS))
+        for field in ("gpu_idle_s", "kernel_busy_s", "accounted_s", "residual_s"):
+            self.assertAlmostEqual(
+                getattr(span, field), getattr(wide, field), places=9, msg=field
+            )
+        self.assertAlmostEqual(wide.accounted_s + wide.residual_s, wide.gpu_idle_s, places=9)
+
+    def test_a_small_overhang_does_not_trip_the_warning(self):
+        """Rejects the no-op perturbation: the guard must discriminate, not always fire."""
+        a = self.attribution(window=(998 * MS, 1_026 * MS))
+        self.assertAlmostEqual(a.outside_kernel_span_s, 0.002, places=9)
+        self.assertLess(a.outside_kernel_span_s / a.window_s, 0.10)
+        self.assertFalse([c for c in a.caveats if "lies before the first kernel" in c])
 
 
 class TransferOverlapTests(AttributionTestBase):

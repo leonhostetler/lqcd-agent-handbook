@@ -300,6 +300,11 @@ _RESIDUAL_CAVEAT = (
     "capture did not trace, including CUDA/HIP API calls skipped by the profiler."
 )
 
+# A window packed with kernels leaves a negligible remainder outside the kernel span;
+# one that is mostly startup, teardown or a stall leaves most of itself there. Warn
+# above this fraction, where the idle split stops describing the window it was given.
+_OUTSIDE_SPAN_WARN_FRACTION = 0.10
+
 
 def _clip(
     intervals: list[tuple[int, int]], start_ns: int, end_ns: int
@@ -343,6 +348,10 @@ def compute_idle_attribution(
 
     gaps, busy_ns = _idle_intervals(profile.kernel_events(), win_start, win_end)
     idle_ns = sum(e - s for s, e in gaps)
+    # Idle is measured between kernels, so busy + idle spans only first-kernel-start to
+    # last-kernel-end. Whatever the window holds outside that is not idle and is not
+    # described by the split below; name it rather than leaving the window unaccounted.
+    outside_ns = max(0, (win_end - win_start) - busy_ns - idle_ns)
 
     sources: list[tuple[str, bool, str, list[tuple[int, int]]]] = [
         (
@@ -405,6 +414,14 @@ def compute_idle_attribution(
     _, residual_buckets = _bucket_gaps([e - s for s, e in residual_intervals])
 
     caveats = [_RESIDUAL_CAVEAT]
+    window_ns = win_end - win_start
+    if window_ns and outside_ns / window_ns >= _OUTSIDE_SPAN_WARN_FRACTION:
+        caveats.append(
+            f"{outside_ns / 1e9:.3f} s of this {window_ns / 1e9:.3f} s window "
+            f"({100.0 * outside_ns / window_ns:.1f}%) lies before the first kernel or "
+            "after the last, where idle is not measured. The split below describes "
+            "only the remainder, so it does not account for this window."
+        )
     if absorbs:
         caveats.append(
             "Residual also absorbs "
@@ -417,6 +434,7 @@ def compute_idle_attribution(
         window_s=round((win_end - win_start) / 1e9, 6),
         kernel_busy_s=round(busy_ns / 1e9, 6),
         gpu_idle_s=round(idle_ns / 1e9, 6),
+        outside_kernel_span_s=round(outside_ns / 1e9, 6),
         categories=categories,
         accounted_s=round(accounted_ns / 1e9, 6),
         residual_s=round(residual_ns / 1e9, 6),

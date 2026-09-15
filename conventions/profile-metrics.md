@@ -56,6 +56,22 @@ kernel and after the last is excluded from that total, though it still contribut
 that utilisation divides by. A capture that begins long before the first launch therefore shows
 low utilisation and little idle time at once, and both figures are correct.
 
+**So the idle split does not by itself account for a window.** Two identities hold and they
+answer different questions. Within the idle set, `accounted + residual == idle`. Across the
+window, `kernel_busy + idle + outside_kernel_span == window`, where the last term is the part
+of the window lying before the first kernel or after the last. Only the second closes the
+window, and the first is the one that looks like it does — it balances exactly while describing
+whatever fraction of the window the kernel span happens to cover.
+
+The size of that term is itself the signal. On a phase packed with kernels it is a rounding
+error, and the idle split can be read as the account. On a startup, teardown or stalled window
+it is most of the window, and the idle split describes a sliver: measured on one real capture,
+a 25.881 s startup phase reported 0.062 s busy and 1.225 s idle — 5% of itself — with
+`accounted + residual == idle` holding exactly throughout. **Read `outside_kernel_span_s`
+before reading the split**, and where it is large, the question the window raises is what the
+host was doing, which is a different measurement (CPU sampling) and frequently one the capture
+does not carry.
+
 ## Duration spread is a question, not an answer
 
 The coefficient of variation of a kernel's duration — its standard deviation over its mean —

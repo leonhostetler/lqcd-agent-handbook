@@ -103,11 +103,19 @@ class IdleAttribution:
     Categories are intersected against the merged idle set and against each other, so
     the parts never sum to more than the whole: a thread inside an MPI call that is
     itself inside a traced API call contributes its time once.
+
+    Two identities hold, and only the second one closes the window. Within the idle
+    set, ``accounted_s + residual_s == gpu_idle_s``. Across the window itself,
+    ``kernel_busy_s + gpu_idle_s + outside_kernel_span_s == window_s``: idle is
+    measured *between* kernels, so a window that is largely before the first kernel
+    or after the last is mostly outside what the idle split describes, and
+    ``outside_kernel_span_s`` is that part.
     """
 
     window_s: float
     kernel_busy_s: float
     gpu_idle_s: float
+    outside_kernel_span_s: float
     categories: list[IdleCategory]
     accounted_s: float
     residual_s: float

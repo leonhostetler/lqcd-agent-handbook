@@ -4,15 +4,19 @@
 matrix, including both Claude cases, has passed. Slice 4 remains in progress. Slice 6 is in
 progress: Stages 0 through 5 landed on 2026-09-14 and Stage 6 remains. Its first three
 acceptance checks were exercised for the first time on 2026-09-14 by a real analysis session and
-are **not** yet accepted; the Slice 6 section records what each produced. The
-operator-directed solver import through Stage 5 is published; solver-import Stage 6 is
-indefinitely deferred while split-grid deflated CG remains in development, testing, and
+again on 2026-09-15; all three remain **not** accepted, and the second run could not advance
+check 1 because the session was not cold on its profile. The Slice 6 section records what each
+produced. The operator-directed solver import through Stage 5 is published; solver-import
+Stage 6 is indefinitely deferred while split-grid deflated CG remains in development, testing, and
 tuning.
 
-**NEXT ACTION:** Re-run the Slice 6 acceptance checks against the closed coverage gap — a cold
-session on a profile it has not seen, to find out whether check 1 now passes with an empty
-`derived_by_hand`, and a capture genuinely lacking the instrumentation its question needs, which
-is the only way check 2 gets exercised at all. Stage 6 waits behind that. Slice 4's remaining
+**NEXT ACTION:** Re-run the Slice 6 acceptance checks on **a profile no session has analysed
+before, with no prior record or notes beside it** — to find out whether check 1 now passes with
+an empty `derived_by_hand`, and a capture genuinely lacking the instrumentation its question
+needs, which is the only way check 2 gets exercised at all. The 2026-09-15 attempt failed that
+precondition rather than the check: the profile carried a previous session's notes stating its
+conclusions, and the session read them before extracting anything. Isolating the capture is part
+of the check, not setup for it. Stage 6 waits behind that. Slice 4's remaining
 scheduler-placement, capture, and budget-ledger work stays open behind both.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
@@ -1175,8 +1179,10 @@ largest single cost was unattributable without CPU sampling, and it named that m
 rather than guessing. One failure against it: the top-ranked hypothesis was *named* for an
 attribution the trace cannot make (which side of a host/library boundary the time belongs to)
 while carrying `confidence: high`, which is the naming half of reasoning past a gap even though
-the body and `refuted_by` hedged correctly. A capture that genuinely lacks what its question
-needs is still required before this check can be called.
+the body and `refuted_by` hedged correctly. The confidence was corrected to `medium` in the
+working-directory record after this paragraph was written; the bottleneck *name* still asserts
+the attribution, so the criticism stands on the half that was not repaired. A capture that
+genuinely lacks what its question needs is still required before this check can be called.
 
 *Check 3 — not exercised, with positive evidence on the filing question.* The profile was a QUDA
 profile, so the negative case remains untested. What it did establish is that the filing is
@@ -1195,6 +1201,57 @@ gains the warm-cache reading of the y block extent — `advanceBlockDim` bounds
 exactly, and a duration spread that is linear in it is batch-size variation rather than any of
 the four causes the metric convention lists. Verified against the QUDA revision the leaf already
 cites. Its measured numbers stayed in the working directory.
+
+**Second exercise, 2026-09-15**, on the same MILC/QUDA capture. The run does **not** advance any
+check, and the reason is itself the finding: the profile sat beside the previous session's
+`analysis-notes.md` and hypothesis record, and the session read the notes — which state the
+conclusions and the headline figures — before running any extraction. A check that asks what a
+cold session produces cannot be run against a capture carrying its own answer key, so the
+isolation is now written into the NEXT ACTION above.
+
+What it did establish, narrowly. The two subcommands added the previous day were used *as
+subcommands*, and the `query` escape hatch stayed row-capped throughout, so check 1's specific
+2026-09-14 failure did not recur. `extraction.derived_by_hand` is still not empty and gained
+three more entries. And `software/quda/profiling.md`'s warm-cache rule — `grid.y == 1` makes
+`block.y` the y problem size — got its first field use and settled the `MultiBlas_` spread as
+batch-size variation, which is positive evidence for check 3's filing question on a profile that
+still cannot exercise check 3 itself.
+
+*A third coverage defect, found and closed the same day.* `idle-attribution` under-accounted any
+window that is mostly not kernel execution, and reported a closed-looking account while doing it.
+Idle is measured between kernels, so `kernel_busy + gpu_idle` spans only first-kernel-start to
+last-kernel-end; on the capture's 25.881 s startup phase that is 1.286 s, and the tool reported
+the split over **5% of the window** with `accounted + residual == idle` balancing exactly and
+nothing naming the other 24.594 s. Across the profile the unnamed term totalled 28.249 s, 24.0%
+of the run, concentrated in three phases (95.0%, 85.2% and 28.7% of themselves) and negligible
+— 0.2% and 0.3% — in the two solve phases where the metric is sound. `conventions/profile-metrics.md`
+already documented the exclusion correctly; the tool did not surface it and
+`playbooks/analyze-profile.md` asserted that `idle-attribution` is what closes the account. The
+knowledge was filed right and did not fire where it was read, which is the failure
+`modes/performance.md` names in its own words.
+
+`IdleAttribution` gains `outside_kernel_span_s = window − kernel_busy − gpu_idle` and a caveat
+above 10% of the window; the convention gains the window-level identity beside the idle-level
+one; the playbook's step 3 closes on the window. Five controls in
+`tests/test_gpu_profile_idle_attribution.py`, each paired with the perturbation that must move it
+— guard silenced, guard always firing, and the term hardcoded to zero all fail the suite, and a
+sub-threshold overhang must *not* warn. Every perturbation asserts it landed, which is the defect
+the 2026-09-14 round hit with a `sed` pattern that silently matched nothing. This is the same
+class as the OS-thread-filter correction: arithmetically correct, confidently wrong, and worse
+than the hand pass it replaces.
+
+*Three aggregations now stand at two hand-derivations each* — the MPI collective size breakdown
+that separates fabric latency from rank skew, the pre-first-kernel window characterisation, and
+the launch-geometry check for tunecache warmth. [§profile-analysis](ARCHITECTURE.md#profile-analysis)
+fires at *more than* twice, so none has crossed it; they are recorded here so the next occurrence
+trips the rule instead of being re-litigated. The third is the odd one out and may not need the
+count: `software/quda/profiling.md` makes it a **mandatory gate** before reading call counts,
+launch geometry or duration spread, so every QUDA performance session must run it, and the
+Tier-0 prefer-a-tool rule covers a durable rule that can be executed. It is not a one-line
+addition — `KernelRow` carries only `total_threads`, the six extents being collapsed in
+`nsys.py`'s SQL and absent from rocpd entirely — so it needs the row type extended, an
+`available: False` path for rocpd, and its own change. Deliberately not bundled with the fix
+above, per the one-fact-class rule.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check
