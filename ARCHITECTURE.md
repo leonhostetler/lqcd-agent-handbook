@@ -2098,15 +2098,29 @@ of reaching one. The session performs the analysis; the tool supplies the number
 
 **A hypothesis is an `inferred` claim and carries that tier's obligations.** Under
 [§evidence-vocabulary](#evidence-vocabulary) an inference names its premises and stays labelled
-as one. Here that is a hard rule rather than a style note: **every figure a hypothesis cites must
-be one the extraction tool emitted**, and the tool re-checks quoted values rather than the session
-vouching for them. A hypothesis also records the queries its evidence came from, so the analysis
-can be re-derived rather than re-trusted; the prose session log deliberately omits tool output
-([§session-logging](#session-logging)), so the record is the only durable trace. The failure this
-guards was observed in the source analyzer's own evaluation — a hypothesis citing fabricated
-numbers scored identically to one citing real ones, because nothing compared the evidence against
-the profile. A confident wrong answer is the expensive
-failure in this mode, not a missed finding.
+as one. Here that is a hard rule rather than a style note: **every figure a hypothesis cites is
+traceable to a named command, and any quantity the extraction did not emit is declared as
+hand-derived** rather than passed off as tool output. A hypothesis also records the queries its
+evidence came from, so the analysis can be re-derived rather than re-trusted; the prose session
+log deliberately omits tool output ([§session-logging](#session-logging)), so the record is the
+only durable trace. The failure this guards was observed in the source analyzer's own
+evaluation — a hypothesis citing fabricated numbers scored identically to one citing real ones,
+because nothing compared the evidence against the profile. A confident wrong answer is the
+expensive failure in this mode, not a missed finding.
+
+**Amended 2026-09-14, on two divergences the first real analysis session exposed.** This
+paragraph previously required that *every figure be one the extraction tool emitted*, and stated
+that *the tool re-checks quoted values rather than the session vouching for them*. Neither held.
+`schemas/hypothesis.schema.json` has always carried `extraction.derived_by_hand` for quantities
+the tool did not produce, which the first requirement forbids outright; and
+`tools/hypothesis-record.py` checks that a figure **names** a listed command, never that its
+value matches the profile — re-reading a multi-gigabyte database to verify every cited number is
+a different and far larger tool than the one that exists. The requirement is restated as
+traceability plus declaration, which is what the schema and the checker actually enforce, and the
+value-checking claim is withdrawn rather than left standing as an aspiration the text asserted as
+fact. That leaves a named residual risk: a declared hand-derived figure is unverified, so
+[§prefer-a-tool](#prefer-a-tool) governs what follows from it — an aggregation a session derives
+by hand more than twice is a missing subcommand, not a standing practice.
 
 **Derived quantities are computed, never asked for.** A speedup bound that follows arithmetically
 from a claimed runtime fraction is computed by the tool. The session supplies judgement and

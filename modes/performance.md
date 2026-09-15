@@ -58,6 +58,10 @@ health of an uninstrumented subsystem are questions for a counter-collecting run
    when either is available.
 3. Work the dominant phase first, and inside it in a fixed order: kernel work, memory transfers,
    communication, idle gaps. Rank by share of elapsed time, not by how unusual a number looks.
+   Attribute the idle rather than describing it — `idle-attribution` splits it into MPI, host
+   API and OS time and reports what none of them covers, and that residual is frequently the
+   largest single entry. Measure transfers with `transfer-overlap`, not by volume: the biggest
+   class by bytes is regularly the one that costs nothing.
 4. Drill with a purpose. State the question a query answers before issuing it, and stop when the
    ranked list stops changing. Raw query access is an escape hatch, not the method: keep it
    read-only and row-capped, because an uncapped scan of a multi-gigabyte profile is the ordinary
@@ -155,10 +159,13 @@ analysis is deepest. Re-read them rather than recalling them.
 
 Use the detected machine profile, software profile, nearest stack, build profile, and the
 relevant application guide and solver documents when they exist.
-Extract with `tools/gpu-profile-summary.py` — `summary`, `phases`, `kernels`, `gaps`, `memcpy`,
-`mpi`, `streams`, `markers`, `cross-rank`, `schema`, `query` — and reach for `query` only when no
-subcommand answers the question, since it is capped and read-only by design rather than by
-convention. Compare a before and an after capture with `tools/gpu-profile-diff.py`, which is how
+Extract with `tools/gpu-profile-summary.py` — `summary`, `phases`, `kernels`, `gaps`,
+`idle-attribution`, `transfer-overlap`, `memcpy`, `mpi`, `streams`, `markers`, `cross-rank`,
+`schema`, `query` — and reach for `query` only when no subcommand answers the question, since it
+is capped and read-only by design rather than by convention. `idle-attribution` is what closes
+the account in step 3 below; `transfer-overlap` is what decides whether a transfer class costs
+anything, which its volume does not.
+Compare a before and an after capture with `tools/gpu-profile-diff.py`, which is how
 a hypothesis's claimed runtime fraction gets checked against what actually changed.
 Load the profiled software's
 autotuning and solver leaves before interpreting kernel duration or its spread. Open the

@@ -13,10 +13,19 @@ from collections import defaultdict
 
 from .base import KernelRow, MarkerAgg, MemcpyRow, MpiOpAgg, Profile
 
-from ._utils import _normalize_demangled, busy_time_ns, interval_gaps_ns
+from ._utils import (
+    _normalize_demangled,
+    busy_time_ns,
+    intersect_duration_ns,
+    interval_gaps_ns,
+    merge_intervals,
+    subtract_intervals,
+)
 from .models import (
     DeviceInfo,
     GapBucket,
+    IdleAttribution,
+    IdleCategory,
     KernelSummary,
     MarkerRangeSummary,
     MemcpySummary,
@@ -24,6 +33,7 @@ from .models import (
     PhaseSummary,
     ProfileSummary,
     StreamSummary,
+    TransferOverlap,
 )
 from .phases import (
     PhaseWindow,
@@ -274,6 +284,196 @@ def compute_gap_histogram(profile: Profile) -> tuple[float, list[GapBucket]]:
     if not profile.capabilities.has_kernels:
         return 0.0, []
     return _bucket_gaps(_kernel_gaps_ns(profile.kernel_events()))
+
+
+# ---------------------------------------------------------------------------
+# Idle attribution and transfer overlap
+#
+# Both answer questions ARCHITECTURE.md §profile-analysis requires the tool rather
+# than the session to answer: they are interval algebra over hundreds of thousands
+# of rows, where an ad-hoc version returns a plausible number and no reader can tell.
+# Both reuse merge_intervals, so neither can drift from gpu_busy_s.
+# ---------------------------------------------------------------------------
+
+_RESIDUAL_CAVEAT = (
+    "Residual is an upper bound on host compute: it also holds any host-side call the "
+    "capture did not trace, including CUDA/HIP API calls skipped by the profiler."
+)
+
+
+def _clip(
+    intervals: list[tuple[int, int]], start_ns: int, end_ns: int
+) -> list[tuple[int, int]]:
+    out = []
+    for s, e in intervals:
+        s, e = max(s, start_ns), min(e, end_ns)
+        if e > s:
+            out.append((s, e))
+    return out
+
+
+def _idle_intervals(
+    evts: list[KernelRow], start_ns: int, end_ns: int
+) -> tuple[list[tuple[int, int]], int]:
+    """Merged inter-kernel gaps inside the window, and the merged busy time.
+
+    Idle is measured *between* kernels, matching compute_gap_histogram: time before
+    the first kernel and after the last is not idle, it is outside the work.
+    """
+    kernels = merge_intervals(
+        _clip([(k.start_ns, k.end_ns) for k in evts], start_ns, end_ns)
+    )
+    busy = sum(e - s for s, e in kernels)
+    gaps = [(kernels[i - 1][1], kernels[i][0]) for i in range(1, len(kernels))]
+    return [g for g in gaps if g[1] > g[0]], busy
+
+
+def compute_idle_attribution(
+    profile: Profile, start_ns: int | None = None, end_ns: int | None = None
+) -> IdleAttribution:
+    """Split inter-kernel GPU idle into MPI, host-API and OS-runtime time.
+
+    Whatever none of them covers is the residual — host-side work the capture
+    located in time but did not name.
+    """
+    bounds = profile.profile_bounds_ns()
+    win_start = bounds[0] if start_ns is None else start_ns
+    win_end = bounds[1] if end_ns is None else end_ns
+    caps = profile.capabilities
+
+    gaps, busy_ns = _idle_intervals(profile.kernel_events(), win_start, win_end)
+    idle_ns = sum(e - s for s, e in gaps)
+
+    sources: list[tuple[str, bool, str, list[tuple[int, int]]]] = [
+        (
+            "mpi",
+            caps.has_mpi,
+            "no MPI events in this capture",
+            [(r.start_ns, r.end_ns) for r in profile.mpi_ranges()] if caps.has_mpi else [],
+        ),
+        (
+            "host_api",
+            caps.has_runtime_api,
+            "no GPU runtime/driver API events in this capture",
+            [(r.start_ns, r.end_ns) for r in profile.host_api_ranges()]
+            if caps.has_runtime_api
+            else [],
+        ),
+        (
+            "os_runtime",
+            caps.has_os_runtime,
+            "no OS-runtime tracing in this capture",
+            [(r.start_ns, r.end_ns) for r in profile.os_runtime_ranges()]
+            if caps.has_os_runtime
+            else [],
+        ),
+    ]
+
+    categories: list[IdleCategory] = []
+    available_intervals: list[tuple[int, int]] = []
+    absorbs: list[str] = []
+    for name, available, reason, raw in sources:
+        if not available:
+            categories.append(
+                IdleCategory(
+                    name=name,
+                    available=False,
+                    total_s=None,
+                    pct_of_idle=None,
+                    unavailable_reason=reason,
+                )
+            )
+            absorbs.append(name)
+            continue
+        clipped = _clip(raw, win_start, win_end)
+        covered = intersect_duration_ns(gaps, clipped)
+        categories.append(
+            IdleCategory(
+                name=name,
+                available=True,
+                total_s=round(covered / 1e9, 6),
+                pct_of_idle=round(100.0 * covered / idle_ns, 2) if idle_ns else 0.0,
+            )
+        )
+        available_intervals.extend(clipped)
+
+    # Union first, then intersect: categories overlap each other (an MPI call on a
+    # thread also inside a traced API call), and summing them would over-account.
+    accounted_ns = intersect_duration_ns(gaps, available_intervals)
+    residual_intervals = subtract_intervals(gaps, available_intervals)
+    residual_ns = sum(e - s for s, e in residual_intervals)
+    _, residual_buckets = _bucket_gaps([e - s for s, e in residual_intervals])
+
+    caveats = [_RESIDUAL_CAVEAT]
+    if absorbs:
+        caveats.append(
+            "Residual also absorbs "
+            + ", ".join(absorbs)
+            + ": those categories are untraced here, so their share is unknown rather "
+            "than zero."
+        )
+
+    return IdleAttribution(
+        window_s=round((win_end - win_start) / 1e9, 6),
+        kernel_busy_s=round(busy_ns / 1e9, 6),
+        gpu_idle_s=round(idle_ns / 1e9, 6),
+        categories=categories,
+        accounted_s=round(accounted_ns / 1e9, 6),
+        residual_s=round(residual_ns / 1e9, 6),
+        residual_pct_of_idle=round(100.0 * residual_ns / idle_ns, 2) if idle_ns else 0.0,
+        residual_absorbs=absorbs,
+        residual_buckets=residual_buckets,
+        caveats=caveats,
+    )
+
+
+def compute_transfer_overlap(
+    profile: Profile, start_ns: int | None = None, end_ns: int | None = None
+) -> list[TransferOverlap]:
+    """Per-direction transfer time hidden behind kernels, and the part that is not.
+
+    The question this exists for: a transfer class can be the largest by volume and
+    cost nothing, because it ran while kernels ran. Volume alone cannot distinguish
+    that from the opposite, and volume is what an ad-hoc query reaches for.
+    """
+    bounds = profile.profile_bounds_ns()
+    win_start = bounds[0] if start_ns is None else start_ns
+    win_end = bounds[1] if end_ns is None else end_ns
+
+    kernels = merge_intervals(
+        _clip(
+            [(k.start_ns, k.end_ns) for k in profile.kernel_events()], win_start, win_end
+        )
+    )
+
+    by_direction: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    counts: dict[str, int] = defaultdict(int)
+    for m in profile.memcpy_events():
+        s, e = max(m.start_ns, win_start), min(m.end_ns, win_end)
+        if e <= s:
+            continue
+        by_direction[m.direction].append((s, e))
+        counts[m.direction] += 1
+
+    out: list[TransferOverlap] = []
+    for direction, intervals in by_direction.items():
+        # Merged, because transfers on different streams overlap in wall-clock and
+        # the question is how much *time* is exposed, not how many bytes moved.
+        merged = merge_intervals(intervals)
+        total = sum(e - s for s, e in merged)
+        overlapped = intersect_duration_ns(merged, kernels)
+        out.append(
+            TransferOverlap(
+                direction=direction,
+                transfers=counts[direction],
+                total_s=round(total / 1e9, 6),
+                overlapped_s=round(overlapped / 1e9, 6),
+                exposed_s=round((total - overlapped) / 1e9, 6),
+                pct_overlapped=round(100.0 * overlapped / total, 2) if total else 0.0,
+            )
+        )
+    out.sort(key=lambda t: t.exposed_s, reverse=True)
+    return out
 
 
 def compute_streams(profile: Profile) -> list[StreamSummary]:

@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Check a hypothesis record, and compute the speedup bounds it must not assert.
 
+The provenance check is guarded against its own absence. Until 2026-09-14 it read
+``if src and queries and ...``, so a hypothesis with an empty ``queries`` list skipped
+it entirely: a record whose every figure was fabricated passed with zero errors. A
+guard that cannot fire is the same defect as a harness that cannot fail
+(conventions/repeated-work.md), so an empty list is now itself an error and the
+negative control in tests/test_hypothesis_record.py pins it.
+
 ARCHITECTURE.md §profile-analysis: a speedup bound follows arithmetically from a
 claimed runtime fraction, so it is computed here rather than written by whoever
 wrote the record. A wrong bound supplied by hand reads as a precise,
@@ -64,9 +71,14 @@ def check(record: dict, schema: dict) -> list[str]:
         if not evidence:
             errors.append(f"{where}.evidence: empty; a hypothesis with no figures is an opinion")
         queries = hyp.get("queries") or []
+        if not queries:
+            errors.append(
+                f"{where}.queries: empty; a figure that names no command is not evidence. "
+                "An empty list must not silently satisfy the provenance check below"
+            )
         for j, entry in enumerate(evidence):
             src = entry.get("from")
-            if src and queries and not any(src in q for q in queries) and src not in queries:
+            if src and not any(src in q for q in queries):
                 errors.append(
                     f"{where}.evidence[{j}].from: {src!r} names no listed query; "
                     "every figure must be traceable to the command that produced it"

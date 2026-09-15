@@ -80,6 +80,59 @@ class GapBucket:
 
 
 @dataclass(kw_only=True)
+class IdleCategory:
+    """One host-side category of GPU idle time.
+
+    ``total_s`` is ``None``, never ``0.0``, when the capture cannot observe the
+    category. The two are opposite facts — "measured, and it was zero" versus "not
+    measured" — and collapsing them is how an untraced subsystem becomes a confident
+    finding about the one that was traced.
+    """
+
+    name: str
+    available: bool
+    total_s: float | None
+    pct_of_idle: float | None
+    unavailable_reason: str | None = None
+
+
+@dataclass(kw_only=True)
+class IdleAttribution:
+    """Inter-kernel GPU idle split into host-side categories, plus what is left.
+
+    Categories are intersected against the merged idle set and against each other, so
+    the parts never sum to more than the whole: a thread inside an MPI call that is
+    itself inside a traced API call contributes its time once.
+    """
+
+    window_s: float
+    kernel_busy_s: float
+    gpu_idle_s: float
+    categories: list[IdleCategory]
+    accounted_s: float
+    residual_s: float
+    residual_pct_of_idle: float
+    residual_absorbs: list[str]
+    residual_buckets: list[GapBucket]
+    caveats: list[str]
+
+
+@dataclass(kw_only=True)
+class TransferOverlap:
+    """How much of one transfer direction's time is hidden behind kernel execution.
+
+    ``exposed_s`` is the part that is not: the only part that lengthens the run.
+    """
+
+    direction: str
+    transfers: int
+    total_s: float
+    overlapped_s: float
+    exposed_s: float
+    pct_overlapped: float
+
+
+@dataclass(kw_only=True)
 class StreamSummary:
     stream_id: int
     kernel_calls: int

@@ -108,6 +108,35 @@ class HypothesisRecordTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("names no listed query", proc.stderr)
 
+    def test_an_empty_query_list_does_not_disable_the_provenance_check(self):
+        """The negative control for the guard itself.
+
+        Until 2026-09-14 the check read ``if src and queries and ...``, so an empty
+        ``queries`` list skipped it: a record whose every figure was fabricated
+        passed with zero errors. This is the perturbation that must land on the
+        guard rather than beside it -- the figure below names a source no command
+        could have produced, and it is the empty list, not the figure, that used to
+        let it through.
+        """
+        bad = copy.deepcopy(VALID)
+        bad["extraction"]["tool"] = "none - figures invented"
+        bad["hypotheses"][0]["evidence"][0]["from"] = "my imagination"
+        bad["hypotheses"][0]["queries"] = []
+        proc = run(self.write(bad))
+        self.assertEqual(proc.returncode, 1, "fabricated record passed: the guard did not fire")
+        self.assertIn("queries: empty", proc.stderr)
+
+    def test_the_empty_query_perturbation_is_not_vacuous(self):
+        """Rejects the no-op version of the control above.
+
+        If the same record with its queries restored also failed, the control would
+        prove nothing about the empty list -- it would just be a broken record.
+        """
+        ok = copy.deepcopy(VALID)
+        ok["hypotheses"][0]["evidence"][0]["from"] = "my imagination"
+        ok["hypotheses"][0]["queries"] = ["my imagination was not consulted"]
+        self.assertEqual(run(self.write(ok)).returncode, 0)
+
     def test_a_hypothesis_with_no_evidence_is_rejected(self):
         bad = copy.deepcopy(VALID)
         bad["hypotheses"][0]["evidence"] = []

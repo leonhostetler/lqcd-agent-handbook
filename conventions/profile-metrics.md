@@ -1,6 +1,6 @@
 ---
 title: Reading GPU profile metrics
-summary: What each extracted profile quantity means, what a tracer cannot establish, and the readings that are unfounded on trace data alone.
+summary: What each extracted profile quantity means, how idle time is attributed and what its residual does and does not prove, what a tracer cannot establish, and the readings that are unfounded on trace data alone.
 scope: [universal]
 load_when: Reading, quoting, or reasoning about any quantity extracted from a GPU profiler database.
 evidence: source
@@ -72,6 +72,70 @@ per-phase breakdown tables list every event overlapping the window with its **fu
 because a duration describes the event and not the window. One long event therefore appears in
 two adjacent phases' tables at full length. Both behaviours are correct; quoting a table figure
 as though it were a windowed total is not.
+
+## Attributed idle, and what the residual is not
+
+Idle time on its own says the GPU was waiting; it does not say what for. The extraction
+splits inter-kernel idle into host-side categories — **MPI**, **host API** (the CUDA or HIP
+runtime and driver), **OS runtime** — and reports whatever none of them covers as the
+**residual**.
+
+Three rules decide whether those numbers mean anything.
+
+**The categories are unioned, not summed.** A thread inside an MPI call is frequently also
+inside a traced API call, and a nanosecond covered twice is still one nanosecond of idle.
+Each category is intersected with the merged idle set, and the accounted total is the
+intersection of idle with the *union* of all categories. So the per-category figures may
+overlap each other, and `accounted + residual == idle` always holds while the category
+figures need not sum to `accounted`. Adding the columns up is the misreading this design
+invites; the accounted figure is the one that composes.
+
+**OS-runtime attribution covers only the threads that drive the GPU.** OS tracing records
+every thread, and a communication progress thread parked in `poll` or `futex` runs for
+essentially the whole job. Unfiltered, that single thread covers every idle gap and reports
+the application as OS-blocked ~100% of the time — measured at 18.691 s of 18.691 s on a real
+capture, against 0.389 s for the thread actually issuing the launches. Both figures are
+arithmetically correct and one of them is worthless. A thread "drives the GPU" if it appears
+in the runtime-API table, so a capture without API tracing yields no OS attribution rather
+than an unfiltered one.
+
+**The residual is an upper bound on host compute, never a measurement of it.** It is host
+time the capture located but did not name, and it also holds every host-side call the
+profiler did not trace — Nsight Systems' `CUDA_SKIP_SOME_API_CALLS` omits cheap API calls by
+design, and each omission lands here. Treat it as "time the capture cannot explain", which is
+a finding worth acting on and a different claim from "time the application spent computing".
+
+Read the residual's own gap histogram before concluding anything from its total. The
+distribution routinely separates two unrelated costs that the sum hides: very many sub-100 µs
+slices, which are per-launch host overhead spread across every kernel, and a few thousand
+slices of milliseconds, which are real host-side work at a structural boundary. One total
+covering both describes neither.
+
+**An untraced category is reported as null, and null is not zero.** Where the capture cannot
+observe a category the extraction emits no number for it, names the reason, and lists it among
+what the residual absorbs. This is the absent-instrumentation rule below applied where it is
+easiest to get wrong: rocprofv3 does not intercept MPI, so a naive
+implementation reports `mpi = 0.0` on every AMD profile, and a session reading that goes
+looking for the bottleneck anywhere but communication. If a category is null, its share is
+unknown, and the residual is inflated by exactly the unknown amount.
+
+## Transfer time is only a cost when it is exposed
+
+A transfer that runs while kernels run costs nothing in wall-clock. The extraction reports,
+per direction, total transfer time, the part overlapping merged kernel execution, and the
+**exposed** part that does not — and only the last lengthens the run.
+
+Volume cannot substitute for this and routinely points the opposite way. On a real capture
+the peer-to-peer class was the largest by far — 1.1 TB across 315k transfers — and 96.8% of
+its time was hidden behind kernels, leaving 0.088 s exposed in a 42 s phase. The obvious
+reading of the volume figure ("communication dominates, improve the overlap") was wrong, and
+the overlap measurement is the only thing in the profile that says so. Quote exposed time
+when arguing that a transfer class costs something.
+
+Per-direction intervals are **merged before measuring**, for the reason in the first section:
+transfers issued on several streams run concurrently, and summing their durations returns
+work rather than elapsed time. A hand-rolled version that sums instead of merges overstates
+both the total and the overlap — by 28% on the capture above.
 
 ## What a tracer does not record
 

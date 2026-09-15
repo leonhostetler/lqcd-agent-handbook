@@ -101,7 +101,8 @@
           },
           "queries": {
             "type": "array",
-            "description": "The commands run, so the analysis can be re-derived rather than re-trusted.",
+            "description": "The commands run, so the analysis can be re-derived rather than re-trusted. Never empty: a hypothesis whose figures name no command is not re-derivable, and an empty list silently disabled the provenance check until 2026-09-14.",
+            "minItems": 1,
             "items": { "type": "string" }
           },
           "runtime_fraction_pct": {

@@ -45,6 +45,56 @@ def interval_gaps_ns(intervals: Iterable[tuple[int, int]]) -> list[int]:
     return [merged[i][0] - merged[i - 1][1] for i in range(1, len(merged))]
 
 
+def intersect_duration_ns(
+    a: Iterable[tuple[int, int]], b: Iterable[tuple[int, int]]
+) -> int:
+    """Total time covered by both interval sets.
+
+    Both sides are merged first, so an input that double-covers a nanosecond
+    contributes it once. That is the same rule ``busy_time_ns`` applies, and it
+    is why idle attribution cannot exceed the idle it is attributing: overlapping
+    MPI calls on different threads merge rather than sum.
+    """
+    left = merge_intervals(a)
+    right = merge_intervals(b)
+    total = 0
+    i = j = 0
+    while i < len(left) and j < len(right):
+        lo = max(left[i][0], right[j][0])
+        hi = min(left[i][1], right[j][1])
+        if hi > lo:
+            total += hi - lo
+        if left[i][1] < right[j][1]:
+            i += 1
+        else:
+            j += 1
+    return total
+
+
+def subtract_intervals(
+    base: Iterable[tuple[int, int]], cut: Iterable[tuple[int, int]]
+) -> list[tuple[int, int]]:
+    """``base`` minus ``cut``, both merged first; returns disjoint remainder."""
+    merged_base = merge_intervals(base)
+    merged_cut = merge_intervals(cut)
+    out: list[tuple[int, int]] = []
+    j = 0
+    for start, end in merged_base:
+        cursor = start
+        while j < len(merged_cut) and merged_cut[j][1] <= cursor:
+            j += 1
+        k = j
+        while k < len(merged_cut) and merged_cut[k][0] < end:
+            cut_start, cut_end = merged_cut[k]
+            if cut_start > cursor:
+                out.append((cursor, min(cut_start, end)))
+            cursor = max(cursor, min(cut_end, end))
+            k += 1
+        if cursor < end:
+            out.append((cursor, end))
+    return out
+
+
 def _normalize_demangled(name: str) -> str:
     """Strip CUDA/QUDA template boilerplate from a demangled kernel name.
 

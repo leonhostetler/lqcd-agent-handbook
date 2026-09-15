@@ -45,6 +45,7 @@ class ProfileCapabilities:
     has_markers: bool
     has_mpi: bool
     has_cpu_samples: bool
+    has_os_runtime: bool
     has_pmc_counters: bool
     has_sysmetrics: bool
     schema_version: str
@@ -128,6 +129,14 @@ class Profile(Protocol):
     ) -> list[RangeRow]: ...
 
     def mpi_ranges(
+        self, *, where: str | None = None, limit: int | None = None
+    ) -> list[RangeRow]: ...
+
+    def host_api_ranges(
+        self, *, where: str | None = None, limit: int | None = None
+    ) -> list[RangeRow]: ...
+
+    def os_runtime_ranges(
         self, *, where: str | None = None, limit: int | None = None
     ) -> list[RangeRow]: ...
 

@@ -56,6 +56,8 @@ class NsysProfile:
         self._kernel_events_cache: list | None = None
         self._memcpy_events_cache: list | None = None
         self._marker_ranges_cache: list | None = None
+        self._host_api_ranges_cache: list | None = None
+        self._os_runtime_ranges_cache: list | None = None
         self._mpi_ranges_cache: list | None = None
         self._launch_overhead_cache: dict[str, tuple[float, float]] | None = None
 
@@ -111,6 +113,13 @@ class NsysProfile:
                     or self._table_has_data("MPI_COLLECTIVES_EVENTS")
                 ),
                 has_cpu_samples=False,
+                # OS attribution is only meaningful for GPU-driving threads, which are
+                # identified from the runtime API table; without it the category is
+                # unavailable rather than unfiltered.
+                has_os_runtime=(
+                    self._table_has_data("OSRT_API")
+                    and self._table_has_data("CUPTI_ACTIVITY_KIND_RUNTIME")
+                ),
                 has_pmc_counters=self._table_has_data("CUPTI_ACTIVITY_KIND_METRIC"),
                 has_sysmetrics=False,
                 schema_version="nsys",
@@ -361,6 +370,104 @@ class NsysProfile:
                 for r in rows
             )
         return ranges
+
+    def host_api_ranges(
+        self, *, where: str | None = None, limit: int | None = None
+    ) -> list[RangeRow]:
+        """CUDA runtime/driver API calls on the host.
+
+        These bound host time the GPU is waiting on, so they are one category of
+        idle attribution. Nsight Systems may omit cheap calls when the capture set
+        ``CUDA_SKIP_SOME_API_CALLS``; anything it omits lands in the residual, which
+        is why the residual is documented as an upper bound rather than a
+        measurement of application compute.
+        """
+        if where is None and limit is None:
+            if self._host_api_ranges_cache is None:
+                self._host_api_ranges_cache = self._fetch_host_api_ranges()
+            return self._host_api_ranges_cache
+        return self._fetch_host_api_ranges(where=where, limit=limit)
+
+    def _fetch_host_api_ranges(
+        self, *, where: str | None = None, limit: int | None = None
+    ) -> list[RangeRow]:
+        if not self.capabilities.has_runtime_api:
+            return []
+        and_clause = f"AND {where}" if where else ""
+        limit_clause = f"LIMIT {limit}" if limit is not None else ""
+        rows = self.query(f"""
+            SELECT r.start, r.end, s.value AS name
+            FROM CUPTI_ACTIVITY_KIND_RUNTIME r
+            JOIN StringIds s ON r.nameId = s.id
+            WHERE r.end IS NOT NULL
+              {and_clause}
+            ORDER BY r.start
+            {limit_clause}
+        """)
+        return [
+            RangeRow(
+                start_ns=r["start"],
+                end_ns=r["end"],
+                name=r["name"],
+                category="CUDA_API",
+                duration_ns=r["end"] - r["start"],
+            )
+            for r in rows
+        ]
+
+    def os_runtime_ranges(
+        self, *, where: str | None = None, limit: int | None = None
+    ) -> list[RangeRow]:
+        """OS-level calls (``poll``, ``futex``, ``ioctl``, ...) from ``-t osrt``.
+
+        **Restricted to threads that drive the GPU.** ``-t osrt`` records every thread,
+        and a communication progress thread sits in ``poll``/``futex`` for essentially
+        the whole run; unfiltered, that covers every idle gap and reports the
+        application as blocked in the OS ~100% of the time. Measured on a real
+        MILC/QUDA capture the unfiltered figure was 18.691 s of 18.691 s of idle
+        against 0.389 s for the thread actually issuing the launches — a number that
+        is both wrong and confident, which is the failure mode this tool exists to
+        remove rather than automate.
+
+        "Drives the GPU" is defined as appearing in the CUDA runtime API table, so a
+        capture without API tracing yields no OS attribution rather than an
+        unfiltered one.
+        """
+        if where is None and limit is None:
+            if self._os_runtime_ranges_cache is None:
+                self._os_runtime_ranges_cache = self._fetch_os_runtime_ranges()
+            return self._os_runtime_ranges_cache
+        return self._fetch_os_runtime_ranges(where=where, limit=limit)
+
+    def _fetch_os_runtime_ranges(
+        self, *, where: str | None = None, limit: int | None = None
+    ) -> list[RangeRow]:
+        if not self.capabilities.has_os_runtime or not self.capabilities.has_runtime_api:
+            return []
+        and_clause = f"AND {where}" if where else ""
+        limit_clause = f"LIMIT {limit}" if limit is not None else ""
+        rows = self.query(f"""
+            SELECT o.start, o.end, s.value AS name
+            FROM OSRT_API o
+            JOIN StringIds s ON o.nameId = s.id
+            WHERE o.end IS NOT NULL
+              AND o.globalTid IN (
+                  SELECT DISTINCT globalTid FROM CUPTI_ACTIVITY_KIND_RUNTIME
+              )
+              {and_clause}
+            ORDER BY o.start
+            {limit_clause}
+        """)
+        return [
+            RangeRow(
+                start_ns=r["start"],
+                end_ns=r["end"],
+                name=r["name"],
+                category="OS_RUNTIME",
+                duration_ns=r["end"] - r["start"],
+            )
+            for r in rows
+        ]
 
     # ------------------------------------------------------------------
     # SQL-side aggregations (avoid materialising whole tables in Python)

@@ -50,6 +50,16 @@ def capability_notes(fmt: Format, caps: ProfileCapabilities) -> list[CapabilityN
                     "  Re-profile with: nsys profile -t cuda ..."
                 ),
             ))
+        if not caps.has_os_runtime:
+            notes.append(CapabilityNote(
+                code="N5",
+                message=(
+                    "No OS-runtime tracing found — idle time the host spends blocked in "
+                    "the OS cannot be separated from host compute, so the idle-attribution "
+                    "residual absorbs it and is an upper bound.\n"
+                    "  Re-profile with: nsys profile -t cuda,nvtx,mpi,osrt ..."
+                ),
+            ))
         if not caps.has_pmc_counters:
             notes.append(CapabilityNote(
                 code="N4",
@@ -87,6 +97,16 @@ def capability_notes(fmt: Format, caps: ProfileCapabilities) -> list[CapabilityN
                     "names; user-defined region labels are unavailable.\n"
                     "  Re-profile with: rocprof-sys-sample --trace -- <app> <args>\n"
                     "  (and ensure the application calls roctxRangePush/roctxRangePop)"
+                ),
+            ))
+        if not caps.has_os_runtime:
+            notes.append(CapabilityNote(
+                code="R5",
+                message=(
+                    "No OS-level regions found — rocprofv3 traces none, so idle time the "
+                    "host spends blocked in the OS cannot be separated from host compute "
+                    "and the idle-attribution residual absorbs it.\n"
+                    "  Re-profile with: rocprof-sys-sample --trace -- <app> <args>"
                 ),
             ))
         if not caps.has_pmc_counters:

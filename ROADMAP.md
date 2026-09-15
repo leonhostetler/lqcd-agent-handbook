@@ -2,14 +2,18 @@
 
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
 matrix, including both Claude cases, has passed. Slice 4 remains in progress. Slice 6 is in
-progress: its architecture decision and `modes/performance.md` landed on 2026-09-14. The
+progress: Stages 0 through 5 landed on 2026-09-14 and Stage 6 remains. Its first three
+acceptance checks were exercised for the first time on 2026-09-14 by a real analysis session and
+are **not** yet accepted; the Slice 6 section records what each produced. The
 operator-directed solver import through Stage 5 is published; solver-import Stage 6 is
 indefinitely deferred while split-grid deflated CG remains in development, testing, and
 tuning.
 
-**NEXT ACTION:** Land Slice 6 Stage 2 — the offline profile-extraction tool — then its
-Stage 3 analysis-contract leaves. Slice 4's remaining scheduler-placement, capture, and
-budget-ledger work stays open behind it.
+**NEXT ACTION:** Re-run the Slice 6 acceptance checks against the closed coverage gap — a cold
+session on a profile it has not seen, to find out whether check 1 now passes with an empty
+`derived_by_hand`, and a capture genuinely lacking the instrumentation its question needs, which
+is the only way check 2 gets exercised at all. Stage 6 waits behind that. Slice 4's remaining
+scheduler-placement, capture, and budget-ledger work stays open behind both.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -1071,8 +1075,11 @@ before-number to compare against.
 
 A cold session given only a profile and "find out where the time goes" declares performance
 mode, extracts with the tool rather than by querying the database by hand, and produces a
-ranked hypothesis record that `tools/hypothesis-record.py` accepts — with no re-teaching, and
-no figure cited that the extraction did not emit.
+ranked hypothesis record that `tools/hypothesis-record.py` accepts — with no re-teaching, every
+figure traceable to a named command, and every quantity the extraction did not emit declared in
+`extraction.derived_by_hand` (amended 2026-09-14 with
+[§profile-analysis](ARCHITECTURE.md#profile-analysis); the original wording forbade hand-derived
+figures outright, which the schema has always permitted).
 
 **Given a capture lacking the instrumentation its question needs, the session reports the gap
 instead of producing hypotheses.** This is the handbook-side analogue of the source suite's
@@ -1113,8 +1120,81 @@ metric definitions and the tracer limits, `playbooks/analyze-profile.md` owns th
 `schemas/hypothesis.schema.json` fixes the record format. The mode document keeps the one-line
 rule and points at the convention rather than restating it, which is the P2 correction Stage 3
 existed to make: those definitions had three homes — a prompt string in the source analyzer,
-`#:` comments in the ported models, and the mode document — and now have one. Stages 4 through 6
-remain.
+`#:` comments in the ported models, and the mode document — and now have one. Stages 4 and 5
+landed the same day as well, as the paragraph above records; **only Stage 6 remains.** An
+earlier revision of this paragraph said "Stages 4 through 6 remain" while the paragraph above
+said Stages 3 through 5 had landed. The two contradicted each other for a day and the stale
+NEXT ACTION above was derived from the wrong one; `software/quda/profiling.md`,
+`tools/hypothesis-record.py`, `tools/gpu-profile-diff.py` and `modes/tuning.md` settle it.
+
+**Acceptance, first exercised 2026-09-14** on a MILC/QUDA capture from a 32-rank GB200 run. No
+check is accepted; two produced defects worth more than a pass would have been.
+
+**Coverage gap closed 2026-09-14** (same day, second change). `tools/gpu-profile-summary.py`
+gains `idle-attribution` and `transfer-overlap`, and `conventions/profile-metrics.md` gains the
+definitions they emit. Both reuse `merge_intervals`, so neither can drift from `gpu_busy_s`.
+Replayed against the capture that exposed the gap, the tool reproduces the hand analysis to
+within rounding on every figure — MPI 7.0117 s vs 7.012, host API 2.9781 vs 2.978, OS 0.3888 vs
+0.389, residual 8.6969 vs 8.697 — and **corrects one error in it**: the hand pass summed
+peer-to-peer transfer durations instead of merging them, overstating the total by 28% (3.560 s
+against 2.772 s). The conclusion held, the number did not, and that is the defect class
+`conventions/repeated-work.md` predicts for values moved by hand.
+
+Two design corrections came out of building it, both found by running the tool against a real
+capture rather than the fixture. **OS-runtime attribution is restricted to threads that drive
+the GPU**: unfiltered, a communication progress thread parked in `poll` covered every idle gap
+and reported the application as OS-blocked 18.691 s of 18.691 s, against 0.389 s for the thread
+actually issuing launches — a wrong answer the tool would have produced confidently, which is
+worse than the hand pass it replaces. And **the `--table` renderer silently dropped lists of
+strings**, which would have hidden exactly the caveats saying a category was untraced rather
+than zero. Four deliberate breakages — dropping the thread filter, reporting an untraced
+category as `0.0`, summing categories instead of unioning them, assuming every transfer is
+hidden — each fail the control written for them; the degradation control fails on that
+breakage alone.
+
+*Check 1 — failed as first exercised, on tool coverage and on the guard behind it. Both repaired
+the same day; the check has not been re-run, so it stays unaccepted until a cold session
+reaches it.* The session declared the mode
+from the skill without re-teaching and produced a ranked record the checker accepts. But the two
+aggregations that carried the analysis — decomposing inter-kernel GPU idle into MPI, host-API,
+OS and residual, and measuring what fraction of each transfer direction overlaps kernel
+execution — have no subcommand, so the session wrote them by hand and read 305k rows through a
+direct `sqlite3` connection, bypassing the row cap the escape hatch exists to impose. Stage 2's
+own criterion is that subcommands cover every aggregation a session would otherwise recompute by
+hand; these were the counter-examples, and closing them is recorded above. Separately, and worse,
+**the provenance guard could not fire**: `tools/hypothesis-record.py` read
+`if src and queries and ...`, so a record with an empty `queries` list skipped the check
+entirely — a record whose every figure was fabricated passed with zero errors. Repaired the same
+day with the negative control that reproduces it, per
+[`conventions/repeated-work.md`](conventions/repeated-work.md); a guard that cannot fire is the
+same defect as a harness that cannot fail.
+
+*Check 2 — not exercised.* The capture supported the hypotheses drawn from it, so the
+gap-reporting behaviour was never put under load. One partial signal in its favour: the session's
+largest single cost was unattributable without CPU sampling, and it named that missing capture
+rather than guessing. One failure against it: the top-ranked hypothesis was *named* for an
+attribution the trace cannot make (which side of a host/library boundary the time belongs to)
+while carrying `confidence: high`, which is the naming half of reasoning past a gap even though
+the body and `refuted_by` hedged correctly. A capture that genuinely lacks what its question
+needs is still required before this check can be called.
+
+*Check 3 — not exercised, with positive evidence on the filing question.* The profile was a QUDA
+profile, so the negative case remains untested. What it did establish is that the filing is
+right: `conventions/profile-metrics.md` is software-neutral throughout, and the facts the session
+needed — group by demangled name, what a cold cache does to spread — were in
+`software/quda/profiling.md` and nowhere else. One blemish: `modes/performance.md` glosses that
+leaf's conclusion ("which records why a cold tunecache inflates all four") rather than only
+pointing at it, a second home for a value the leaf owns. Left as-is deliberately; Tier-1 churn
+costs more than the duplication does, and `AGENTS.md` has seven bytes of headroom against its
+5 KB ceiling, so Tier-0/1 edits are not free.
+
+The session also returned durable residue, admitted the same day: `software/quda/profiling.md`
+gains the warm-cache reading of the y block extent — `advanceBlockDim` bounds
+`block.y ≤ vector_length_y` and every setter recomputes
+`grid.y = ceil(vector_length_y / block.y)`, so `grid.y == 1` makes `block.y` the y problem size
+exactly, and a duration spread that is linear in it is batch-size variation rather than any of
+the four causes the metric convention lists. Verified against the QUDA revision the leaf already
+cites. Its measured numbers stayed in the working directory.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check

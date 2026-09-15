@@ -1,6 +1,6 @@
 ---
 title: Reading a QUDA kernel in a GPU profile
-summary: Why a profile's kernel short name names the launcher rather than the computation, how a demangled name resolves to its functor and source file, and what a cold tunecache does to call counts, launch geometry and duration spread.
+summary: Why a profile's kernel short name names the launcher rather than the computation, how a demangled name resolves to its functor and source file, what a cold tunecache does to call counts, launch geometry and duration spread, and how to read the y block extent on a warm one.
 scope: [software:quda]
 load_when: Interpreting QUDA kernel names, call counts, launch geometry, or duration spread in a GPU profile.
 evidence: source
@@ -9,6 +9,7 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/tunable_nd.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/kernels/dslash_staggered.cuh
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/tune.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multi_blas_quda.cu
 observed: "2026-09-14"
 observed_on:
   software:
@@ -82,3 +83,38 @@ cold-cache capture:
 supports no claim about kernel call counts, launch geometry, or duration spread. That is a
 capability gap in the sense [`conventions/profile-metrics.md`](../../conventions/profile-metrics.md)
 uses, and it is reported as one.
+
+## On a warm cache, `grid.y == 1` makes `block.y` the y extent
+
+The section above covers a cold cache, where launch geometry describes the search. The
+complementary reading matters just as often and is the one that misleads on a **warm** cache,
+where geometry is stable and therefore looks like a fixed property of the kernel.
+
+Most QUDA kernels launch through `TunableKernel2D`/`TunableKernel3D`, whose y dimension is not a
+free tuning parameter. `advanceBlockDim` raises `block.y` only while `param.block.y <
+vector_length_y`, and every path that sets it — `initTuneParam`, `defaultTuneParam`, and both
+branches of `advanceBlockDim` — recomputes `grid.y = (vector_length_y + block.y - 1) / block.y`.
+Two consequences follow directly:
+
+- **`block.y` never exceeds `vector_length_y`.**
+- **So `grid.y == 1` implies `block.y == vector_length_y` exactly** — the y block extent *is* the
+  kernel's y problem size, not a tuned tile over it.
+
+That turns a column the profile already records into a readable quantity. Where `grid.y == 1`,
+rows of one demangled name that differ only in `block.y` are **different y problem sizes**, and
+the duration difference between them is work. Where `grid.y > 1`, `block.y` is a tile and says
+nothing about the problem size; only the product does.
+
+The multi-blas kernels are the worked example, because they are where a session is most likely to
+reach the wrong conclusion. `MultiBlasArg`'s y length is the number of y/w vectors in the call,
+and one demangled `multi_axpyBzpcx_` name can legitimately appear with several `block.y` values
+in a single run: the tune key carries `NXZ` in its `aux` string, so call sites with different
+vector counts are different keys, not repeated tuning of one. **A high coefficient of variation
+across those rows is batch-size variation, not load imbalance, contention, clock behaviour or a
+cold cache** — the four causes [`../../conventions/profile-metrics.md`](../../conventions/profile-metrics.md)
+lists. The discriminator is cheap: group by `block.y` as well as by name, and check whether mean
+duration is *linear* in it. If it is, the spread is the vector count and there is nothing to fix.
+
+**Do not group these rows together and quote one mean.** Merging launches that differ in y
+problem size produces a spread that is an artefact of the merge, which is the same defect the
+short-name warning above describes, one column over.

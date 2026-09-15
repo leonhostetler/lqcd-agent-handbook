@@ -48,13 +48,20 @@ describes none of them. Prefer application annotations or a known application st
 inferred segmentation where either exists.
 
 Then account for the dominant phase's elapsed time, in a fixed order — kernel work, memory
-transfers, communication, idle gaps — using `kernels`, `memcpy`, `mpi`, `gaps`, `streams` with
-the phase's `--start-ns` and `--end-ns`. Rank by share of elapsed time, never by how unusual a
-number looks.
+transfers, communication, idle gaps — using `kernels`, `memcpy`, `transfer-overlap`, `mpi`,
+`gaps`, `idle-attribution`, `streams` with the phase's `--start-ns` and `--end-ns`. Rank by
+share of elapsed time, never by how unusual a number looks. Two of those are the ones that
+change conclusions: `transfer-overlap` because a transfer class only costs what it exposes, and
+`idle-attribution` because idle is the largest line in most phases and is otherwise unnamed.
 
-**The account must close.** If the phase's time is not substantially explained by the
-categories above, the missing time is the finding, and it is usually either host-side work the
-capture did not instrument or a gap the segmentation placed badly.
+**The account must close, and `idle-attribution` is what closes it.** It splits inter-kernel
+idle into MPI, host-API and OS time and reports the residual — host time the capture located
+but did not name. A large residual is the finding, not a gap in the analysis: read its gap
+histogram, which usually separates diffuse per-launch overhead from a few structural stalls,
+and read
+[`conventions/profile-metrics.md`](../conventions/profile-metrics.md) on what it is an upper
+bound for before attributing it to anything. A category reported null there is untraced, not
+zero, and the residual has absorbed it.
 
 On a multi-rank capture, run `cross-rank` before attributing any wait. A rank blocked on its
 neighbours looks exactly like a rank with a problem of its own.

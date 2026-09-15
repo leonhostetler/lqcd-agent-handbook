@@ -1183,3 +1183,145 @@ def build_synthetic_rocpd_db(path: Path) -> Path:
     """Write the synthetic rocpd v3 database to ``path`` and return it."""
     _build_synthetic_rocpd_db(Path(path))
     return Path(path)
+
+
+# ---------------------------------------------------------------------------
+# Idle attribution / transfer overlap
+# ---------------------------------------------------------------------------
+
+# One GPU-driving thread plus one background progress thread. The second exists so the
+# OS-runtime filter has something to exclude: unfiltered, a progress thread parked in
+# poll() for the whole run covers every idle gap and reports ~100% OS-blocked time.
+_ATTRIB_GPU_TID = 1001
+_ATTRIB_BACKGROUND_TID = 2002
+
+
+def build_idle_attribution_nsys_db(
+    path: Path,
+    *,
+    mpi_window: tuple[int, int] = (1_003_000_000, 1_007_000_000),
+    api_window: tuple[int, int] = (1_015_000_000, 1_018_000_000),
+    os_window: tuple[int, int] = (1_019_000_000, 1_020_000_000),
+    exposed_memcpy: tuple[int, int] = (1_008_000_000, 1_009_000_000),
+    hidden_memcpy: tuple[int, int] = (1_000_500_000, 1_001_500_000),
+) -> Path:
+    """A timeline with exactly known idle attribution, and knobs to perturb it.
+
+    Kernels (2 ms each) with two 10 ms gaps::
+
+        K1 [1.000 .. 1.002]  gap A [1.002 .. 1.012]
+        K2 [1.012 .. 1.014]  gap B [1.014 .. 1.024]
+        K3 [1.024 .. 1.026]
+
+    kernel busy = 6 ms, inter-kernel idle = 20 ms. With default windows:
+    mpi = 4 ms (in gap A), host_api = 3 ms (gap B), os_runtime = 1 ms (gap B),
+    residual = 12 ms. Every window is a parameter so a test can move one event and
+    assert the bucket it belongs to moves with it.
+    """
+    path = Path(path)
+    conn = sqlite3.connect(str(path))
+    cur = conn.cursor()
+
+    cur.execute("CREATE TABLE StringIds (id INTEGER PRIMARY KEY, value TEXT)")
+    cur.executemany(
+        "INSERT INTO StringIds VALUES (?, ?)",
+        [
+            (1, "Kernel3D"),
+            (2, "void attribKernel()"),
+            (3, "MPI_Allreduce"),
+            (4, "cuCtxSynchronize"),
+            (5, "poll"),
+            (6, "cudaLaunchKernel"),
+        ],
+    )
+
+    cur.execute("""
+        CREATE TABLE TARGET_INFO_GPU (
+            smCount INTEGER, maxWarpsPerSm INTEGER, threadsPerWarp INTEGER,
+            memoryBandwidth INTEGER
+        )
+    """)
+    cur.execute(
+        "INSERT INTO TARGET_INFO_GPU VALUES (?, ?, ?, ?)", (108, 64, 32, 2_000_000_000_000)
+    )
+
+    cur.execute("""
+        CREATE TABLE CUPTI_ACTIVITY_KIND_KERNEL (
+            start INTEGER, end INTEGER,
+            shortName INTEGER, demangledName INTEGER,
+            gridX INTEGER, gridY INTEGER, gridZ INTEGER,
+            blockX INTEGER, blockY INTEGER, blockZ INTEGER,
+            registersPerThread INTEGER,
+            staticSharedMemory INTEGER, dynamicSharedMemory INTEGER,
+            sharedMemoryExecuted INTEGER,
+            streamId INTEGER, correlationId INTEGER
+        )
+    """)
+    kernels = [
+        (1_000_000_000, 1_002_000_000),
+        (1_012_000_000, 1_014_000_000),
+        (1_024_000_000, 1_026_000_000),
+    ]
+    cur.executemany(
+        "INSERT INTO CUPTI_ACTIVITY_KIND_KERNEL VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [(s, e, 1, 2, 64, 1, 1, 256, 1, 1, 32, 0, 0, 0, 7, i + 1)
+         for i, (s, e) in enumerate(kernels)],
+    )
+
+    cur.execute("""
+        CREATE TABLE CUPTI_ACTIVITY_KIND_MEMCPY (
+            start INTEGER, end INTEGER, bytes INTEGER, copyKind INTEGER
+        )
+    """)
+    cur.executemany(
+        "INSERT INTO CUPTI_ACTIVITY_KIND_MEMCPY VALUES (?,?,?,?)",
+        [
+            (hidden_memcpy[0], hidden_memcpy[1], 1 << 20, 1),   # H2D, hidden behind K1
+            (exposed_memcpy[0], exposed_memcpy[1], 1 << 20, 2),  # D2H, exposed in gap A
+        ],
+    )
+
+    cur.execute("CREATE TABLE ENUM_CUDA_MEMCPY_OPER (id INTEGER PRIMARY KEY, label TEXT)")
+    cur.executemany(
+        "INSERT INTO ENUM_CUDA_MEMCPY_OPER VALUES (?, ?)",
+        [(1, "Host-to-Device"), (2, "Device-to-Host"), (8, "Device-to-Device")],
+    )
+
+    cur.execute("""
+        CREATE TABLE MPI_COLLECTIVES_EVENTS (start INTEGER, end INTEGER, textId INTEGER)
+    """)
+    cur.execute("INSERT INTO MPI_COLLECTIVES_EVENTS VALUES (?,?,?)", (*mpi_window, 3))
+
+    cur.execute("""
+        CREATE TABLE CUPTI_ACTIVITY_KIND_RUNTIME (
+            start INTEGER, end INTEGER, eventClass INTEGER, globalTid INTEGER,
+            correlationId INTEGER, nameId INTEGER
+        )
+    """)
+    cur.executemany(
+        "INSERT INTO CUPTI_ACTIVITY_KIND_RUNTIME VALUES (?,?,?,?,?,?)",
+        [
+            (api_window[0], api_window[1], 0, _ATTRIB_GPU_TID, 50, 4),
+            # A launch call, so the GPU-driving thread is identifiable.
+            (999_900_000, 999_950_000, 0, _ATTRIB_GPU_TID, 1, 6),
+        ],
+    )
+
+    cur.execute("""
+        CREATE TABLE OSRT_API (
+            start INTEGER, end INTEGER, eventClass INTEGER, globalTid INTEGER, nameId INTEGER
+        )
+    """)
+    cur.executemany(
+        "INSERT INTO OSRT_API VALUES (?,?,?,?,?)",
+        [
+            (os_window[0], os_window[1], 0, _ATTRIB_GPU_TID, 5),
+            # Background progress thread parked across the whole timeline. It must be
+            # excluded, or it alone accounts for every idle nanosecond.
+            (999_000_000, 1_030_000_000, 0, _ATTRIB_BACKGROUND_TID, 5),
+        ],
+    )
+
+    conn.commit()
+    conn.close()
+    return path

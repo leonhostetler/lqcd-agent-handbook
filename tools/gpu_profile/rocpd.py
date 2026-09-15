@@ -59,11 +59,34 @@ _ROCPD_API_CATEGORIES: frozenset[str] = frozenset(
 # MPI category names: rocprofv3 uses "MPI", rocprof-sys uses "mpi".
 _ROCPD_MPI_CATEGORIES: frozenset[str] = frozenset({"MPI", "mpi"})
 
+# Idle attribution splits the categories above into two host-side buckets, because a
+# session reading a stall needs to know whether the host was inside the GPU runtime or
+# inside the OS. _ROCPD_API_CATEGORIES deliberately stays as it is: it answers a
+# different question (what is *not* a user marker) and is load-bearing for phase labels.
+_ROCPD_HOST_API_CATEGORIES: frozenset[str] = frozenset(
+    {
+        "HSA_CORE_API",
+        "HSA_AMD_EXT_API",
+        "HIP_RUNTIME_API_EXT",
+        "HIP_COMPILER_API_EXT",
+        "rocm_hip_api",
+        "rocm_hsa_api",
+        "rocm_marker_api",
+    }
+)
+
+# rocprofv3 traces no OS calls at all; rocprof-sys records these two. The capability is
+# therefore decided per capture rather than per format, and a capture carrying neither
+# reports the category unavailable instead of zero.
+_ROCPD_OS_CATEGORIES: frozenset[str] = frozenset({"pthread", "numa"})
+
 # Pre-built SQL IN-clause literals (constants, not user input — safe to interpolate).
 _ROCPD_NON_MARKER_SQL = ",".join(
     f"'{c}'" for c in sorted(_ROCPD_API_CATEGORIES | _ROCPD_MPI_CATEGORIES)
 )
 _ROCPD_MPI_SQL = ",".join(f"'{c}'" for c in sorted(_ROCPD_MPI_CATEGORIES))
+_ROCPD_HOST_API_SQL = ",".join(f"'{c}'" for c in sorted(_ROCPD_HOST_API_CATEGORIES))
+_ROCPD_OS_SQL = ",".join(f"'{c}'" for c in sorted(_ROCPD_OS_CATEGORIES))
 
 
 def _rocpd_short_name(display_name: str) -> str | None:
@@ -148,6 +171,8 @@ class RocpdProfile:
         self._memcpy_events_cache: list | None = None
         self._marker_ranges_cache: list | None = None
         self._mpi_ranges_cache: list | None = None
+        self._host_api_ranges_cache: list | None = None
+        self._os_runtime_ranges_cache: list | None = None
 
     # ------------------------------------------------------------------
     # Schema introspection
@@ -219,6 +244,7 @@ class RocpdProfile:
                 has_markers=bool(cats - _ROCPD_API_CATEGORIES - _ROCPD_MPI_CATEGORIES),
                 has_mpi=bool(cats & _ROCPD_MPI_CATEGORIES),
                 has_cpu_samples=self._table_has_data("rocpd_sample"),
+                has_os_runtime=bool(cats & _ROCPD_OS_CATEGORIES),
                 has_pmc_counters=self._table_has_data("rocpd_pmc_event"),
                 has_sysmetrics=False,
                 schema_version=self._schema_version,
@@ -422,6 +448,92 @@ class RocpdProfile:
             )
             for r in rows
         ]
+
+    def _fetch_category_ranges(
+        self,
+        categories_sql: str,
+        label: str,
+        *,
+        where: str | None = None,
+        limit: int | None = None,
+        gpu_threads_only: bool = False,
+    ) -> list[RangeRow]:
+        and_clause = f"AND {where}" if where else ""
+        limit_clause = f"LIMIT {limit}" if limit is not None else ""
+        thread_clause = (
+            f"""AND R.tid IN (
+                SELECT DISTINCT R2.tid
+                FROM rocpd_region R2
+                INNER JOIN rocpd_event E2 ON E2.id = R2.event_id AND E2.guid = R2.guid
+                INNER JOIN rocpd_string CS2 ON CS2.id = E2.category_id AND CS2.guid = E2.guid
+                WHERE CS2.string IN ({_ROCPD_HOST_API_SQL})
+            )"""
+            if gpu_threads_only
+            else ""
+        )
+        rows = self.query(f"""
+            SELECT R.start, R.end, NS.string AS name
+            FROM rocpd_region R
+            INNER JOIN rocpd_event E ON E.id = R.event_id AND E.guid = R.guid
+            INNER JOIN rocpd_string NS ON NS.id = R.name_id AND NS.guid = R.guid
+            INNER JOIN rocpd_string CS ON CS.id = E.category_id AND CS.guid = E.guid
+            WHERE CS.string IN ({categories_sql})
+            {thread_clause}
+            {and_clause}
+            ORDER BY R.start
+            {limit_clause}
+        """)
+        return [
+            RangeRow(
+                start_ns=r["start"],
+                end_ns=r["end"],
+                name=r["name"],
+                category=label,
+                duration_ns=r["end"] - r["start"],
+            )
+            for r in rows
+        ]
+
+    def host_api_ranges(
+        self, *, where: str | None = None, limit: int | None = None
+    ) -> list[RangeRow]:
+        """HIP/HSA API calls on the host — the rocpd analogue of the CUDA runtime API."""
+        if not self.capabilities.has_runtime_api:
+            return []
+        if where is None and limit is None:
+            if self._host_api_ranges_cache is None:
+                self._host_api_ranges_cache = self._fetch_category_ranges(
+                    _ROCPD_HOST_API_SQL, "HIP_API"
+                )
+            return self._host_api_ranges_cache
+        return self._fetch_category_ranges(
+            _ROCPD_HOST_API_SQL, "HIP_API", where=where, limit=limit
+        )
+
+    def os_runtime_ranges(
+        self, *, where: str | None = None, limit: int | None = None
+    ) -> list[RangeRow]:
+        """OS-level calls, present only under rocprof-sys (``pthread``/``numa``).
+
+        rocprofv3 traces none, so this is empty there and ``has_os_runtime`` is False —
+        the distinction callers must preserve, because an empty list and an untraced
+        subsystem are the same value and opposite facts.
+
+        Restricted to GPU-driving threads for the reason given on the Nsight Systems
+        side: a progress thread blocked in ``pthread`` for the whole run otherwise
+        covers every idle gap.
+        """
+        if not self.capabilities.has_os_runtime or not self.capabilities.has_runtime_api:
+            return []
+        if where is None and limit is None:
+            if self._os_runtime_ranges_cache is None:
+                self._os_runtime_ranges_cache = self._fetch_category_ranges(
+                    _ROCPD_OS_SQL, "OS_RUNTIME", gpu_threads_only=True
+                )
+            return self._os_runtime_ranges_cache
+        return self._fetch_category_ranges(
+            _ROCPD_OS_SQL, "OS_RUNTIME", where=where, limit=limit, gpu_threads_only=True
+        )
 
     def mpi_ranges(self, *, where: str | None = None, limit: int | None = None) -> list[RangeRow]:
         """Return MPI call ranges (only present when captured via rocprof-sys)."""

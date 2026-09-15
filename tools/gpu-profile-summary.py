@@ -49,6 +49,7 @@ from gpu_profile.metrics import (  # noqa: E402
     compute_gap_histogram,
     compute_gpu_busy_time,
     compute_gpu_kernel_time,
+    compute_idle_attribution,
     compute_marker_ranges,
     compute_memcpy_by_kind,
     compute_mpi_ops,
@@ -57,6 +58,7 @@ from gpu_profile.metrics import (  # noqa: E402
     compute_profile_summary_and_state,
     compute_streams,
     compute_top_kernels,
+    compute_transfer_overlap,
 )
 
 DEFAULT_ROW_LIMIT = 200
@@ -116,6 +118,17 @@ def cmd_gaps(profile, args) -> dict:
         _window_idle_time(profile.kernel_events(), *win) if win else compute_gap_histogram(profile)
     )
     return {"total_idle_s": round(total_idle_s, 3), "buckets": _plain(buckets)}
+
+
+def cmd_idle_attribution(profile, args) -> dict:
+    win = _window(args)
+    result = compute_idle_attribution(profile, *(win or (None, None)))
+    return _plain(result)
+
+
+def cmd_transfer_overlap(profile, args) -> dict:
+    win = _window(args)
+    return {"directions": _plain(compute_transfer_overlap(profile, *(win or (None, None))))}
 
 
 def cmd_memcpy(profile, args) -> dict:
@@ -245,6 +258,12 @@ def _render_table(payload: dict) -> str:
             lines.append("  " + " | ".join(cols))
             for row in value:
                 lines.append("  " + " | ".join(str(row.get(c, "")) for c in cols))
+        elif isinstance(value, list) and value:
+            # Lists of scalars -- notably the idle-attribution caveats and the names of
+            # categories the residual absorbs. Dropping these in table mode would hide
+            # the warnings that stop an untraced category being read as a measured zero.
+            lines.append(f"{key}:")
+            lines.extend(f"  - {item}" for item in value)
         elif not isinstance(value, (list, dict)):
             lines.append(f"{key}: {value}")
     return "\n".join(lines)
@@ -275,6 +294,8 @@ def build_parser() -> argparse.ArgumentParser:
     add("phases", cmd_phases, phases=True)
     add("kernels", cmd_kernels, window=True, top=15)
     add("gaps", cmd_gaps, window=True)
+    add("idle-attribution", cmd_idle_attribution, window=True)
+    add("transfer-overlap", cmd_transfer_overlap, window=True)
     add("memcpy", cmd_memcpy, window=True)
     add("mpi", cmd_mpi, window=True)
     add("streams", cmd_streams, window=True)
