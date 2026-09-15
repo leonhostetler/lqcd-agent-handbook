@@ -129,6 +129,28 @@ supports no claim about kernel call counts, launch geometry, or duration spread.
 capability gap in the sense [`conventions/profile-metrics.md`](../../conventions/profile-metrics.md)
 uses, and it is reported as one.
 
+`gpu-profile-summary.py launch-geometry` supplies the evidence for this gate: per kernel, the
+distinct grid and block extents, how many distinct *problem sizes* they represent, and the
+launch count behind each. Two of its fields carry the reading and neither is a verdict.
+
+- **`max_block_x_at_one_problem_size`.** `Tunable::advanceBlockDim` steps `block.x` and derives
+  `grid.x = (minThreads + block.x - 1) / block.x` from it, so a sweep moves block.x *while the
+  problem size is fixed*. Inverting that recurrence bounds `minThreads` from a single launch,
+  which is how the tool separates a sweep from a kernel launched at several sizes. Skipping that
+  separation is not a small error: on a known-warm capture it reported 25 of 153 kernels as
+  swept, because the multi-blas kernels legitimately run at several vector counts.
+- **`min_launches_per_geometry`.** A tuning candidate is launched once to warm up plus
+  `candidate_iter()` times to be timed, so a sweep is **many geometries with a handful of
+  launches each**. Two geometries with 72 and 24 launches are two call sites whatever block.x
+  does, and reading the first field without this one reproduces the same false positive.
+
+**Neither field settles warmth, and the tool does not claim to.** A tune key is a functor, a
+problem size *and* an `aux` string carrying the communication policy, the shared-memory
+carve-out and the multi-blas vector count — none of which any kernel name records. Two keys
+differing only in `aux` are indistinguishable in a profile, so the tunecache the run wrote
+remains the thing that settles it; [`internals/autotuning.md`](internals/autotuning.md) owns
+how to read it.
+
 ## On a warm cache, `grid.y == 1` makes `block.y` the y extent
 
 The section above covers a cold cache, where launch geometry describes the search. The

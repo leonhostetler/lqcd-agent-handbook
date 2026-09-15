@@ -123,6 +123,7 @@ class NsysProfile:
                 ),
                 has_pmc_counters=self._table_has_data("CUPTI_ACTIVITY_KIND_METRIC"),
                 has_sysmetrics=False,
+                has_launch_geometry=self._has_launch_geometry(),
                 schema_version="nsys",
             )
         return self._capabilities
@@ -216,6 +217,14 @@ class NsysProfile:
     # Vendor-neutral event helpers
     # ------------------------------------------------------------------
 
+    def _has_launch_geometry(self) -> bool:
+        if not self.has_table("CUPTI_ACTIVITY_KIND_KERNEL"):
+            return False
+        cols = set(self.columns("CUPTI_ACTIVITY_KIND_KERNEL"))
+        return all(
+            c in cols for c in ("gridX", "gridY", "gridZ", "blockX", "blockY", "blockZ")
+        )
+
     def kernel_events(
         self, *, where: str | None = None, limit: int | None = None
     ) -> list[KernelRow]:
@@ -244,6 +253,15 @@ class NsysProfile:
             if has_dims
             else "NULL"
         )
+        # The product alone cannot answer the questions the extents answer: whether a
+        # tuned dimension varied across launches, and -- where grid.y is 1 -- what the
+        # y problem size was. Both collapse into one number here until 2026-09-15.
+        extent_cols = (
+            "k.gridX, k.gridY, k.gridZ, k.blockX, k.blockY, k.blockZ"
+            if has_dims
+            else "NULL AS gridX, NULL AS gridY, NULL AS gridZ, "
+            "NULL AS blockX, NULL AS blockY, NULL AS blockZ"
+        )
         has_regs = "registersPerThread" in kernel_cols
         regs_expr = "COALESCE(k.registersPerThread, 0)" if has_regs else "0"
         has_shmem = "sharedMemoryExecuted" in kernel_cols or "staticSharedMemory" in kernel_cols
@@ -259,7 +277,8 @@ class NsysProfile:
                    k.streamId AS stream_id,
                    {regs_expr} AS reg_per_thread,
                    {shmem_expr} AS shared_mem,
-                   {dims_expr} AS total_threads
+                   {dims_expr} AS total_threads,
+                   {extent_cols}
             FROM CUPTI_ACTIVITY_KIND_KERNEL k
             JOIN StringIds s ON k.shortName = s.id
             {demangled_join}
@@ -280,6 +299,12 @@ class NsysProfile:
                 else None,
                 shared_mem_bytes=int(r["shared_mem"]) if r["shared_mem"] is not None else None,
                 total_threads=float(r["total_threads"]) if r["total_threads"] is not None else None,
+                grid_x=r["gridX"],
+                grid_y=r["gridY"],
+                grid_z=r["gridZ"],
+                block_x=r["blockX"],
+                block_y=r["blockY"],
+                block_z=r["blockZ"],
             )
             for r in rows
         ]

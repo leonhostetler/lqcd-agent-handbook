@@ -48,6 +48,7 @@ class ProfileCapabilities:
     has_os_runtime: bool
     has_pmc_counters: bool
     has_sysmetrics: bool
+    has_launch_geometry: bool
     schema_version: str
 
 
@@ -62,10 +63,23 @@ class KernelRow:
     device_id: int | None
     stream_id: int | None
     duration_ns: int
-    # Launch-parameter stats populated only by NsysProfile (None for rocpd)
+    # Launch parameters. registers/shared memory are NsysProfile-only; the six
+    # extents are populated by both backends when the capture records them, and are
+    # None together when it does not -- see ProfileCapabilities.has_launch_geometry.
     registers_per_thread: int | None = None
     shared_mem_bytes: int | None = None
-    total_threads: float | None = None  # gridX*gridY*gridZ × blockX*blockY*blockZ
+    total_threads: float | None = None  # grid (in blocks) × block (in threads)
+    # **Normalised to the CUDA convention**: grid_* counts blocks/workgroups and
+    # block_* counts threads per block, so total_threads is their product. rocpd
+    # records grid_size_* in *work-items* rather than workgroups, and is divided
+    # down on the way in; mapping it across raw would overstate each extent by the
+    # workgroup size. See conventions/profile-metrics.md.
+    grid_x: int | None = None
+    grid_y: int | None = None
+    grid_z: int | None = None
+    block_x: int | None = None
+    block_y: int | None = None
+    block_z: int | None = None
 
 
 @dataclass(slots=True)

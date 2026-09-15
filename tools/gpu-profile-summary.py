@@ -58,6 +58,7 @@ from gpu_profile.metrics import (  # noqa: E402
     compute_gpu_busy_time,
     compute_gpu_kernel_time,
     compute_idle_attribution,
+    compute_launch_geometry,
     compute_marker_ranges,
     compute_memcpy_by_kind,
     compute_mpi_ops,
@@ -146,6 +147,17 @@ def cmd_idle_attribution(profile, args) -> dict:
     win = _window(args)
     result = compute_idle_attribution(profile, *(win or (None, None)))
     return _plain(result)
+
+
+def cmd_launch_geometry(profile, args) -> dict:
+    """Distinct grid and block extents per kernel — the autotune-warmth gate.
+
+    software/quda/profiling.md requires cache warmth to be established before call
+    counts, launch geometry or duration spread are read, because a cold cache makes
+    all three describe the tuning search instead of the run. The extents are what
+    answer it, and until 2026-09-15 they were collapsed into `total_threads`.
+    """
+    return _plain(compute_launch_geometry(profile, top=args.top))
 
 
 def cmd_transfer_overlap(profile, args) -> dict:
@@ -470,6 +482,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("profiles", nargs="+", help="per-rank profiler databases")
     p.add_argument("--max-phases", type=int, default=8, help="phase cap (1 disables)")
     p.set_defaults(func=cmd_cross_rank, multi=True)
+
+    add("launch-geometry", cmd_launch_geometry, top=15)
 
     p = add("schema", cmd_schema)
     p.add_argument("table", nargs="?", help="table to describe; omit to list tables")

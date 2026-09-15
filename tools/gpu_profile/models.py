@@ -206,6 +206,74 @@ class TransferOverlap:
 
 
 @dataclass(kw_only=True)
+class GeometryRow:
+    """One distinct launch geometry of one kernel, with how often it was launched."""
+
+    grid: tuple[int, int, int]
+    block: tuple[int, int, int]
+    launches: int
+    total_s: float
+    mean_ms: float
+
+
+@dataclass(kw_only=True)
+class KernelGeometry:
+    """Every distinct launch geometry recorded for one demangled kernel name.
+
+    Two fields carry the autotune-warmth evidence and **neither is a verdict**, because
+    the profile cannot support one.
+
+    `max_block_x_at_one_problem_size` counts how many distinct `block.x` values share a
+    single problem size. `Tunable::advanceBlockDim` steps `block.x` and derives `grid.x`
+    from it, so a sweep moves block.x *while the problem size is fixed*; a kernel
+    launched at several problem sizes has several block.x values legitimately, which is
+    what the multi-blas kernels do on every run.
+
+    `min_launches_per_geometry` is what separates the sweep from the ordinary case, and
+    omitting it was the second wrong version of this field. A tuning candidate is
+    launched once to warm up plus `candidate_iter()` times to be timed, so a sweep is
+    **many geometries with a handful of launches each**. Two geometries with 72 and 24
+    launches is two call sites, not a search — measured on a known-warm capture, where
+    the first version of these fields flagged 25 of 153 kernels and the second 21.
+
+    `block_y_varies` is deliberately reported separately and means something else.
+    The y extent is not a free tuning parameter -- `TunableKernel2D/3D` raises
+    `block.y` only while it is below `vector_length_y` -- so where `grid_y_always_one`
+    holds, `block.y` *is* the kernel's y problem size and several values of it are
+    several call sites, not a sweep. Reading that as a sweep, or as load imbalance,
+    is the standard wrong turn.
+    """
+
+    name: str
+    launches: int
+    distinct_geometries: int
+    distinct_problem_sizes: int
+    max_block_x_at_one_problem_size: int
+    min_launches_per_geometry: int
+    block_x_values: list[int]
+    block_y_values: list[int]
+    block_y_varies: bool
+    grid_y_always_one: bool
+    geometries: list[GeometryRow]
+
+
+@dataclass(kw_only=True)
+class LaunchGeometry:
+    """Launch geometry per kernel, or an explicit statement that it is unavailable.
+
+    `available: False` is not the same as an empty table. A capture whose kernel
+    table lacks the six extents supports no claim about launch geometry, and equally
+    none that the geometry was uniform -- which is exactly the reading a silently
+    empty result invites.
+    """
+
+    available: bool
+    unavailable_reason: str | None
+    kernels: list[KernelGeometry]
+    caveats: list[str]
+
+
+@dataclass(kw_only=True)
 class TransferUnion:
     """Exposed and overlapped transfer time across *all* directions at once.
 

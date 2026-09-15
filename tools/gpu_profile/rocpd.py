@@ -248,6 +248,7 @@ class RocpdProfile:
                 has_os_runtime=bool(cats & _ROCPD_OS_CATEGORIES),
                 has_pmc_counters=self._table_has_data("rocpd_pmc_event"),
                 has_sysmetrics=False,
+                has_launch_geometry=self._has_launch_geometry(),
                 schema_version=self._schema_version,
             )
         return self._capabilities
@@ -352,6 +353,17 @@ class RocpdProfile:
             return self._kernel_events_cache
         return self._fetch_kernel_events(where=where, limit=limit)
 
+    _GEOMETRY_COLUMNS = (
+        "workgroup_size_x", "workgroup_size_y", "workgroup_size_z",
+        "grid_size_x", "grid_size_y", "grid_size_z",
+    )
+
+    def _has_launch_geometry(self) -> bool:
+        if not self.has_table("rocpd_kernel_dispatch"):
+            return False
+        cols = set(self.columns("rocpd_kernel_dispatch"))
+        return all(c in cols for c in self._GEOMETRY_COLUMNS)
+
     def _fetch_kernel_events(
         self, *, where: str | None = None, limit: int | None = None
     ) -> list[KernelRow]:
@@ -359,10 +371,20 @@ class RocpdProfile:
             return []
         where_clause = f"WHERE {where}" if where else ""
         limit_clause = f"LIMIT {limit}" if limit is not None else ""
+        geometry = self._has_launch_geometry()
+        geometry_cols = (
+            "K.workgroup_size_x, K.workgroup_size_y, K.workgroup_size_z, "
+            "K.grid_size_x, K.grid_size_y, K.grid_size_z"
+            if geometry
+            else "NULL AS workgroup_size_x, NULL AS workgroup_size_y, "
+            "NULL AS workgroup_size_z, NULL AS grid_size_x, NULL AS grid_size_y, "
+            "NULL AS grid_size_z"
+        )
         rows = self.query(f"""
             SELECT K.start, K.end, S.display_name AS name,
                    JSON_EXTRACT(S.extdata, '$.truncated_kernel_name') AS truncated_name,
-                   K.agent_id AS device_id, K.stream_id
+                   K.agent_id AS device_id, K.stream_id,
+                   {geometry_cols}
             FROM rocpd_kernel_dispatch K
             INNER JOIN rocpd_info_kernel_symbol S
                 ON S.id = K.kernel_id AND S.guid = K.guid
@@ -378,6 +400,19 @@ class RocpdProfile:
                 short = tn if tn != full_name else None
             else:
                 short = _rocpd_short_name(full_name)
+            block = (r["workgroup_size_x"], r["workgroup_size_y"], r["workgroup_size_z"])
+            threads = (r["grid_size_x"], r["grid_size_y"], r["grid_size_z"])
+            if None in block or None in threads:
+                grid = (None, None, None)
+                total_threads = None
+            else:
+                # rocpd records grid_size_* in **work-items**, not workgroups, while
+                # CUDA's gridX counts blocks. Divide down so one convention reaches
+                # every consumer; mapping across raw would overstate each extent by the
+                # workgroup size and silently inflate anything derived from it. The
+                # rounding is upward because a partial workgroup still dispatches whole.
+                grid = tuple(-(-t // b) if b else None for t, b in zip(threads, block))
+                total_threads = float(threads[0] * threads[1] * threads[2])
             result.append(
                 KernelRow(
                     start_ns=r["start"],
@@ -387,6 +422,9 @@ class RocpdProfile:
                     device_id=r["device_id"],
                     stream_id=r["stream_id"],
                     duration_ns=r["end"] - r["start"],
+                    total_threads=total_threads,
+                    grid_x=grid[0], grid_y=grid[1], grid_z=grid[2],
+                    block_x=block[0], block_y=block[1], block_z=block[2],
                 )
             )
         return result

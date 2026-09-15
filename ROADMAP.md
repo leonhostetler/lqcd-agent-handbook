@@ -26,13 +26,12 @@ exercises and is owed rather than optional. **The untraced-control comparison wa
 Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` — a Slice 4 deliverable that has
 not been written — is the run-log reader it will be built into; one floating item remains.
 
-**Launch-geometry extraction for the tunecache-warmth gate** — owed on the next QUDA
-performance session rather than now. `software/quda/profiling.md` makes it a mandatory gate
-before reading call counts, launch geometry or duration spread, and it is presently satisfied by
-hand. It is not a one-line addition: `KernelRow` carries only `total_threads`, the six extents
-being collapsed in `nsys.py`'s SQL and absent from rocpd entirely, so it needs the row type
-extended and an `available: False` path. **The parallel rank loader is deliberately not
-on this list** — three observations crossed a counter built for silent arithmetic errors, and a
+**Launch-geometry extraction for the tunecache-warmth gate landed 2026-09-15** as
+`gpu-profile-summary.py launch-geometry`, discharging the item owed on the next QUDA
+performance session. `KernelRow` now carries the six extents on both formats, with
+`ProfileCapabilities.has_launch_geometry` and an `available: False` path; the reading is in
+`software/quda/profiling.md` and the vendor-convention rule in `conventions/profile-metrics.md`.
+**The parallel rank loader is deliberately not on this list** — three observations crossed a counter built for silent arithmetic errors, and a
 serial loader is slow rather than wrong, so it is ordinary ergonomics and not a defect-rate
 obligation. Then Slice 4's remaining scheduler-placement, capture, and budget-ledger work.
 
@@ -402,6 +401,44 @@ in §3 found nine absent and four skill directories absent, **every one of them 
 future addition** — which is why no validator check was added: a guard firing nine times on
 correct content is the noisy guard [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s
 counterweight warns against.
+
+Later on 2026-09-15 the launch-geometry item was delivered, and **both technical claims in the
+sentence that scoped it were wrong** — which is the second time in one session that an owed item
+was described inaccurately by this document.
+
+It said `KernelRow` carries only `total_threads`, "the six extents being collapsed in `nsys.py`'s
+SQL and **absent from rocpd entirely**". The first half was right. The second was not:
+`rocpd_kernel_dispatch` declares `workgroup_size_{x,y,z}` and `grid_size_{x,y,z}` `NOT NULL`, and
+`rocpd.py` simply never read them. So the `available: False` path is not the rocpd path it was
+written to be — rocpd supplies the geometry — and what rocpd actually needed was a
+**normalisation**: it records the grid in *work-items* where CUDA records it in blocks, so the
+same launch reads 110592 or 864 depending on which backend you ask. Mapping it across raw would
+have overstated every extent by the workgroup size, and the resulting numbers are large and
+entirely plausible. `available: False` is retained for its real case, an nsys kernel table
+without the extent columns, and is what distinguishes a capture that cannot show geometry from
+one whose geometry was uniform.
+
+**The reading went wrong twice before it went right, both times caught by running it against a
+capture whose warmth was already established by other means.** Version one flagged any kernel
+whose `block.x` varied; `advanceBlockDim` steps block.x, so that looked sound, and it reported
+25 of 153 kernels of a known-warm capture as swept. Inverting `grid.x = ceil(minThreads/block.x)`
+bounds a tune key's problem size from one launch, and grouping on that showed the multi-blas
+rows were five *different* vector counts rather than one kernel being swept. Version two grouped
+correctly and still flagged 21, because it ignored launch counts: a tuning candidate runs once to
+warm up plus `candidate_iter()` timed launches, so a sweep is many geometries with a handful of
+launches each, and two geometries with 72 and 24 launches are two call sites. The shipped version
+reports `max_block_x_at_one_problem_size` and `min_launches_per_geometry` and **renders no
+verdict at all**, because a tune key also carries an `aux` string — policy, carve-out, vector
+count — that no kernel name records, so two keys differing only there cannot be told apart in a
+profile. The gate remains the session's to apply against the tunecache; what was owed and is now
+delivered is the extraction.
+
+Fifteen controls landed in `tests/test_gpu_profile_launch_geometry.py`, including the
+vendor-convention one that fails if rocpd's work-item grid is mapped across as workgroups, and
+the problem-size grouping perturbed in three directions. Each was reverted in turn and confirmed
+to break; the first perturbation written against the grouping was a no-op that collapsed the y/z
+bucket while leaving the x clustering to do the work, and a control for a differing z extent was
+added because a real capture had one.
 
 <a id="current-slice-state"></a>
 ## Current slice state

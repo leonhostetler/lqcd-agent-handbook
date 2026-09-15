@@ -49,6 +49,20 @@ never licenses a claim that occupancy is high, and a low value means only that t
 small to fill the device once. Do not call this quantity occupancy; the honest narrow name is
 what stops it being read as the authoritative one.
 
+**The two vendors count the grid in different units, and the extraction normalises them.**
+Nsight Systems records `gridX` in thread blocks; rocpd records `grid_size_x` in **work-items**,
+so the same launch reads as 864 under one and 110592 under the other. The extraction divides
+rocpd down to workgroups, so `grid_*` means blocks and `block_*` means threads per block on
+both formats and their product is the thread count. A hand-written query against a rocpd
+database does **not** get this for free: multiplying its raw `grid_size_*` by `workgroup_size_*`
+overstates the launch by the workgroup size in every dimension, and the number it produces is
+large and plausible.
+
+**Where a capture does not record the extents at all, that is reported as unavailable rather
+than as an empty result.** The distinction is the absent-instrumentation rule applied to a
+column instead of a table: a capture that cannot show geometry supports no claim that the
+geometry was uniform, which is exactly what an empty table reads as.
+
 ## Idle time is measured between kernels, not around them
 
 Reported idle time sums the gaps *between* kernel execution intervals. Time before the first

@@ -33,6 +33,9 @@ from .models import (
     PhaseSummary,
     ProfileSummary,
     StreamSummary,
+    GeometryRow,
+    KernelGeometry,
+    LaunchGeometry,
     TransferOverlap,
     TransferUnion,
     WindowBin,
@@ -700,6 +703,156 @@ def compute_transfer_union(
         exposed_s=round((total - overlapped) / 1e9, 6),
         pct_overlapped=round(100.0 * overlapped / total, 2) if total else 0.0,
         directions_sum_exposed_s=round(sum(d.exposed_s for d in per_direction), 6),
+    )
+
+
+def _volume_groups(geometries: list[tuple]) -> list[list[tuple]]:
+    """Cluster geometries that can share one tune key's problem size.
+
+    QUDA derives the x grid from the x block: `advanceBlockDim` sets
+    `grid.x = (minThreads + block.x - 1) / block.x` whenever the grid is not itself
+    tuned. Inverting that, one launch bounds its own minThreads to
+    `((grid.x - 1) * block.x, grid.x * block.x]`, and two launches can belong to the
+    same tune key only if those bounds overlap *and* their y and z extents match.
+
+    This is what separates a tuning sweep from ordinary variety. Without it, a kernel
+    launched at several problem sizes -- which is normal, and is what the multi-blas
+    kernels do on every run -- looks exactly like one being swept.
+    """
+    buckets: dict[tuple, list[tuple]] = defaultdict(list)
+    for g in geometries:
+        grid_x, grid_y, grid_z, block_x, block_y, block_z = g
+        buckets[(grid_y * block_y, grid_z * block_z)].append(g)
+
+    groups: list[list[tuple]] = []
+    for members in buckets.values():
+        spans = sorted(
+            ((g[0] - 1) * g[3] + 1, g[0] * g[3], g) for g in members
+        )
+        current: list[tuple] = []
+        current_hi = -1
+        for lo, hi, g in spans:
+            if current and lo <= current_hi:
+                current.append(g)
+                current_hi = min(current_hi, hi) if hi >= lo else current_hi
+            else:
+                if current:
+                    groups.append(current)
+                current, current_hi = [g], hi
+        if current:
+            groups.append(current)
+    return groups
+
+
+def compute_launch_geometry(
+    profile: Profile, *, top: int = 15, max_geometries: int = 10
+) -> LaunchGeometry:
+    """Distinct launch geometries per kernel, for the autotune-warmth gate.
+
+    `software/quda/profiling.md` makes establishing tunecache warmth mandatory before
+    reading call counts, launch geometry or duration spread, because a cold cache
+    inflates all three: every candidate in a tuning sweep is a real launch the
+    profiler records. Until 2026-09-15 the extraction collapsed the six extents into
+    `total_threads`, so the column that answers the question was not carried at all.
+
+    **This supplies the evidence and does not return a verdict**, because the profile
+    cannot carry one. A tune key is a functor, a problem size *and* an `aux` string
+    holding the communication policy, the shared-memory carve-out and the multi-blas
+    vector count; none of that is in a kernel name. So two launches that look like one
+    key being swept may be two keys, and the only way to settle it is the tunecache
+    the run wrote. The session applies the gate; the tool supplies the extents.
+    """
+    if not profile.capabilities.has_launch_geometry:
+        return LaunchGeometry(
+            available=False,
+            unavailable_reason=(
+                "this capture's kernel table does not record grid and block extents"
+            ),
+            kernels=[],
+            caveats=[
+                "Unavailable is not uniform: no claim about launch geometry, call "
+                "counts or duration spread is supported by this capture, and none "
+                "that the autotune cache was warm.",
+            ],
+        )
+
+    by_name: dict[str, dict[tuple, list[int]]] = defaultdict(lambda: defaultdict(list))
+    for k in profile.kernel_events():
+        extents = (k.grid_x, k.grid_y, k.grid_z, k.block_x, k.block_y, k.block_z)
+        if any(e is None for e in extents):
+            continue
+        by_name[k.name][extents].append(k.duration_ns)
+
+    kernels: list[KernelGeometry] = []
+    for name, geometries in by_name.items():
+        launches = sum(len(v) for v in geometries.values())
+        groups = _volume_groups(list(geometries))
+        rows = [
+            GeometryRow(
+                grid=(g[0], g[1], g[2]),
+                block=(g[3], g[4], g[5]),
+                launches=len(durations),
+                total_s=round(sum(durations) / 1e9, 6),
+                mean_ms=round(sum(durations) / len(durations) / 1e6, 4),
+            )
+            for g, durations in geometries.items()
+        ]
+        rows.sort(key=lambda r: r.launches, reverse=True)
+        kernels.append(
+            KernelGeometry(
+                name=name,
+                launches=launches,
+                distinct_geometries=len(geometries),
+                distinct_problem_sizes=len(groups),
+                max_block_x_at_one_problem_size=max(
+                    (len({m[3] for m in g}) for g in groups), default=0
+                ),
+                min_launches_per_geometry=min(len(v) for v in geometries.values()),
+                block_x_values=sorted({g[3] for g in geometries}),
+                block_y_values=sorted({g[4] for g in geometries}),
+                block_y_varies=len({g[4] for g in geometries}) > 1,
+                grid_y_always_one=all(g[1] == 1 for g in geometries),
+                geometries=rows[:max_geometries],
+            )
+        )
+    kernels.sort(
+        key=lambda k: (k.max_block_x_at_one_problem_size, k.launches), reverse=True
+    )
+
+    flagged = [k for k in kernels if k.max_block_x_at_one_problem_size > 1]
+    caveats = [
+        "block.x is the dimension Tunable::advanceBlockDim steps, and grid.x is "
+        "derived from it, so block.x moving *at one problem size* is the shape a "
+        "tuning sweep leaves. Several problem sizes with one block.x each is ordinary "
+        "variety and is reported as distinct_problem_sizes, not as a sweep.",
+        "Read max_block_x_at_one_problem_size together with min_launches_per_geometry "
+        "or it will mislead. A tuning candidate runs once to warm up plus "
+        "candidate_iter() timed launches, so a sweep is many geometries with a handful "
+        "of launches each; a few geometries with hundreds of launches each is call "
+        "sites, whatever block.x does.",
+        "block.y is not a free tuning parameter. Where grid_y_always_one holds, block.y "
+        "is the kernel's y problem size, so several values are several call sites -- "
+        "batch-size variation, not a sweep and not load imbalance.",
+        "A flag here is consistent with a sweep and does not establish one. The tune "
+        "key also carries an aux string -- communication policy, shared-memory "
+        "carve-out, multi-blas vector count -- that no kernel name records, and two "
+        "keys differing only there are indistinguishable in a profile. Settle warmth "
+        "against the tunecache the run wrote.",
+    ]
+    if flagged:
+        caveats.append(
+            f"{len(flagged)} of {len(kernels)} kernels show more than one block.x at a "
+            "single problem size; check their launch counts before reading any as a "
+            "sweep."
+        )
+    else:
+        caveats.append(
+            "No kernel varies in block.x at a single problem size. That is consistent "
+            "with a warm cache and does not establish one: a sweep before the capture "
+            "window leaves no trace inside it."
+        )
+    return LaunchGeometry(
+        available=True, unavailable_reason=None, kernels=kernels[:top], caveats=caveats
     )
 
 
