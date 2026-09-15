@@ -61,7 +61,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 
 | Decision | Choice | Reopen when |
 |---|---|---|
-| **Automation of repeated work** | Two separate rules, deliberately not merged. **Authoring time** ([§prefer-a-tool](#prefer-a-tool)): a mined fact that can be executed must ship as a script plus an index line. **Working practice** (`conventions/repeated-work.md`): a procedure a campaign repeats should become a tool, surfaced by a checkpoint at each study or phase closure and each work-mode change rather than by an event trigger, because the set of repeated actions is not visible at the start. Every work mode carries the checkpoint in its `Done` and `Tools and routing` sections, so a mode change fires it mechanically, and the Tier-0 standing rule names the trigger and points at the leaf on [§batch-scripts](#batch-scripts)'s pattern. A new tool is not trusted on a passing run: it must be made to fail on purpose, and a no-op negative test is vacuous | A checkpoint proves too weak in practice — the next stronger anchor is a required field in an existing mandatory record, not a louder instruction |
+| **Automation of repeated work** | Two separate rules, deliberately not merged. **Authoring time** ([§prefer-a-tool](#prefer-a-tool)): a mined fact that can be executed must ship as a script plus an index line. The by-hand counter's exemption is scoped to procedures **no tool in `tools/` could execute**, not to everything a profiler-database reader cannot emit (narrowed 2026-09-15, [§profile-analysis](#profile-analysis)). **Working practice** (`conventions/repeated-work.md`): a procedure a campaign repeats should become a tool, surfaced by a checkpoint at each study or phase closure and each work-mode change rather than by an event trigger, because the set of repeated actions is not visible at the start. Every work mode carries the checkpoint in its `Done` and `Tools and routing` sections, so a mode change fires it mechanically, and the Tier-0 standing rule names the trigger and points at the leaf on [§batch-scripts](#batch-scripts)'s pattern. A new tool is not trusted on a passing run: it must be made to fail on purpose, and a no-op negative test is vacuous | A checkpoint proves too weak in practice — the next stronger anchor is a required field in an existing mandatory record, not a louder instruction |
 | **Tier-2 never cites a developer document** | A leaf, playbook, mode or convention must not send a reader into `ARCHITECTURE.md` or `ROADMAP.md` for operative content. Cite the Tier-0 standing rule, which every session already carries, or restate the operative sentence in the leaf. Those two documents are read as a **precondition for editing** ([§developer-obligations](#developer-obligations)), and Tier 0 states that developer-only planning is not opened in user mode; a Tier-2 pointer into them inverts the tier structure, since the leaf is meant to be the smallest thing that answers the question. **The exception is a document whose subject *is* handbook development** — the developer-mode entry step in `playbooks/start-session.md` names both correctly. Provenance is not a reason to link: recording where a rationale lives is a developer concern, and a sentence that cannot stand without the citation belongs in the leaf | A Tier-2 reader demonstrably needs design rationale that cannot be restated in a sentence — which is a signal the leaf is missing content, not that the link is wanted |
 | **Context compaction** | Named as a routing trigger in Tier 0, and it must **stay** in Tier 0. A compaction summarizes the conversation while re-supplying the entrypoint, so every Tier-2 leaf — and every playbook and mode document — is lost with it. The task-time surfaces that make [§batch-scripts](#batch-scripts)'s Tier-0 pointer *fire* therefore cannot serve here: they are removed by the same event they would respond to, which inverts that section's placement argument. The loss is also silent, since a summary still supports a confident restatement of a band or a parameter meaning, so the rule carries an explicit no-recall clause rather than only a reload instruction. Full orientation is deliberately **not** re-run: machine, node type, stack and modes are stable and recorded | Moving this rule into a leaf to reclaim Tier-0 bytes — which would silently disable it — or a frontend that demonstrably preserves loaded leaf content across a compaction |
 | **Work mode** | Current, not permanent — may change mid-session, but only by explicit declaration. It follows the immediate decision and deliverable, not every tool used along the way ([§work-mode-currency](#work-mode-currency)) | — |
@@ -2130,6 +2130,24 @@ subcommands nobody can write. Such figures are hand-derived permanently and by c
 what is owed for them is declaration, not automation. The distinction matters because the
 playbook now recommends comparing a capture against an untraced control run, which is exactly
 this kind of arithmetic and is expected rather than exceptional.
+
+**Narrowed 2026-09-15 (same day, by the fourth acceptance exercise): the exemption is about
+which tool, not about whether one is possible.** The amendment above reasons from "no tool that
+reads a profiler database can emit it" to "declaration, not automation", and that step does not
+hold. A tool that reads application run logs can emit it, and `tools/` is not confined to
+profiler readers. The exemption is restated: a figure escapes the counter when **no tool in
+`tools/` could execute the procedure**, not merely when no subcommand of the profile extractor
+could. Declaration is owed either way; it is not a substitute for automation where automation is
+available.
+
+The correction rests on evidence rather than on symmetry. That exercise performed the
+untraced-control comparison by hand six times in one session, and the procedure carries a silent
+trap: the control's first solve absorbs the autotune sweep, so including it moves the control
+mean by roughly four-fold and yields an inflation factor near 1.0 — which reads as "tracing is
+nearly free", the opposite of the true conclusion, reached through arithmetic that looks
+entirely ordinary. `conventions/repeated-work.md` makes the quiet-failure condition the one that
+decides automation. The blanket exemption removed from the counter exactly the class whose
+failure is quietest, which inverts what the counter exists to do.
 
 **Derived quantities are computed, never asked for.** A speedup bound that follows arithmetically
 from a claimed runtime fraction is computed by the tool. The session supplies judgement and

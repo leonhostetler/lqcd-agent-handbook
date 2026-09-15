@@ -125,6 +125,29 @@ def check(record: dict, schema: dict) -> list[str]:
                     "caveat a reader gets"
                 )
 
+        # grounding.basis declared an enum that nothing read: it is nested one level
+        # below the properties this function scans, so every value passed. Same class
+        # as the `if src and queries` short-circuit and the unread declaration list.
+        gschema = item["properties"]["grounding"]
+        grounding = hyp.get("grounding")
+        if isinstance(grounding, dict):
+            basis = grounding.get("basis")
+            allowed = gschema["properties"]["basis"]["enum"]
+            if basis not in allowed:  # GUARD: basis
+                errors.append(
+                    f"{where}.grounding.basis: {basis!r} not one of {allowed}"
+                )
+            if basis in ("handbook_leaf", "both") and not grounding.get("leaves"):
+                errors.append(
+                    f"{where}.grounding: basis {basis!r} names a leaf but `leaves` is "
+                    "empty; a cited leaf is checkable and recall is not"
+                )
+            if basis == "source" and not grounding.get("sources"):
+                errors.append(
+                    f"{where}.grounding: basis 'source' but `sources` is empty; "
+                    "a source claim names its file, line and revision or it is recall"
+                )
+
         fraction = hyp.get("runtime_fraction_pct")
         expected = amdahl_bounds(fraction)
         stated = hyp.get("speedup_bounds_pct")

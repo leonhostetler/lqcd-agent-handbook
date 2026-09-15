@@ -94,7 +94,7 @@
                 "unit": { "type": ["string", "null"] },
                 "hand_derived": {
                   "type": "boolean",
-                  "description": "True when this figure was computed by the session rather than emitted by an extraction command — arithmetic over tool output, or a quantity read from outside the profile such as an application timer. The caveat belongs beside the number, not only in a header a reader may not reach."
+                  "description": "True when this figure was computed by the session rather than emitted by an extraction command — arithmetic over tool output, or a quantity read from outside the profile such as an application timer. The caveat belongs beside the number, not only in a header a reader may not reach. A source-code fact is not a figure and does not belong here at all: cite it in `grounding.sources`."
                 },
                 "from": {
                   "type": "string",
@@ -133,12 +133,18 @@
             "type": "object",
             "required": ["basis"],
             "additionalProperties": false,
+            "description": "What the hypothesis rests on. `basis` names the primary kind; `leaves` and `sources` carry the citations and may both be present, because a hypothesis frequently rests on a profile figure, a leaf and a source read at once. `basis` stays single-valued rather than growing a value per combination.",
             "properties": {
-              "basis": { "enum": ["profile", "handbook_leaf", "both"] },
+              "basis": { "enum": ["profile", "handbook_leaf", "source", "both"] },
               "leaves": {
                 "type": "array",
                 "items": { "type": "string" },
                 "description": "Required when basis names a leaf. A cited leaf is checkable; recall is not."
+              },
+              "sources": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Source-code citations as file and line, with the revision they were read at. Required when basis is source, permitted alongside any basis. A source fact belongs here and not in `evidence`: evidence holds figures the extraction emitted or the session computed, whereas a source fact is *read*, so flagging it `hand_derived` would file it as a derivation it is not. The analysis playbook makes cross-referencing source the step carrying most of the value, and before 2026-09-15 the record had nowhere to put its result."
               }
             }
           },

@@ -1,6 +1,6 @@
 ---
 title: Reading GPU profile metrics
-summary: What each extracted profile quantity means, how idle time is attributed and what its residual does and does not prove, what a tracer cannot establish, what tracing itself changes about the run, and the readings that are unfounded on trace data alone.
+summary: What each extracted profile quantity means, how idle time is attributed and what its residual does and does not prove, what a tracer cannot establish, what tracing itself changes about the run and about a comparison between two runs, and the readings that are unfounded on trace data alone.
 scope: [universal]
 load_when: Reading, quoting, or reasoning about any quantity extracted from a GPU profiler database.
 evidence: source
@@ -187,6 +187,26 @@ counts: **1.91x end to end, 2.80x on an MPI-dense input-file read, 1.55x on the 
 1.05x and 0.97x on the two GPU-dense stages that make few host calls.** Read as a profile-only
 account that run spent 46% of its solve phase GPU-idle; measured against the control the figure
 is nearer 17%. Both are arithmetically correct, and the first describes the traced run.
+
+**The inflation also differs between configurations of the same binary, and that is a second
+hazard on top of the first.** `[experiment]` Three arms of one job — identical source, input,
+nodes and rank count, one communication environment variable moved per arm — were each run
+traced and untraced. Measured on the solve phase, where the control's autotune cache is warmed
+by its own excluded first solve and no file I/O leaves a page-cache confound: **1.55x under the
+default communication policy, 2.95x with the library's peer-to-peer path disabled, and 4.00x
+with GPU-Direct RDMA disabled.** The arm that pushes halo exchange onto host-side MPI progress
+is the arm the tracer punishes hardest, because interception is charged per call and that arm
+makes more of them. The 1.55x reproduces the solve-phase figure above from a different job and a
+differently structured control, which makes the solve-phase number the firmest of either set.
+
+**So a traced A/B distorts the effect it exists to measure, by a factor that is neither bounded
+nor consistent in direction.** Across those same arms the traced captures report the
+peer-to-peer arm +86.4% and the RDMA arm +177.9% against the default. Untraced, the first is
+-2.3% — inside a run-to-run spread of 2-3%, so no effect — and the second +7.6%. One comparison
+overstates a real effect by 23x; the other **reverses its sign**, and nothing in either profile
+says so. **Never rank configurations by traced elapsed time when the arms differ in host-call
+density.** Establish the difference untraced and use the captures only to explain a difference
+already measured. [`profile-capture.md`](profile-capture.md) owns arranging that at capture time.
 
 Two rules follow, and they are not the same rule.
 

@@ -3,27 +3,27 @@
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
 matrix, including both Claude cases, has passed. Slice 4 remains in progress. Slice 6 is in
 progress: Stages 0 through 5 landed on 2026-09-14 and Stage 6 remains. Its first three
-acceptance checks have now been exercised three times — 2026-09-14, and twice on 2026-09-15 —
-and all three remain **not** accepted. The third exercise met the isolation precondition the
-second failed, and what it found was a reading defect rather than a session failure: check 1
-requires hand-derived quantities to be **declared**, which the 2026-09-14 amendment already
-settled, but the emptiness reading that amendment removed had crept back into the next action
-and into the second exercise's notes, and the third session repeated it. Worse, **nothing
-enforced the declaration** — emptying `extraction.derived_by_hand` while still citing
-hand-derived figures passed with zero errors. The guard that closes it landed the same day, and
-acceptance now waits on a fresh session run against it. The Slice 6 section records what each
-exercise produced. The operator-directed solver import through Stage 5 is published; solver-import
+acceptance checks have now been exercised four times — 2026-09-14, and three times on
+2026-09-15. **Check 1 is accepted**, operator-graded on the fourth exercise, which met every
+clause and ran against the declaration guard as enforced; two qualifications on that grade are
+recorded in the Slice 6 section rather than waived. **Checks 2 and 3 remain not accepted, and
+neither has been exercised even once in four attempts** — each needs a capture deliberately
+constructed to put it under load, which is now the next action rather than a preference. The
+Slice 6 section records what each exercise produced. The operator-directed solver import through Stage 5 is published; solver-import
 Stage 6 is indefinitely deferred while split-grid deflated CG remains in development, testing, and
 tuning.
 
-**NEXT ACTION:** Re-run the Slice 6 acceptance checks in a fresh session, on **a profile no
-session has analysed before**, against the criterion as now enforced — `derived_by_hand` is
-declared and mechanically checked per figure, not required to be empty. Prefer a capture
-genuinely lacking the instrumentation its question needs, which is the only way check 2 gets
-exercised at all, and a profile from software with no handbook profiling leaf, which is the only
-way check 3 does. Grading it in the session that produced the analysis is what the third
-exercise deliberately avoided, so the operator runs this one. Stage 6 waits behind it. Slice 4's
-remaining scheduler-placement, capture, and budget-ledger work stays open behind both.
+**NEXT ACTION:** **Construct the check 2 capture instead of waiting for one.** Four exercises
+have failed to produce a profile that genuinely lacks the instrumentation its question needs,
+and two successive next actions have asked for one to turn up; that is long enough to conclude
+it will not. Re-capture a single solve of a known workload with `-t cuda` alone — no `mpi`, no
+`osrt` — and put a communication question to a fresh session. It passes if the session names the
+missing instrumentation and declines to rank communication, and fails if it reasons past the gap,
+whether or not the conclusion happens to be right. Check 3 sits behind it and needs its own
+deliberate input: a profile from software with **no** handbook profiling leaf, which the working
+project's rocpd fixtures do not supply, being captures of the same application. Stage 6 waits
+behind both. Slice 4's remaining scheduler-placement, capture, and budget-ledger work stays open
+behind all of it.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -1374,6 +1374,113 @@ confines a single observation to `incidents/`.
 *One more data point for a parked decision.* `cross-rank` over eight captures of roughly 490 MB
 each ran about six and a half minutes serially — the second observation of the friction the
 serial rank loader causes, recorded rather than acted on.
+
+**Fourth exercise, 2026-09-15** (same day, third session), on a MILC/QUDA staggered CG capture
+from a **different** 8-rank 2-node A100 job than the third: a three-arm communication A/B whose
+peer-to-peer-disabled arm no session had analysed. Isolation held — no analysis notes and no
+hypothesis record beside the capture, and the working project's instructions characterise a
+capture from another job entirely, which the definition above settles as not contamination.
+
+*Check 1 — **ACCEPTED**, operator-graded 2026-09-15.* Every clause was met: performance mode
+declared from the skill with no re-teaching; extraction through subcommands, with two `query`
+calls that stayed row-capped and read-only and no direct database connection opened; a ranked
+record `tools/hypothesis-record.py` accepts with bounds derived rather than asserted; every
+figure naming a command; and thirteen hand-derived quantities declared, which the 2026-09-14
+amendment settles is not a failure. The per-figure guard added by the third exercise fired on
+first submission with three errors, all of a kind no previous exercise produced — source-code
+citations carried in `evidence[]` unflagged — and that finding became the schema change recorded
+below.
+
+**Two qualifications are recorded rather than waived, because acceptance is the moment they stop
+being visible.** First, the check specifies a session *"given only a profile and 'find out where
+the time goes'"*; this session's prompt also supplied the location of the QUDA source tree and
+asked for recommended fixes. The extra input is what made the revision-resolution residue below
+reachable, so it was not inert. Second, the session that produced the analysis is the one that
+reported the evidence, which the previous next action had asked to avoid; the grade is the
+operator's, taken on that reported evidence rather than on an independent re-run. Neither
+qualification was found to change a clause's outcome. **If check 1 is reopened, these are the two
+places to look first**, and the cheap repair for both is one independent run on a bare prompt.
+
+*Check 2 — still not exercised, a fourth time.* The capture answered its question, so
+gap-reporting was never put under load. Positive signals, both consistent with the previous
+rounds: with no hardware counters the session declined to classify memory- versus compute-bound,
+and with `--sample=none` it stated the idle residual as an upper bound on host compute rather
+than a measurement. The naming failure recorded in the second and third exercises did **not**
+recur — no hypothesis was named for an attribution the evidence could not carry, and the
+`software/quda/profiling.md` rule the third exercise wrote is the reason, which is that rule's
+first field use. Four attempts with no exercise is what moves the constructed capture into the
+next action.
+
+*Check 3 — still not exercised, a fourth time.* A QUDA profile again. New positive evidence on
+filing: the session reached `conventions/profile-metrics.md` and `software/quda/profiling.md` by
+`load_when` match, and every QUDA-specific fact it needed — the launcher-versus-computation
+naming rule, the enum-discriminator rule, the tunecache policy keys — came from the software leaf
+rather than the mode or the convention. But the negative case remains untested, and a fourth
+QUDA capture cannot test it.
+
+*Durable residue, admitted the same day.* Three items, each its own change.
+
+**The tracing-inflation rule gains an axis and an evidence upgrade.**
+`conventions/profile-metrics.md` recorded inflation as non-uniform *across a run*. It is also
+non-uniform *across configurations*: three arms of one job, identical but for one communication
+environment variable each, inflated 1.55x, 2.95x and 4.00x on the solve phase. The consequence is
+sharper than the existing rule and is now stated as its own prohibition — **a traced A/B distorts
+the effect it exists to measure and can reverse its sign**. In these arms the traced captures
+reported +86.4% and +177.9% against the default where untraced the figures were -2.3% (inside a
+2-3% run-to-run spread, so no effect) and +7.6%: one overstated by 23x, the other inverted.
+`conventions/profile-capture.md` takes the capture-time rule that follows — capture the arms
+untraced and trace only to explain a difference already measured.
+
+This also upgrades evidence on a claim the handbook already carried. The existing figures are
+`[inferred]`, bounded from below because a cold autotune cache and a cold page cache both
+penalised that control. This job removes both **for the solve phase** — the control's first solve
+absorbs the tuning sweep and is excluded, and the solve phase does no file I/O — making it
+`[experiment]` with one variable moved, and its 1.55x **reproduces the recorded solve-phase figure
+from a different job and a differently structured control**.
+
+**A QUDA profile's build revision is usually recoverable, and the leaf said it was not.**
+`software/quda/profiling.md` stated that nothing in the profile identifies the revision that built
+the binary — true of the database, and misleading in practice, because a run that wrote a
+tunecache writes the Git descriptor into its header, which `internals/autotuning.md` already
+documented from the other side. The leaf now says to look there first and cross-links the two, and
+keeps the template-argument-plus-decomposition fallback for when neither is available. The session
+resolved the enum at the build revision and *also* ran the decomposition cross-check — the
+exterior values present were exactly those the rank grid permits, with the unpartitioned
+dimension's value absent — so the leaf now recommends running the cross-check even with the
+revision in hand, since a cache header can belong to a different build than the one profiled.
+
+**`grounding.basis` declared an enum that nothing read.** Found while giving source facts a home:
+the checker collects enums from `hypotheses.items.properties`, and `basis` sits one level below
+that inside `grounding`, so every value passed — including a typo. This is the third instance in
+this slice of a guard that could not fire, after the `if src and queries` short-circuit and the
+unread declaration list. `schemas/hypothesis.schema.json` gains `grounding.sources` for
+source-code citations, with the reason stated in the schema: a source fact is *read*, not derived,
+so flagging it `hand_derived` files it as a derivation it is not, and the analysis playbook makes
+source cross-referencing the step carrying most of the value while the record had nowhere to put
+its result. `basis` gains `source` and stays single-valued, with `sources` legal beside any basis
+rather than adding a value per combination. The checker now validates `basis` and requires
+`leaves` and `sources` where the basis names them. Seven controls in
+`tests/test_hypothesis_record.py`, including both perturbations of the new guard — silenced and
+always-firing — each asserting the perturbation landed, and two positive cases so the rejections
+are not passing merely because the tool dislikes an unfamiliar `grounding`.
+
+*The by-hand counter's exemption was narrowed, not applied.* The session performed the
+untraced-control comparison by hand six times, which the 2026-09-15 exemption placed outside the
+counter because no profiler-database reader can emit it. That reasoning does not reach its
+conclusion — a run-log reader can — and the procedure carries the quiet failure
+`conventions/repeated-work.md` makes decisive: including the control's first solve moves its mean
+roughly four-fold and yields an inflation factor near 1.0, which reads as "tracing is nearly
+free", the opposite conclusion, through arithmetic that looks ordinary.
+[§profile-analysis](ARCHITECTURE.md#profile-analysis) now scopes the exemption to procedures **no
+tool in `tools/` could execute**. The control comparison is therefore a counter candidate at six
+occurrences, and the working directory's own automation checkpoint independently nominated it.
+
+*Third observation of the serial rank loader, and it should stop being an observation.*
+`cross-rank` over eight captures totalling 7.4 GB ran about ten minutes, against the second
+observation's six and a half minutes over 3.9 GB. Stage 2 deliberately left the source
+implementation's worker pool out of the port as a separate change; three observations crosses the
+same "more than twice" threshold the by-hand counter uses, so the pool is now owed its own change
+rather than another line here.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check

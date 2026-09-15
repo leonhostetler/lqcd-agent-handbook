@@ -1,6 +1,6 @@
 ---
 title: Capturing a GPU profile
-summary: What a capture must establish before the run — that the artifact is validated rather than the exit status, that a wall-clock anchor exists where the format does not carry one, and whether an untraced control run exists to bound what tracing cost.
+summary: What a capture must establish before the run — that the artifact is validated rather than the exit status, that a wall-clock anchor exists where the format does not carry one, whether an untraced control run exists to bound what tracing cost, and why a capture meant to compare configurations must not trace the comparison.
 scope: [universal]
 load_when: Planning, submitting, or validating a profiled run.
 evidence: reproduced
@@ -72,6 +72,17 @@ The control is usually already there and free. Any workload that warms an autotu
 run the same input untraced first, so the warming run *is* the control, provided its output is
 kept rather than overwritten by the traced run that follows. Where nothing forces a warming run,
 the control costs one more execution of a workload already sized to fit the job.
+
+**Where the capture exists to compare configurations, do not trace the comparison.** `[experiment]`
+Tracing cost tracks traced-call density, so two arms that differ in how much work they push onto
+host-side calls are inflated by different factors, and the difference between them is measured
+through both. In one three-arm job the traced captures reported a communication arm +86.4%
+against the default when untraced it was -2.3%, inside run-to-run noise — the comparison reversed
+sign — while a second arm's real +7.6% was reported as +177.9%. Capture the arms **untraced**,
+establish the difference from the application's own timers, and trace afterwards only to explain
+a difference already measured. Tracing every arm and diffing the profiles is the shape to avoid;
+it costs more job time and returns a comparison whose sign is not trustworthy.
+[`profile-metrics.md`](profile-metrics.md) owns the reading rule this follows from.
 
 Capture time is the only window, because a control cannot be reconstructed from the profile
 afterwards — which is why it is worth deciding before the run even though an analysis can

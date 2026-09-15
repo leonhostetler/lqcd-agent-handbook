@@ -1,6 +1,6 @@
 ---
 title: Reading a QUDA kernel in a GPU profile
-summary: Why a profile's kernel short name names the launcher rather than the computation, how a demangled name resolves to its functor and source file, why an enum template argument discriminates without naming, what a cold tunecache does to call counts, launch geometry and duration spread, and how to read the y block extent on a warm one.
+summary: Why a profile's kernel short name names the launcher rather than the computation, how a demangled name resolves to its functor and source file, why an enum template argument discriminates without naming and how the tunecache header recovers the revision needed to resolve it, what a cold tunecache does to call counts, launch geometry and duration spread, and how to read the y block extent on a warm one.
 scope: [software:quda]
 load_when: Interpreting QUDA kernel names, call counts, launch geometry, or duration spread in a GPU profile.
 evidence: source
@@ -81,11 +81,28 @@ exactly like one that is grounded, which is the failure
 [`../../conventions/profile-metrics.md`](../../conventions/profile-metrics.md) names for
 unobservable bottlenecks, one field over.
 
-**Where the revision is unavailable, identify such a kernel by its template arguments and by
-what the run's decomposition implies, and say which.** The partitioned dimensions follow from
+**Look for the tunecache before falling back.** `[source]` The profile does not carry the
+revision, but a run that wrote a tunecache does. That file's header second field is the Git
+descriptor [`internals/autotuning.md`](internals/autotuning.md) records, and it names the commit
+the build was configured from — `1.1.0-<commit>-sm_80` on one observed CUDA cache, alongside the
+GPU architecture and CUDA version. Resolve that commit in a QUDA checkout and the enumeration
+can be read at the revision that actually built the binary instead of at whatever revision is
+checked out. Confirm the commit resolves to an object before relying on it, and note what the
+header does **not** establish: `internals/autotuning.md` owns that, and a cache written by a
+different build than the one profiled is exactly the case to rule out.
+
+**Where neither a revision nor a tunecache header is available, identify such a kernel by its
+template arguments and by what the run's decomposition implies, and say which.** The partitioned dimensions follow from
 the rank grid, so which exterior-kernel values may legally appear follows too, and that
 constrains a mapping without asserting one. Resolving it properly is the procedure above applied
 to one more template argument: read the enumeration in the revision that built the binary.
+
+**Run the decomposition cross-check even when the revision is in hand.** It is independent of
+the source read and costs nothing: on one capture the exterior values present were exactly those
+the rank grid permits, with the unpartitioned dimension's value absent from the profile
+altogether. A source read and a decomposition argument that agree are two premises; a source read
+alone is one, and it is the one that silently goes wrong when the cache header belongs to a
+different build.
 
 ## A cold tunecache changes what the profile contains
 

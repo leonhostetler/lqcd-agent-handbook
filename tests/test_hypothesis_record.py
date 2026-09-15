@@ -314,6 +314,91 @@ class HypothesisRecordTests(unittest.TestCase):
         self.assertIn("NOT checked", proc.stdout)
         self.assertNotIn("passed", proc.stdout.lower())
 
+    # -- grounding: an enum that was declared and never read ------------------
+
+    def test_an_unknown_grounding_basis_is_rejected(self):
+        """`grounding.basis` carried an enum from the first schema version and nothing
+        checked it: the tool collects enums from `hypotheses.items.properties`, and
+        basis sits one level below that, inside `grounding`. Every value passed,
+        including a typo. Same class as the `if src and queries` short-circuit."""
+        rec = copy.deepcopy(VALID)
+        rec["hypotheses"][0]["grounding"] = {"basis": "vibes"}
+        proc = run(self.write(rec))
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("grounding.basis", proc.stdout + proc.stderr)
+
+    def test_a_leaf_basis_without_leaves_is_rejected(self):
+        rec = copy.deepcopy(VALID)
+        rec["hypotheses"][0]["grounding"] = {"basis": "handbook_leaf"}
+        proc = run(self.write(rec))
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("leaves", proc.stdout + proc.stderr)
+
+    def test_a_source_basis_without_sources_is_rejected(self):
+        rec = copy.deepcopy(VALID)
+        rec["hypotheses"][0]["grounding"] = {"basis": "source"}
+        proc = run(self.write(rec))
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("sources", proc.stdout + proc.stderr)
+
+    def test_a_source_basis_with_sources_is_accepted(self):
+        """The positive case, so the two above are not passing merely because the
+        tool rejects everything with a `grounding` key it did not expect."""
+        rec = copy.deepcopy(VALID)
+        rec["hypotheses"][0]["grounding"] = {
+            "basis": "source",
+            "sources": ["lib/inv_cg_quda.cpp:242-290 @ d61517229"],
+        }
+        proc = run(self.write(rec))
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+    def test_sources_may_accompany_any_basis(self):
+        """A hypothesis resting on a profile figure *and* a source read is ordinary.
+        `basis` stays single-valued, so `sources` has to be legal beside `profile`
+        or the schema would need a value per combination."""
+        rec = copy.deepcopy(VALID)
+        rec["hypotheses"][0]["grounding"] = {
+            "basis": "profile",
+            "sources": ["include/communicator_quda.h:200-206 @ d61517229"],
+        }
+        proc = run(self.write(rec))
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+    def test_silencing_the_basis_guard_fails_the_control(self):
+        """Perturb the tool so the basis check cannot fire; the control must notice."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = sandboxed_tool(
+                Path(tmp),
+                "if basis not in allowed:  # GUARD: basis",
+                "if False:  # GUARD: basis (silenced)",
+            )
+            rec = copy.deepcopy(VALID)
+            rec["hypotheses"][0]["grounding"] = {"basis": "vibes"}
+            record = self.write(rec)
+            self.assertEqual(
+                run(record, tool=path).returncode, 0,
+                "silenced guard must accept the bad basis, or this control proves nothing",
+            )
+            self.assertEqual(
+                run(record).returncode, 1, "unperturbed tool must still reject it"
+            )
+
+    def test_a_basis_guard_that_always_fires_is_also_wrong(self):
+        """The opposite perturbation: a check firing on every record is not a check."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = sandboxed_tool(
+                Path(tmp),
+                "if basis not in allowed:  # GUARD: basis",
+                "if True:  # GUARD: basis (always fires)",
+            )
+            self.assertEqual(
+                run(self.write(VALID), tool=path).returncode, 1,
+                "a guard that fires on a valid record must be caught by this control",
+            )
+            self.assertEqual(
+                run(self.write(VALID)).returncode, 0, "unperturbed tool must accept it"
+            )
+
     def test_the_tool_imports_only_the_standard_library(self):
         allowed = {"__future__", "argparse", "json", "sys", "pathlib"}
         for node in ast.walk(ast.parse(TOOL.read_text())):
