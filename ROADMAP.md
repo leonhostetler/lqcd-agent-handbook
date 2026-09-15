@@ -440,6 +440,32 @@ to break; the first perturbation written against the grouping was a no-op that c
 bucket while leaving the x clustering to do the work, and a control for a differing z extent was
 added because a real capture had one.
 
+The closing automation checkpoint for that session, under
+[`conventions/repeated-work.md`](conventions/repeated-work.md), surfaced two candidates and
+records a third as already owed.
+
+**A perturbation runner is owed rather than optional.** Confirming that each fix's control
+actually fails when the fix is reverted was done by hand across two batches and eleven
+reversions, and its failure mode is silent: a vacuous perturbation reports `OK`, which is
+indistinguishable from a guard that works. **Two of the eleven were vacuous on the first
+attempt** — one disabled a renderer's dict branch and let the value fall through to the scalar
+branch below it, and one collapsed a grouping's y/z bucket while the x clustering it was meant
+to test still did the work. Both were caught by reading the output rather than by anything that
+would catch them next time. A tool taking (fix anchor, replacement, named test) triples and
+asserting each replacement breaks its own test is the shape; `repeated-work.md`'s own rule that
+a harness which cannot fail is the same defect as a guard that cannot fire is the reason it is
+owed.
+
+**A change-proposal harness qualifies**: overlay a scratch tree, regenerate the indices, run the
+validator and the suite, emit a diffstat and a privacy sweep. Performed three times in the
+session, fixed at every step, and two of those steps fail quietly — an index left unregenerated
+passes the eye, and a skipped privacy sweep produces no output either way.
+
+**Deliberately left manual**: resolving a kernel's template arguments against the revision that
+built the binary, which needs the decomposition cross-check and therefore judgement at each step.
+**Already owed elsewhere**: MILC run-log timing extraction, which is Slice 4's
+`tools/extract-milc-timings.py`.
+
 <a id="current-slice-state"></a>
 ## Current slice state
 

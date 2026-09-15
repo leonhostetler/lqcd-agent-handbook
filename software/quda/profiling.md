@@ -8,7 +8,9 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/targets/cuda/kernel.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/tunable_nd.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/kernels/dslash_staggered.cuh
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/tune_quda.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/tune.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/hisq_paths_force_quda.cu
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multi_blas_quda.cu
 observed: "2026-09-15"
 observed_on:
@@ -150,6 +152,22 @@ carve-out and the multi-blas vector count — none of which any kernel name reco
 differing only in `aux` are indistinguishable in a profile, so the tunecache the run wrote
 remains the thing that settles it; [`internals/autotuning.md`](internals/autotuning.md) owns
 how to read it.
+
+**The HISQ force kernels are where this gap is widest, and they are the worked example to
+reach for.** `hisq_paths_force_quda.cu` appends the path directions to the `aux` string —
+`,sig=±<dim>`, then `,mu=±<dim>`, then `,lepage` or `,nu=`/`,nu_next=` — so every combination of
+path directions is its own tune key, tuned independently, free to land on its own `block.x`.
+The demangled name is identical across all of them, because the directions enter the kernel as
+`int` template parameters on the functor's `Param` rather than as anything the mangling
+distinguishes.
+
+The scale is the part worth carrying: on one observed tunecache a single demangled
+`AllFiveAllSevenLinkForce` name covered **480 tune keys across five distinct `block.x` values**,
+and `AllThreeAllLepageLinkForce` covered 112 keys across eleven. Every one of them was warm.
+**A rule that read several `block.x` values at one problem size as a tuning sweep would call that
+capture cold**, which is exactly what two draft versions of the field above did before the
+launch counts were read alongside them. Group by name *and* problem size *and* launch count, and
+then go to the tunecache — never from the name alone.
 
 ## On a warm cache, `grid.y == 1` makes `block.y` the y extent
 
