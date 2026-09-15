@@ -1,6 +1,6 @@
 ---
 title: Reading GPU profile metrics
-summary: What each extracted profile quantity means, how idle time is attributed and what its residual does and does not prove, what a tracer cannot establish, what tracing itself changes about the run and about a comparison between two runs, and the readings that are unfounded on trace data alone.
+summary: What each extracted profile quantity means, how idle time is attributed and what its residual does, does not, and only narrowly does prove about an untraced category, what a tracer cannot establish, what tracing itself changes about the run and about a comparison between two runs, and the readings that are unfounded on trace data alone.
 scope: [universal]
 load_when: Reading, quoting, or reasoning about any quantity extracted from a GPU profiler database.
 evidence: source
@@ -134,6 +134,25 @@ easiest to get wrong: rocprofv3 does not intercept MPI, so a naive
 implementation reports `mpi = 0.0` on every AMD profile, and a session reading that goes
 looking for the bottleneck anywhere but communication. If a category is null, its share is
 unknown, and the residual is inflated by exactly the unknown amount.
+
+**Unknown is not unbounded, and the residual is what bounds it.** Because the residual absorbs
+an untraced category, the residual's own total is an upper bound on that category's contribution
+**to GPU-stalling idle** in the window. `[inferred]` Its bucket distribution carries more than
+its total: a residual made entirely of diffuse sub-100 µs slices holds no structural stall of any
+kind, whatever is hidden inside it. Measured on one capture with MPI untraced, a 0.612 s window
+carried a 0.010558 s residual spread over 60063 slices, all but one of them under 10 µs — which
+bounds any MPI stall inside the kernel span below 1.7% of the window, and rules out a structural
+one, without observing a single MPI event.
+
+**Three exclusions travel with that bound, and they are the ones usually wanted.** Time the
+category spent *overlapping* kernel execution is not idle, never enters the residual, and is
+therefore not bounded at all. **Imbalance is cross-rank** and stays invisible here whatever the
+residual holds — see the last section. And the bound is an upper bound on a *stall*, never a
+measurement of the category. So it settles exactly one question — did this untraced subsystem
+stop the GPU inside this window — and settles nothing else. **Reporting the capability gap
+remains required**, the bound is quoted as a bound, and no hypothesis is ranked on it: a bounded
+unknown is still an unknown, and a reading wide enough to carry a communication finding is the
+failure the absent-instrumentation rule exists to prevent.
 
 ## Transfer time is only a cost when it is exposed
 

@@ -1,6 +1,6 @@
 ---
 title: Capturing a GPU profile
-summary: What a capture must establish before the run — that the artifact is validated rather than the exit status, that a wall-clock anchor exists where the format does not carry one, whether an untraced control run exists to bound what tracing cost, and why a capture meant to compare configurations must not trace the comparison.
+summary: What a capture must establish before the run — that the artifact is validated rather than the exit status, that a capture-scope bracket in the application is honoured only when the profiler was told to honour it, that a wall-clock anchor exists where the format does not carry one, whether an untraced control run exists to bound what tracing cost, and why a capture meant to compare configurations must not trace the comparison.
 scope: [universal]
 load_when: Planning, submitting, or validating a profiled run.
 evidence: reproduced
@@ -36,6 +36,33 @@ This is the exact-artifact rule of [`measurement.md`](measurement.md) applied to
 that document remains canonical for predeclaring an expected-artifact manifest. Failing to apply
 it here has a specific cost: a silent capture failure is discovered after the allocation is
 spent, and one lost capture can remove the only run covering a condition.
+
+## A capture-scope control can return success without gating the trace
+
+`[docs]` An application can bracket its timed region with `cudaProfilerStart`/`cudaProfilerStop`
+and have that bracket ignored. Nsight Systems honours those calls only when the capture was
+launched with `--capture-range=cudaProfilerApi`; without it the calls succeed, the application
+sees nothing wrong, and the profiler traces the whole process — startup, context creation,
+allocation and teardown included. Nothing in the export records which way it went, so the
+resulting profile looks entirely valid.
+
+**The signature is a large `outside_kernel_span_s`.** The extraction already reports it, and on
+a capture meant to hold a timed loop it should be a rounding error. Where it is not, confirm by
+timestamping the calls the bracket was supposed to exclude — process and device initialisation
+before, deallocation after — against the kernel span. Observed on one single-rank capture whose
+scope bracket was present in the application source: 0.389 s of a 1.002 s window lay outside the
+kernel span, with `cuInit`, `cudaGetDeviceProperties`, `cudaMalloc` and the setup transfer all
+preceding the first kernel and three `cudaFree` following the last.
+
+The cost is not that the window is padded. It is that **every whole-profile proportion then
+describes the padding as well as the run**: on that capture whole-profile GPU utilisation was
+40.4% against 66.1% on the timed loop alone, and the first figure is the one a summary leads
+with. Where the term is large, analyse the explicit kernel-span window (`--start-ns`/`--end-ns`)
+and treat the figure as a capture defect to repair rather than a phase to interpret.
+
+**Verify on the next capture that the flag landed, rather than assuming it.** This is the
+exit-status rule above applied to a capture-scope control: what gets checked is the artifact,
+never that the option was passed.
 
 ## Record a time anchor the format does not carry
 

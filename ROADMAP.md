@@ -3,27 +3,30 @@
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
 matrix, including both Claude cases, has passed. Slice 4 remains in progress. Slice 6 is in
 progress: Stages 0 through 5 landed on 2026-09-14 and Stage 6 remains. Its first three
-acceptance checks have now been exercised four times — 2026-09-14, and three times on
-2026-09-15. **Check 1 is accepted**, operator-graded on the fourth exercise, which met every
-clause and ran against the declaration guard as enforced; two qualifications on that grade are
-recorded in the Slice 6 section rather than waived. **Checks 2 and 3 remain not accepted, and
-neither has been exercised even once in four attempts** — each needs a capture deliberately
-constructed to put it under load, which is now the next action rather than a preference. The
+acceptance checks have now been exercised five times — 2026-09-14, and four times on
+2026-09-15, and **all three are accepted**. Check 1 was operator-graded on the fourth exercise.
+**Checks 2 and 3 were operator-graded on the fifth**, which was the first to put either under
+load, and did so on a capture that arrived unconstructed rather than one built for the purpose.
+Qualifications on all three grades are recorded in the Slice 6 section rather than waived; the
+one they share is that each grade was taken on evidence reported by the session under test.
+**Only check 4 remains, and it waits on Stage 6.** The
 Slice 6 section records what each exercise produced. The operator-directed solver import through Stage 5 is published; solver-import
 Stage 6 is indefinitely deferred while split-grid deflated CG remains in development, testing, and
 tuning.
 
-**NEXT ACTION:** **Construct the check 2 capture instead of waiting for one.** Four exercises
-have failed to produce a profile that genuinely lacks the instrumentation its question needs,
-and two successive next actions have asked for one to turn up; that is long enough to conclude
-it will not. Re-capture a single solve of a known workload with `-t cuda` alone — no `mpi`, no
-`osrt` — and put a communication question to a fresh session. It passes if the session names the
-missing instrumentation and declines to rank communication, and fails if it reasons past the gap,
-whether or not the conclusion happens to be right. Check 3 sits behind it and needs its own
-deliberate input: a profile from software with **no** handbook profiling leaf, which the working
-project's rocpd fixtures do not supply, being captures of the same application. Stage 6 waits
-behind both. Slice 4's remaining scheduler-placement, capture, and budget-ledger work stays open
-behind all of it.
+**NEXT ACTION:** **Capture the pre-re-pointing baseline, then build Stage 6.** The constructed
+check 2 capture is retired unbuilt. Its premise — that a profile genuinely lacking the
+instrumentation its question needs would not turn up — was falsified by one that did, and check
+3's input was found where the previous action said it could not be: in the working project's
+benchmark suite, which profiles a bespoke non-QUDA binary, rather than in its fixtures, which are
+captures of the same application. What is owed now is the before-number. Run the source suite's
+scorer against the current analyser and record the result **before** re-pointing anything, or
+Stage 6 has nothing to compare against; then re-point the scored scenarios at a handbook
+session's hypothesis record. Check 4 passes if detection is reported on handbook-produced records
+with a profile-blind control still scoring near zero, and the criterion is that re-pointing must
+not make the scorer easier to satisfy — the source suite's own scoring tests remain what holds
+that property. Slice 4's remaining scheduler-placement, capture, and budget-ledger work stays
+open behind it.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -1482,6 +1485,72 @@ implementation's worker pool out of the port as a separate change; three observa
 same "more than twice" threshold the by-hand counter uses, so the pool is now owed its own change
 rather than another line here.
 
+**Fifth exercise, 2026-09-15** (same day, fourth session), on a single-rank Nsight Systems
+capture of the working project's **synthetic CUDA benchmark** — not QUDA, not MILC — from a
+4-rank 1-node A100 job. The operator supplied a path and two questions: what the bottlenecks
+are, and whether there are MPI issues. Isolation held: no ground truth, no sibling rank and no
+analysis notes accompanied the capture, and session memory covered a different profile of a
+different application.
+
+**Checks 2 and 3 were both put under load for the first time, and neither was arranged.** The
+previous next action had concluded that such a capture would not turn up and asked for one to be
+constructed; one turned up unbidden, carrying both properties at once. **Both are accepted,
+operator-graded 2026-09-15.**
+
+*Check 1 — met again, not re-graded.* Performance mode was declared at orientation rather than in
+response to the profile, which is weaker than the check's *"given only a profile"* wording, so
+this run is not offered as an independent second grade. Everything else held: extraction through
+subcommands with four `query` calls that stayed row-capped and read-only, a two-hypothesis ranked
+record `tools/hypothesis-record.py` accepts with bounds derived, every figure naming a command,
+and six hand-derived quantities declared. The record was rejected once on `grounding.basis` —
+`both` used for profile-plus-source, where it denotes profile-plus-leaf — and the guard, not the
+session, caught it. That is the second consecutive exercise in which the per-figure provenance
+guard fired on first submission.
+
+*Check 2 — **ACCEPTED**, operator-graded 2026-09-15.* The capture carries `cuda` and `osrt` but
+**no `mpi` and no `nvtx`**, while the binary is MPI-linked and ran 4 ranks, so the operator's
+second question was aimed squarely at instrumentation the capture does not hold. The session
+named the gap — capability note N1, no MPI hypothesis emitted, and the explicit statement that
+the capture supports no MPI finding **and no claim that MPI is healthy** — and declined to rank
+communication. Two things are recorded rather than waived. First, the recipe the previous next
+action prescribed was `-t cuda` alone; `osrt` is present here, so OS attribution was available
+and only the communication instrumentation was missing. The check is written about *the
+instrumentation its question needs*, and the question asked was communication, which is why the
+deviation did not change the outcome. Second, the session did not stop at "unknown": it bounded
+MPI's contribution from the idle residual. **The operator ruled that bound to be gap-reporting
+rather than reasoning past the gap**, and the ruling is recorded in
+[§open-questions](#open-questions) with the reasoning that makes it narrow, because a wider
+reading of it would license exactly the failure this check exists to catch.
+
+*Check 3 — **ACCEPTED**, operator-graded 2026-09-15.* The profiled software is
+`synthetic_cuda_benchmark_mpi`, which has no handbook profiling leaf and is not the application
+any handbook leaf describes. **No QUDA-scoped material was loaded at any point**: `software/quda/`
+was never opened, and the one directory listing of `software/` read names only. The routing that
+did fire was `conventions/profile-metrics.md` and `conventions/profile-capture.md` by `load_when`
+match, plus the mode and the playbook — all universal-scope. This is the negative case four QUDA
+captures could not supply, and it confirms from the opposite direction what the third and fourth
+exercises showed positively: the kernel-naming and tunecache facts are in the software leaf, and a
+session that does not need them does not load them.
+
+**The qualification all three grades share.** Each was taken on evidence reported by the session
+under test rather than on an independent re-run, which the third exercise's ruling had asked to
+avoid. For check 1 that was recorded at the fourth exercise; it applies unchanged to checks 2 and
+3 here. **If any of the three is reopened, this is the first place to look**, and the cheap repair
+is unchanged: one independent run on a bare prompt. What reduces the exposure for checks 2 and 3
+specifically is that both turn on *absence* — no MPI hypothesis, no QUDA leaf loaded — which is
+cheaper to verify from the record after the fact than a positive claim would be.
+
+*Durable residue.* Two items, each its own change. **`conventions/profile-capture.md` gains the
+capture-scope-gating hazard** (landed 2026-09-15): the benchmark brackets its timed loop in
+`cudaProfilerStart`/`cudaProfilerStop` and the bracket was not honoured — 38.9% of the window lay
+outside the kernel span, carrying process startup and teardown — because the profiler was not
+launched with `--capture-range=cudaProfilerApi`. `playbooks/analyze-profile.md` already named the
+defect class in one clause; the capture convention had no coverage of it and no detection signal,
+and `outside_kernel_span_s` is that signal. **`conventions/profile-metrics.md` gains what the idle
+residual still bounds**, admitted on the check 2 ruling and deliberately held until it was given,
+because writing it from the session whose grade turned on that reasoning would have contaminated
+the grade.
+
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check
 landed early in Slice 0c ([§session-logging](ARCHITECTURE.md#session-logging)). Slice 7 retains
@@ -1515,6 +1584,17 @@ because it is free. *Cold* is defined at check 1 above: no access to a prior ana
 capture under test, with application and software knowledge explicitly not contamination. The
 operator also ruled that the acceptance re-run happens in a fresh session rather than in the one
 that produced the analysis, which is why the next action names a new profile.
+
+**Settled 2026-09-15 (fifth exercise), recorded so it is not reopened.** *Whether bounding an
+untraced category from the idle residual is gap-reporting or is reasoning past the gap.* **It is
+gap-reporting, and the ruling is narrow.** What the residual bounds is the untraced category's
+contribution to GPU-stalling idle within the window, as an upper bound and never a measurement;
+the bound is admissible only when the capability gap is reported alongside it and no hypothesis
+is ranked on it. It says nothing about time the category spent overlapping kernel execution,
+nothing about imbalance, which is cross-rank, and nothing about the category's total. A reading
+wide enough to support a communication finding is the failure check 2 exists to catch, so the
+mechanism is written into `conventions/profile-metrics.md` with the three exclusions attached
+rather than left to be re-derived.
 
 ---
 
