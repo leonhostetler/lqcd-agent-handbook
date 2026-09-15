@@ -172,6 +172,21 @@ transfers issued on several streams run concurrently, and summing their duration
 work rather than elapsed time. A hand-rolled version that sums instead of merges overstates
 both the total and the overlap — by 28% on the capture above.
 
+## A window outside the kernel span needs its own account
+
+Idle is measured between kernels, so a window lying largely before the first kernel or after
+the last is mostly outside what an idle split describes — every category intersected against an
+empty idle set reads zero, and the split can look closed while naming almost nothing. The size
+of that part is reported separately; what occupies it is a separate question with a separate
+answer.
+
+Inside such a window, a category's **occupancy is merged, not summed**: a window is wall-clock
+and cannot hold more than its own duration. Categories are reported side by side and never
+added, because one thread inside a communication call that is itself inside a traced API call
+belongs to both, and adding them over-accounts. What no traced category covers is the uncovered
+remainder, and it is exactly as untrustworthy as the capture's coverage — an untraced category
+may own all of it.
+
 ## What a tracer does not record
 
 `[docs]` Nsight Systems and ROCm Systems Profiler are **tracers**. They record API calls, kernel

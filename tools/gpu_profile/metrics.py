@@ -34,6 +34,10 @@ from .models import (
     ProfileSummary,
     StreamSummary,
     TransferOverlap,
+    WindowBin,
+    WindowBreakdown,
+    WindowCategory,
+    WindowEvent,
 )
 from .phases import (
     PhaseWindow,
@@ -331,6 +335,160 @@ def _idle_intervals(
     busy = sum(e - s for s, e in kernels)
     gaps = [(kernels[i - 1][1], kernels[i][0]) for i in range(1, len(kernels))]
     return [g for g in gaps if g[1] > g[0]], busy
+
+
+_WINDOW_BIN_DEFAULT = 8
+
+
+def _kernel_span_ns(profile: Profile) -> tuple[int, int] | None:
+    evts = profile.kernel_events()
+    if not evts:
+        return None
+    return min(e.start_ns for e in evts), max(e.end_ns for e in evts)
+
+
+def _named_sources(profile: Profile):
+    """Traced categories that can occupy a window, with their availability reasons."""
+    caps = profile.capabilities
+    return [
+        ("mpi", caps.has_mpi, "no MPI events in this capture",
+         profile.mpi_ranges if caps.has_mpi else None),
+        ("host_api", caps.has_runtime_api, "no GPU runtime/driver API events in this capture",
+         profile.host_api_ranges if caps.has_runtime_api else None),
+        ("os_runtime", caps.has_os_runtime, "no OS-runtime tracing in this capture",
+         profile.os_runtime_ranges if caps.has_os_runtime else None),
+        ("markers", caps.has_markers, "no marker annotations in this capture",
+         profile.marker_ranges if caps.has_markers else None),
+    ]
+
+
+def compute_window_breakdown(
+    profile: Profile,
+    start_ns: int | None = None,
+    end_ns: int | None = None,
+    bins: int = _WINDOW_BIN_DEFAULT,
+    top: int = 10,
+    region: str = "head",
+) -> WindowBreakdown:
+    """Describe what traced activity occupies a window, by category and over time.
+
+    ``compute_idle_attribution`` reports how much of a window lies outside the kernel
+    span and cannot describe it: inter-kernel idle is empty there by construction, so
+    every category intersected against it is zero. This answers the other half.
+
+    The default region is the window before the first kernel, which is where that
+    unaccounted time usually sits. Occupancy is merged per category, so a category
+    can never exceed the window; categories are reported separately rather than
+    summed, because one thread inside an MPI call inside a traced API call belongs to
+    both and adding them would over-account.
+    """
+    bounds = profile.profile_bounds_ns()
+    span = _kernel_span_ns(profile)
+    if start_ns is not None and end_ns is not None:
+        win_start, win_end, region = int(start_ns), int(end_ns), "custom"
+    elif span is None:
+        win_start, win_end, region = bounds[0], bounds[1], "whole_profile"
+    elif region == "tail":
+        win_start, win_end = span[1], bounds[1]
+    else:
+        win_start, win_end, region = bounds[0], span[0], "head"
+
+    win_end = max(win_end, win_start)
+    window_ns = win_end - win_start
+
+    categories: list[WindowCategory] = []
+    all_intervals: list[tuple[int, int]] = []
+    named: dict[tuple[str, str], list[tuple[int, int]]] = {}
+
+    for name, available, reason, accessor in _named_sources(profile):
+        if not available or accessor is None:
+            categories.append(
+                WindowCategory(
+                    name=name, available=False, total_s=None,
+                    pct_of_window=None, events=None, unavailable_reason=reason,
+                )
+            )
+            continue
+        rows = [r for r in accessor() if r.end_ns > win_start and r.start_ns < win_end]
+        clipped = _clip([(r.start_ns, r.end_ns) for r in rows], win_start, win_end)
+        merged = merge_intervals(clipped)
+        covered = sum(e - s for s, e in merged)
+        categories.append(
+            WindowCategory(
+                name=name, available=True,
+                total_s=round(covered / 1e9, 6),
+                pct_of_window=round(100.0 * covered / window_ns, 2) if window_ns else 0.0,
+                events=len(rows),
+            )
+        )
+        all_intervals.extend(clipped)
+        for r in rows:
+            key = (r.name, name)
+            named.setdefault(key, []).append(
+                (max(r.start_ns, win_start), min(r.end_ns, win_end))
+            )
+
+    covered_ns = sum(e - s for s, e in merge_intervals(all_intervals))
+    uncovered_ns = max(0, window_ns - covered_ns)
+
+    top_events = sorted(
+        (
+            WindowEvent(
+                name=n, category=c,
+                total_s=round(sum(e - s for s, e in merge_intervals(iv)) / 1e9, 6),
+                calls=len(iv),
+            )
+            for (n, c), iv in named.items()
+        ),
+        key=lambda e: e.total_s,
+        reverse=True,
+    )[:top]
+
+    bin_rows: list[WindowBin] = []
+    if bins > 0 and window_ns > 0:
+        width = window_ns / bins
+        for i in range(bins):
+            b_start = win_start + int(i * width)
+            b_end = win_start + int((i + 1) * width) if i < bins - 1 else win_end
+            per: dict[str, float] = {}
+            for name, available, _reason, accessor in _named_sources(profile):
+                if not available or accessor is None:
+                    continue
+                iv = _clip(
+                    [(r.start_ns, r.end_ns) for r in accessor()
+                     if r.end_ns > b_start and r.start_ns < b_end],
+                    b_start, b_end,
+                )
+                per[name] = round(sum(e - s for s, e in merge_intervals(iv)) / 1e9, 6)
+            bin_rows.append(
+                WindowBin(index=i, start_ns=b_start, end_ns=b_end, by_category_s=per)
+            )
+
+    caveats = [
+        "Occupancy is merged per category and categories are not summed: an event "
+        "inside another traced call belongs to both, so the parts may overlap.",
+    ]
+    if any(not c.available for c in categories):
+        caveats.append(
+            "A category reported as unavailable was not traced. That is not the same "
+            "as zero, and the uncovered remainder below may belong to it."
+        )
+    if window_ns == 0:
+        caveats.append("This window has zero duration; nothing lies inside it.")
+
+    return WindowBreakdown(
+        region=region,
+        start_ns=win_start,
+        end_ns=win_end,
+        window_s=round(window_ns / 1e9, 6),
+        categories=categories,
+        covered_s=round(covered_ns / 1e9, 6),
+        uncovered_s=round(uncovered_ns / 1e9, 6),
+        uncovered_pct=round(100.0 * uncovered_ns / window_ns, 2) if window_ns else 0.0,
+        top_events=top_events,
+        bins=bin_rows,
+        caveats=caveats,
+    )
 
 
 def compute_idle_attribution(

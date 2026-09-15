@@ -97,6 +97,71 @@ class IdleCategory:
 
 
 @dataclass(kw_only=True)
+class WindowCategory:
+    """One traced category's merged occupancy of a window.
+
+    ``total_s`` is ``None``, never ``0.0``, when the capture cannot observe the
+    category — the same distinction ``IdleCategory`` draws, for the same reason.
+    Occupancy is merged, not summed: overlapping events of one category are one
+    occupied interval, because a window is wall-clock and cannot hold more.
+    """
+
+    name: str
+    available: bool
+    total_s: float | None
+    pct_of_window: float | None
+    events: int | None
+    unavailable_reason: str | None = None
+
+
+@dataclass(kw_only=True)
+class WindowEvent:
+    """One named event kind inside the window, by merged occupancy."""
+
+    name: str
+    category: str
+    total_s: float
+    calls: int
+
+
+@dataclass(kw_only=True)
+class WindowBin:
+    """Occupancy per category over one equal slice of the window.
+
+    Bins answer *when* inside the window, which a single total cannot: a window
+    half-covered throughout and one covered entirely in its first half report the
+    same total and mean different things.
+    """
+
+    index: int
+    start_ns: int
+    end_ns: int
+    by_category_s: dict[str, float]
+
+
+@dataclass(kw_only=True)
+class WindowBreakdown:
+    """What traced activity occupies a window, by category, over time.
+
+    This exists for the window that lies outside the kernel span — before the first
+    kernel or after the last — which ``IdleAttribution`` reports the size of and
+    cannot describe, because inter-kernel idle is empty there by construction.
+    """
+
+    region: str
+    start_ns: int
+    end_ns: int
+    window_s: float
+    categories: list[WindowCategory]
+    covered_s: float
+    uncovered_s: float
+    uncovered_pct: float
+    top_events: list[WindowEvent] = field(default_factory=list)
+    bins: list[WindowBin] = field(default_factory=list)
+    caveats: list[str] = field(default_factory=list)
+
+
+@dataclass(kw_only=True)
 class IdleAttribution:
     """Inter-kernel GPU idle split into host-side categories, plus what is left.
 

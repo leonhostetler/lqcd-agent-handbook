@@ -57,6 +57,7 @@ from gpu_profile.metrics import (  # noqa: E402
     compute_profile_summary,
     compute_profile_summary_and_state,
     compute_streams,
+    compute_window_breakdown,
     compute_top_kernels,
     compute_transfer_overlap,
 )
@@ -249,6 +250,26 @@ def cmd_cross_rank(_unused, args) -> dict:
     return out
 
 
+
+def cmd_window_breakdown(profile, args) -> dict:
+    """Describe the window that lies outside the kernel span.
+
+    `idle-attribution` reports how large that window is and cannot describe it:
+    inter-kernel idle is empty before the first kernel, so every category
+    intersected against it reads zero. This answers what is actually in there.
+    """
+    win = _window(args)
+    breakdown = compute_window_breakdown(
+        profile,
+        start_ns=win[0] if win else None,
+        end_ns=win[1] if win else None,
+        bins=args.bins,
+        top=args.top,
+        region=args.region,
+    )
+    return _plain(breakdown)
+
+
 def _render_table(payload: dict) -> str:
     lines = []
     for key, value in payload.items():
@@ -301,6 +322,15 @@ def build_parser() -> argparse.ArgumentParser:
     add("streams", cmd_streams, window=True)
     add("markers", cmd_markers, window=True, top=20)
 
+    p = add("window-breakdown", cmd_window_breakdown, window=True, top=10)
+    p.add_argument("--bins", type=int, default=8, help="time slices across the window")
+    p.add_argument(
+        "--region",
+        choices=["head", "tail"],
+        default="head",
+        help="which side of the kernel span (ignored when --start-ns/--end-ns are given)",
+    )
+
     p = sub.add_parser("cross-rank")
     p.add_argument("profiles", nargs="+", help="per-rank profiler databases")
     p.add_argument("--max-phases", type=int, default=8, help="phase cap (1 disables)")
@@ -317,7 +347,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    for attr, default in (("start_ns", None), ("end_ns", None), ("top", 15), ("max_phases", 8)):
+    for attr, default in (("start_ns", None), ("end_ns", None), ("top", 15), ("max_phases", 8),
+                          ("bins", 8), ("region", "head")):
         if not hasattr(args, attr):
             setattr(args, attr, default)
     if getattr(args, "multi", False):

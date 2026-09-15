@@ -1,32 +1,40 @@
 # LQCD Agent Handbook — Roadmap
 
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
-matrix, including both Claude cases, has passed. Slice 4 remains in progress. Slice 6 is in
-progress: Stages 0 through 5 landed on 2026-09-14 and Stage 6 remains. Its first three
-acceptance checks have now been exercised five times — 2026-09-14, and four times on
+matrix, including both Claude cases, has passed. Slice 4 remains in progress. **Slice 6 is accepted**
+(2026-09-15): Stages 0 through 5 landed on 2026-09-14, its three acceptance checks were
+exercised five times — 2026-09-14, and four times on
 2026-09-15, and **all three are accepted**. Check 1 was operator-graded on the fourth exercise.
 **Checks 2 and 3 were operator-graded on the fifth**, which was the first to put either under
 load, and did so on a capture that arrived unconstructed rather than one built for the purpose.
 Qualifications on all three grades are recorded in the Slice 6 section rather than waived; the
 one they share is that each grade was taken on evidence reported by the session under test.
-**Only check 4 remains, and it waits on Stage 6.** The
-Slice 6 section records what each exercise produced. The operator-directed solver import through Stage 5 is published; solver-import
+A fourth check, which would have re-pointed the source suite's scored scenarios at a handbook
+hypothesis record, was **specified and removed**; the Slice 6 section records why, and what each
+exercise produced. The operator-directed solver import through Stage 5 is published; solver-import
 Stage 6 is indefinitely deferred while split-grid deflated CG remains in development, testing, and
 tuning.
 
-**NEXT ACTION:** **Capture the pre-re-pointing baseline, then build Stage 6.** The constructed
-check 2 capture is retired unbuilt. Its premise — that a profile genuinely lacking the
-instrumentation its question needs would not turn up — was falsified by one that did, and check
-3's input was found where the previous action said it could not be: in the working project's
-benchmark suite, which profiles a bespoke non-QUDA binary, rather than in its fixtures, which are
-captures of the same application. What is owed now is the before-number. Run the source suite's
-scorer against the current analyser and record the result **before** re-pointing anything, or
-Stage 6 has nothing to compare against; then re-point the scored scenarios at a handbook
-session's hypothesis record. Check 4 passes if detection is reported on handbook-produced records
-with a profile-blind control still scoring near zero, and the criterion is that re-pointing must
-not make the scorer easier to satisfy — the source suite's own scoring tests remain what holds
-that property. Slice 4's remaining scheduler-placement, capture, and budget-ledger work stays
-open behind it.
+**NEXT ACTION:** Close the remaining automation the acceptance exercises generated, then return
+to Slice 4. **The pre-first-kernel window breakdown landed 2026-09-15** as
+`gpu-profile-summary.py window-breakdown`, with the definition in
+`conventions/profile-metrics.md` and the step in `playbooks/analyze-profile.md`; it describes
+what `idle-attribution` can only size, and three controls cover it — summing categories instead
+of merging, reporting an untraced category as `0.0`, and dropping the untraced caveat — each
+asserting its perturbation landed. **Two items remain owed.** One crossed [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s threshold during the
+exercises and is owed rather than optional. **The untraced-control comparison was reassigned to
+Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` is already the run-log reader it
+needs; one floating item remains.
+
+**Launch-geometry extraction for the tunecache-warmth gate** — owed on the next QUDA
+performance session rather than now. `software/quda/profiling.md` makes it a mandatory gate
+before reading call counts, launch geometry or duration spread, and it is presently satisfied by
+hand. It is not a one-line addition: `KernelRow` carries only `total_threads`, the six extents
+being collapsed in `nsys.py`'s SQL and absent from rocpd entirely, so it needs the row type
+extended and an `available: False` path. **The parallel rank loader is deliberately not
+on this list** — three observations crossed a counter built for silent arithmetic errors, and a
+serial loader is slow rather than wrong, so it is ordinary ergonomics and not a defect-rate
+obligation. Then Slice 4's remaining scheduler-placement, capture, and budget-ledger work.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -993,6 +1001,17 @@ prediction/capture playbooks and tooling, and the unfinished scheduler-placement
 current modes describe the semantic fields for local records but do not constitute the promised
 shared formats.
 
+**The untraced-control comparison lands here** (assigned 2026-09-15), not in Slice 6. A Slice 6
+acceptance session performed it by hand six times, which crosses
+[§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s threshold, and it carries a failure that
+reverses its own conclusion: including the control's first solve moves its mean roughly
+four-fold and yields "tracing is nearly free", the opposite of what the data says — arithmetic
+that looks entirely ordinary. It is not a profile subcommand, because it combines a profile
+figure with an application run-log figure, and `tools/extract-milc-timings.py` above is the
+run-log reader it needs. Building it as part of that tool rather than beside it is what keeps one
+canonical reader of MILC timing output. `conventions/measurement.md`'s first-solve rule is what
+the tool must apply, and is the rule the hand passes kept getting wrong.
+
 Slice 4 must also make scheduler placement explicit in `conventions/running.md` and
 `modes/debugging.md`. Before every submission, assess whether the job is appropriate for
 debug/interactive placement by comparing its purpose, node count, walltime, and concurrency
@@ -1058,8 +1077,9 @@ metric-definition convention, and the hypothesis record schema. **Stage 4** adds
 software-scoped layer the source analyzer could not hold at all: kernel-name-to-source
 resolution, the cold-autotune-cache reading of duration spread, and application-driven phase
 boundaries. **Stage 5** gives tuning mode the code-change axis and closes the prediction loop on
-a hypothesis's claimed runtime fraction. **Stage 6** re-points the source suite's scored
-scenarios at a handbook session's hypothesis record.
+a hypothesis's claimed runtime fraction. A **Stage 6** was planned, to re-point the source
+suite's scored scenarios at a handbook session's hypothesis record; it was withdrawn on
+2026-09-15 with the fourth acceptance check, for the reasons recorded there.
 
 Stages 3 through 5 landed 2026-09-14. Stage 5 closed the loop the earlier stages only described:
 `tools/hypothesis-record.py` derives a hypothesis's speedup bounds instead of trusting them and
@@ -1071,20 +1091,22 @@ claimed fraction is treated as a standing prediction and the realised change is 
 its bounds. A fraction inflated across trials is recorded as a defect in the attribution rule
 rather than absorbed by widening a tolerance.
 
-The loop still stops at submission. Making it unattended remains the un-parking trigger for the
-budget-enforcement entry in [§deferred-decisions](#deferred-decisions), whose interim behaviour
-is recorded as zero machinery that cannot overspend — precisely the property a self-resubmitting
-loop removes.
+The loop stops at submission, and that is where it stays. A self-resubmitting loop was the one
+structural gap between this chain and a fully hands-off one, and it was **set aside on
+2026-09-15** rather than deferred toward: its use is hypothetical, and if it is ever wanted the
+operator specifies it up front. The interim behaviour is recorded as zero machinery that cannot
+overspend, which is precisely the property such a loop removes — so the trade would need stating,
+not discovering.
 
 **The calibration harness stays outside the handbook.** The source suite's injected-bottleneck
 profiles, ground truth and scorer hold one property — a profile-blind baseline scores near zero —
 and the handbook has no equivalent, its acceptance tests being qualitative. They remain in the
 working directory as the observations that calibrate the contract, under
 [§records-in-working-directory](ARCHITECTURE.md#records-in-working-directory); the handbook ships
-the rule and never the numbers. Capture a current baseline before Stage 2, so there is a
-before-number to compare against.
+the rule and never the numbers. A baseline on the current analyser was owed only to give the
+withdrawn Stage 6 a before-number, and is owed no longer.
 
-*Accept:* four checks, and the two that can fail are the point.
+*Accept:* three checks, and the two that can fail are the point.
 
 A cold session given only a profile and "find out where the time goes" declares performance
 mode, extracts with the tool rather than by querying the database by hand, and produces a
@@ -1125,17 +1147,34 @@ inlined into the mode or the metric convention — the same test Slice 5 applies
 ensemble-scoped material, and it would fail today if the kernel-naming or tunecache facts had
 been written into `modes/performance.md` where they would have been convenient.
 
-And the re-pointed scoring suite reports detection on handbook-produced records, with a
-profile-blind control still scoring near zero. Stage 6 builds that; the criterion is that
-**re-pointing must not make the scorer easier to satisfy**, and the source suite's own scoring
-tests remain the thing that holds the property. A baseline on the current analyser is captured
-before the re-pointing, or there is no before-number to compare against.
+**A fourth check was specified and removed, 2026-09-15.** It would have re-pointed the source
+suite's scored scenarios at a handbook hypothesis record and required a profile-blind control to
+score near zero. Three reasons, recorded so it is not re-proposed.
 
-The first three checks are runnable now and do not wait on Stage 6. Partial acceptance on those
-is worth recording, because they test the knowledge and the tools, while the fourth tests the
-measurement of them.
+**The five acceptance exercises found more than a score could.** Three guards that could not
+fire, three tool defects that were confidently wrong, a tracing effect that inverts the sign of
+an A/B, and two claims in `ARCHITECTURE.md` that were never true. A detection rank reports
+whether the injected bottleneck was named and says nothing about any of them.
 
-*State:* Stages 0, 1 and 2 landed 2026-09-14. Stage 2 ports ingestion, metrics, phase
+**The profile-blind property is held by the source suite's own scoring tests** — a unit test on
+the scorer, not a run against a clean profile, and that suite has no optimal-path control. So
+re-pointing the scorer is the only thing that would have put that property at risk.
+
+**And the scored scenarios are synthetic microbenchmarks with injected bottlenecks**, while this
+handbook's work is real captures with no ground truth. That suite's own documentation states it
+measures recall and not precision; a recall number on those eight is a weak proxy for this
+domain.
+
+What replaces it is not another harness.
+[§predict-compare-loop](ARCHITECTURE.md#predict-compare-loop) is already the rot detector: a
+claimed runtime fraction is a prediction, and a fraction inflated across trials is a defect in
+the attribution rule. **The residual is named rather than hidden.**
+`tools/hypothesis-record.py` validates form and not truth, and all three grades were taken on
+evidence reported by the session under test, so nothing independently checks that a conclusion
+is correct. The handbook's answer is use: a leaf that is wrong is caught by the next session
+relying on it, which is how every defect this slice recorded was in fact found.
+
+*State:* **accepted 2026-09-15** on its three checks. Stages 0, 1 and 2 landed 2026-09-14. Stage 2 ports ingestion, metrics, phase
 segmentation, cross-rank alignment and the structural diff for both Nsight Systems and rocpd as
 stdlib-only modules — 8,307 lines across 18 files — whose summary output was verified
 field-for-field against the source implementation on both formats. Every guard carries a
@@ -1151,7 +1190,8 @@ metric definitions and the tracer limits, `playbooks/analyze-profile.md` owns th
 rule and points at the convention rather than restating it, which is the P2 correction Stage 3
 existed to make: those definitions had three homes — a prompt string in the source analyzer,
 `#:` comments in the ported models, and the mode document — and now have one. Stages 4 and 5
-landed the same day as well, as the paragraph above records; **only Stage 6 remains.** An
+landed the same day as well, as the paragraph above records; **Stage 6 was later
+withdrawn with the fourth acceptance check, so Stages 0 through 5 are the whole import.** An
 earlier revision of this paragraph said "Stages 4 through 6 remain" while the paragraph above
 said Stages 3 through 5 had landed. The two contradicted each other for a day and the stale
 NEXT ACTION above was derived from the wrong one; `software/quda/profiling.md`,
@@ -1607,7 +1647,7 @@ column is the test. On the move into the repo ([§plan-ships-with-handbook](ARCH
 
 | Decision | Interim behaviour | Un-park when |
 |---|---|---|
-| **Enforcement of the job-submission budget** — agent instruction, a `lqcd-submit` wrapper, or a hook | [§budget-rule](ARCHITECTURE.md#budget-rule)'s default: **no budget stated ⇒ the agent prepares the job and hands the operator the submit command.** Zero machinery, cannot overspend | The first time an agent should submit **unattended**. Until then the conservative default costs nothing and the right mechanism is not yet obvious |
+| **Enforcement of the job-submission budget** — agent instruction, a `lqcd-submit` wrapper, or a hook | [§budget-rule](ARCHITECTURE.md#budget-rule)'s default: **no budget stated ⇒ the agent prepares the job and hands the operator the submit command.** Zero machinery, cannot overspend | **Operator-initiated only** (ruled 2026-09-15). The operator declares, up front and in full, what an unattended submission loop would do — its ceiling, its ledger discipline, and the stop that fires at the ceiling — before any of it is built. It is not un-parked by an agent finding a loop convenient, nor by a tuning or performance workflow reaching the point where submission is the only manual step. The conservative default costs nothing, and the case for changing it has not arisen |
 | **Enforcement of user-mode write protection** — instruction, file permissions, worktree, or a `PreToolUse` hook | The P6 instruction of [§handbook-modes](ARCHITECTURE.md#handbook-modes), plus `lqcd-start-session` reporting an unclean handbook tree at session start so a stray edit surfaces the same day | The repo stops changing daily. Read-only permissions fight developer mode, which is *most* sessions during bootstrap. Hooks need an installer regardless ([§loading-invariants](ARCHITECTURE.md#loading-invariants)), so this rides with slice 7 |
 | **Sub-file provenance** — claim IDs with metadata stored separately, versus file-level frontmatter | File-level frontmatter ([§knowledge-atom](ARCHITECTURE.md#knowledge-atom)), and **knowledge files are kept small and atomic** so it stays adequate | A file starts accumulating claims from materially different dates, versions or evidence kinds. Not needed at slice 0, and the machinery costs more than the problem until then |
 | **Whether any part of the handbook should be served over MCP** rather than as files, skills and scripts | **None.** Knowledge stays as markdown and YAML read directly; procedures stay as skills plus `tools/` scripts. Works on every machine with no runtime | Any of three: (a) the handbook needs to reach data **too large to commit** — a cross-machine run database is plausible, and would be a *separate* server the handbook talks to, not handbook infrastructure; (b) something genuinely **remote** becomes necessary, such as live job status across machines from one session; (c) slice 6 finds **PerfAdvisor is already service-shaped**, making this a question about preserving an existing shape rather than adding one |

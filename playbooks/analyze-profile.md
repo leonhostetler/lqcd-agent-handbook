@@ -81,6 +81,10 @@ and read
 bound for before attributing it to anything. A category reported null there is untraced, not
 zero, and the residual has absorbed it.
 
+Where a large share of the window lies outside the kernel span, `window-breakdown` describes
+what occupies it. An idle split cannot: before the first kernel there is no inter-kernel
+idle to intersect against, so it reports the size of that part and names none of it.
+
 On a multi-rank capture, run `cross-rank` before attributing any wait. A rank blocked on its
 neighbours looks exactly like a rank with a problem of its own.
 

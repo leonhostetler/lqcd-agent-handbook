@@ -6,6 +6,7 @@
 - `software/` — intrinsic knowledge, builds, solver implementations, and incidents.
 - `ensembles/` — published ensemble facts and scoped recommendations.
 - `playbooks/` — durable procedures invoked by thin skills.
+- `schemas/` — bound fact-file schemas and the record formats tools check against.
 - `tools/` — validation, detection, extraction, and prediction utilities.
 - `inbox/` — unique user-mode proposals and rejections only.
 - Developer mode only: `ARCHITECTURE.md` and `ROADMAP.md`.
