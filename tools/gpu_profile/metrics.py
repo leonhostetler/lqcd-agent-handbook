@@ -34,6 +34,7 @@ from .models import (
     ProfileSummary,
     StreamSummary,
     TransferOverlap,
+    TransferUnion,
     WindowBin,
     WindowBreakdown,
     WindowCategory,
@@ -650,6 +651,56 @@ def compute_transfer_overlap(
         )
     out.sort(key=lambda t: t.exposed_s, reverse=True)
     return out
+
+
+def compute_transfer_union(
+    profile: Profile, start_ns: int | None = None, end_ns: int | None = None
+) -> TransferUnion | None:
+    """Exposed transfer time across all directions, merged rather than summed.
+
+    `compute_transfer_overlap` answers "does *this* class cost anything". This
+    answers "how much of the window was spent moving data at all", and the two
+    differ whenever directions overlap each other, which on a multi-stream run is
+    always. Adding the per-direction column is the arithmetic this exists to make
+    unnecessary; `directions_sum_exposed_s` reports what that sum would have been
+    so the discrepancy is visible in the same output.
+
+    Returns None when the capture records no transfers, so an absent measurement
+    is not reported as zero.
+    """
+    bounds = profile.profile_bounds_ns()
+    win_start = bounds[0] if start_ns is None else start_ns
+    win_end = bounds[1] if end_ns is None else end_ns
+
+    kernels = merge_intervals(
+        _clip(
+            [(k.start_ns, k.end_ns) for k in profile.kernel_events()], win_start, win_end
+        )
+    )
+
+    intervals: list[tuple[int, int]] = []
+    count = 0
+    for m in profile.memcpy_events():
+        s, e = max(m.start_ns, win_start), min(m.end_ns, win_end)
+        if e <= s:
+            continue
+        intervals.append((s, e))
+        count += 1
+    if not intervals:
+        return None
+
+    merged = merge_intervals(intervals)
+    total = sum(e - s for s, e in merged)
+    overlapped = intersect_duration_ns(merged, kernels)
+    per_direction = compute_transfer_overlap(profile, start_ns=start_ns, end_ns=end_ns)
+    return TransferUnion(
+        transfers=count,
+        total_s=round(total / 1e9, 6),
+        overlapped_s=round(overlapped / 1e9, 6),
+        exposed_s=round((total - overlapped) / 1e9, 6),
+        pct_overlapped=round(100.0 * overlapped / total, 2) if total else 0.0,
+        directions_sum_exposed_s=round(sum(d.exposed_s for d in per_direction), 6),
+    )
 
 
 def compute_streams(profile: Profile) -> list[StreamSummary]:

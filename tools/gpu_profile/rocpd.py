@@ -14,6 +14,7 @@ import json
 import re
 import sqlite3
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -309,19 +310,34 @@ class RocpdProfile:
         sql: str,
         stop_event: threading.Event | None = None,
         row_limit: int = 200,
+        deadline_s: float | None = None,
     ) -> list[sqlite3.Row]:
-        """Execute SQL with interrupt support and a row cap (for LLM-originated queries)."""
-        if stop_event is not None:
+        """Execute SQL under a row cap and a wall-clock deadline.
+
+        See NsysProfile.query_safe: the row cap bounds what Python materialises
+        and not what SQLite evaluates, so the deadline is the only bound on cost.
+        """
+        deadline = None if deadline_s is None else time.monotonic() + deadline_s
+        guarded = stop_event is not None or deadline is not None
+        if guarded:
 
             def _progress() -> int:
-                return 1 if stop_event.is_set() else 0
+                if stop_event is not None and stop_event.is_set():
+                    return 1
+                if deadline is not None and time.monotonic() > deadline:
+                    return 1
+                return 0
 
             self._conn.set_progress_handler(_progress, 1000)
         try:
             return self._conn.execute(sql).fetchmany(row_limit)
         finally:
-            if stop_event is not None:
+            if guarded:
                 self._conn.set_progress_handler(None, 0)
+
+    def explain_plan(self, sql: str) -> list[sqlite3.Row]:
+        """Return SQLite's query plan for `sql` without executing it."""
+        return self._conn.execute("EXPLAIN QUERY PLAN " + sql).fetchall()
 
     # ------------------------------------------------------------------
     # Vendor-neutral event helpers

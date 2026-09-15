@@ -172,6 +172,17 @@ transfers issued on several streams run concurrently, and summing their duration
 work rather than elapsed time. A hand-rolled version that sums instead of merges overstates
 both the total and the overlap — by 28% on the capture above.
 
+**The same rule applies one level up, and it is the easier one to miss: the per-direction rows
+must not be added to each other.** Directions run concurrently too — a device-to-device copy
+and a unified-memory migration occupy the same nanosecond — so the `exposed_s` column is not a
+quantity that sums. Measured on one capture it summed to 66.44 s where the merged union was
+**48.48 s**, a 37% overstatement, and nothing in a column of six plausible seconds-values marks
+the addition as wrong. The extraction therefore reports the union itself, as `union.exposed_s`,
+alongside `union.directions_sum_exposed_s` so the discrepancy is visible rather than merely
+avoided. **Quote the union when stating how much of a window went on data movement, and a
+per-direction figure only when the claim is about that direction.** An absent measurement is
+reported as a null union rather than as zero.
+
 ## A window outside the kernel span needs its own account
 
 Idle is measured between kernels, so a window lying largely before the first kernel or after

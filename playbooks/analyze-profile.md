@@ -91,8 +91,18 @@ neighbours looks exactly like a rank with a problem of its own.
 ## 4. Drill with a purpose
 
 State the question a query answers before issuing it. Use the subcommands first; reach for
-`query` only when none answers the question, and keep it read-only and row-capped — an uncapped
-scan of a multi-gigabyte profile is the ordinary accident, not the exotic one.
+`query` only when none answers the question.
+
+**The row cap is not a cost cap, and a scan is not the hazard.** `--max-rows` bounds output;
+an aggregate returns one row and still evaluates the whole plan. A single scan of a
+five-million-row event table costs under a second. What does not finish is a **nested loop**:
+a profiler export carries no index on any event table, so a correlated subquery re-scans the
+inner table once per outer row, and on two multi-million-row sides that product is
+astronomical. `query` now runs `EXPLAIN QUERY PLAN` first and refuses that shape, naming the
+rewrite; `--max-seconds` bounds whatever the check cannot size. Where a CTE is referenced from
+a correlated context, declare it `WITH <name> AS MATERIALIZED (...)` — SQLite otherwise inlines
+it and derives it once per outer row. Where the small side is being scanned per row of the
+large one, invert the query.
 
 Record each query you keep. The prose session log deliberately omits tool output, so a query
 that is not written into the record is not recoverable, and an analysis nobody can re-derive is

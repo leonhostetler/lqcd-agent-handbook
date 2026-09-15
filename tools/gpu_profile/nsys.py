@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -167,27 +168,49 @@ class NsysProfile:
         sql: str,
         stop_event: threading.Event | None = None,
         row_limit: int = 200,
+        deadline_s: float | None = None,
     ) -> list[sqlite3.Row]:
-        """Execute a SQL query with interrupt support and a row limit.
+        """Execute a SQL query under a row limit and a wall-clock deadline.
 
         Installs a SQLite progress handler that fires every 1000 VM instructions
-        and checks stop_event; if the event is set, SQLite raises
-        OperationalError('interrupted'), which propagates to the caller.
-        Uses fetchmany(row_limit) so Python never materialises more rows than
-        needed even if LIMIT was not injected into the SQL.
+        and aborts when stop_event is set or deadline_s has elapsed; SQLite then
+        raises OperationalError('interrupted'), which propagates to the caller.
+
+        **The row limit does not bound work.** fetchmany(row_limit) bounds what
+        Python materialises, and nothing more: an aggregate returns one row and
+        must still evaluate the whole plan. The deadline is the only bound on
+        cost here, which is why it defaults to a value rather than to None at
+        the CLI. Neither guard fires without being asked for -- before
+        2026-09-15 the caller passed no stop_event, so a query that ran away had
+        to be killed as a process.
         """
-        if stop_event is not None:
+        deadline = None if deadline_s is None else time.monotonic() + deadline_s
+        guarded = stop_event is not None or deadline is not None
+        if guarded:
 
             def _progress() -> int:
-                return 1 if stop_event.is_set() else 0
+                if stop_event is not None and stop_event.is_set():
+                    return 1
+                if deadline is not None and time.monotonic() > deadline:
+                    return 1
+                return 0
 
             self._conn.set_progress_handler(_progress, 1000)
         try:
             cursor = self._conn.execute(sql)
             return cursor.fetchmany(row_limit)
         finally:
-            if stop_event is not None:
+            if guarded:
                 self._conn.set_progress_handler(None, 0)
+
+    def explain_plan(self, sql: str) -> list[sqlite3.Row]:
+        """Return SQLite's query plan for `sql` without executing it.
+
+        Planning is free -- milliseconds against the hours a bad plan costs --
+        so the cost of a query is predictable before it is paid. See
+        `_plan_hazard` in gpu-profile-summary.py for what is read out of it.
+        """
+        return self._conn.execute("EXPLAIN QUERY PLAN " + sql).fetchall()
 
     # ------------------------------------------------------------------
     # Vendor-neutral event helpers

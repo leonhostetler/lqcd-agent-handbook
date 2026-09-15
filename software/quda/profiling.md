@@ -163,3 +163,19 @@ duration is *linear* in it. If it is, the spread is the vector count and there i
 **Do not group these rows together and quote one mean.** Merging launches that differ in y
 problem size produces a spread that is an artefact of the merge, which is the same defect the
 short-name warning above describes, one column over.
+
+## A transfer far below device bandwidth is a memory-residency question
+
+The sections above concern kernels. One transfer reading deserves the same treatment, because
+it presents as a kernel-adjacent oddity and resolves somewhere else entirely: a
+**device-to-device** copy running one to three orders of magnitude below device bandwidth,
+while copies of the same size and kind elsewhere in the run reach full rate.
+
+That is not contention and not clock behaviour — neither appears in the causes
+[`../../conventions/profile-metrics.md`](../../conventions/profile-metrics.md) lists for a
+spread that large. It is a residency question, and
+[`internals/managed-memory.md`](internals/managed-memory.md) owns it: QUDA reaches managed
+memory by two routes and only one of them can be prefetched. The discriminator is in the trace
+already — unified-memory migration events lying *inside* the slow copies' intervals — so group
+transfers by size **and** by enclosing annotation range before concluding anything from a
+rate.

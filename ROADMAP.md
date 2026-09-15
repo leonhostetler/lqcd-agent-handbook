@@ -324,6 +324,72 @@ link and requires the validator to reject it, and one asserts the reference coun
 400, because a pass that silently matches nothing is the failure mode this session hit twice
 while writing negative controls.
 
+On 2026-09-15 a QUDA performance session on an operator-supplied Blackwell capture provoked
+three tooling defects, all repaired without changing the Slice 4 next action. Each was found by
+the analysis failing rather than by review, and each had shipped.
+
+**First, the `query` escape hatch advertised two properties it did not have, and named the wrong
+hazard.** `ARCHITECTURE.md` §profile-analysis said "read-only, row-capped and interruptible,
+because an uncapped scan of a multi-gigabyte profile is the ordinary accident". Measured, a
+single scan of a 5,066,637-row event table costs **0.23 s** — scans were never the accident. A
+**nested loop** is: no profiler export carries an index on any event table, so a correlated
+subquery re-scans the inner table once per outer row. A session query whose CTE SQLite chose to
+inline asked for 4.75M x 5.07M row visits to re-derive a 260-row constant; it returned one row,
+so the cap bounded nothing, and `cmd_query` passed no `stop_event`, so "interruptible" named a
+parameter no caller supplied. It cost 26 minutes and produced nothing. The repair is ordered by
+what the failure showed: **planning is free**, so `EXPLAIN QUERY PLAN` runs first and the shape
+is refused with the rewrite named, in 0.42 s on the capture that provoked it; `--max-seconds`
+(default 120 s) is the backstop for what the plan check cannot size; and the prose in
+`ARCHITECTURE.md` and `playbooks/analyze-profile.md` now names the nested loop rather than the
+scan. **The guard's own control caught a false positive in it**: a scan under a `MATERIALIZE`
+runs once however many correlated steps enclose it, so without stopping the ancestor walk there
+the guard refused the very rewrite its error message recommends.
+
+**Second, `cross-rank` computed the diagnostic and discarded it.** On the four-rank capture it
+derived "cost at k=5 is 15.8% above optimal k=7 (threshold: 15%)" and reported only "Phase count
+differs across ranks", because the failure payload omitted `consensus_note`. The second is a
+consequence of the first and reads as a tool limitation rather than as a 0.8-point miss that
+`--max-phases` would settle, so the session spent 211 s to be told nothing and then hand-rolled
+a four-rank comparison it did not need. The payload now carries `consensus_note` and
+`selected_k_by_rank`. **A straggler fixture cannot exercise this path** — stretching kernels
+scales a rank's cost curve without changing its shape, so the ranks still agree on k; the new
+fixture adds distinct late structure to one rank, which moves its elbow from 4 to 7.
+
+**Third, the per-direction `transfer-overlap` rows invited an addition that is wrong, and
+`--table` hid the fix.** Directions run concurrently, so summing `exposed_s` returns work: on the
+capture it summed to 66.44 s where the merged union was 48.48 s, a 37% overstatement that reads
+as plausible. `conventions/profile-metrics.md` forbade summing *within* a direction and said
+nothing about *across* them. The extraction now emits `union`, carrying
+`directions_sum_exposed_s` beside `exposed_s` so the gap is visible rather than merely avoided —
+and `_render_table` silently dropped every nested object, so the new section was absent from the
+output a session actually reads. **A renderer that hides a field is the same defect as a tool
+that never computed it**, and the first perturbation written against it was a no-op that
+`repeated-work.md` warns about: disabling the dict branch let the value fall through to the
+scalar branch and every assertion still passed.
+
+Sixteen controls landed across `tests/test_gpu_profile_query_guard.py` and the two existing
+gpu-profile test files; each of the five fixes was reverted in turn and confirmed to break its
+control, and the suite stands at 96 tests with no skips.
+
+One knowledge leaf was admitted, `software/quda/internals/managed-memory.md`: QUDA reaches
+managed memory by two independent routes and `is_prefetch_enabled()` reads only one of them, so
+memory obtained through the MILC-facing `qudaAllocateManaged` entry point can never be
+prefetched unless the application also converts every QUDA device allocation to managed. It is
+source-derived at `b6998853`, present in both the CUDA and HIP targets, and carries the profile
+signature that identifies it — a device-to-device copy far below device bandwidth with
+unified-memory migration events inside its interval. `software/quda/profiling.md` points at it
+from the symptom. **The measured seconds stay in the working directory**: the leaf records the
+mechanism and no figure from the capture.
+
+**Two items came due and were again paid by hand, and neither is now owed differently.**
+Launch-geometry extraction for the tunecache-warmth gate was owed "on the next QUDA performance
+session"; this was that session, and warmth was established instead from the run-log pair and
+the tunecache mtime, which the gate accepts but which is not what was owed. The parallel rank
+loader remains deliberately excluded as ergonomics, with one datum added: the serial loader cost
+187.4 s across four ranks at ~47 s each, and on this capture the whole of it was spent before a
+refusal. That is a worse trade than recorded, not a defect, and reversing the decision is the
+operator's call.
+
 <a id="current-slice-state"></a>
 ## Current slice state
 

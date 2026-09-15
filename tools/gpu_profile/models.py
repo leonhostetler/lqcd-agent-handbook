@@ -206,6 +206,31 @@ class TransferOverlap:
 
 
 @dataclass(kw_only=True)
+class TransferUnion:
+    """Exposed and overlapped transfer time across *all* directions at once.
+
+    This exists because the per-direction rows above must not be added up.
+    Transfers in different directions run concurrently -- a device-to-device copy
+    and a unified-memory migration occupy the same nanosecond -- so summing the
+    `exposed_s` column returns work rather than elapsed time, exactly the error
+    `total_s` guards against *within* a direction. Measured on one capture the
+    columns summed to 66.44 s where the union was 48.48 s, a 37% overstatement
+    that reads as perfectly plausible.
+
+    `directions_sum_exposed_s` is carried beside `exposed_s` so the gap is
+    visible rather than merely avoided: a reader who was about to add the column
+    can see what that would have produced.
+    """
+
+    transfers: int
+    total_s: float
+    overlapped_s: float
+    exposed_s: float
+    pct_overlapped: float
+    directions_sum_exposed_s: float
+
+
+@dataclass(kw_only=True)
 class StreamSummary:
     stream_id: int
     kernel_calls: int

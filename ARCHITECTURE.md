@@ -2088,8 +2088,26 @@ that generated it — goes to `software/<name>/` under P3.
 name-grouped kernel totals, windowed phase breakdowns and stable variance are each a correct
 answer that an ad-hoc query gets wrong in a way that reads as plausible — summing durations
 returns work where the reader wanted elapsed time. Raw query access remains, as the escape
-hatch it is: read-only, row-capped and interruptible, because an uncapped scan of a
-multi-gigabyte profile is the ordinary accident and not the exotic one.
+hatch it is: read-only, row-capped, plan-checked and deadline-bounded.
+
+**Two of those were claimed before they were true, and the hazard was misnamed.** Until
+2026-09-15 this paragraph read "read-only, row-capped and interruptible, because an uncapped
+scan of a multi-gigabyte profile is the ordinary accident". Measured, a single scan of a
+5,066,637-row event table costs **0.23 s**; scans were never the accident. The accident is a
+**nested loop**: a profiler export carries no index on any event table, so a correlated
+subquery re-scans the inner table once per outer row. One such query on a real capture asked
+for 4.75M x 5.07M row visits to re-derive a 260-row constant. It returned a single row, so the
+row cap bounded nothing — `fetchmany` bounds what Python materialises, never what SQLite
+evaluates — and the CLI passed no `stop_event`, so "interruptible" named a parameter no caller
+supplied and the process had to be killed. It cost 26 minutes and produced nothing.
+
+The correction is in the order the failure demands. **Predicting beats bounding**: planning is
+free, so `EXPLAIN QUERY PLAN` runs first and a correlated scan of a large table is refused with
+the rewrite named, at a cost of milliseconds. The deadline is the backstop for what the plan
+check cannot size — a scan behind an alias or a derived-table name — and it is a default rather
+than an option, because a guard nobody passes is the defect being repaired. The override exists
+because the check is deliberately conservative: plans carry no row estimates, so outer
+cardinality is unknown and a cheap nested loop is flagged alongside an impossible one.
 
 **The handbook does not wrap a second agent.** A session is already an agent with tools, a
 transcript and a working directory. Calling another one across a network adds a key, a provider,

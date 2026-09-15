@@ -108,7 +108,10 @@ class Profile(Protocol):
         sql: str,
         stop_event: threading.Event | None = None,
         row_limit: int = 200,
+        deadline_s: float | None = None,
     ) -> list[sqlite3.Row]: ...
+
+    def explain_plan(self, sql: str) -> list[sqlite3.Row]: ...
 
     def columns(self, table: str) -> list[str]: ...
 

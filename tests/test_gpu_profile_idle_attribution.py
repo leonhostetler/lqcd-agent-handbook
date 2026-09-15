@@ -16,6 +16,7 @@ satisfied trivially, with one that must not.
 
 from __future__ import annotations
 
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -28,6 +29,7 @@ from gpu_profile.detect import open_profile  # noqa: E402
 from gpu_profile.metrics import (  # noqa: E402
     compute_idle_attribution,
     compute_transfer_overlap,
+    compute_transfer_union,
 )
 from gpu_profile_fixtures import (  # noqa: E402
     build_idle_attribution_nsys_db,
@@ -263,6 +265,79 @@ class TransferOverlapTests(AttributionTestBase):
     def test_total_is_split_exactly_between_overlapped_and_exposed(self):
         for t in self.overlap().values():
             self.assertAlmostEqual(t.overlapped_s + t.exposed_s, t.total_s, places=9)
+
+
+class TransferUnionControls(AttributionTestBase):
+    """The per-direction rows must not be added up, so the tool does the merge.
+
+    The recorded defect: on a real capture the per-direction `exposed_s` column
+    summed to 66.44 s where the merged union was 48.48 s -- a 37% overstatement,
+    because a device-to-device copy and a unified-memory migration occupy the same
+    nanosecond. `conventions/profile-metrics.md` already forbade summing *within*
+    a direction and said nothing about *across* them, which is the gap this closes.
+    """
+
+    # Both transfers inside gap A, overlapping each other by 1 ms: H2D 1.003-1.005,
+    # D2H 1.004-1.006. Summed exposed = 4 ms; merged = 3 ms.
+    OVERLAPPING = {
+        "hidden_memcpy": (1_003_000_000, 1_005_000_000),
+        "exposed_memcpy": (1_004_000_000, 1_006_000_000),
+    }
+
+    def union(self, name: str = "u.db", *, drop_transfers: bool = False, **kwargs):
+        path = build_idle_attribution_nsys_db(self.dir / name, **kwargs)
+        if drop_transfers:
+            conn = sqlite3.connect(path)
+            conn.execute("DELETE FROM CUPTI_ACTIVITY_KIND_MEMCPY")
+            conn.commit()
+            conn.close()
+        profile = open_profile(path)
+        self._open.append(profile)
+        return compute_transfer_union(profile), compute_transfer_overlap(profile)
+
+    def test_the_union_never_exceeds_the_summed_directions(self):
+        union, directions = self.union()
+        self.assertIsNotNone(union)
+        self.assertLessEqual(
+            union.exposed_s, round(sum(d.exposed_s for d in directions), 6) + 1e-9
+        )
+
+    def test_the_sum_it_replaces_is_reported_beside_it(self):
+        """Not a no-op field: it must equal the sum a reader would have taken."""
+        union, directions = self.union()
+        self.assertAlmostEqual(
+            union.directions_sum_exposed_s,
+            round(sum(d.exposed_s for d in directions), 6),
+            places=6,
+        )
+
+    def test_overlapping_directions_make_the_union_strictly_smaller(self):
+        """The perturbation that must move it.
+
+        With the default fixture the two transfers do not overlap, so summing and
+        merging agree and every other assertion here would pass with no merge at
+        all. Overlapping them by 1 ms is the input on which the two must disagree.
+        """
+        union, directions = self.union("overlap.db", **self.OVERLAPPING)
+        self.assertEqual(len(directions), 2)
+        self.assertAlmostEqual(union.directions_sum_exposed_s, 0.004, places=6)
+        self.assertAlmostEqual(union.exposed_s, 0.003, places=6)
+
+    def test_non_overlapping_directions_agree(self):
+        """Rejects a vacuous merge: the union must not shrink what does not overlap."""
+        union, _ = self.union("apart.db")
+        self.assertAlmostEqual(union.exposed_s, union.directions_sum_exposed_s, places=6)
+
+    def test_the_union_closes(self):
+        union, _ = self.union()
+        self.assertAlmostEqual(
+            union.overlapped_s + union.exposed_s, union.total_s, places=9
+        )
+
+    def test_a_capture_with_no_transfers_reports_none_not_zero(self):
+        """An absent measurement is not a measured zero."""
+        union, _ = self.union("empty.db", drop_transfers=True)
+        self.assertIsNone(union)
 
 
 if __name__ == "__main__":

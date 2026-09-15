@@ -9,9 +9,16 @@ because a package is absent.
 Every subcommand is an aggregation a session would otherwise recompute by hand and
 get wrong in a way that reads as plausible -- summing kernel durations returns work
 where the reader wanted elapsed time. ``query`` is the escape hatch, not the
-method: it is read-only, row-capped and interruptible. See ARCHITECTURE.md
-§profile-analysis, and modes/performance.md for what the numbers may and may not be
-read to say.
+method: it is read-only, row-capped, plan-checked and deadline-bounded.
+
+The row cap bounds output, never work: a single scan of a five-million-row event
+table costs under a second, so a *scan* was never the hazard. A **nested loop** is
+-- an nsys export carries no index on any CUPTI table, so a correlated subquery
+re-scans the inner table once per outer row. One such query on a real capture asked
+for 4.75M x 5.07M row visits to derive a 260-row constant, returned a single row,
+and could not finish. ``--max-seconds`` bounds the loss and the plan check predicts
+it, which costs milliseconds. See ARCHITECTURE.md §profile-analysis, and
+modes/performance.md for what the numbers may and may not be read to say.
 
 The profile is opened read-only. This tool never writes to a profile.
 """
@@ -22,6 +29,7 @@ import argparse
 import json
 import sqlite3
 import sys
+import time
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 
@@ -60,9 +68,22 @@ from gpu_profile.metrics import (  # noqa: E402
     compute_window_breakdown,
     compute_top_kernels,
     compute_transfer_overlap,
+    compute_transfer_union,
 )
 
 DEFAULT_ROW_LIMIT = 200
+
+# A query is stopped after this many seconds unless --max-seconds says otherwise.
+# Grounded rather than guessed: every hand-written query in the session that
+# produced this guard ran in 0.11-0.69 s, and the one that motivated it exceeded
+# 600 s without finishing. Three orders of magnitude separate the two populations,
+# so the value needs no tuning -- anything in 10-120 s catches the runaway and
+# touches nothing legitimate.
+DEFAULT_QUERY_DEADLINE_S = 120.0
+
+# A table scanned on the inner side of a correlated step is reported as a hazard
+# above this row count. Below it the nested loop is affordable even unindexed.
+NESTED_SCAN_ROW_THRESHOLD = 100_000
 
 
 def _plain(obj):
@@ -129,7 +150,14 @@ def cmd_idle_attribution(profile, args) -> dict:
 
 def cmd_transfer_overlap(profile, args) -> dict:
     win = _window(args)
-    return {"directions": _plain(compute_transfer_overlap(profile, *(win or (None, None))))}
+    bounds = win or (None, None)
+    return {
+        "directions": _plain(compute_transfer_overlap(profile, *bounds)),
+        # Emitted beside the per-direction rows because those rows must not be
+        # added up: directions overlap each other in wall-clock. The tool does
+        # the merge so prose does not have to forbid the addition.
+        "union": _plain(compute_transfer_union(profile, *bounds)),
+    }
 
 
 def cmd_memcpy(profile, args) -> dict:
@@ -173,12 +201,102 @@ def cmd_schema(profile, args) -> dict:
     return {"tables": sorted(profile.tables)}
 
 
+def _plan_hazard(profile, sql: str) -> str | None:
+    """Name the plan shape that makes a query on a profile database unfinishable.
+
+    EXPLAIN QUERY PLAN yields (id, parent, aux, detail). A node whose detail
+    begins "SCAN <name>" is a full table scan; an ancestor whose detail contains
+    "CORRELATED" means that scan is re-run once per outer row. An nsys export
+    carries no index on any CUPTI table, so the product of those two is the whole
+    hazard -- and planning costs milliseconds, so it is always worth asking.
+
+    This is a guard, not a proof, and it errs in both directions. A scan reported
+    under an alias or a derived-table name cannot be sized against `profile.tables`
+    and is passed over -- which is why the deadline in `query_safe` remains and is
+    not optional. In the other direction EXPLAIN QUERY PLAN carries no row
+    estimates, so the *outer* cardinality is unknown and a correlated scan of a
+    large table is flagged even where few outer rows make it cheap. That is the
+    deliberate direction to err: the refusal is one flag to override, and the
+    failure it prevents cost 26 minutes and produced nothing.
+    """
+    try:
+        plan = profile.explain_plan(sql)
+    except sqlite3.Error:
+        return None  # a plan we cannot obtain is not a plan we can judge
+
+    nodes = {row[0]: (row[1], str(row[3])) for row in plan}
+
+    def ancestor_details(node_id: int):
+        """Walk outwards, stopping at a MATERIALIZE.
+
+        A scan feeding a materialisation runs once however many correlated steps
+        enclose it: SQLite derives the table, then re-scans the *materialised*
+        result per outer row. Measured on the fixture below, the same query costs
+        0.06 s materialised against a full re-scan inlined. Without this stop the
+        guard refuses the very rewrite its own error message recommends -- which
+        is what the control in tests/test_gpu_profile_query_guard.py caught.
+        """
+        seen: set[int] = set()
+        cur = nodes.get(node_id, (0, ""))[0]
+        while cur in nodes and cur not in seen:
+            seen.add(cur)
+            detail = nodes[cur][1]
+            if detail.startswith("MATERIALIZE"):
+                return
+            yield detail
+            cur = nodes[cur][0]
+
+    hazards: list[tuple[str, int]] = []
+    for node_id, (_parent, detail) in nodes.items():
+        if not detail.startswith("SCAN "):
+            continue
+        name = detail.split()[1]
+        if name not in profile.tables:
+            continue
+        if not any("CORRELATED" in a for a in ancestor_details(node_id)):
+            continue
+        rows = profile.query(f"SELECT COUNT(*) AS n FROM {name}")[0]["n"]
+        if rows > NESTED_SCAN_ROW_THRESHOLD:
+            hazards.append((name, rows))
+
+    if not hazards:
+        return None
+    listed = "; ".join(f"{name} ({rows:,} rows)" for name, rows in sorted(hazards))
+    hint = (
+        "If the inner side is a CTE, SQLite has inlined it: declare it "
+        "WITH <name> AS MATERIALIZED (...) so it is derived once. Otherwise invert "
+        "the query so the small side is the outer one."
+    )
+    return (
+        f"the plan re-scans {listed} once per outer row, inside a correlated "
+        f"subquery, and no CUPTI table carries an index. " + hint
+    )
+
+
 def cmd_query(profile, args) -> dict:
-    rows = profile.query_safe(args.sql, row_limit=args.max_rows)
+    hazard = None if args.allow_nested_scan else _plan_hazard(profile, args.sql)
+    if hazard is not None:
+        raise SystemExit(
+            f"error: refusing to run this query -- {hazard}\n"
+            "  Re-run with --allow-nested-scan to execute it anyway; --max-seconds "
+            "still applies."
+        )
+    deadline = args.max_seconds or None
+    started = time.monotonic()
+    try:
+        rows = profile.query_safe(args.sql, row_limit=args.max_rows, deadline_s=deadline)
+    except sqlite3.OperationalError as exc:
+        if "interrupted" not in str(exc):
+            raise
+        raise SystemExit(
+            f"error: query stopped at --max-seconds {args.max_seconds:g}. The row cap "
+            "bounds output, not work -- check the plan rather than raising the cap."
+        ) from exc
     return {
         "row_limit": args.max_rows,
         "row_count": len(rows),
         "truncated": len(rows) >= args.max_rows,
+        "elapsed_s": round(time.monotonic() - started, 3),
         "rows": [dict(r) for r in rows],
     }
 
@@ -232,9 +350,17 @@ def cmd_cross_rank(_unused, args) -> dict:
     primary_rank_id, primary_reason = select_primary_rank(summaries)
     alignment, alignment_note = align_phases(summaries)
     if alignment == "failed":
+        # `consensus_note` is the cause and `alignment_note` is its symptom: when
+        # consensus is refused the per-rank phase counts necessarily differ, and
+        # reporting only that reads as a tool limitation. The note carries the
+        # margin -- observed once as "15.8% above optimal (threshold: 15%)", a
+        # 0.8-point miss that --max-phases would have settled -- so a session that
+        # sees only the symptom hand-rolls a comparison it did not need to.
         return {
             "cross_rank_available": False,
             "reason": alignment_note,
+            "consensus_note": consensus_note,
+            "selected_k_by_rank": {str(r): selected_ks[r] for r in sorted(selected_ks)},
             "rank_ids": sorted(summaries),
             "primary_rank_id": primary_rank_id,
         }
@@ -285,7 +411,16 @@ def _render_table(payload: dict) -> str:
             # the warnings that stop an untraced category being read as a measured zero.
             lines.append(f"{key}:")
             lines.extend(f"  - {item}" for item in value)
-        elif not isinstance(value, (list, dict)):
+        elif isinstance(value, dict):
+            # Nested objects -- the transfer-overlap union, say. Before 2026-09-15
+            # this branch did not exist and `--table` dropped them in silence, so a
+            # section present in the JSON was absent from the output a session
+            # actually reads. A renderer that hides a field is the same defect as a
+            # tool that never computed it.
+            lines.append(f"{key}:")
+            for sub_key, sub_value in value.items():
+                lines.append(f"  {sub_key}: {sub_value}")
+        elif not isinstance(value, list):
             lines.append(f"{key}: {value}")
     return "\n".join(lines)
 
@@ -341,7 +476,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("query", cmd_query)
     p.add_argument("--sql", required=True, help="read-only SQL to execute")
-    p.add_argument("--max-rows", type=int, default=DEFAULT_ROW_LIMIT, help="row cap")
+    p.add_argument(
+        "--max-rows",
+        type=int,
+        default=DEFAULT_ROW_LIMIT,
+        help="row cap -- bounds output, not work (default: %(default)s)",
+    )
+    p.add_argument(
+        "--max-seconds",
+        type=float,
+        default=DEFAULT_QUERY_DEADLINE_S,
+        help="wall-clock cap; 0 disables (default: %(default)g)",
+    )
+    p.add_argument(
+        "--allow-nested-scan",
+        action="store_true",
+        help="run even when the plan re-scans a large table inside a correlated subquery",
+    )
     return ap
 
 
