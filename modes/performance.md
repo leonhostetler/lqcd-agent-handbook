@@ -10,11 +10,6 @@ A profile is evidence about one execution, on one machine, under one set of capt
 is not a description of the application, and every number read out of it inherits the conditions
 of the run that produced it.
 
-**Current limitation.** No tool validates a hypothesis record against
-`schemas/hypothesis.schema.json`, so conformance to it is a discipline rather than a check.
-Where a quantity is derived by hand rather than by the extraction tool, an analysis must say
-so.
-
 ## Establish the task
 
 Before analysing a profile:
@@ -102,6 +97,10 @@ profile; it is a different premise, and naming it lets the reader check both.
 **The list is ranked, and the ranking is part of the answer.** A correct diagnosis buried under
 four wrong ones is not the result that was led with. A ranked list with stated fractions is
 falsifiable; an unordered list of observations is not.
+
+Where a quantity is derived by hand rather than by the extraction tool, the record says so.
+Check the finished record with `tools/hypothesis-record.py`: it derives the speedup bounds
+rather than trusting them, and refuses a figure that names no query it came from.
 
 **A claimed fraction is a prediction.** The speedup it implies is arithmetic and is computed
 rather than asserted. Record the prediction before the next run and compare after it, so a

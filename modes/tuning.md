@@ -27,8 +27,10 @@ Before changing a build, parameter, decomposition, or runtime setting:
    products, and any production-equivalence checks. A faster candidate that changes the required
    result is not a tuning improvement.
 5. Declare the tunable search space and starting candidate. Include solver and setup parameters,
-   build capabilities, node count, rank and thread placement, decomposition, batching, I/O, and
-   other workflow choices only when they are in scope.
+   build capabilities, node count, rank and thread placement, decomposition, batching, I/O,
+   source changes, and other workflow choices only when they are in scope. A source change is
+   in scope only when the operator put it there; see below for what makes it a different kind
+   of trial.
 6. Write the initial prediction record in the working directory before any
    allocation-consuming trial. Record expected runtime, resource cost, memory, iterations, and
    the reason the proposed change should help.
@@ -67,10 +69,62 @@ Before changing a build, parameter, decomposition, or runtime setting:
     untested alternatives, sensitivity to workload assumptions, and any parameter whose physics
     or numerical correctness still requires operator review.
 
+## Trials that change source
+
+A source change is a trial like any other and a more expensive one, in three ways that decide
+how it is run rather than merely how long it takes.
+
+**It costs a rebuild before it can be measured**, and on a machine where the build itself is a
+job, that rebuild is an allocation-consuming step under the same ceiling and ledger as the trial
+it enables. Budget it as part of the trial, not as overhead outside it.
+
+**It can change the result.** A parameter trial leaves the computation alone; a source trial may
+not. Re-run the correctness reference rather than assuming it still holds, and treat a candidate
+that is faster and different as a rejected candidate, not a win with a caveat.
+
+**It invalidates warm state selectively.** Where the software autotunes, a change that moves a
+kernel's shape, instantiation or launch geometry makes the cache cold for exactly those keys and
+leaves the rest warm. A trial measured across that boundary compares a warm baseline with a
+partly cold candidate. Re-establish the declared warm state before the measurement counts, and
+say which keys were re-tuned.
+
+Load `software/<name>/development.md` before making the change, and keep the boundary the
+handbook already draws: a change that alters **what** is computed is an algorithm trial and
+belongs in a different comparison from one that alters only **how**.
+
 Performance analysis may be used inside tuning when it is subordinate to choosing the next
 candidate. If the immediate deliverable becomes explaining a bottleneck rather than selecting a
 candidate, recommend performance mode. Timing a candidate does not by itself change the
 current mode to benchmarking.
+
+## Acting on a performance hypothesis
+
+Performance mode hands over a ranked hypothesis list rather than a candidate. Each entry already
+carries what a prediction record needs: the phase, the fraction of its elapsed time the
+bottleneck is claimed to hold, and the speedup bounds that follow from that fraction — the lower
+from halving the cost, the upper from removing it entirely.
+
+**That claim is a standing prediction, so the trial testing it does not need a new one.** Record
+which hypothesis the trial tests, carry its bounds into the trial's prediction record, and after
+the run compare the realised change with `tools/gpu-profile-diff.py`. Three outcomes, and they
+mean different things:
+
+- **Within the bounds** — the hypothesis is supported, and the fix did roughly what the fraction
+  said it could.
+- **Below the lower bound** — either the fraction was inflated, or the change addressed only
+  part of what the hypothesis named. Distinguish those before trying again: they call for
+  opposite next moves.
+- **Above the upper bound** — something moved that the hypothesis did not name. Suspect a
+  confound in the comparison before crediting the change; a source trial that also re-tuned a
+  cold cache is the common one.
+
+**A fraction that is systematically inflated across trials is a defect in the analysis, not a
+run of bad luck.** It means an attribution rule is wrong, and it is the signal the
+predict-compare loop exists to produce. Report it against the leaf or the method that produced
+it rather than quietly widening the tolerance.
+
+Hypotheses that were not tested stay on the list with that status. An untested hypothesis is not
+a refuted one, and a later session should not have to re-derive it.
 
 ## Handoff to benchmarking
 
@@ -102,7 +156,8 @@ relabeled as confirmatory after the fact.
   handbook knowledge.
 - Do not change project code merely to make one candidate faster unless code modification is
   explicitly in scope. Load `software/<name>/development.md` before any authorized software
-  change when that document exists.
+  change when that document exists, and run it as the kind of trial described above rather than
+  as a parameter change that happens to need a compiler.
 - Treat absent solver, build-profile, ensemble, or validated-stack knowledge as an explicit
   limitation. Do not fill the gap with an unlabeled assumption.
 
@@ -128,6 +183,11 @@ writing, modifying, or reviewing any batch script or preparing a submit command,
 [`conventions/campaign-records.md`](../conventions/campaign-records.md) when opening or
 reorganising a multi-study campaign against an allocation, and the shared
 prediction record for every trial.
+
+When a trial tests a hypothesis from performance mode, check the record with
+`tools/hypothesis-record.py` before acting on it — a speedup bound that was asserted rather
+than derived makes the comparison meaningless — and compare captures with
+`tools/gpu-profile-diff.py`.
 
 Route reusable software mechanisms to `software/<name>/`; machine-specific placement and
 runtime behavior to `machines/<name>/`; and durable measurement rules to `conventions/`.

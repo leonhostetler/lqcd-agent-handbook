@@ -1044,6 +1044,21 @@ boundaries. **Stage 5** gives tuning mode the code-change axis and closes the pr
 a hypothesis's claimed runtime fraction. **Stage 6** re-points the source suite's scored
 scenarios at a handbook session's hypothesis record.
 
+Stages 3 through 5 landed 2026-09-14. Stage 5 closed the loop the earlier stages only described:
+`tools/hypothesis-record.py` derives a hypothesis's speedup bounds instead of trusting them and
+refuses a figure naming no query it came from, which removed performance mode's last standing
+limitation. Tuning mode gained source changes as a declared search axis, a section on what makes
+a source trial different — it costs a rebuild that is itself a job, it can change the result, and
+it invalidates warm state selectively — and a section on acting on a hypothesis, where the
+claimed fraction is treated as a standing prediction and the realised change is compared against
+its bounds. A fraction inflated across trials is recorded as a defect in the attribution rule
+rather than absorbed by widening a tolerance.
+
+The loop still stops at submission. Making it unattended remains the un-parking trigger for the
+budget-enforcement entry in [§deferred-decisions](#deferred-decisions), whose interim behaviour
+is recorded as zero machinery that cannot overspend — precisely the property a self-resubmitting
+loop removes.
+
 **The calibration harness stays outside the handbook.** The source suite's injected-bottleneck
 profiles, ground truth and scorer hold one property — a profile-blind baseline scores near zero —
 and the handbook has no equivalent, its acceptance tests being qualitative. They remain in the
