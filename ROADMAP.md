@@ -23,8 +23,8 @@ what `idle-attribution` can only size, and three controls cover it — summing c
 of merging, reporting an untraced category as `0.0`, and dropping the untraced caveat — each
 asserting its perturbation landed. **Two items remain owed.** One crossed [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s threshold during the
 exercises and is owed rather than optional. **The untraced-control comparison was reassigned to
-Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` is already the run-log reader it
-needs; one floating item remains.
+Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` — a Slice 4 deliverable that has
+not been written — is the run-log reader it will be built into; one floating item remains.
 
 **Launch-geometry extraction for the tunecache-warmth gate** — owed on the next QUDA
 performance session rather than now. `software/quda/profiling.md` makes it a mandatory gate
@@ -389,6 +389,19 @@ loader remains deliberately excluded as ergonomics, with one datum added: the se
 187.4 s across four ranks at ~47 s each, and on this capture the whole of it was spent before a
 refusal. That is a worse trade than recorded, not a defect, and reversing the decision is the
 operator's call.
+
+**A fourth defect was reported in that session and was not one, which is worth recording
+because the correction is the reusable part.** `tools/extract-milc-timings.py` does not exist,
+and four documents name it; the session called all four wrong. Only one is. `ARCHITECTURE.md`
+§3 opens by declaring itself "the target completed-bootstrap layout, not an inventory of files
+currently present", and `ROADMAP.md`'s Slice 4 scope list and its untraced-control rationale
+both name the tool as something Slice 4 builds. The single false claim was the word **already**
+in the NEXT ACTION block, which turned a deliverable into an existing asset and made the Slice 6
+to Slice 4 reassignment read as costless; it is corrected above. An audit of all 67 files named
+in §3 found nine absent and four skill directories absent, **every one of them a legitimate
+future addition** — which is why no validator check was added: a guard firing nine times on
+correct content is the noisy guard [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s
+counterweight warns against.
 
 <a id="current-slice-state"></a>
 ## Current slice state
