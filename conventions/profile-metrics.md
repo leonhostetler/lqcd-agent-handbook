@@ -1,16 +1,16 @@
 ---
 title: Reading GPU profile metrics
-summary: What each extracted profile quantity means, how idle time is attributed and what its residual does and does not prove, what a tracer cannot establish, and the readings that are unfounded on trace data alone.
+summary: What each extracted profile quantity means, how idle time is attributed and what its residual does and does not prove, what a tracer cannot establish, what tracing itself changes about the run, and the readings that are unfounded on trace data alone.
 scope: [universal]
 load_when: Reading, quoting, or reasoning about any quantity extracted from a GPU profiler database.
 evidence: source
 sources:
   - tools/gpu_profile/metrics.py
   - vendor tracer documentation for Nsight Systems and ROCm Systems Profiler
-observed: "2026-09-14"
+observed: "2026-09-15"
 observed_on:
   requirements: gpu-profile-metric-semantics
-review_by: "2027-09-14"
+review_by: "2027-09-15"
 ---
 
 # Reading GPU profile metrics
@@ -172,6 +172,48 @@ A capture with no communication tables supports no communication hypothesis — 
 claim that communication is healthy either. The same holds for annotations, host sampling, and
 counters. Report the capability gap as a gap. Silence in a profile is the absence of a
 measurement, never the presence of a clean result.
+
+## A traced run is not the run you are optimising
+
+`[inferred]` The two sections above concern what a tracer fails to record. This one concerns
+what recording changes. Interception is charged per event, so tracing cost tracks traced-call
+density rather than elapsed time, and the inflation is therefore **non-uniform across a run**.
+It concentrates on exactly the host-dense phases an analysis is usually about, and it can
+reorder phases by cost.
+
+Measured on one MILC/QUDA staggered CG capture over 8 ranks, traced with CUDA, NVTX, OS-runtime
+and MPI, against an untraced control of the same input that performed identical iteration
+counts: **1.91x end to end, 2.80x on an MPI-dense input-file read, 1.55x on the solves, and
+1.05x and 0.97x on the two GPU-dense stages that make few host calls.** Read as a profile-only
+account that run spent 46% of its solve phase GPU-idle; measured against the control the figure
+is nearer 17%. Both are arithmetically correct, and the first describes the traced run.
+
+Two rules follow, and they are not the same rule.
+
+- **Where a control exists, quote wall-clock and host-side figures from it and rank phases by
+  control elapsed time. Where none exists, label every such figure as perturbed by an
+  unmeasured amount.** The control is a recommendation, because it cannot be added to a capture
+  already taken; the labelling is not, because it costs nothing. What the profile establishes
+  either way is *structure* — which kernels, in what order, how much overlapped, what the GPU
+  waited on, how ranks compare — and structure survives the perturbation that proportions do
+  not.
+- **Kernel durations need no such correction.** A kernel executes on the device and is not
+  intercepted, so its duration, call count and launch geometry are read from the profile
+  directly. That is why a figure mixing a tool-emitted GPU total with an untraced application
+  timer is frequently the honest one, and why it is declared as hand-derived rather than passed
+  off as tool output.
+
+**A profiler's own overhead table does not measure this.** On the capture above, Nsight Systems'
+`PROFILER_OVERHEAD` reported 1.458 s across 219 events against a measured end-to-end inflation
+of +47.5 s. Whatever that table counts, it is not interception cost, and a session that quotes
+it concludes the capture was nearly free.
+
+Where no control exists the perturbation is unmeasured, and that is a capability gap in the
+sense of the section above: it supports no claim that the profiled proportions are the real
+ones. **Say so in the record.** An unlabelled wall-clock proportion taken from an uncontrolled
+capture is the failure this section exists to prevent, and the label is free.
+[`profile-capture.md`](profile-capture.md) owns arranging the control, where the capture has not
+already been taken.
 
 ## One rank's profile is one rank's view
 

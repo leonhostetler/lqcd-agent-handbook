@@ -3,21 +3,27 @@
 **Status:** Slices 1 through 3 are accepted. Slice 0c is accepted: its full cold-session
 matrix, including both Claude cases, has passed. Slice 4 remains in progress. Slice 6 is in
 progress: Stages 0 through 5 landed on 2026-09-14 and Stage 6 remains. Its first three
-acceptance checks were exercised for the first time on 2026-09-14 by a real analysis session and
-again on 2026-09-15; all three remain **not** accepted, and the second run could not advance
-check 1 because the session was not cold on its profile. The Slice 6 section records what each
-produced. The operator-directed solver import through Stage 5 is published; solver-import
+acceptance checks have now been exercised three times — 2026-09-14, and twice on 2026-09-15 —
+and all three remain **not** accepted. The third exercise met the isolation precondition the
+second failed, and what it found was a reading defect rather than a session failure: check 1
+requires hand-derived quantities to be **declared**, which the 2026-09-14 amendment already
+settled, but the emptiness reading that amendment removed had crept back into the next action
+and into the second exercise's notes, and the third session repeated it. Worse, **nothing
+enforced the declaration** — emptying `extraction.derived_by_hand` while still citing
+hand-derived figures passed with zero errors. The guard that closes it landed the same day, and
+acceptance now waits on a fresh session run against it. The Slice 6 section records what each
+exercise produced. The operator-directed solver import through Stage 5 is published; solver-import
 Stage 6 is indefinitely deferred while split-grid deflated CG remains in development, testing, and
 tuning.
 
-**NEXT ACTION:** Re-run the Slice 6 acceptance checks on **a profile no session has analysed
-before, with no prior record or notes beside it** — to find out whether check 1 now passes with
-an empty `derived_by_hand`, and a capture genuinely lacking the instrumentation its question
-needs, which is the only way check 2 gets exercised at all. The 2026-09-15 attempt failed that
-precondition rather than the check: the profile carried a previous session's notes stating its
-conclusions, and the session read them before extracting anything. Isolating the capture is part
-of the check, not setup for it. Stage 6 waits behind that. Slice 4's remaining
-scheduler-placement, capture, and budget-ledger work stays open behind both.
+**NEXT ACTION:** Re-run the Slice 6 acceptance checks in a fresh session, on **a profile no
+session has analysed before**, against the criterion as now enforced — `derived_by_hand` is
+declared and mechanically checked per figure, not required to be empty. Prefer a capture
+genuinely lacking the instrumentation its question needs, which is the only way check 2 gets
+exercised at all, and a profile from software with no handbook profiling leaf, which is the only
+way check 3 does. Grading it in the session that produced the analysis is what the third
+exercise deliberately avoided, so the operator runs this one. Stage 6 waits behind it. Slice 4's
+remaining scheduler-placement, capture, and budget-ledger work stays open behind both.
 
 This document owns mutable build state, acceptance evidence, pending decisions, and the single next action.
 
@@ -1085,6 +1091,23 @@ figure traceable to a named command, and every quantity the extraction did not e
 [§profile-analysis](ARCHITECTURE.md#profile-analysis); the original wording forbade hand-derived
 figures outright, which the schema has always permitted).
 
+**An empty `derived_by_hand` is not the criterion, and reading it as one has now cost two
+exercises.** The amendment above settled that, and the emptiness reading came back anyway
+through the next action and the exercise notes. It is also unreachable: the playbook recommends
+comparing a capture against an untraced control run, and such a comparison combines a profile
+figure with an application timer, which no subcommand that reads a profiler database can ever
+emit. What is required is declaration — and since 2026-09-15 that is **mechanically enforced**
+per figure rather than trusted, because it was not: emptying the list while citing hand-derived
+figures passed with zero errors until `tools/hypothesis-record.py` learned to read it.
+
+**Cold means the session has no access to a prior analysis *of the capture under test*** — no
+conclusions, no figures, no ranked findings, whether beside the profile, in project
+instructions, or in session memory. Knowledge of the application, machine and software stack is
+**not** contamination: it is the routing the handbook requires, a session cannot be made ignorant
+of the software whose leaves it is told to load, and check 3 depends on the opposite case. That
+definition separates the second exercise, which read the capture's own conclusions before
+extracting anything, from the third, which did not.
+
 **Given a capture lacking the instrumentation its question needs, the session reports the gap
 instead of producing hypotheses.** This is the handbook-side analogue of the source suite's
 profile-blind property, and it is the check the rest rests on: a confident answer drawn from a
@@ -1211,8 +1234,10 @@ isolation is now written into the NEXT ACTION above.
 
 What it did establish, narrowly. The two subcommands added the previous day were used *as
 subcommands*, and the `query` escape hatch stayed row-capped throughout, so check 1's specific
-2026-09-14 failure did not recur. `extraction.derived_by_hand` is still not empty and gained
-three more entries. And `software/quda/profiling.md`'s warm-cache rule — `grid.y == 1` makes
+2026-09-14 failure did not recur. `extraction.derived_by_hand` gained three more entries — noted
+at the time as though a non-empty list were itself the failure, which the 2026-09-14 amendment
+had already settled it is not. Corrected 2026-09-15 by the third exercise.
+And `software/quda/profiling.md`'s warm-cache rule — `grid.y == 1` makes
 `block.y` the y problem size — got its first field use and settled the `MultiBlas_` spread as
 batch-size variation, which is positive evidence for check 3's filing question on a profile that
 still cannot exercise check 3 itself.
@@ -1240,18 +1265,115 @@ the 2026-09-14 round hit with a `sed` pattern that silently matched nothing. Thi
 class as the OS-thread-filter correction: arithmetically correct, confidently wrong, and worse
 than the hand pass it replaces.
 
-*Three aggregations now stand at two hand-derivations each* — the MPI collective size breakdown
-that separates fabric latency from rank skew, the pre-first-kernel window characterisation, and
-the launch-geometry check for tunecache warmth. [§profile-analysis](ARCHITECTURE.md#profile-analysis)
-fires at *more than* twice, so none has crossed it; they are recorded here so the next occurrence
-trips the rule instead of being re-litigated. The third is the odd one out and may not need the
-count: `software/quda/profiling.md` makes it a **mandatory gate** before reading call counts,
-launch geometry or duration spread, so every QUDA performance session must run it, and the
+*The hand-derivation counter, updated 2026-09-15 by the third exercise.* **The pre-first-kernel
+window characterisation has reached three and crossed
+[§profile-analysis](ARCHITECTURE.md#profile-analysis)'s "more than twice", so it is now a missing
+subcommand rather than a standing practice.** `outside_kernel_span_s` detects the window; what is
+still hand work is characterising what lies inside it. The third session binned
+`MPI_COLLECTIVES_EVENTS` by wall-clock through the raw-query escape hatch and read application
+timers beside it, to establish that 54.3% of a capture lying before the first kernel was one
+collective synchronisation per 32 lattice sites. A subcommand owes the binned breakdown of that
+window by traced category, so a session is not left composing it from a raw query each time.
+
+Note what the same amendment exempts: the counter now applies only to aggregations over profile
+data, because arithmetic that crosses out of the profile can never be emitted by a tool that
+reads a profiler database. The window breakdown is squarely inside it and does cross the rule.
+
+*The two that remain at two* — the MPI collective size breakdown that separates fabric latency
+from rank skew, and the launch-geometry check for tunecache warmth — are recorded here so the
+next occurrence trips the rule instead of being re-litigated. The third session took tunecache
+warmth from the tool's own coefficient of variation and from a run-log line rather than from
+hand-computed launch geometry, so that one did not advance. The second is the odd one out and
+may not need the count: `software/quda/profiling.md` makes it a **mandatory gate** before
+reading call counts, launch geometry or duration spread, so every QUDA performance session must
+run it, and the
 Tier-0 prefer-a-tool rule covers a durable rule that can be executed. It is not a one-line
 addition — `KernelRow` carries only `total_threads`, the six extents being collapsed in
 `nsys.py`'s SQL and absent from rocpd entirely — so it needs the row type extended, an
 `available: False` path for rocpd, and its own change. Deliberately not bundled with the fix
 above, per the one-fact-class rule.
+
+**Third exercise, 2026-09-15** (same day, later session), on a MILC/QUDA staggered CG capture
+from an 8-rank 2-node A100 run. **The isolation precondition was met for the first time**: the
+capture carried no analysis notes and no hypothesis record, and the one non-run file beside it
+was a header-only tool log for a different job step containing no conclusions or figures, opened
+only after the analysis closed. The session was cold on the *capture* and warm on the
+*application*, because the working project's instructions characterise a sibling capture — which
+the definition added to the check above settles as not contamination, and which prompted writing
+that definition down.
+
+*Check 1 — not accepted, but the criterion was misread rather than unmet.* Every clause the
+check states passed: the mode was declared from the skill with no re-teaching, extraction went
+through subcommands with two `query` calls that stayed row-capped and read-only, no direct
+database connection was opened, and `tools/hypothesis-record.py` accepts the record with bounds
+derived rather than asserted. `extraction.derived_by_hand` held five entries, which the session
+first reported as a failure — repeating the emptiness reading the 2026-09-14 amendment had
+already removed. Four of those five combine a profile figure with an *application run-log*
+figure, which the extraction cannot emit by construction.
+
+**What it did find is that the declaration clause had no guard.** Emptying
+`extraction.derived_by_hand` while leaving every hand-derived figure cited produced zero errors
+from the checker. That is the defect class already recorded twice in this slice — the
+`if src and queries` bug in the same tool, and the verification harness that certified the
+guards it was built to test. Closed the same day: the schema gains a per-figure `hand_derived`
+flag, `tools/hypothesis-record.py` rejects a figure whose `from` is not a command shipped in
+`tools/` unless it is flagged, and rejects a flag with no declaration and a declaration covering
+no flagged figure. Run against the session's own record the guard produced **20 errors where the
+shipped checker produced 0**. Seven controls in `tests/test_hypothesis_record.py`, including the
+two that perturb the tool — guard silenced and guard always firing — each asserting the
+perturbation landed. The first draft of the silencing control was confounded, failing for a
+second reason with the guard disabled, and the suite caught it. The residual is named rather than
+hidden: this catches inconsistency, not dishonesty, since a record that flags nothing still
+passes.
+
+Also exposed: `schemas/hypothesis.schema.json` described `evidence[].from` as "Subcommand or
+query index that produced it", which reads as licensing the locators the checker refuses — the
+session's first submission was rejected with 41 provenance errors for writing `"Q4
+idle-attribution"` where a command was required. The guard fired loudly and on every offending
+figure, which is the Stage 5 repair working. The description now states the exact-match rule.
+
+*Check 2 — still not exercised, and the same naming failure recurred.* The capture answered its
+question, so gap-reporting was never put under load. Positive: with no hardware counters the
+session declined to classify memory- versus compute-bound and recorded it as a question for a
+counter-collecting run, and with host sampling disabled it stated the residual as an upper bound
+on host compute rather than a measurement of it. Against it: a hypothesis named its kernels "the
+interior dslash", interpreting an enum template argument the session could not resolve — the
+QUDA revision was not available locally, and the same record said so. This is the identical
+failure the 2026-09-14 exercise recorded, where the repair was to lower a confidence value and
+leave the name standing. **Recurrence is why it became a rule**: `software/quda/profiling.md`
+gains the section saying an enum template argument is a discriminator and not a name.
+
+*Check 3 — still not exercised, with new positive evidence on filing.* A QUDA profile again, so
+the negative case remains untested. New this round:
+`software/quda/solvers/staggered-solver-selection.md` had its first field use inside a
+*performance* session and changed the answer, turning the obvious recommendation — enable the
+deflation the job existed to test — into a measured rejection at a crossover of roughly 104
+compatible solves against 6 delivered. Its cost model and its per-delivered-propagator counting
+rule are both leaf-resident and neither is inlined in the mode or the metric convention, so the
+filing held under a second kind of load. Routing reached it by `load_when` match from
+`software/INDEX.md`, not from a pointer in `modes/performance.md`, which is the behaviour check 3
+exists to protect.
+
+*Durable residue, admitted the same day.* The largest item closes a gap the handbook had nowhere:
+**nothing anywhere said a traced run differs from an untraced one.** A tracer is charged per
+intercepted event, so its cost tracks traced-call density rather than elapsed time and falls
+unevenly — measured against an untraced control performing identical iteration counts at 1.91x
+end to end, 2.80x on an MPI-dense file read, 1.55x on the solves, and 1.05x and 0.97x on the two
+GPU-dense stages making few host calls. Read profile-only, that run spent 46% of its solve phase
+GPU-idle; against the control, nearer 17%. `PROFILER_OVERHEAD` reported 1.458 s against a
+measured +47.5 s and is therefore not the measurement. `conventions/profile-capture.md` takes the
+procedure, `conventions/profile-metrics.md` the reading rule, and `playbooks/analyze-profile.md`
+step 2 makes it a step. **The control is recommended and the labelling required** — a control
+cannot be added to a capture already taken, which is most of them, but saying that no control
+exists costs nothing. Carried as `[inferred]` from mechanism with the magnitudes as
+illustration: two variables besides the tracer moved in the comparison, a cold autotune cache and
+a cold page cache, both penalising the control, so the figures bound the inflation from below
+rather than establishing it, and [§evidence-vocabulary](ARCHITECTURE.md#evidence-vocabulary)
+confines a single observation to `incidents/`.
+
+*One more data point for a parked decision.* `cross-rank` over eight captures of roughly 490 MB
+each ran about six and a half minutes serially — the second observation of the friction the
+serial rank loader causes, recorded rather than acted on.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check
@@ -1275,6 +1397,17 @@ install step per machine.
 ## 10. Open questions for the operator
 
 Nothing here blocks Slice 0b acceptance. New questions land in this section as they arise.
+
+**Settled 2026-09-15, recorded so they are not reopened.** Three questions the third Slice 6
+exercise raised, and the operator's rulings on them. *Check 1's `derived_by_hand` clause* tests
+declaration, not emptiness — which the 2026-09-14 amendment had already settled, so the ruling
+restores it rather than changing it, and the clause is now enforced per figure instead of
+trusted. *An untraced control run* is recommended and not required, because it cannot be
+retrofitted onto a capture already taken; the labelling of uncontrolled figures is required,
+because it is free. *Cold* is defined at check 1 above: no access to a prior analysis of the
+capture under test, with application and software knowledge explicitly not contamination. The
+operator also ruled that the acceptance re-run happens in a fresh session rather than in the one
+that produced the analysis, which is why the next action names a new profile.
 
 ---
 

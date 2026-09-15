@@ -2122,6 +2122,15 @@ fact. That leaves a named residual risk: a declared hand-derived figure is unver
 [§prefer-a-tool](#prefer-a-tool) governs what follows from it — an aggregation a session derives
 by hand more than twice is a missing subcommand, not a standing practice.
 
+**Amended 2026-09-15: that counter applies to aggregations over profile data, and not to
+arithmetic that crosses out of the profile.** A figure combining a profile quantity with one from
+outside it — an application timer, a run log, a build record — can never be emitted by a tool
+that reads a profiler database, so counting it toward the threshold generates proposals for
+subcommands nobody can write. Such figures are hand-derived permanently and by construction, and
+what is owed for them is declaration, not automation. The distinction matters because the
+playbook now recommends comparing a capture against an untraced control run, which is exactly
+this kind of arithmetic and is expected rather than exceptional.
+
 **Derived quantities are computed, never asked for.** A speedup bound that follows arithmetically
 from a claimed runtime fraction is computed by the tool. The session supplies judgement and
 evidence; the tool supplies arithmetic. Same division [§the-loop](#the-loop) already applies to

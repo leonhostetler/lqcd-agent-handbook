@@ -1,6 +1,6 @@
 ---
 title: Reading a QUDA kernel in a GPU profile
-summary: Why a profile's kernel short name names the launcher rather than the computation, how a demangled name resolves to its functor and source file, what a cold tunecache does to call counts, launch geometry and duration spread, and how to read the y block extent on a warm one.
+summary: Why a profile's kernel short name names the launcher rather than the computation, how a demangled name resolves to its functor and source file, why an enum template argument discriminates without naming, what a cold tunecache does to call counts, launch geometry and duration spread, and how to read the y block extent on a warm one.
 scope: [software:quda]
 load_when: Interpreting QUDA kernel names, call counts, launch geometry, or duration spread in a GPU profile.
 evidence: source
@@ -10,7 +10,7 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/kernels/dslash_staggered.cuh
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/tune.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multi_blas_quda.cu
-observed: "2026-09-14"
+observed: "2026-09-15"
 observed_on:
   software:
     quda: {commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a, branch: develop}
@@ -58,6 +58,34 @@ genuinely different kernels.
 
 **Confirm a suspected pattern by reading that file.** A duration does not tell you whether a
 kernel is doing what you think; the functor body does.
+
+## An enum template argument is a discriminator, not a name
+
+`[inferred]` The section above assumes the source revision is in reach. Where it is not, one
+class of template argument still looks readable and is not.
+
+A demangled name renders a non-type template argument of enumeration type as its **integer
+value** beside the enumeration's type name — `(quda::KernelType)5`, `(QudaReconstructType_s)18`.
+The integer is what the profile carries. The mapping from it to a name lives in the enumeration
+declaration in the source, and nothing in the profile identifies which revision built the binary,
+so a mapping recalled rather than read cannot be checked against the capture at all, however
+familiar it feels.
+
+Two things follow, and they pull in opposite directions. The value is a perfectly good
+**discriminator**: rows that differ only in it are different instantiations, and their call
+counts, durations and launch geometry are comparable against one another without any mapping.
+It is not a **name**, and the failure is writing the interpretation into prose — calling a row
+"the interior dslash" — where nothing downstream marks it as unverified. A hypothesis record is
+the worst place for it: a bottleneck named for an attribution the evidence does not carry reads
+exactly like one that is grounded, which is the failure
+[`../../conventions/profile-metrics.md`](../../conventions/profile-metrics.md) names for
+unobservable bottlenecks, one field over.
+
+**Where the revision is unavailable, identify such a kernel by its template arguments and by
+what the run's decomposition implies, and say which.** The partitioned dimensions follow from
+the rank grid, so which exterior-kernel values may legally appear follows too, and that
+constrains a mapping without asserting one. Resolving it properly is the procedure above applied
+to one more template argument: read the enumeration in the revision that built the binary.
 
 ## A cold tunecache changes what the profile contains
 

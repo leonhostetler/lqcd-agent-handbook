@@ -1,6 +1,6 @@
 ---
 title: Capturing a GPU profile
-summary: What a capture must establish before the run — that the artifact is validated rather than the exit status, and that a wall-clock anchor exists where the format does not carry one.
+summary: What a capture must establish before the run — that the artifact is validated rather than the exit status, that a wall-clock anchor exists where the format does not carry one, and whether an untraced control run exists to bound what tracing cost.
 scope: [universal]
 load_when: Planning, submitting, or validating a profiled run.
 evidence: reproduced
@@ -8,10 +8,10 @@ observations: 2
 sources:
   - operator's screened project records
   - vendor tracer documentation for Nsight Systems and ROCm Systems Profiler
-observed: "2026-09-14"
+observed: "2026-09-15"
 observed_on:
   requirements: gpu-profile-capture
-review_by: "2027-09-14"
+review_by: "2027-09-15"
 ---
 
 # Capturing a GPU profile
@@ -52,6 +52,34 @@ So on a format with no anchor, **the capture must record one itself**: the wall-
 monotonic clocks together at launch, written beside the profile. It costs one line in a
 submission script and it cannot be reconstructed afterwards. Without it, application phases can
 be aligned to the trace only structurally — by order and relative duration — never absolutely.
+
+## Only an untraced control bounds what tracing cost
+
+`[inferred]` A tracer records by intercepting, and it is charged per intercepted event, so its
+cost tracks traced-call density rather than elapsed time. It therefore falls unevenly across a
+run: a phase dense in host-API and MPI calls is inflated hard while a phase of the same length
+dominated by long kernels is barely touched. A profiled run is not a scaled copy of the run
+being optimised, and nothing inside the profile reveals the difference.
+
+**So where a capture is still being planned, arrange an untraced control run of the identical
+workload in the same job and keep its application timing output beside the profile.** This is a
+recommendation, not a gate: most analyses are of captures already taken, and a control cannot be
+added to one afterwards. Where one is arranged, identical means the same input, the same
+placement and the same binary — confirm it afterwards against an invariant the application
+prints, such as iteration counts or residuals, rather than assuming it.
+
+The control is usually already there and free. Any workload that warms an autotune cache has to
+run the same input untraced first, so the warming run *is* the control, provided its output is
+kept rather than overwritten by the traced run that follows. Where nothing forces a warming run,
+the control costs one more execution of a workload already sized to fit the job.
+
+Capture time is the only window, because a control cannot be reconstructed from the profile
+afterwards — which is why it is worth deciding before the run even though an analysis can
+proceed without one. Where there is no control the perturbation is unmeasured, and
+[`profile-metrics.md`](profile-metrics.md) requires the reading to say so; that labelling is not
+optional even though the control is. Narrow the trace to what the question needs for the same
+reason: where the question is GPU-side, dropping host-call tracing removes most of the cost and
+none of the kernel figures.
 
 ## Prefer advice to enforcement in scripts that travel
 

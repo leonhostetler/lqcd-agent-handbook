@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 """Checks for the hypothesis-record tool.
 
-The property it exists for: a speedup bound follows arithmetically from a claimed
-runtime fraction, so a record that asserts a different one is rejected rather than
-believed. ARCHITECTURE.md §profile-analysis -- a wrong bound supplied by hand reads
-as a precise, profile-grounded fact and nothing downstream rechecks it.
+Two properties it exists for.
+
+A speedup bound follows arithmetically from a claimed runtime fraction, so a record
+that asserts a different one is rejected rather than believed. ARCHITECTURE.md
+§profile-analysis -- a wrong bound supplied by hand reads as a precise,
+profile-grounded fact and nothing downstream rechecks it.
+
+And a figure the extraction did not emit is declared as such. When Slice 6 check 1 was
+relaxed on 2026-09-15 from "derived_by_hand is empty" to "hand-derived figures are
+caveated", the declaration became the whole safeguard -- and nothing read it: emptying
+the list while still citing hand-derived figures passed with zero errors. The controls
+below pin the guard that closed it, including the two that perturb the tool itself,
+because a guard that cannot fire is the same defect as a harness that cannot fail.
 """
 
 from __future__ import annotations
@@ -50,8 +59,60 @@ VALID = {
 }
 
 
-def run(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run([sys.executable, str(TOOL), *args], capture_output=True, text=True)
+def run(*args: str, tool: Path | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(tool or TOOL), *args], capture_output=True, text=True
+    )
+
+
+# A figure read from a run log rather than emitted by an extraction command. This is the
+# ordinary case the relaxed criterion admits, not an exotic one: comparing a capture
+# against an untraced control run is cross-source arithmetic by construction.
+RUN_LOG_SOURCE = "grep -E 'Aggregate time' output.tune"
+
+
+def with_run_log_figure(*, flagged: bool, declared: bool) -> dict:
+    """VALID plus one figure taken from outside the profile, flagged and declared or not."""
+    rec = copy.deepcopy(VALID)
+    hyp = rec["hypotheses"][0]
+    entry = {
+        "quantity": "un-profiled elapsed time",
+        "value": 52.358,
+        "unit": "s",
+        "from": RUN_LOG_SOURCE,
+    }
+    if flagged:
+        entry["hand_derived"] = True
+    hyp["evidence"].append(entry)
+    hyp["queries"].append(RUN_LOG_SOURCE)
+    if declared:
+        rec["extraction"]["derived_by_hand"] = ["un-profiled elapsed time, from the control run"]
+    return rec
+
+
+def sandboxed_tool(tmp: Path, old: str, new: str) -> Path:
+    """Write a perturbed copy of the tool into a stand-in handbook layout.
+
+    The tool resolves both the schema and the set of extraction commands from its own
+    location, so a perturbed copy needs that layout around it rather than a bare file.
+    The substitution is asserted to have landed: a pattern that silently matches nothing
+    produces a control that passes for the wrong reason, which is the defect the
+    2026-09-14 round hit.
+    """
+    source = TOOL.read_text()
+    assert source.count(old) == 1, f"perturbation anchor not unique: {old!r}"
+    patched = source.replace(old, new)
+    assert patched != source, "perturbation did not land"
+    (tmp / "tools").mkdir(parents=True, exist_ok=True)
+    (tmp / "schemas").mkdir(parents=True, exist_ok=True)
+    (tmp / "schemas" / "hypothesis.schema.json").write_text(
+        (ROOT / "schemas" / "hypothesis.schema.json").read_text()
+    )
+    for name in ("gpu-profile-summary.py", "gpu-profile-diff.py"):
+        (tmp / "tools" / name).write_text("# stand-in for layout resolution\n")
+    dest = tmp / "tools" / "hypothesis-record.py"
+    dest.write_text(patched)
+    return dest
 
 
 class HypothesisRecordTests(unittest.TestCase):
@@ -131,11 +192,91 @@ class HypothesisRecordTests(unittest.TestCase):
 
         If the same record with its queries restored also failed, the control would
         prove nothing about the empty list -- it would just be a broken record.
+
+        The flag and declaration below are not a loosening of this control. "my
+        imagination" is not a command the extraction tools provide, so the 2026-09-15
+        guard fires on it too; declaring it keeps the queries list the only variable
+        that moves between this test and the one above.
         """
         ok = copy.deepcopy(VALID)
         ok["hypotheses"][0]["evidence"][0]["from"] = "my imagination"
+        ok["hypotheses"][0]["evidence"][0]["hand_derived"] = True
+        ok["extraction"]["derived_by_hand"] = ["a figure with no command behind it"]
         ok["hypotheses"][0]["queries"] = ["my imagination was not consulted"]
         self.assertEqual(run(self.write(ok)).returncode, 0)
+
+    # -- hand-derivation is declared ------------------------------------------
+
+    def test_a_figure_from_outside_the_extraction_tools_must_be_flagged(self):
+        proc = run(self.write(with_run_log_figure(flagged=False, declared=True)))
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("derived by hand", proc.stderr)
+
+    def test_that_perturbation_is_not_vacuous(self):
+        """The same record, flagged and declared, passes -- so the rejection above is
+        the missing flag and not the run-log figure itself."""
+        proc = run(self.write(with_run_log_figure(flagged=True, declared=True)))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+
+    def test_flagging_without_declaring_is_rejected(self):
+        """The defect this guard was built for, reproduced exactly.
+
+        On 2026-09-15 a real record had its extraction.derived_by_hand emptied while
+        every hand-derived figure stayed cited, and the checker reported zero errors.
+        """
+        proc = run(self.write(with_run_log_figure(flagged=True, declared=False)))
+        self.assertEqual(proc.returncode, 1, "emptying the declaration passed: guard did not fire")
+        self.assertIn("only", proc.stderr)
+        self.assertIn("caveat", proc.stderr)
+
+    def test_declaring_without_flagging_is_rejected(self):
+        """A declaration that names no figure caveats nothing, so the link is checked
+        in both directions rather than only the one that is easy to forget."""
+        rec = copy.deepcopy(VALID)
+        rec["extraction"]["derived_by_hand"] = ["a quantity no evidence item claims"]
+        proc = run(self.write(rec))
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("caveats nothing", proc.stderr)
+
+    def test_extraction_commands_are_recognised_from_the_installed_layout(self):
+        """Not vacuous: the fixture's command must really be a file in tools/, or the
+        test would pass because nothing matched rather than because matching worked."""
+        self.assertTrue((ROOT / "tools" / "gpu-profile-summary.py").is_file())
+        proc = run(self.write(copy.deepcopy(VALID)))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+
+    # -- the guard itself can fail --------------------------------------------
+
+    def test_silencing_the_guard_fails_the_control(self):
+        """Perturb the tool so the guard never fires, and confirm the control above
+        then passes. If it still failed, the assertion would be resting on something
+        other than this guard.
+
+        ``declared=False`` deliberately: with a declaration present and nothing flagged
+        the dangling-declaration check also fires, so the record would go on failing
+        with this guard silenced -- a confounded control that proves nothing. The first
+        draft of this test had exactly that defect and the suite caught it.
+        """
+        tool = sandboxed_tool(
+            Path(self._tmp.name),
+            "if src and not hand and not is_extraction_command(src):  # GUARD: unflagged",
+            "if False:  # GUARD: unflagged (silenced)",
+        )
+        path = self.write(with_run_log_figure(flagged=False, declared=False))
+        self.assertEqual(run(path, tool=tool).returncode, 0, "guard was not the thing being tested")
+        self.assertEqual(run(path).returncode, 1, "unperturbed tool must still reject it")
+
+    def test_a_guard_that_always_fires_is_also_wrong(self):
+        """The opposite perturbation. A check that fires on everything is
+        indistinguishable from one that fires on nothing, so pin that it discriminates."""
+        tool = sandboxed_tool(
+            Path(self._tmp.name),
+            "if src and not hand and not is_extraction_command(src):  # GUARD: unflagged",
+            "if src:  # GUARD: unflagged (always firing)",
+        )
+        path = self.write(copy.deepcopy(VALID))
+        self.assertEqual(run(path, tool=tool).returncode, 1, "guard is a constant, not a check")
+        self.assertEqual(run(path).returncode, 0, "unperturbed tool must accept a clean record")
 
     def test_a_hypothesis_with_no_evidence_is_rejected(self):
         bad = copy.deepcopy(VALID)

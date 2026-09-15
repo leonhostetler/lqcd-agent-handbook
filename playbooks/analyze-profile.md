@@ -32,14 +32,26 @@ Record the capture conditions that decide what the numbers mean — autotune cac
 whether warmup or first-solve passes fall inside the window, which ranks were profiled. These
 are not metadata. A figure read without them is not interpretable later, including by you.
 
+**Establish the tracing perturbation, or record that you cannot, before ranking anything by
+elapsed time.** Look for an untraced control of the same workload — where a job warms an
+autotune cache, it is the warming run — and where one exists, confirm it did the same work by an
+invariant the application prints and compare its phase timings against the profiled ones. The
+inflation is non-uniform and concentrates on host-dense phases, so a ranking built on profiled
+elapsed time can come out in the wrong order; see
+[`conventions/profile-metrics.md`](../conventions/profile-metrics.md). **A control is
+recommended and frequently absent; the labelling is required either way** — where there is
+none, say so, and mark every wall-clock proportion in step 3 as perturbed by an unmeasured
+amount.
+
 Report every capability gap as a gap. Absent instrumentation supports no hypothesis about the
 absent subsystem, and equally supports no claim that it is healthy.
 
 Where capture is in scope rather than already done, read
 [`conventions/profile-capture.md`](../conventions/profile-capture.md) **before** submitting. It
 covers what cannot be recovered afterwards: that a profiler can exit 0 having written no report,
-and that a format carrying no wall-clock anchor needs the capture to record one, or application
-output can never be aligned to the trace absolutely.
+that a format carrying no wall-clock anchor needs the capture to record one, or application
+output can never be aligned to the trace absolutely, and that the untraced control below can
+only be arranged at capture time, because the profile cannot supply it later.
 
 ## 3. Account for the elapsed time
 

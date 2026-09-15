@@ -49,7 +49,7 @@
         "tool": { "type": "string" },
         "derived_by_hand": {
           "type": "array",
-          "description": "Quantities not produced by the tool. Empty is the expected state.",
+          "description": "Quantities the extraction did not emit, named one per entry. Non-empty is ordinary rather than exceptional: comparing a capture against an untraced control run is cross-source arithmetic by construction, and no subcommand can ever produce it. Every evidence item whose `from` is not a command the extraction tools provide must set `hand_derived`, and a flag with no declaration here — or a declaration covering no flagged figure — is rejected, because an unenforced caveat is the only safeguard a relaxed criterion has.",
           "items": { "type": "string" }
         }
       }
@@ -92,9 +92,13 @@
                 "quantity": { "type": "string" },
                 "value": { "type": ["number", "string"] },
                 "unit": { "type": ["string", "null"] },
+                "hand_derived": {
+                  "type": "boolean",
+                  "description": "True when this figure was computed by the session rather than emitted by an extraction command — arithmetic over tool output, or a quantity read from outside the profile such as an application timer. The caveat belongs beside the number, not only in a header a reader may not reach."
+                },
                 "from": {
                   "type": "string",
-                  "description": "Subcommand or query index that produced it."
+                  "description": "The command that produced it, matching one of this hypothesis's `queries` entries exactly. A locator such as \"Q4\" or \"derived_by_hand[1]\" is refused: the checker compares strings, so the provenance link stays mechanical rather than editorial."
                 }
               }
             }

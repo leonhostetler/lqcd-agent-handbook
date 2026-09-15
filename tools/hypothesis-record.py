@@ -13,6 +13,16 @@ claimed runtime fraction, so it is computed here rather than written by whoever
 wrote the record. A wrong bound supplied by hand reads as a precise,
 profile-grounded fact, and nothing downstream rechecks it.
 
+A second guard, added 2026-09-15 when Slice 6 check 1 was relaxed from "derived_by_hand
+is empty" to "hand-derived figures are declared": the declaration became the only
+safeguard, and nothing read it. Emptying the list while still citing hand-derived
+figures passed with zero errors. A figure whose ``from`` is not a command shipped in
+tools/ was not emitted by an extraction command, so it must set ``hand_derived`` and be
+covered by a declaration; a flag with no declaration, and a declaration covering no
+flagged figure, are both errors. This catches inconsistency, not dishonesty -- a record
+that flags nothing still passes, and that residual is named in ARCHITECTURE.md
+§profile-analysis rather than papered over.
+
 Required keys and enums are read from schemas/hypothesis.schema.json rather than
 restated, so the two cannot drift. Standard library only: this runs beside a
 profile on a login node, where a third-party import is the failure mode that makes
@@ -26,7 +36,8 @@ import json
 import sys
 from pathlib import Path
 
-SCHEMA = Path(__file__).resolve().parents[1] / "schemas" / "hypothesis.schema.json"
+TOOLS_DIR = Path(__file__).resolve().parent
+SCHEMA = TOOLS_DIR.parent / "schemas" / "hypothesis.schema.json"
 
 # Above this fraction the full-elimination bound diverges; report null rather than
 # an arbitrarily large finite number that reads as precision.
@@ -43,6 +54,19 @@ def amdahl_bounds(fraction_pct: float | None) -> dict | None:
     return {"lower": lower, "upper": upper}
 
 
+def is_extraction_command(src: str) -> bool:
+    """True when ``src`` starts with the name of a tool shipped beside this one.
+
+    Derived from the installed layout rather than a hardcoded name, so renaming or
+    adding an extraction tool does not silently turn its output into hand-derived
+    figures. Anything else -- a grep of a run log, a build record, a second profiler --
+    is a quantity the extraction did not emit, which is what derived_by_hand declares.
+    """
+    head = src.strip().split()[0] if src.strip() else ""
+    name = Path(head).name
+    return bool(name) and (TOOLS_DIR / name).is_file()
+
+
 def check(record: dict, schema: dict) -> list[str]:
     errors: list[str] = []
     for key in schema.get("required", []):
@@ -50,6 +74,9 @@ def check(record: dict, schema: dict) -> list[str]:
             errors.append(f"missing top-level key: {key}")
     if errors:
         return errors
+
+    declared = bool((record.get("extraction") or {}).get("derived_by_hand"))
+    flagged_anywhere = False
 
     item = schema["properties"]["hypotheses"]["items"]
     enums = {
@@ -83,6 +110,20 @@ def check(record: dict, schema: dict) -> list[str]:
                     f"{where}.evidence[{j}].from: {src!r} names no listed query; "
                     "every figure must be traceable to the command that produced it"
                 )
+            hand = bool(entry.get("hand_derived"))
+            flagged_anywhere = flagged_anywhere or hand
+            if src and not hand and not is_extraction_command(src):  # GUARD: unflagged
+                errors.append(
+                    f"{where}.evidence[{j}]: {src!r} is not a command the extraction "
+                    "tools provide, so this figure was derived by hand; set hand_derived "
+                    "and name the quantity in extraction.derived_by_hand"
+                )
+            if hand and not declared:
+                errors.append(
+                    f"{where}.evidence[{j}]: flagged hand_derived while "
+                    "extraction.derived_by_hand is empty; the declaration is the only "
+                    "caveat a reader gets"
+                )
 
         fraction = hyp.get("runtime_fraction_pct")
         expected = amdahl_bounds(fraction)
@@ -93,6 +134,12 @@ def check(record: dict, schema: dict) -> list[str]:
                 f"runtime_fraction_pct={fraction} (computed {expected}); "
                 "this field is derived, never asserted"
             )
+
+    if declared and not flagged_anywhere:
+        errors.append(
+            "extraction.derived_by_hand declares quantities but no evidence item sets "
+            "hand_derived; a declaration naming no figure caveats nothing"
+        )
     return errors
 
 
@@ -128,7 +175,8 @@ def main(argv: list[str] | None = None) -> int:
     n = len(record.get("hypotheses", []))
     print(
         f"{n} hypotheses checked · required keys, enums, evidence provenance, "
-        f"derived bounds · {len(errors)} error(s) · scientific validity NOT checked"
+        f"hand-derivation declared, derived bounds · {len(errors)} error(s) · "
+        "scientific validity NOT checked"
     )
     return 1 if errors else 0
 
