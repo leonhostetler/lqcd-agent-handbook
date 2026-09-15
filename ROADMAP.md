@@ -1067,6 +1067,37 @@ working directory as the observations that calibrate the contract, under
 the rule and never the numbers. Capture a current baseline before Stage 2, so there is a
 before-number to compare against.
 
+*Accept:* four checks, and the two that can fail are the point.
+
+A cold session given only a profile and "find out where the time goes" declares performance
+mode, extracts with the tool rather than by querying the database by hand, and produces a
+ranked hypothesis record that `tools/hypothesis-record.py` accepts — with no re-teaching, and
+no figure cited that the extraction did not emit.
+
+**Given a capture lacking the instrumentation its question needs, the session reports the gap
+instead of producing hypotheses.** This is the handbook-side analogue of the source suite's
+profile-blind property, and it is the check the rest rests on: a confident answer drawn from a
+capture that cannot support one is the expensive failure in this mode, it reads exactly like a
+good answer, and nothing downstream detects it. A session that names what the capture cannot
+observe has passed; one that reasons past the gap has failed regardless of whether its
+conclusion happens to be right.
+
+**A performance session on a profile from software with no profiling leaf loads no QUDA-scoped
+material at all.** That is the check that software-scoped knowledge was filed rather than
+inlined into the mode or the metric convention — the same test Slice 5 applies to
+ensemble-scoped material, and it would fail today if the kernel-naming or tunecache facts had
+been written into `modes/performance.md` where they would have been convenient.
+
+And the re-pointed scoring suite reports detection on handbook-produced records, with a
+profile-blind control still scoring near zero. Stage 6 builds that; the criterion is that
+**re-pointing must not make the scorer easier to satisfy**, and the source suite's own scoring
+tests remain the thing that holds the property. A baseline on the current analyser is captured
+before the re-pointing, or there is no before-number to compare against.
+
+The first three checks are runnable now and do not wait on Stage 6. Partial acceptance on those
+is worth recording, because they test the knowledge and the tools, while the fourth tests the
+measurement of them.
+
 *State:* Stages 0, 1 and 2 landed 2026-09-14. Stage 2 ports ingestion, metrics, phase
 segmentation, cross-rank alignment and the structural diff for both Nsight Systems and rocpd as
 stdlib-only modules — 8,307 lines across 18 files — whose summary output was verified
