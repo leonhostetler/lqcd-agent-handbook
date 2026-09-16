@@ -1956,6 +1956,51 @@ controls prove it can fail: restoring `table` as the positional's dest must make
 behaviour end to end — so the guard is pinned against the exact shape that shipped rather than
 against a hypothetical one. Full suite 352 passing, validator unchanged.
 
+**Routing gap on the tunecache-warmth gate, 2026-09-15** (sixth session, sixth change).
+`software/quda/profiling.md` makes tunecache warmth a **mandatory gate** before call counts,
+launch geometry or duration spread may be read, and delegates how to execute it to
+`internals/autotuning.md` in four places. That leaf's `load_when` read *"...for tuning or
+benchmarking"* — which excludes performance mode, the one mode that runs the gate as mandatory.
+Task-time routing matches on `load_when`, so a session doing exactly what `profiling.md` requires
+could read that line and correctly conclude the leaf did not apply. Two surfaces disagreed:
+`modes/performance.md` says to load the profiled software's autotuning leaf, the leaf's own
+`load_when` said not in this mode. The mode is right, so the clause was widened; the index was
+regenerated and no other index moved.
+
+*Where the software condition does **not** go.* The obvious fix — writing "for QUDA profiles"
+into `load_when` — was rejected. `scope: [software:quda]` already decides that, and
+`tools/build-index.py` groups strictly by scoped object, so the row only ever appears under
+`## quda`. Restating it in `load_when` would put one fact in two places that could disagree, with
+no rule about which wins, which is exactly what P2 forbids. **`scope` says which software;
+`load_when` says which situation within it**, and only the second half was wrong.
+
+*The larger gap the question exposed, which the `load_when` fix alone would have left in place.*
+Routing to the `## quda` group requires already knowing the capture is a QUDA profile. Tier 0
+derives named software "from the operator request and active project instructions", and a request
+that is a path names none — on this session the application was identified from the `quda::`
+prefix on every row of `top_kernels`, after the first extraction. So **the routing trigger for a
+profile session is the extraction output, not the request**, and that ordering was written down
+nowhere. `playbooks/analyze-profile.md` step 2 now states it, generalised past QUDA: identify the
+profiled software from the extraction, do it before step 3, because the leaves it selects govern
+how step 3's figures may be read.
+
+*Two proposals from the same review, rejected rather than deferred, recorded so they are not
+re-litigated.* **Deduplicating `software/INDEX.md`** was dropped. 6,848 of its 20,820 bytes are
+20 leaves listed twice, but every one is scoped to two software projects — "QUDA staggered CG
+through MILC" belongs under both — so deduplication means choosing a group to break, and the
+byte argument runs against a locked decision whose stated reopen trigger is legibility and
+explicitly not size. **A framework detector on the extraction** was dropped too: the evidence is
+already in the first output, since every `top_kernels` row carries the namespace, and a detector
+would be a second rottable list restating what the session can read, against this repository's
+own preference for supplying evidence rather than a verdict.
+
+*No new test, and the reason is that there is nothing mechanical to pin.* The change is one
+frontmatter clause and three paragraphs of prose. The validator already covers both halves that
+can rot: generated-index currency catches a `load_when` edited without regeneration, and
+reference resolution catches the two new playbook links. A test asserting particular wording
+would pin prose rather than behaviour and would fail on the next honest rephrasing. Full suite
+352 passing, validator current with references 623 to 625.
+
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check
 landed early in Slice 0c ([§session-logging](ARCHITECTURE.md#session-logging)). Slice 7 retains

@@ -46,6 +46,24 @@ amount.
 Report every capability gap as a gap. Absent instrumentation supports no hypothesis about the
 absent subsystem, and equally supports no claim that it is healthy.
 
+**Identify the profiled software here too, because the extraction is what tells you — and the
+leaves it selects govern how step 3's figures may be read.** Tier-2 routing derives the named
+software from the operator's request, and a request that is a path names none: on one capture
+the application was identified from the `quda::` prefix on every row of `top_kernels`,
+corroborated by the run log beside the capture and by the tunecache header. That identification
+cannot happen before the first extraction, and it must happen before the first interpretation,
+so it belongs at the end of this step rather than in routing done at the top of the session.
+
+What it selects is not optional reading. For QUDA,
+[`software/quda/profiling.md`](../software/quda/profiling.md) makes tunecache warmth a
+**mandatory gate** before call counts, launch geometry or duration spread mean anything —
+a cold cache inflates all three, because every candidate in a tuning sweep is a real launch the
+profiler recorded — and
+[`software/quda/internals/autotuning.md`](../software/quda/internals/autotuning.md) is how that
+gate is executed. A session that reaches step 3 without having routed reads those three
+quantities without knowing whether a tuning sweep produced them, and nothing in the output says
+so.
+
 Where capture is in scope rather than already done, read
 [`conventions/profile-capture.md`](../conventions/profile-capture.md) **before** submitting. It
 covers what cannot be recovered afterwards: that a profiler can exit 0 having written no report,

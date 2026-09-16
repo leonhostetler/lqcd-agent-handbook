@@ -2,7 +2,7 @@
 title: QUDA autotuning and tunecache reuse
 summary: How QUDA identifies, selects, stores, and reuses tuned launch and communication-policy parameters.
 scope: [software:quda]
-load_when: Reusing, migrating, validating, or interpreting a QUDA tunecache for tuning or benchmarking.
+load_when: Reusing, migrating, or validating a QUDA tunecache for tuning or benchmarking, or reading one to establish cache warmth or the build revision while interpreting a GPU profile.
 evidence: source
 sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/README.md
