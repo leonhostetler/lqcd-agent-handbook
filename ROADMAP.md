@@ -27,6 +27,11 @@ exercises and is owed rather than optional. **The untraced-control comparison wa
 Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` — a Slice 4 deliverable that has
 not been written — is the run-log reader it will be built into; one floating item remains.
 
+**The change-proposal harness landed 2026-09-15** as `tools/run-change-proposal`, discharging
+the owed item recorded below. `modes/developer.md` now names it as the pre-commit step, with
+`run-validator` kept for the narrower case. It reports what each step *examined*, not only what
+it concluded, because the two failures it exists for are silent ones.
+
 **Host-sample naming landed 2026-09-15** as `gpu-profile-summary.py host-samples`, with the
 reading in `conventions/profile-metrics.md`, the step in `playbooks/analyze-profile.md` and the
 routing in `modes/performance.md`. It closes the gap both other window tools leave: they *size*
@@ -2000,6 +2005,50 @@ can rot: generated-index currency catches a `load_when` edited without regenerat
 reference resolution catches the two new playbook links. A test asserting particular wording
 would pin prose rather than behaviour and would fail on the next honest rephrasing. Full suite
 352 passing, validator current with references 623 to 625.
+
+**Change-proposal harness, 2026-09-15** (sixth session, seventh change). Discharges the item
+this document already recorded as qualifying on three hand runs; this session performed the same
+sequence six more times, for nine in total. `tools/propose-change.py` runs the diff, regenerates
+the indices, runs the validator, runs the suite, and writes the proposal's added lines to a
+review file, with `tools/run-change-proposal` selecting a new-enough interpreter the way
+`run-validator` does.
+
+*The design rule is that a step must report what it examined.* The two quiet failures named when
+this was first owed are a stale index — well-formed and plausible, so the eye passes it — and a
+privacy sweep that never ran, which produces output identical to one that found nothing. The
+second cannot be fixed by checking harder; it is fixed by printing the count of lines read, so
+"0 matches" and "did not run" stop looking alike. Every step follows that rule: the validator's
+own summary line, the test count, the lines scanned. A validator that exits 0 while printing no
+summary is treated as a failure for the same reason.
+
+*What it refuses to do.* It renders no publication verdict. The validator's deny list is regular
+expressions over home paths, emails, keys and scheduler accounts; `PRIVACY.md` also forbids
+internal hostnames, job identifiers, unpublished measurements and live campaign state, none of
+which is a pattern. So the privacy step ends by naming those categories and handing over the
+diff. A harness that claimed to clear a proposal would be the worst available place to be wrong,
+and `validator-not-clearance` already settles that the validator is a safety net rather than
+clearance.
+
+*Two defects in the harness, both found by using it rather than by reading it.* The validator
+prints its summary to stdout and its P2 advisories to stderr; the first draft read the last
+stderr line and reported an unrelated file's advisory as the result — visibly wrong on the first
+real run, and now pinned by a control. And **the test file tripped the deny list it exists to
+test**: a literal planted home path and a literal git-config email made the repository fail its
+own privacy check. The placeholder forms the validator exempts — `<user>`, `$HOME` — cannot serve
+here, because they are exempt precisely by not matching and so could not prove the check fires.
+Both strings are now assembled at runtime and never appear contiguously in the source, with the
+reason recorded beside them.
+
+*Negative testing, as `conventions/repeated-work.md` requires before a tool replaces a hand
+procedure.* Nineteen checks, and every one asserting a step passes is paired with one making the
+same step fail: a failing validator, a validator that exits 0 silently, a failing suite, a
+generator that errors, and — the control that matters — an index quietly rewritten under the
+harness, which must be reported as stale and named. The end-to-end check plants a real home path
+in a copy of the tree and runs the **real** validator, because a fake runner cannot prove the
+step whose failure matters most actually fires. `added_lines` is pinned to see untracked files,
+since a new leaf is the likeliest place for unpublishable material and `git diff` does not see
+it, and the vacuity guard is that a clean tree must yield no added lines at all. The harness was
+then run on its own proposal and passed. Full suite 371 passing.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check

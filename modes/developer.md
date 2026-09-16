@@ -39,9 +39,14 @@ and the next action.
 - Keep each commit to one fact class so a faulty import can be reverted cleanly.
 - Do not read `session_*.log` unless the operator explicitly requests it.
   Authorized review still follows mined-material classification, privacy, and publishability gates.
-- Run `tools/run-validator` before every commit. It selects an interpreter carrying the
-  validator's dependencies; a bare `python3` on a module-based system is often too old to
-  parse it. Its privacy scan is a safety net, not publication clearance.
+- Run `tools/run-change-proposal` before every commit. It performs the whole sequence a
+  proposal owes — diff, index regeneration, validator, test suite, and a scoped privacy
+  surface — and reports what each step examined rather than only what it concluded. Two of
+  those steps fail silently when skipped: a stale index is well-formed and plausible, and a
+  privacy sweep that never ran is indistinguishable from one that found nothing. Run
+  `tools/run-validator` on its own only when the narrower check is what is wanted; the
+  harness runs it either way. Neither is publication clearance: the harness ends by naming
+  the `PRIVACY.md` categories no pattern can decide and leaving them to you.
 
 ## Slice boundary
 

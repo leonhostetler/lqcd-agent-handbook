@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Run the change-proposal harness under an interpreter new enough to parse it.
+# The harness itself needs no third-party module -- it subprocesses the validator
+# rather than importing it, so it cannot fail to import the way the validator did
+# on a login node in 2026-08 -- but it uses `X | None` syntax, so a system python3
+# predating 3.10 still cannot run it.
+set -eu
+
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+here="$(cd -- "$here" && pwd)"
+
+exec "${BASH:-bash}" "$here/select-python" \
+    --label "the change-proposal harness" \
+    --allow-module-load \
+    -- "$here/propose-change.py" "$@"
