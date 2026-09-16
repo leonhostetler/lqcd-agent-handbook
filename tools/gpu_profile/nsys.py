@@ -10,6 +10,7 @@ from typing import Any
 
 from .base import (
     Format,
+    HostSampleAggregates,
     KernelRow,
     MarkerAgg,
     MemcpyRow,
@@ -113,7 +114,14 @@ class NsysProfile:
                     self._table_has_data("MPI_P2P_EVENTS")
                     or self._table_has_data("MPI_COLLECTIVES_EVENTS")
                 ),
-                has_cpu_samples=False,
+                # Was hardcoded False until 2026-09-15, while real captures carried
+                # millions of callchain rows -- so the one instrument that can name
+                # host compute reported itself absent. Both tables are required:
+                # COMPOSITE_EVENTS alone carries no symbols.
+                has_cpu_samples=(
+                    self._table_has_data("COMPOSITE_EVENTS")
+                    and self._table_has_data("SAMPLING_CALLCHAINS")
+                ),
                 # OS attribution is only meaningful for GPU-driving threads, which are
                 # identified from the runtime API table; without it the category is
                 # unavailable rather than unfiltered.
@@ -609,6 +617,91 @@ class NsysProfile:
             MarkerAgg(name=r["name"], calls=int(r["calls"]), total_ns=int(r["total_ns"] or 0))
             for r in rows
         ]
+
+    def host_sample_aggregates(
+        self,
+        *,
+        start_ns: int | None = None,
+        end_ns: int | None = None,
+        limit: int = 20,
+    ) -> HostSampleAggregates | None:
+        if not self.capabilities.has_cpu_samples:
+            return None
+
+        lo, hi = self.profile_bounds_ns()
+        lo = lo if start_ns is None else int(start_ns)
+        hi = hi if end_ns is None else int(end_ns)
+
+        # The window is materialised once and joined against, rather than being
+        # repeated as a correlated predicate. SQLite otherwise inlines the CTE and
+        # re-derives it per outer row of a 6M-row callchain table, which is the
+        # nested-loop shape the query guard exists to refuse.
+        win = """
+            WITH ev AS MATERIALIZED (
+                SELECT id, threadState, globalTid FROM COMPOSITE_EVENTS
+                WHERE start >= ? AND start < ?
+            )
+        """
+
+        totals = self.query(
+            win + "SELECT COUNT(*) AS n, COUNT(DISTINCT globalTid) AS threads FROM ev",
+            (lo, hi),
+        )
+        total = int(totals[0]["n"]) if totals else 0
+        threads = int(totals[0]["threads"]) if totals else 0
+
+        # stackDepth = 0 is the leaf frame: the function executing when the sample
+        # was taken. Counting every frame instead would count each sample once per
+        # stack level and rank callers above the code actually running.
+        by_symbol = [
+            (r["symbol"], r["module"], int(r["n"]))
+            for r in self.query(
+                win + """
+                SELECT sm.value AS symbol, md.value AS module, COUNT(*) AS n
+                FROM SAMPLING_CALLCHAINS c
+                JOIN ev ON ev.id = c.id
+                JOIN StringIds sm ON sm.id = c.symbol
+                JOIN StringIds md ON md.id = c.module
+                WHERE c.stackDepth = 0
+                GROUP BY sm.value, md.value
+                ORDER BY n DESC LIMIT ?
+                """,
+                (lo, hi, limit),
+            )
+        ]
+        by_module = [
+            (r["module"], int(r["n"]))
+            for r in self.query(
+                win + """
+                SELECT md.value AS module, COUNT(*) AS n
+                FROM SAMPLING_CALLCHAINS c
+                JOIN ev ON ev.id = c.id
+                JOIN StringIds md ON md.id = c.module
+                WHERE c.stackDepth = 0
+                GROUP BY md.value
+                ORDER BY n DESC LIMIT ?
+                """,
+                (lo, hi, limit),
+            )
+        ]
+        states = [
+            (r["state"], int(r["n"]))
+            for r in self.query(
+                win + """
+                SELECT COALESCE(st.label, 'Unknown') AS state, COUNT(*) AS n
+                FROM ev LEFT JOIN ENUM_SAMPLING_THREAD_STATE st ON st.id = ev.threadState
+                GROUP BY state ORDER BY n DESC
+                """,
+                (lo, hi),
+            )
+        ]
+        return HostSampleAggregates(
+            total_samples=total,
+            threads_sampled=threads,
+            by_symbol=by_symbol,
+            by_module=by_module,
+            by_thread_state=states,
+        )
 
     def mpi_event_ends_by_name(self, name: str) -> list[int]:
         """Return sorted end_ns timestamps for MPI events matching ``name`` exactly.

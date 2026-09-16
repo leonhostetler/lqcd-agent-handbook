@@ -58,6 +58,7 @@ from gpu_profile.metrics import (  # noqa: E402
     compute_gap_histogram,
     compute_gpu_busy_time,
     compute_gpu_kernel_time,
+    compute_host_samples,
     compute_idle_attribution,
     compute_launch_geometry,
     compute_marker_ranges,
@@ -416,6 +417,27 @@ def cmd_cross_rank(_unused, args) -> dict:
 
 
 
+def cmd_host_samples(profile, args) -> dict:
+    """Name what the host CPU was executing inside a window.
+
+    `idle-attribution` sizes host time it cannot name (`residual`) and
+    `window-breakdown` sizes the part of a window no traced activity covers. Both
+    stop at an upper bound on an unnamed quantity, because the time is
+    unattributed precisely when no traced call is in progress. Sampling is the
+    only instrument in the capture that can say which code was running, and on one
+    profile it named a 55 s stretch that every traced category reported as empty.
+    """
+    win = _window(args)
+    return _plain(
+        compute_host_samples(
+            profile,
+            start_ns=win[0] if win else None,
+            end_ns=win[1] if win else None,
+            top=args.top,
+        )
+    )
+
+
 def cmd_window_breakdown(profile, args) -> dict:
     """Describe the window that lies outside the kernel span.
 
@@ -495,6 +517,7 @@ def build_parser() -> argparse.ArgumentParser:
     add("mpi", cmd_mpi, window=True)
     add("streams", cmd_streams, window=True)
     add("markers", cmd_markers, window=True, top=20)
+    add("host-samples", cmd_host_samples, window=True, top=20)
 
     p = add("window-breakdown", cmd_window_breakdown, window=True, top=10)
     p.add_argument("--bins", type=int, default=8, help="time slices across the window")

@@ -27,6 +27,14 @@ exercises and is owed rather than optional. **The untraced-control comparison wa
 Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` — a Slice 4 deliverable that has
 not been written — is the run-log reader it will be built into; one floating item remains.
 
+**Host-sample naming landed 2026-09-15** as `gpu-profile-summary.py host-samples`, with the
+reading in `conventions/profile-metrics.md`, the step in `playbooks/analyze-profile.md` and the
+routing in `modes/performance.md`. It closes the gap both other window tools leave: they *size*
+unattributed host time and cannot name it, because it is unattributed exactly when no traced
+call is in progress. `nsys.py` reported `has_cpu_samples=False` unconditionally until this
+change, so the one instrument that can name host compute declared itself absent on every
+capture that had it.
+
 **Launch-geometry extraction for the tunecache-warmth gate landed 2026-09-15** as
 `gpu-profile-summary.py launch-geometry`, discharging the item owed on the next QUDA
 performance session. `KernelRow` now carries the six extents on both formats, with
@@ -1829,6 +1837,57 @@ pins that one builder serves both and they cannot drift apart again; and an alig
 still succeed, so the refusal has not become unconditional. `conventions/profile-metrics.md`
 gains the durable residue under "One rank's profile is one rank's view" — whole-profile agreement
 bounds gross skew and nothing finer.
+
+**Host-sample naming, 2026-09-15** (sixth session, third change). Discharges the by-hand
+counter item the first entry of this session recorded as owed: the windowed CPU-sampling
+breakdown had been written by hand four times in one session, it is a profiler-database
+aggregation so the 2026-09-15 narrowing does not exempt it, and it carries two silent failure
+modes — omitting `stackDepth = 0` counts every frame of every stack, and omitting `MATERIALIZED`
+on the window CTE makes SQLite re-derive it per outer row of a multi-million-row table, which is
+the nested-loop shape the query guard exists to refuse.
+
+*Why it is not a convenience.* `idle-attribution` reports host time it located but could not
+attribute as `residual`; `window-breakdown` reports the part of a window no traced activity
+covers. Both are upper bounds on an unnamed quantity and neither can ever name it, because the
+time is unattributed precisely when no CUDA or OS call is in progress. On the capture that
+prompted this, a 55 s stretch of an 88 s startup window carried no traced activity at all;
+sampling identified it as MILC gather-table construction, host reunitarisation and host RNG,
+which was the largest single cost in the run. The new subcommand reproduces that result in 3.2 s.
+
+*A second defect found on the way.* `nsys.py` hardcoded `has_cpu_samples=False`. Real captures
+carry millions of callchain rows — 6.1M on the one observed — so the capability flag was not
+merely unset but wrong, and any future consumer gating on it would have been silently disabled.
+Fixed to detect `COMPOSITE_EVENTS` and `SAMPLING_CALLCHAINS` together, since the first alone
+carries no symbols.
+
+*What is deliberately not implemented.* rocpd returns `None` rather than a guess.
+`rocpd_sample` carries `(nid, pid, tid, start, end, event_id, extdata)` and no symbol or module
+column; resolving a sample to a function means following `event_id` into a stack representation
+no real capture has been checked against here. A join written from the schema alone would emit
+plausible symbol names nothing could verify, which is the failure the evidence rules exist to
+prevent. `None` makes the caller say **"not implemented for this format"**, which is a different
+statement from **"no samples"** — the second is a claim about the run — and a control pins that
+the two do not collapse into each other.
+
+*Three readings the output refuses to allow, because each would be wrong in a plausible
+direction.* A count is not a duration and no seconds conversion is offered: the observed capture
+records `RATE_HZ = 0` beside a perf `SAMPLING_PERIOD` of 1950000, so counts track cycles
+consumed rather than elapsed time. Only the leaf frame is counted, so a share is work in that
+function and not inclusive of callees. Samples are summed across every sampled thread — 13 on
+the observed window — so a share is of sampled host thread-work, not of the window. Each is a
+caveat on the payload and a rule in the convention, and the thread-state split is reported
+because a sample on a blocked thread is not a computing one.
+
+*Controls, and a vacuous one caught before it shipped.* Six: counting every frame instead of the
+leaf must surface a depth-1 caller the fixture plants on every sample; a hardcoded capability
+must turn the result unavailable; a format that cannot resolve symbols must not report zero
+instead; and three caveat-removal controls. **The first version of the "not a duration" control
+was vacuous** — it perturbed `nsys.py` by replacing a string with itself and then asserted the
+caveat was still present, so it would have passed whatever the code did. The caveat lives in
+`metrics.py`. This is the fifth vacuous control recorded here and the first caught in a
+session's own new test before landing rather than afterwards; the repair also added a
+before-assertion so the control now proves the caveat was there to remove. Full suite 340
+passing, validator unchanged at 17 P2 advisories and Tier 0 5844/6144 bytes.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check

@@ -24,6 +24,9 @@ from ._utils import (
 from .models import (
     DeviceInfo,
     GapBucket,
+    HostSampleRow,
+    HostSamples,
+    HostSampleState,
     IdleAttribution,
     IdleCategory,
     KernelSummary,
@@ -772,6 +775,123 @@ def _volume_groups(geometries: list[tuple]) -> list[list[tuple]]:
         if current:
             groups.append(current)
     return groups
+
+
+def compute_host_samples(
+    profile: Profile,
+    start_ns: int | None = None,
+    end_ns: int | None = None,
+    *,
+    top: int = 20,
+) -> HostSamples:
+    """What the host CPU was executing inside a window, from periodic sampling.
+
+    This is the instrument that names what the traced categories can only size.
+    `compute_idle_attribution` reports host time it located but could not attribute
+    as `residual`, and `compute_window_breakdown` reports the part of a window no
+    traced activity covers; both are upper bounds on an unnamed quantity. Neither
+    can say *which code* was running, because no CUDA or OS call was in progress --
+    that is precisely what makes the time unattributed. Sampling answers it directly.
+
+    Measured on one capture, this is not a marginal addition: a 55 s stretch of an
+    88 s startup window carried no traced activity at all, and sampling identified it
+    as MILC gather-table construction, host reunitarisation and host RNG. It was the
+    run's largest single cost and nothing else in the extraction could see it.
+
+    **A sample count is not a duration, and the tool offers no conversion.** Three
+    separate reasons, each sufficient: the count is of periodic samples rather than
+    of time; the capture observed records `RATE_HZ = 0` with a perf-event
+    `SAMPLING_PERIOD` in cycles, so samples track CPU cycles consumed rather than
+    wall-clock elapsed; and samples are summed across every sampled thread, so a
+    share is a share of sampled host thread-work, never of the window. Emitting
+    seconds would make all three invisible at once.
+    """
+    bounds = profile.profile_bounds_ns()
+    win_start = bounds[0] if start_ns is None else int(start_ns)
+    win_end = bounds[1] if end_ns is None else int(end_ns)
+    win_end = max(win_end, win_start)
+    window_s = round((win_end - win_start) / 1e9, 6)
+
+    def _empty(reason: str) -> HostSamples:
+        return HostSamples(
+            available=False,
+            unavailable_reason=reason,
+            start_ns=win_start,
+            end_ns=win_end,
+            window_s=window_s,
+            total_samples=0,
+            threads_sampled=0,
+            by_symbol=[],
+            by_module=[],
+            by_thread_state=[],
+            caveats=[
+                "An unavailable result is not an empty one: this capture supports no "
+                "claim about what the host was doing, and equally none that the host "
+                "was idle."
+            ],
+        )
+
+    if not profile.capabilities.has_cpu_samples:
+        return _empty(
+            "no CPU sampling in this capture — re-profile with host sampling enabled "
+            "(Nsight Systems: --sample=process-tree or --sample=system-wide)"
+        )
+
+    aggs = profile.host_sample_aggregates(start_ns=win_start, end_ns=win_end, limit=top)
+    if aggs is None:
+        return _empty(
+            "this capture records CPU samples, but resolving them to symbols is not "
+            "implemented for this profile format"
+        )
+
+    total = aggs.total_samples
+
+    def pct(n: int) -> float:
+        return round(100.0 * n / total, 2) if total else 0.0
+
+    caveats = [
+        "Samples are a count, not a duration. No seconds conversion is offered: the "
+        "sampling period is a perf-event period rather than a fixed rate, so a count "
+        "tracks CPU cycles consumed rather than elapsed time.",
+        "Only the leaf frame is counted, so a symbol's share is work done *in that "
+        "function*, not inclusive of what it called. A thin wrapper will not appear "
+        "however much time passes beneath it.",
+        f"Samples are summed across all {aggs.threads_sampled} sampled threads, so a "
+        "share is a share of sampled host thread-work and not of the window. A "
+        "multi-threaded process yields more samples per second than a single-threaded "
+        "one in the same window.",
+    ]
+    states = [s for s in aggs.by_thread_state]
+    non_running = sum(n for st, n in states if st != "Running")
+    if non_running:
+        caveats.append(
+            f"{non_running} of {total} samples were taken on threads not in the "
+            "Running state; those threads were blocked rather than computing, and the "
+            "rankings above mix the two. by_thread_state carries the split."
+        )
+
+    return HostSamples(
+        available=True,
+        unavailable_reason=None,
+        start_ns=win_start,
+        end_ns=win_end,
+        window_s=window_s,
+        total_samples=total,
+        threads_sampled=aggs.threads_sampled,
+        by_symbol=[
+            HostSampleRow(name=nm, module=md, samples=n, pct_of_samples=pct(n))
+            for nm, md, n in aggs.by_symbol
+        ],
+        by_module=[
+            HostSampleRow(name=md, module=None, samples=n, pct_of_samples=pct(n))
+            for md, n in aggs.by_module
+        ],
+        by_thread_state=[
+            HostSampleState(state=st, samples=n, pct_of_samples=pct(n))
+            for st, n in states
+        ],
+        caveats=caveats,
+    )
 
 
 def compute_launch_geometry(

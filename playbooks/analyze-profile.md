@@ -85,6 +85,16 @@ Where a large share of the window lies outside the kernel span, `window-breakdow
 what occupies it. An idle split cannot: before the first kernel there is no inter-kernel
 idle to intersect against, so it reports the size of that part and names none of it.
 
+**Both of those size host time without naming it, and `host-samples` is what names it.** The
+residual and the uncovered remainder are unattributed *because* no traced call was in progress,
+so no amount of further work on the traced tables will identify them. Where either is large,
+run `host-samples` on the same window: it reports the leaf symbols and modules the CPU was
+executing. Read its output under
+[`conventions/profile-metrics.md`](../conventions/profile-metrics.md) — the counts are samples
+and never seconds, they cover the leaf frame only, and they are summed over every sampled
+thread. Where the capture carries no sampling the subcommand says so, and that is a capability
+gap to report rather than a window with nothing in it.
+
 On a multi-rank capture, run `cross-rank` before attributing any wait. A rank blocked on its
 neighbours looks exactly like a rank with a problem of its own.
 

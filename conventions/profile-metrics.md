@@ -225,6 +225,35 @@ its caveats, so `uncovered_s` carries the reading it is quoted for. **A marker s
 the output** — which range a window falls in is worth knowing — so read it as a label beside the
 account, never as part of it.
 
+## A sample count is not a duration
+
+Where a capture carries CPU sampling, it holds the one measurement that can *name* host
+time rather than only bound it. The idle residual and a window's uncovered remainder are both
+upper bounds on an unnamed quantity, and they are unnamed precisely because no traced call was
+in progress; sampling is what says which function was running. On one capture a 55 s stretch of
+an 88 s startup window carried no traced activity at all, and sampling identified it as
+application gather-table construction, host reunitarisation and host RNG — the run's largest
+single cost, invisible to every other field in the extraction.
+
+Three rules decide whether the counts mean anything, and the extraction emits counts and shares
+of samples only, never seconds, because each rule would otherwise be hidden.
+
+- **A count is not time.** Samples are periodic, and the period may be a perf-event period in
+  cycles rather than a fixed rate — one observed capture recorded `RATE_HZ = 0` beside a
+  `SAMPLING_PERIOD` of 1950000 — so the count tracks CPU cycles consumed, not elapsed time.
+- **Only the leaf frame is counted**, so a symbol's share is work done in that function and not
+  inclusive of its callees. A thin wrapper never appears, however much time passes beneath it.
+  Counting every frame instead counts each sample once per stack level and ranks callers above
+  the code that was running.
+- **Samples are summed across every sampled thread**, so a share is a share of sampled host
+  thread-work, not of the window. A process with fourteen busy threads yields fourteen times the
+  samples of a single-threaded one over the same seconds.
+
+A sample taken on a thread that is *not* running is a blocked thread, not a computing one. The
+extraction reports the thread-state split and caveats a capture that mixes them, for the reason
+the OS-runtime section above gives: an unfiltered progress thread parked in `poll` can cover a
+whole window and report a number that is arithmetically correct and worthless.
+
 ## What a tracer does not record
 
 `[docs]` Nsight Systems and ROCm Systems Profiler are **tracers**. They record API calls, kernel

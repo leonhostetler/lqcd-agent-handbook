@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from .base import (
     Format,
+    HostSampleAggregates,
     KernelRow,
     MarkerAgg,
     MemcpyRow,
@@ -722,6 +723,27 @@ class RocpdProfile:
             )
             for r in rows
         ]
+
+    def host_sample_aggregates(
+        self,
+        *,
+        start_ns: int | None = None,
+        end_ns: int | None = None,
+        limit: int = 20,
+    ) -> HostSampleAggregates | None:
+        """Not implemented for rocpd, and deliberately not guessed.
+
+        `rocpd_sample` carries (nid, pid, tid, start, end, event_id, extdata) and no
+        symbol or module column; resolving a sample to a function means following
+        `event_id` into a stack representation this implementation has never seen a
+        real capture of. Writing that join from the schema alone would produce
+        plausible symbol names that nothing here can check, which is the failure the
+        handbook's evidence rules exist to prevent. Returning None makes the caller
+        say "not implemented on this format" rather than "no samples", and
+        `capabilities.has_cpu_samples` still reports truthfully whether the capture
+        has any.
+        """
+        return None
 
     def mpi_event_ends_by_name(self, name: str) -> list[int]:
         """Return sorted end_ns timestamps for MPI events matching ``name`` exactly."""

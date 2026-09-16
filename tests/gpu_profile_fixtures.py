@@ -44,6 +44,15 @@ def _build_synthetic_db(path: Path) -> None:
     a runtime call, which stopped counting toward coverage when annotations were
     excluded from it.
 
+    CPU samples:   200 in [520 ms .. 720 ms], 2 threads, leaf frames
+                     host_compute   120  (app binary)      -- Running
+                      mpi_progress   50  (libmpi.so)       -- Running
+                        idle_wait    30  (libc.so.6)       -- Waiting
+                   None of it overlaps a kernel, so it models the case the tool
+                   exists for: a window traced categories cannot name. The Waiting
+                   rows exercise the mixed-thread-state caveat, which would never
+                   fire on an all-Running capture.
+
     Kernel timeline:
       Kernel3D  ×10: 2 ms each, 5 µs inter-kernel gap  (<10 µs bucket)  → 20 ms total
       Reduction2D ×2: 5 ms each, 1.1 ms gap before each (1–10 ms bucket) → 10 ms total
@@ -166,6 +175,53 @@ def _build_synthetic_db(path: Path) -> None:
         "INSERT INTO NVTX_EVENTS VALUES (?, ?, ?, ?)",
         (950_000_000, r2d_rows[-1][1], "computePhase", 59),
     )
+
+    # --- CPU sampling: COMPOSITE_EVENTS + SAMPLING_CALLCHAINS ---
+    # Sampling is the only instrument that can name host code in a window no traced
+    # category covers, so the fixture must carry some or `host-samples` is untestable.
+    cur.execute("""
+        CREATE TABLE ENUM_SAMPLING_THREAD_STATE (id INTEGER, label TEXT)
+    """)
+    cur.executemany(
+        "INSERT INTO ENUM_SAMPLING_THREAD_STATE VALUES (?, ?)",
+        [(0, "Unknown"), (1, "Running"), (7, "Waiting")],
+    )
+    cur.execute("""
+        CREATE TABLE COMPOSITE_EVENTS (
+            id INTEGER PRIMARY KEY, start INTEGER, cpu INTEGER,
+            threadState INTEGER, globalTid INTEGER, cpuCycles INTEGER
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE SAMPLING_CALLCHAINS (
+            id INTEGER, symbol INTEGER, module INTEGER, stackDepth INTEGER
+        )
+    """)
+    # StringIds 20..24 are the sampling symbols and modules.
+    cur.executemany(
+        "INSERT INTO StringIds VALUES (?, ?)",
+        [
+            (20, "host_compute"), (21, "mpi_progress"), (22, "idle_wait"),
+            (23, "app_binary"), (24, "libmpi.so"), (25, "libc.so.6"),
+            (26, "caller_frame"),
+        ],
+    )
+    _samples = (
+        [(1, 20, 23)] * 120        # host_compute in the app binary, Running
+        + [(1, 21, 24)] * 50       # mpi_progress in libmpi, Running
+        + [(7, 22, 25)] * 30       # idle_wait in libc, Waiting
+    )
+    comp, chains = [], []
+    for i, (state, sym, mod) in enumerate(_samples):
+        sid = i + 1
+        comp.append((sid, 520_000_000 + i * 1_000_000, 0, state, 100 + (i % 2), 1_950_000))
+        # Depth 0 is the leaf. A depth-1 caller is added to every sample so a
+        # control can show that counting every frame -- rather than the leaf --
+        # changes the answer.
+        chains.append((sid, sym, mod, 0))
+        chains.append((sid, 26, 23, 1))
+    cur.executemany("INSERT INTO COMPOSITE_EVENTS VALUES (?,?,?,?,?,?)", comp)
+    cur.executemany("INSERT INTO SAMPLING_CALLCHAINS VALUES (?,?,?,?)", chains)
 
     # --- MPI_COLLECTIVES_EVENTS ---
     cur.execute("""

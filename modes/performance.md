@@ -160,11 +160,13 @@ analysis is deepest. Re-read them rather than recalling them.
 Use the detected machine profile, software profile, nearest stack, build profile, and the
 relevant application guide and solver documents when they exist.
 Extract with `tools/gpu-profile-summary.py` — `summary`, `phases`, `kernels`, `gaps`,
-`idle-attribution`, `transfer-overlap`, `memcpy`, `mpi`, `streams`, `markers`, `cross-rank`,
-`schema`, `query` — and reach for `query` only when no subcommand answers the question, since it
+`idle-attribution`, `transfer-overlap`, `memcpy`, `mpi`, `streams`, `markers`,
+`window-breakdown`, `host-samples`, `launch-geometry`, `cross-rank`, `schema`, `query` — and reach for `query` only when no subcommand answers the question, since it
 is capped and read-only by design rather than by convention. `idle-attribution` is what closes
 the account in step 3 below; `transfer-overlap` is what decides whether a transfer class costs
-anything, which its volume does not.
+anything, which its volume does not; and `host-samples` **names** the host time
+`idle-attribution` can only size as a residual, which on one capture was the largest cost in
+the run and invisible to every traced category.
 Compare a before and an after capture with `tools/gpu-profile-diff.py`, which is how
 a hypothesis's claimed runtime fraction gets checked against what actually changed.
 Load the profiled software's

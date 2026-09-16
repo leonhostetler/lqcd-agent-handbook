@@ -53,6 +53,17 @@ class ProfileCapabilities:
 
 
 @dataclass(slots=True)
+class HostSampleAggregates:
+    """Backend-side counts for one window: (name, module, samples) triples."""
+
+    total_samples: int
+    threads_sampled: int
+    by_symbol: list[tuple[str, str | None, int]]
+    by_module: list[tuple[str, int]]
+    by_thread_state: list[tuple[str, int]]
+
+
+@dataclass(slots=True)
 class KernelRow:
     """One GPU kernel dispatch, normalised across both profile formats."""
 
@@ -172,6 +183,24 @@ class Profile(Protocol):
         end_ns: int | None = None,
         limit: int = 20,
     ) -> list[MarkerAgg]: ...
+
+    def host_sample_aggregates(
+        self,
+        *,
+        start_ns: int | None = None,
+        end_ns: int | None = None,
+        limit: int = 20,
+    ) -> HostSampleAggregates | None:
+        """Leaf-frame host samples grouped by symbol and module inside a window.
+
+        Returns ``None`` when this format's sampling cannot be read, which is not
+        the same as a window with no samples: the caller reports the two
+        differently. Aggregated in the backend rather than returned as rows
+        because a real capture carries millions of callchain entries -- 6.1M on
+        one observed profile -- and materialising them to count them is the
+        avoidable cost.
+        """
+        ...
 
     def mpi_event_ends_by_name(self, name: str) -> list[int]: ...
 

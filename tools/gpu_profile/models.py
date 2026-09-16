@@ -280,6 +280,53 @@ class LaunchGeometry:
 
 
 @dataclass(kw_only=True)
+class HostSampleRow:
+    """One leaf symbol (or module) and how many host samples landed in it."""
+
+    name: str
+    module: str | None
+    samples: int
+    pct_of_samples: float
+
+
+@dataclass(kw_only=True)
+class HostSampleState:
+    """Thread state at sample time, counted."""
+
+    state: str
+    samples: int
+    pct_of_samples: float
+
+
+@dataclass(kw_only=True)
+class HostSamples:
+    """What the host CPU was executing inside a window, from periodic sampling.
+
+    This answers the question no traced category can: `idle-attribution` reports
+    host time it located but could not name as `residual`, and `window-breakdown`
+    reports the part of a window no traced activity covers. Both size the unknown.
+    Sampling is what names it.
+
+    `samples` is a **count, never a duration**. See `caveats` on the instance and
+    `conventions/profile-metrics.md`; the short version is that the count is of
+    periodic thread samples across every sampled thread, attributed to the leaf
+    frame only, and no seconds conversion is offered.
+    """
+
+    available: bool
+    unavailable_reason: str | None
+    start_ns: int
+    end_ns: int
+    window_s: float
+    total_samples: int
+    threads_sampled: int
+    by_symbol: list[HostSampleRow]
+    by_module: list[HostSampleRow]
+    by_thread_state: list[HostSampleState]
+    caveats: list[str]
+
+
+@dataclass(kw_only=True)
 class TransferUnion:
     """Exposed and overlapped transfer time across *all* directions at once.
 
