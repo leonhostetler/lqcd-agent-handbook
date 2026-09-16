@@ -29,6 +29,37 @@ exercises and is owed rather than optional. **The untraced-control comparison wa
 Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` — a Slice 4 deliverable that has
 not been written — is the run-log reader it will be built into; one floating item remains.
 
+**The handbook can read a profile and cannot take one — owed, and larger than anything else on
+this list (found by review 2026-09-16).** `conventions/profile-capture.md` states what a capture
+must *establish* — validate the artifact and not the exit status, record a wall-clock anchor
+where the format carries none, obtain an untraced control — and
+`machines/perlmutter/profile-capture.md` adds where nsys can write. **No invocation exists
+anywhere.** `nsys profile`, `rocprofv3` and `rocprof-sys` appear in no leaf; there is no
+statement of which instrumentation answers which question, no `nsys export --type sqlite` step
+although every tool the handbook ships requires it, no per-rank output convention although
+`cross-rank`'s rank-ID parsing depends on one, and no machine profile records whether a profiler
+is present or under what module.
+
+The asymmetry runs the wrong way: **the rules exist because captures went wrong, and the recipe
+that would have prevented them is missing.** A session is told to verify that requested tracing
+options took effect, with no canonical statement of what to request — and the fifth acceptance
+exercise met exactly that, on a capture whose `cudaProfilerStart` bracket was not honoured
+because `--capture-range=cudaProfilerApi` was never passed.
+
+Three surfaces already assume the capability: `modes/performance.md` opens "It captures or
+ingests a profiler database", the playbook's step 1 asks whether capture is in scope and notes
+it consumes allocation, and the capture convention requires an anchor for rocpd without showing
+how to record one.
+
+What closes it, and it is two changes rather than one.
+`conventions/profile-capture.md` takes the vendor-neutral recipe: which instrumentation answers
+which question, the export step, the per-rank output convention, and the anchor line for formats
+that need it. **`machines/<name>/` takes profiler availability** — present or not, under what
+module, with any site constraint — which is machine knowledge and is currently absent from all
+three profiles. The working project holds exercised material for both: its benchmark submission
+scripts carry real invocations, and their `.qdstrm` checks are this convention's
+artifact-validation rule already in executable form.
+
 **The change-proposal harness landed 2026-09-15** as `tools/run-change-proposal`, discharging
 the owed item recorded below. `modes/developer.md` now names it as the pre-commit step, with
 `run-validator` kept for the narrower case. It reports what each step *examined*, not only what
@@ -1348,6 +1379,13 @@ the attribution rule. **The residual is named rather than hidden.**
 evidence reported by the session under test, so nothing independently checks that a conclusion
 is correct. The handbook's answer is use: a leaf that is wrong is caught by the next session
 relying on it, which is how every defect this slice recorded was in fact found.
+
+**Why no acceptance exercise found the capture gap.** Check 1 specifies a session *"given only
+a profile"*, so every exercise began with a capture already taken. The wording that made the
+check tractable is the same wording that excluded the half of performance mode which was never
+built. This qualifies no grade — capture was out of scope for all five — but it is the second
+time this slice recorded a guard that could not fire, and the first time the guard was an
+acceptance criterion rather than a line of code.
 
 *State:* **accepted 2026-09-15** on its three checks. Stages 0, 1 and 2 landed 2026-09-14. Stage 2 ports ingestion, metrics, phase
 segmentation, cross-rank alignment and the structural diff for both Nsight Systems and rocpd as
