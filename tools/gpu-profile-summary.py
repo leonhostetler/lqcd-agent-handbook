@@ -225,11 +225,23 @@ def cmd_markers(profile, args) -> dict:
 
 
 def cmd_schema(profile, args) -> dict:
-    if args.table:
-        if args.table not in profile.tables:
-            raise SystemExit(f"error: no table named {args.table!r} in this profile")
-        rows = profile.query(f"PRAGMA table_info({args.table})")
-        return {"table": args.table, "columns": [r["name"] for r in rows]}
+    """List the profile's tables, or one table's columns.
+
+    Reads `args.table_name`, not `args.table`. The positional was called `table`
+    until 2026-09-15 and therefore shared a dest with the top-level `--table`
+    rendering flag, which argparse resolves by letting the subparser's default win.
+    Two things followed and both were silent: `--table schema <profile>` dropped the
+    rendering request and returned JSON, and `schema <profile> <NAME>` rendered a
+    human-readable table *whether or not* `--table` was given, because the renderer
+    tests the same attribute -- so that one form could not produce JSON at all,
+    against a tool whose every other subcommand defaults to it.
+    """
+    name = args.table_name
+    if name:
+        if name not in profile.tables:
+            raise SystemExit(f"error: no table named {name!r} in this profile")
+        rows = profile.query(f"PRAGMA table_info({name})")
+        return {"table": name, "columns": [r["name"] for r in rows]}
     return {"tables": sorted(profile.tables)}
 
 
@@ -554,7 +566,13 @@ def build_parser() -> argparse.ArgumentParser:
     add("launch-geometry", cmd_launch_geometry, top=15)
 
     p = add("schema", cmd_schema)
-    p.add_argument("table", nargs="?", help="table to describe; omit to list tables")
+    # dest is `table_name`, not `table`: the top-level `--table` rendering flag owns
+    # that dest, and a subparser sharing it silently overwrites the flag. metavar
+    # keeps the documented command line unchanged.
+    p.add_argument(
+        "table_name", nargs="?", metavar="table",
+        help="table to describe; omit to list tables",
+    )
 
     p = add("query", cmd_query)
     p.add_argument("--sql", required=True, help="read-only SQL to execute")

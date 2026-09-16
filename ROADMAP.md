@@ -1924,6 +1924,38 @@ the table it describes; two caps must produce two segmentations **and** two diff
 which is the negative control against the field being decoration; k at the cap must be flagged;
 and disabled segmentation must say so. Full suite 345 passing, validator unchanged.
 
+**CLI dest collision, 2026-09-15** (sixth session, fifth change). `schema`'s positional was
+declared as `table`, the same dest as the top-level `--table` rendering flag. argparse resolves
+that by letting the subparser's default win, and two failures followed, both silent and in
+opposite directions: `--table schema <profile>` dropped the rendering request and returned JSON
+reporting success, and `schema <profile> <NAME>` rendered a human-readable table **whether or
+not** `--table` was passed, because `main` tests the same attribute — so that one form could not
+emit JSON at all, in a tool whose every other subcommand defaults to it. Renamed to `table_name`
+with `metavar="table"`, so the documented command line is unchanged.
+
+*The review that opened this item described it wrongly, which is the part worth recording.* It
+reported the per-table branch as **dead code and unreachable**, on the strength of reading
+`cmd_schema` and grepping for `add_argument("--table"`. The branch is reached perfectly well by
+the positional form `schema <profile> <NAME>`; the grep could not see it because the argument is
+positional and named without dashes. **Reading a consumer and grepping for one spelling of its
+producer is not reading the wiring**, and the resulting claim was confident, specific and false.
+Only the second half of the report — that the global flag is silently ignored for `schema` — was
+correct, and the real defect is a superset of it that the wrong diagnosis would have left in
+place, since deleting "dead" code would have removed a working feature.
+
+*Behaviour change, flagged rather than buried.* `schema <profile> <NAME>` now returns JSON by
+default instead of rendered text. That aligns it with every other subcommand and makes the form
+scriptable for the first time, and it will break anyone parsing the old text output. Judged worth
+it for a diagnostic subcommand in a tool with a JSON-default contract.
+
+*Controls, and the guard is structural rather than case-specific.* The shipped test does not
+check `schema`; it walks `build_parser()` and asserts that **no** subcommand declares a dest
+already owned by a top-level option, because the next collision will be somewhere else. Two
+controls prove it can fail: restoring `table` as the positional's dest must make the guard report
+`schema:table`, and the same perturbation plus the old reader must reproduce the silent-JSON
+behaviour end to end — so the guard is pinned against the exact shape that shipped rather than
+against a hypothetical one. Full suite 352 passing, validator unchanged.
+
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check
 landed early in Slice 0c ([§session-logging](ARCHITECTURE.md#session-logging)). Slice 7 retains

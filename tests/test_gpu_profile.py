@@ -185,6 +185,73 @@ class GpuProfileToolTests(unittest.TestCase):
         self.assertEqual(seg["selected_k"], 1)
         self.assertIn("disabled", seg["note"])
 
+    # -- CLI surface ----------------------------------------------------------
+
+    def test_no_subcommand_shadows_a_top_level_option(self):
+        """A subparser sharing a dest with a top-level option silently overwrites it.
+
+        The recorded defect: `schema`'s positional was named `table`, colliding with
+        the top-level `--table` rendering flag. argparse lets the subparser default
+        win, so `--table schema <profile>` dropped the rendering request and returned
+        JSON, while `schema <profile> <NAME>` rendered human-readable whether or not
+        the flag was passed -- that form could not emit JSON at all. Neither failure
+        produced an error. This is the structural guard rather than a test of the one
+        case, because the next collision will be somewhere else.
+        """
+        import argparse
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("_gps", TOOL)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        parser = mod.build_parser()
+
+        top = {
+            a.dest for a in parser._actions
+            if a.dest not in ("help", argparse.SUPPRESS)
+            and not isinstance(a, argparse._SubParsersAction)
+        }
+        self.assertIn("table", top, "guard assumes --table is a top-level option")
+
+        subs = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+        self.assertTrue(subs, "no subparsers found; the guard would be vacuous")
+        collisions = []
+        for action in subs:
+            for name, sub in action.choices.items():
+                for a in sub._actions:
+                    if a.dest != "help" and a.dest in top:
+                        collisions.append(f"{name}:{a.dest}")
+        self.assertEqual(collisions, [], f"subcommand dest shadows a top-level one: {collisions}")
+
+    def test_schema_returns_json_by_default_for_one_table(self):
+        """Every other subcommand defaults to JSON; this one could not, because the
+        renderer tested the same attribute the positional wrote into."""
+        out = self.payload("schema", str(self.db), "StringIds")
+        self.assertEqual(out["table"], "StringIds")
+        self.assertIn("id", out["columns"])
+
+    def test_schema_lists_tables_when_no_table_is_named(self):
+        out = self.payload("schema", str(self.db))
+        self.assertIn("StringIds", out["tables"])
+        self.assertNotIn("table", out)
+
+    def test_the_render_flag_reaches_schema(self):
+        """`--table` is a top-level flag and must work for every subcommand."""
+        for args in (("--table", "schema", str(self.db)),
+                     ("--table", "schema", str(self.db), "StringIds")):
+            with self.subTest(args=args):
+                proc = run(*args)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertFalse(
+                    proc.stdout.lstrip().startswith("{"),
+                    "--table was ignored; output is still JSON",
+                )
+
+    def test_an_unknown_table_name_is_refused(self):
+        proc = run("schema", str(self.db), "NoSuchTable")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("no table named", proc.stderr + proc.stdout)
+
     def test_mpi_and_marker_presence_are_reported_explicitly(self):
         """Absent instrumentation must read as a gap, never as a clean result."""
         self.assertIn("mpi_present", self.payload("mpi", str(self.db)))
@@ -226,6 +293,75 @@ class GpuProfileToolTests(unittest.TestCase):
         proc = run("summary", str(junk))
         self.assertNotEqual(proc.returncode, 0)
         self.assertNotIn("Traceback", proc.stderr)
+
+
+class CliSurfaceControls(unittest.TestCase):
+    """Perturb the CLI wiring and assert the structural guard actually fires."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.db = build_synthetic_nsys_db(Path(self._tmp.name) / "n.sqlite")
+        self.original = TOOL.read_text()
+
+    def tearDown(self) -> None:
+        TOOL.write_text(self.original)
+        self._tmp.cleanup()
+
+    def _collisions(self) -> list[str]:
+        import argparse
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("_gps_ctl", TOOL)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        parser = mod.build_parser()
+        top = {
+            a.dest for a in parser._actions
+            if a.dest not in ("help", argparse.SUPPRESS)
+            and not isinstance(a, argparse._SubParsersAction)
+        }
+        found = []
+        for action in parser._actions:
+            if not isinstance(action, argparse._SubParsersAction):
+                continue
+            for name, sub in action.choices.items():
+                for a in sub._actions:
+                    if a.dest != "help" and a.dest in top:
+                        found.append(f"{name}:{a.dest}")
+        return found
+
+    def test_reintroducing_the_dest_collision_is_caught(self):
+        """The guard must fail on the exact shape that shipped, or it proves
+        nothing. Restoring `table` as the positional's dest recreates it."""
+        self.assertEqual(self._collisions(), [], "tree is already colliding")
+        old = '        "table_name", nargs="?", metavar="table",'
+        self.assertIn(old, self.original, "control edit matched nothing")
+        TOOL.write_text(self.original.replace(old, '        "table", nargs="?",', 1))
+        self.assertIn(
+            "schema:table", self._collisions(),
+            "the guard did not notice the collision; it is inert",
+        )
+
+    def test_the_collision_silently_drops_the_render_flag(self):
+        """Why the collision matters, demonstrated rather than asserted in prose:
+        under it, `--table schema <profile>` returns JSON and reports success."""
+        before = run("--table", "schema", str(self.db))
+        self.assertEqual(before.returncode, 0, before.stderr)
+        self.assertFalse(before.stdout.lstrip().startswith("{"))
+
+        old = '        "table_name", nargs="?", metavar="table",'
+        TOOL.write_text(self.original.replace(old, '        "table", nargs="?",', 1))
+        # cmd_schema still reads args.table_name, which no longer exists, so the
+        # collision now fails loudly instead of silently -- restore the old reader
+        # too, to reproduce the shipped behaviour exactly.
+        src = TOOL.read_text().replace("    name = args.table_name", "    name = args.table", 1)
+        TOOL.write_text(src)
+        after = run("--table", "schema", str(self.db))
+        self.assertEqual(after.returncode, 0, after.stderr)
+        self.assertTrue(
+            after.stdout.lstrip().startswith("{"),
+            "perturbation did not reproduce the silent-JSON behaviour",
+        )
 
 
 if __name__ == "__main__":
