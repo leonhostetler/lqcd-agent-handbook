@@ -1889,6 +1889,41 @@ session's own new test before landing rather than afterwards; the repair also ad
 before-assertion so the control now proves the caveat was there to remove. Full suite 340
 passing, validator unchanged at 17 P2 advisories and Tier 0 5844/6144 bytes.
 
+**Duplicated phase computation and missing segmentation provenance, 2026-09-15** (sixth
+session, fourth change). `cmd_phases` called `compute_profile_summary` and returned
+`{"phases": ...}`, discarding the other eleven fields — so `summary` followed by `phases`, which
+is what steps 2 and 3 of `playbooks/analyze-profile.md` prescribed in consecutive paragraphs,
+computed the entire summary twice. Measured on the B200 capture: 48.7 s each, and the two
+`phases` payloads are byte-identical. Segmentation is 15.5 s of that 48.7 s (`--max-phases 1`
+runs in 33.2 s), and the per-phase rows carry `gpu_memcpy_s` and `top_kernels`, so **a leaner
+`phases` would have to drop fields it already emits** — the duplication cannot be optimised away
+and the fix is not to run both. The playbook now says to read the table out of the summary, and
+the subcommand's docstring says it is not the cheaper half.
+
+*The larger half of this was not the time.* Neither payload recorded the `--max-phases` cap, and
+both commands accept it. Phase boundaries are a property of the capture **and** the cap, so two
+calls at different caps return different windows — on the synthetic fixture, 4 phases against 2 —
+and a `--start-ns`/`--end-ns` pair lifted from one is silently meaningless against the other.
+Every windowed figure in a hypothesis record is derived from such a pair, and
+`playbooks/analyze-profile.md` requires each to name the command that produced it; the command
+string alone did not settle it. `ProfileSummary` gains `phase_segmentation` — the cap, the
+selected k, any forced k, and a note — emitted by `summary` and `phases` alike. The note fires
+when `selected_k == max_phases`, because the elbow may then lie above the cap and the
+segmentation is partly an artefact of the flag rather than of the run.
+
+*A latent NameError was introduced and caught before it shipped.* The first version populated the
+field from `forced_k` in both constructors, but `compute_profile_summary_and_state` has no such
+parameter — it passes `forced_k=None` to the segmenter explicitly. The multi-rank path runs
+through that function, so `cross-rank` would have raised on every invocation. Caught by reading
+the grep output for the symbol rather than by a test, which is worth recording: the single-profile
+tests would all have passed.
+
+*Controls.* Five: `summary["phases"]` and `phases["phases"]` must be equal, which is what keeps
+the playbook's "read it from the summary" instruction true; the segmentation record must match
+the table it describes; two caps must produce two segmentations **and** two differing records,
+which is the negative control against the field being decoration; k at the cap must be flagged;
+and disabled segmentation must say so. Full suite 345 passing, validator unchanged.
+
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check
 landed early in Slice 0c ([§session-logging](ARCHITECTURE.md#session-logging)). Slice 7 retains

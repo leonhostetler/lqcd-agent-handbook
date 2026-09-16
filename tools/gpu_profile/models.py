@@ -459,6 +459,25 @@ class PhaseSummary:
 
 
 @dataclass(kw_only=True)
+class PhaseSegmentation:
+    """Which segmentation produced a phase table.
+
+    Phase boundaries are not a property of the capture; they are a property of the
+    capture *and the cap the caller passed*. Two runs at different `--max-phases`
+    return different windows, and a `--start-ns`/`--end-ns` pair lifted from one is
+    silently meaningless against the other. Until 2026-09-15 no payload recorded the
+    cap, so a phase figure quoted in a hypothesis record could not be reconciled
+    against the run that produced it -- and `summary` and `phases` each emit a phase
+    table, so holding two inconsistent ones took only a differing flag.
+    """
+
+    max_phases: int
+    selected_k: int
+    forced_k: int | None = None
+    note: str | None = None
+
+
+@dataclass(kw_only=True)
 class ProfileSummary:
     """Top-level summary of a single GPU profile.
 
@@ -516,6 +535,8 @@ class ProfileSummary:
     mpi_ops: list[MpiOpSummary] = field(default_factory=list)
     mpi_present: bool = False
     phases: list[PhaseSummary] = field(default_factory=list)
+    #: What produced `phases`. Quote it beside any per-phase figure; see PhaseSegmentation.
+    phase_segmentation: PhaseSegmentation | None = None
 
 
 # ---------------------------------------------------------------------------

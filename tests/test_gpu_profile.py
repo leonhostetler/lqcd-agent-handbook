@@ -142,6 +142,49 @@ class GpuProfileToolTests(unittest.TestCase):
         phases = self.payload("phases", str(self.db), "--max-phases", "1")["phases"]
         self.assertEqual(len(phases), 1)
 
+    def test_summary_already_contains_the_phase_table(self):
+        """`phases` returns what `summary` already carries, at the same cost --
+        measured at 48.7 s each on one capture. The playbook tells a session to read
+        it out of the summary rather than pay twice; this pins that it is actually
+        the same table, so that instruction stays true."""
+        summary = self.payload("summary", str(self.db))
+        phases = self.payload("phases", str(self.db))
+        self.assertEqual(summary["phases"], phases["phases"])
+        self.assertEqual(summary["phase_segmentation"], phases["phase_segmentation"])
+
+    def test_a_phase_table_records_the_segmentation_that_produced_it(self):
+        """Phase windows depend on --max-phases as well as on the capture, so a
+        start/end pair from one segmentation is meaningless against another. Both
+        commands take the flag, so a payload that does not say which cap produced it
+        cannot be reconciled."""
+        seg = self.payload("phases", str(self.db))["phase_segmentation"]
+        self.assertEqual(seg["max_phases"], 8)
+        self.assertEqual(seg["selected_k"], len(self.payload("phases", str(self.db))["phases"]))
+
+    def test_two_caps_give_two_segmentations_and_each_says_so(self):
+        """The negative control for the check above: if the field did not move with
+        the cap it would be decoration."""
+        wide = self.payload("phases", str(self.db))
+        narrow = self.payload("phases", str(self.db), "--max-phases", "2")
+        self.assertNotEqual(len(wide["phases"]), len(narrow["phases"]))
+        self.assertNotEqual(
+            wide["phase_segmentation"]["max_phases"],
+            narrow["phase_segmentation"]["max_phases"],
+        )
+        self.assertEqual(narrow["phase_segmentation"]["selected_k"], 2)
+
+    def test_a_selected_k_at_the_cap_is_flagged(self):
+        """k == cap means the elbow may lie above the cap, so the segmentation may
+        be an artefact of the flag rather than of the run."""
+        seg = self.payload("phases", str(self.db), "--max-phases", "2")["phase_segmentation"]
+        self.assertIsNotNone(seg["note"])
+        self.assertIn("equals the cap", seg["note"])
+
+    def test_disabled_segmentation_says_it_is_disabled(self):
+        seg = self.payload("phases", str(self.db), "--max-phases", "1")["phase_segmentation"]
+        self.assertEqual(seg["selected_k"], 1)
+        self.assertIn("disabled", seg["note"])
+
     def test_mpi_and_marker_presence_are_reported_explicitly(self):
         """Absent instrumentation must read as a gap, never as a clean result."""
         self.assertIn("mpi_present", self.payload("mpi", str(self.db)))

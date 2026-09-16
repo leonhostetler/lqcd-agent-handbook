@@ -55,9 +55,22 @@ only be arranged at capture time, because the profile cannot supply it later.
 
 ## 3. Account for the elapsed time
 
-Segment before aggregating: `phases`. A whole-profile average over a run whose parts differ
-describes none of them. Prefer application annotations or a known application structure over
-inferred segmentation where either exists.
+Segment before aggregating. A whole-profile average over a run whose parts differ describes
+none of them. Prefer application annotations or a known application structure over inferred
+segmentation where either exists.
+
+**Read the phase table out of the `summary` from step 2 — do not run `phases` after it.** The
+two return the same table, and `phases` is not the cheaper half: it computes the whole summary
+and discards everything but the phases, because the per-phase rows carry kernel and transfer
+figures needing the same data. Measured on one capture they cost 48.7 s each, so following this
+procedure literally paid 48.7 s to recompute a table already in hand. `phases` is for when the
+summary is not wanted.
+
+**Quote `phase_segmentation` beside any per-phase figure.** Phase boundaries depend on the
+`--max-phases` cap as well as on the capture, so a `--start-ns`/`--end-ns` pair lifted from one
+segmentation is silently meaningless against another — and both commands accept the flag, so
+holding two inconsistent tables takes only a differing default. Where its `note` says the
+selected k equals the cap, the elbow may lie above it and a larger cap may segment differently.
 
 Then account for the dominant phase's elapsed time, in a fixed order — kernel work, memory
 transfers, communication, idle gaps — using `kernels`, `memcpy`, `transfer-overlap`, `mpi`,

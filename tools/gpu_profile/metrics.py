@@ -27,6 +27,7 @@ from .models import (
     HostSampleRow,
     HostSamples,
     HostSampleState,
+    PhaseSegmentation,
     IdleAttribution,
     IdleCategory,
     KernelSummary,
@@ -1306,6 +1307,25 @@ def compute_phase_summary(
 # ---------------------------------------------------------------------------
 
 
+def _phase_segmentation(
+    max_phases: int, forced_k: int | None, selected_k: int
+) -> PhaseSegmentation:
+    """Record what produced a phase table, so a phase window can be reconciled."""
+    note = None
+    if max_phases <= 1:
+        note = "segmentation disabled (max_phases <= 1); the whole profile is one phase"
+    elif forced_k is not None:
+        note = f"k forced to {forced_k} by the caller, overriding elbow selection"
+    elif selected_k == max_phases:
+        note = (
+            f"selected k equals the cap ({max_phases}); the elbow may lie above it, "
+            "so a larger --max-phases may segment differently"
+        )
+    return PhaseSegmentation(
+        max_phases=max_phases, selected_k=selected_k, forced_k=forced_k, note=note
+    )
+
+
 def compute_profile_summary(
     profile: Profile,
     max_phases: int = 6,
@@ -1389,6 +1409,7 @@ def compute_profile_summary(
         mpi_ops=global_mpi_ops,
         mpi_present=profile.capabilities.has_mpi,
         phases=phase_summaries,
+        phase_segmentation=_phase_segmentation(max_phases, forced_k, len(phases_windows)),
         peak_memory_bandwidth_GBs=peak_bw,
         cpu_sync_blocked_s=cpu_sync_s,
         cpu_sync_blocked_pct=cpu_sync_pct,
@@ -1472,6 +1493,7 @@ def compute_profile_summary_and_state(
         mpi_ops=global_mpi_ops,
         mpi_present=profile.capabilities.has_mpi,
         phases=phase_summaries,
+        phase_segmentation=_phase_segmentation(max_phases, None, len(phases_windows)),
         peak_memory_bandwidth_GBs=peak_bw,
         cpu_sync_blocked_s=cpu_sync_s,
         cpu_sync_blocked_pct=cpu_sync_pct,

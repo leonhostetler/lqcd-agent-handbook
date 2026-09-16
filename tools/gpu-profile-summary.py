@@ -116,8 +116,26 @@ def cmd_summary(profile, args) -> dict:
 
 
 def cmd_phases(profile, args) -> dict:
+    """The phase table on its own.
+
+    **`summary` already contains this**, under the same key and with the same
+    contents; this command exists to return it without the rest. It is not cheaper:
+    it computes the whole `ProfileSummary` and discards everything but `.phases`,
+    because the per-phase rows carry kernel and transfer figures that need the same
+    data. Measured on one capture, `summary` and `phases` each cost 48.7 s and
+    segmentation was 15.5 s of that -- so running both to follow a two-step
+    procedure pays the full price twice. Read `phases` out of a `summary` you have
+    already run.
+
+    `phase_segmentation` is emitted here and by `summary` so the two can be
+    reconciled: phase windows depend on `--max-phases`, and a `--start-ns`/`--end-ns`
+    pair lifted from one segmentation is meaningless against another.
+    """
     summary = compute_profile_summary(profile, max_phases=args.max_phases)
-    return {"phases": [asdict(p) for p in summary.phases]}
+    return {
+        "phases": [asdict(p) for p in summary.phases],
+        "phase_segmentation": _plain(summary.phase_segmentation),
+    }
 
 
 def cmd_kernels(profile, args) -> dict:
