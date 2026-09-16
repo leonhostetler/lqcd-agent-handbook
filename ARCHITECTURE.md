@@ -2167,6 +2167,24 @@ entirely ordinary. `conventions/repeated-work.md` makes the quiet-failure condit
 decides automation. The blanket exemption removed from the counter exactly the class whose
 failure is quietest, which inverts what the counter exists to do.
 
+**Amended 2026-09-16: an aggregation can be *worse* than absent, and that raises the
+obligation rather than restating it.** The paragraph above argues the tool should expose the
+aggregations because an ad-hoc query gets them wrong in a way that reads as plausible. The
+converse occurred and is the sharper case: a *tool-emitted* aggregation was itself the wrong
+quantity, and read as plausible for the same reason. Transfers were grouped by direction alone,
+so one row averaged an unprefetched-managed population against an ordinary one — about two
+orders of magnitude apart — and reported a mid-range bandwidth that looked ordinary and
+contradicted the signature a leaf existed to name. The merged figure was a *correct* aggregate;
+it was the wrong question, and being tool-emitted is what made it persuasive.
+
+Two things follow. A subcommand whose output can be read as refuting a leaf's discriminator is a
+defect of the same class as a missing subcommand, not a lesser one, and the counter in the
+paragraph above applies to it. And where a split exists, it travels **beside** the merged row
+rather than behind a flag — a session that reads the misleading figure is exactly the session
+that would not think to ask for the split. The design choice is recorded here because the
+opposite choice, a `--by-residency` flag, is the natural one and would have preserved the
+defect for anyone who did not already suspect it.
+
 **Derived quantities are computed, never asked for.** A speedup bound that follows arithmetically
 from a claimed runtime fraction is computed by the tool. The session supplies judgement and
 evidence; the tool supplies arithmetic. Same division [§the-loop](#the-loop) already applies to

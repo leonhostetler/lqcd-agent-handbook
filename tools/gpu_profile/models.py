@@ -56,6 +56,84 @@ class MemcpySummary:
 
 
 @dataclass(kw_only=True)
+class GapDetail:
+    """One large GPU-idle gap, with what the host was doing inside it.
+
+    A residual total says how much idle no traced category explains; its bucket
+    histogram says whether that is diffuse per-launch overhead or a few structural
+    stalls. Neither says what a structural stall *is*, and one histogram bucket can hold
+    two unrelated mechanisms whose per-gap composition differs completely. Sampling a
+    single gap is what separates them; sampling the enclosing phase averages them back
+    together.
+    """
+
+    rank: int  # 1 = longest gap in the window
+    start_ns: int
+    end_ns: int
+    duration_s: float
+    #: Traced-category coverage of the gap, from the same accounting window-breakdown
+    #: uses: annotation-only categories are excluded from covered_s.
+    covered_s: float
+    uncovered_s: float
+    uncovered_pct: float
+    #: Leading host-sample symbols inside the gap: (symbol, module, pct_of_samples).
+    top_symbols: list[tuple[str, str | None, float]]
+    samples: int
+    threads_sampled: int
+
+
+@dataclass(kw_only=True)
+class GapDetails:
+    """The largest GPU-idle gaps in a window, each named rather than only sized."""
+
+    available: bool
+    unavailable_reason: str | None
+    window_s: float
+    min_gap_s: float
+    gaps_considered: int
+    total_gap_s: float
+    gaps: list[GapDetail]
+    caveats: list[str]
+
+
+@dataclass(kw_only=True)
+class ResidencyRow:
+    """One transfer direction split by the memory residency of each end.
+
+    A direction is not one population. A device-to-device copy whose destination is
+    managed memory that is not device-resident is served by page migration and can run
+    orders of magnitude below a copy of the same direction and comparable volume whose
+    ends are both ordinary device memory. Grouping by direction alone averages the two
+    into a single unremarkable rate.
+    """
+
+    kind: str  # the transfer direction, e.g. "Device-to-Device"
+    src_kind: str  # residency of the source end, e.g. "Device", "Managed"
+    dst_kind: str  # residency of the destination end
+    transfers: int
+    total_bytes: int
+    total_s: float
+    effective_GBs: float
+
+
+@dataclass(kw_only=True)
+class TransferResidency:
+    """Per-direction transfer rows split by end residency, with the rate-split check.
+
+    ``rate_splits`` is the executed form of a discriminator that was previously prose:
+    where one direction holds two residency populations whose effective rates differ by
+    at least an order of magnitude, that difference is not contention and not clock
+    behaviour, and the slow population is named rather than left for the reader to find.
+    """
+
+    available: bool
+    unavailable_reason: str | None
+    rows: list[ResidencyRow]
+    rate_splits: list[str]
+    caveats: list[str]
+
+
+@dataclass(kw_only=True)
 class MpiOpSummary:
     op: str  # e.g. "MPI_Barrier", "MPI_Allreduce"
     calls: int

@@ -32,7 +32,10 @@ from .models import (
     IdleCategory,
     KernelSummary,
     MarkerRangeSummary,
+    GapDetail,
+    GapDetails,
     MemcpySummary,
+    ResidencyRow,
     MpiOpSummary,
     PhaseSummary,
     ProfileSummary,
@@ -41,6 +44,7 @@ from .models import (
     KernelGeometry,
     LaunchGeometry,
     TransferOverlap,
+    TransferResidency,
     TransferUnion,
     WindowBin,
     WindowBreakdown,
@@ -637,6 +641,227 @@ def compute_idle_attribution(
         residual_pct_of_idle=round(100.0 * residual_ns / idle_ns, 2) if idle_ns else 0.0,
         residual_absorbs=absorbs,
         residual_buckets=residual_buckets,
+        caveats=caveats,
+    )
+
+
+GAP_DETAIL_MIN_S = 0.1
+"""Default floor for a gap worth naming individually: 100 ms.
+
+Below this a gap belongs to the diffuse per-launch population that the residual's bucket
+histogram already characterises as a distribution; naming them one at a time would return
+hundreds of thousands of rows and say less than the histogram does.
+"""
+
+
+def compute_gap_details(
+    profile: Profile,
+    start_ns: int | None = None,
+    end_ns: int | None = None,
+    *,
+    top: int = 5,
+    min_gap_s: float = GAP_DETAIL_MIN_S,
+    symbols: int = 8,
+) -> GapDetails:
+    """Name the largest GPU-idle gaps in a window instead of only sizing them.
+
+    Gaps are computed from **merged** kernel intervals, not from one kernel's end to the
+    next one's start. Those agree only where kernels never overlap; under real
+    concurrency a start-to-end difference reports a gap during which the GPU was still
+    executing something else, which is not idle at all. Merging removes the precondition
+    rather than requiring the caller to check it.
+    """
+    caps = profile.capabilities
+    if not caps.has_kernels:
+        return GapDetails(
+            available=False,
+            unavailable_reason="no kernel events in this capture",
+            window_s=0.0,
+            min_gap_s=min_gap_s,
+            gaps_considered=0,
+            total_gap_s=0.0,
+            gaps=[],
+            caveats=[],
+        )
+    t0, t1 = profile.profile_bounds_ns()
+    w0 = t0 if start_ns is None else start_ns
+    w1 = t1 if end_ns is None else end_ns
+    evts = profile.kernel_events()
+    spans = [
+        (max(e.start_ns, w0), min(e.end_ns, w1))
+        for e in evts
+        if e.end_ns > w0 and e.start_ns < w1
+    ]
+    merged = merge_intervals([(a, b) for a, b in spans if b > a])
+    gap_floor_ns = int(min_gap_s * 1e9)
+    raw: list[tuple[int, int]] = []
+    for (_, prev_end), (next_start, _) in zip(merged, merged[1:]):
+        if next_start - prev_end >= gap_floor_ns:
+            raw.append((prev_end, next_start))
+    raw.sort(key=lambda g: g[1] - g[0], reverse=True)
+    total_gap_s = sum(b - a for a, b in raw) / 1e9
+    chosen = raw[:top]
+
+    details: list[GapDetail] = []
+    for i, (g0, g1) in enumerate(chosen, start=1):
+        wb = compute_window_breakdown(profile, g0, g1, top=1)
+        hs = compute_host_samples(profile, g0, g1, top=symbols)
+        top_syms = (
+            [(r.name, r.module, r.pct_of_samples) for r in hs.by_symbol]
+            if hs.available
+            else []
+        )
+        details.append(
+            GapDetail(
+                rank=i,
+                start_ns=g0,
+                end_ns=g1,
+                duration_s=round((g1 - g0) / 1e9, 6),
+                covered_s=wb.covered_s,
+                uncovered_s=wb.uncovered_s,
+                uncovered_pct=wb.uncovered_pct,
+                top_symbols=top_syms,
+                samples=hs.total_samples if hs.available else 0,
+                threads_sampled=hs.threads_sampled if hs.available else 0,
+            )
+        )
+    caveats = [
+        "Gaps are between merged kernel intervals, so a gap is time no kernel occupied "
+        "-- not the interval between two particular launches.",
+        "A gap is not necessarily idle the GPU could have used: a transfer may occupy "
+        "it. Read transfer-overlap for the same window before calling a gap wasted.",
+        "Sample counts are counts, never seconds, and are summed over every sampled "
+        "thread; a share is a share of sampled host thread-work, not of the gap.",
+    ]
+    if not profile.capabilities.has_cpu_samples:
+        caveats.append(
+            "This capture carries no CPU sampling, so gaps are sized and their traced "
+            "coverage reported, but the uncovered part is not named. That is a "
+            "capability gap, not an empty gap."
+        )
+    return GapDetails(
+        available=True,
+        unavailable_reason=None,
+        window_s=round((w1 - w0) / 1e9, 6),
+        min_gap_s=min_gap_s,
+        gaps_considered=len(raw),
+        total_gap_s=round(total_gap_s, 6),
+        gaps=details,
+        caveats=caveats,
+    )
+
+
+RESIDENCY_RATE_SPLIT_FACTOR = 10.0
+"""Minimum ratio between two residency populations' rates to report a split.
+
+An order of magnitude. `conventions/profile-metrics.md` lists neither contention nor clock
+behaviour as a cause of a spread that large, so a split above this is a residency question
+rather than a scheduling one.
+"""
+
+
+def compute_transfer_residency(
+    profile: Profile,
+    events: list[MemcpyRow] | None = None,
+    start_ns: int | None = None,
+    end_ns: int | None = None,
+) -> TransferResidency:
+    """Split each transfer direction by the memory residency of its two ends.
+
+    Returns ``available=False`` with a reason where the format records no per-end memory
+    kind, rather than an empty list: a capture that cannot show residency supports no
+    claim that every end was ordinary device memory.
+    """
+    caps = profile.capabilities
+    if not caps.has_memcpy:
+        return TransferResidency(
+            available=False,
+            unavailable_reason="no memory-transfer events in this capture",
+            rows=[],
+            rate_splits=[],
+            caveats=[],
+        )
+    if not caps.has_transfer_residency:
+        return TransferResidency(
+            available=False,
+            unavailable_reason=(
+                "this capture records a transfer direction but no per-end memory kind, "
+                "so residency cannot be split out -- unavailable, not all-device"
+            ),
+            rows=[],
+            rate_splits=[],
+            caveats=[],
+        )
+    evts = profile.memcpy_events() if events is None else events
+    if start_ns is not None and end_ns is not None:
+        evts = [e for e in evts if _overlaps(e, start_ns, end_ns)]
+    groups: dict[tuple[str, str, str], dict] = {}
+    for e in evts:
+        key = (e.direction, e.src_kind or "Unknown", e.dst_kind or "Unknown")
+        g = groups.setdefault(key, {"count": 0, "total_ns": 0, "total_bytes": 0})
+        g["count"] += 1
+        g["total_ns"] += e.duration_ns
+        g["total_bytes"] += e.bytes
+    rows: list[ResidencyRow] = []
+    for (kind, sk, dk), g in groups.items():
+        eff = g["total_bytes"] / g["total_ns"] if g["total_ns"] > 0 else 0.0
+        rows.append(
+            ResidencyRow(
+                kind=kind,
+                src_kind=sk,
+                dst_kind=dk,
+                transfers=g["count"],
+                total_bytes=g["total_bytes"],
+                total_s=round(g["total_ns"] / 1e9, 6),
+                effective_GBs=round(eff, 2),
+            )
+        )
+    rows.sort(key=lambda r: r.total_s, reverse=True)
+
+    # The discriminator, executed: one direction, two residency populations, rates an
+    # order of magnitude apart. Compare the extremes within each direction.
+    rate_splits: list[str] = []
+    by_kind: dict[str, list[ResidencyRow]] = {}
+    for r in rows:
+        if r.effective_GBs > 0:
+            by_kind.setdefault(r.kind, []).append(r)
+    for kind, krows in sorted(by_kind.items()):
+        if len(krows) < 2:
+            continue
+        slow = min(krows, key=lambda r: r.effective_GBs)
+        fast = max(krows, key=lambda r: r.effective_GBs)
+        ratio = fast.effective_GBs / slow.effective_GBs
+        if ratio < RESIDENCY_RATE_SPLIT_FACTOR:
+            continue
+        rate_splits.append(
+            f"{kind}: {slow.src_kind}->{slow.dst_kind} runs at "
+            f"{slow.effective_GBs} GB/s over {slow.transfers} transfers "
+            f"({slow.total_s} s), while {fast.src_kind}->{fast.dst_kind} runs at "
+            f"{fast.effective_GBs} GB/s over {fast.transfers} transfers "
+            f"({fast.total_s} s) -- a factor of {ratio:.0f} within one direction. "
+            "A spread that large is not contention and not clock behaviour; where one "
+            "end is Managed it is a memory-residency question. See "
+            "software/quda/internals/managed-memory.md."
+        )
+    caveats = [
+        "A direction is not one population: these rows are what a per-direction figure "
+        "averages together, and the average is the misleading number when the rates "
+        "differ.",
+        "Rates are aggregate over each population (total bytes over summed duration), "
+        "not per transfer, and durations are summed rather than merged -- so these are "
+        "rates of work, and they are not elapsed-time figures. Use transfer-overlap for "
+        "what a transfer class costs in wall-clock.",
+    ]
+    if rate_splits:
+        caveats.append(
+            "A reported rate split says the populations differ, never why. Confirm by "
+            "checking for migration events inside the slow population's intervals."
+        )
+    return TransferResidency(
+        available=True,
+        unavailable_reason=None,
+        rows=rows,
+        rate_splits=rate_splits,
         caveats=caveats,
     )
 

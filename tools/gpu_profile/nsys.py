@@ -132,6 +132,7 @@ class NsysProfile:
                 has_pmc_counters=self._table_has_data("CUPTI_ACTIVITY_KIND_METRIC"),
                 has_sysmetrics=False,
                 has_launch_geometry=self._has_launch_geometry(),
+                has_transfer_residency=self._has_transfer_residency(),
                 schema_version="nsys",
             )
         return self._capabilities
@@ -224,6 +225,12 @@ class NsysProfile:
     # ------------------------------------------------------------------
     # Vendor-neutral event helpers
     # ------------------------------------------------------------------
+
+    def _has_transfer_residency(self) -> bool:
+        if not self.has_table("CUPTI_ACTIVITY_KIND_MEMCPY"):
+            return False
+        cols = set(self.columns("CUPTI_ACTIVITY_KIND_MEMCPY"))
+        return "srcKind" in cols and "dstKind" in cols
 
     def _has_launch_geometry(self) -> bool:
         if not self.has_table("CUPTI_ACTIVITY_KIND_KERNEL"):
@@ -333,10 +340,22 @@ class NsysProfile:
             return []
         where_clause = f"WHERE {where}" if where else ""
         limit_clause = f"LIMIT {limit}" if limit is not None else ""
+        # srcKind/dstKind are LEFT JOINed: a capture without them still yields rows, with
+        # residency None. An INNER JOIN here would silently drop every transfer instead.
+        residency = self._has_transfer_residency()
+        if residency:
+            select_extra = ", sk.label AS src_kind, dk.label AS dst_kind"
+            join_extra = (
+                " LEFT JOIN ENUM_CUDA_MEM_KIND sk ON m.srcKind = sk.id"
+                " LEFT JOIN ENUM_CUDA_MEM_KIND dk ON m.dstKind = dk.id"
+            )
+        else:
+            select_extra = ""
+            join_extra = ""
         rows = self.query(f"""
-            SELECT m.start, m.end, e.label AS direction, m.bytes
+            SELECT m.start, m.end, e.label AS direction, m.bytes{select_extra}
             FROM CUPTI_ACTIVITY_KIND_MEMCPY m
-            JOIN ENUM_CUDA_MEMCPY_OPER e ON m.copyKind = e.id
+            JOIN ENUM_CUDA_MEMCPY_OPER e ON m.copyKind = e.id{join_extra}
             {where_clause}
             {limit_clause}
         """)
@@ -347,6 +366,8 @@ class NsysProfile:
                 direction=r["direction"] or "Unknown",
                 bytes=r["bytes"] or 0,
                 duration_ns=r["end"] - r["start"],
+                src_kind=(r["src_kind"] if residency else None),
+                dst_kind=(r["dst_kind"] if residency else None),
             )
             for r in rows
         ]

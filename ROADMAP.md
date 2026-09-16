@@ -22,7 +22,9 @@ to Slice 4. **The pre-first-kernel window breakdown landed 2026-09-15** as
 what `idle-attribution` can only size. **Six controls now cover it, not the three recorded here
 on landing** — a coverage defect found in use on 2026-09-15 added three and repaired one of the
 original three, which the fix had made inert; see the Slice 6 entry. Each asserts its
-perturbation landed. **Two items remain owed.** One crossed [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s threshold during the
+perturbation landed. **Two items remain owed, and the 2026-09-16 batch discharged neither** —
+it closed three *newly* crossed items and left these where they were. One crossed
+[§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s threshold during the
 exercises and is owed rather than optional. **The untraced-control comparison was reassigned to
 Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` — a Slice 4 deliverable that has
 not been written — is the run-log reader it will be built into; one floating item remains.
@@ -39,6 +41,23 @@ unattributed host time and cannot name it, because it is unattributed exactly wh
 call is in progress. `nsys.py` reported `has_cpu_samples=False` unconditionally until this
 change, so the one instrument that can name host compute declared itself absent on every
 capture that had it.
+
+**Transfer residency, `gap-detail` and `--phase N` landed 2026-09-16**, from a seventh-session
+analysis of the same B200 capture. All three crossed
+[§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s counter in that one session and were closed in
+it. The first is the one that mattered: `MemcpyRow` read `copyKind` and `bytes` only, so a
+device-to-device row **averaged an unprefetched-managed population against an ordinary one** and
+reported a single unremarkable rate — the tool was not silent on
+`software/quda/internals/managed-memory.md`'s discriminator, it concealed it, and `memcpy` now
+splits by `srcKind`/`dstKind` and names a split above an order of magnitude itself. `gap-detail`
+names the individual structural stalls inside an idle residual, from **merged** kernel intervals
+rather than consecutive launches, so it does not inherit the hand query's unstated
+no-concurrency precondition. `--phase N` removes the `--start-ns`/`--end-ns` transcription that
+`phase_segmentation` had only made *detectable*, and resolves through `detect_phases` rather
+than a full summary — the same waste `cmd_phases` was corrected for. Readings in
+`conventions/profile-metrics.md` and the QUDA leaf, steps in `playbooks/analyze-profile.md`,
+routing in `modes/performance.md`. Full suite 396 passing, validator unchanged at 17 P2
+advisories and Tier 0 5844/6144 bytes.
 
 **Launch-geometry extraction for the tunecache-warmth gate landed 2026-09-15** as
 `gpu-profile-summary.py launch-geometry`, discharging the item owed on the next QUDA
@@ -2049,6 +2068,62 @@ step whose failure matters most actually fires. `added_lines` is pinned to see u
 since a new leaf is the likeliest place for unpublishable material and `git diff` does not see
 it, and the vacuity guard is that a clean tree must yield no added lines at all. The harness was
 then run on its own proposal and passed. Full suite 371 passing.
+
+**Transfer residency, gap naming, and phase-indexed windows, 2026-09-16** (seventh session).
+An analysis of the B200 capture in performance mode, then developer mode on its residue. Three
+items crossed the by-hand counter in the one session and all three landed; the operator cleared
+the fact class first, for illustrative magnitudes with identifying and physics detail excluded.
+
+*The residency split is the one that changes a conclusion, because the old output was not
+neutral.* Grouping transfers by `copyKind` alone merged two populations whose aggregate rates
+stood about **400x** apart inside a single device-to-device row, and reported their average —
+a figure that reads as an unremarkable mid-range bandwidth and quietly refutes the very
+signature the QUDA leaf exists to name. The leaf's previous discriminator asked for *two copies
+of identical size* and grouping by enclosing annotation range; residency needs neither and is
+one `GROUP BY`, so the leaf now leads with it and keeps the size formulation as superseded.
+Two further readings were added to it: a zero count of *user-prefetch* migrations is positive
+profile-side evidence the gate never fired, complementing the log-side absence test; and the
+migration direction is explained by the **managed end** not being device-resident, where the
+text had said "the source was never resident" — the observed slow population was
+destination-managed, so the old reason did not cover it.
+
+*`gap-detail` exists because the residual's histogram stops one level short.* It separates
+diffuse from structural and cannot separate two structural mechanisms from each other. In one
+phase the >10 ms slices held a host `memset` and application vector arithmetic; per gap they
+were about 89% and 46-61% of samples, and over the enclosing phase the same two symbols read
+4.5% and 11.2% — "some host work", with nothing indicating there were two. So the subcommand
+samples the gap, and `conventions/profile-metrics.md` now says to sample the gap rather than
+the phase that contains it.
+
+*Two defects were introduced and caught before the diff was shown.* `--phase` first resolved
+through `compute_profile_summary`, reproducing exactly the waste `cmd_phases` had been corrected
+for a day earlier — caught by timing it (over 120 s against 48 s) and repaired to `detect_phases`,
+with a control that fails if it regresses. And the QUDA leaf's new link to
+`conventions/profile-metrics.md` was written at two levels up from a three-level-deep file; the
+validator's reference check caught it. The second is the argument for the harness being mandatory
+rather than advisory: nothing about the wrong path looks wrong.
+
+*Controls.* Twenty-five across three files, each paired with the perturbation that must move it,
+and all seven perturbations were run and confirmed to fail distinctly: raising the split factor
+must stop the split firing; forcing `has_transfer_residency` true must break the
+unavailable path; an INNER JOIN on the memory-kind enum must drop an Unknown end; using sorted
+rather than merged intervals must produce a phantom gap under kernel overlap; zeroing the gap
+floor must break the floor control; renaming `--phase` must break the registration sweep; and
+resolving through a full summary must break the cost control. The negative control for the rate
+split flattens the two populations and asserts the split *disappears* while the rows remain,
+because a check that always fires is indistinguishable from one that never runs.
+
+*Rejected, and recorded so it is not re-litigated.* A MILC RHMC host-cost-structure fact — that
+the rational-function reconstruction runs on the host and leaves a serial tail after each
+offloaded multi-shift solve. It is the largest single cost in the capture and it is **not
+admitted**: the mechanism is inferred from sampled symbol names alone, with no read of
+`ks_imp_rhmc` source, from one capture of a collaborator's unpublished run. Obligation 4 forbids
+mining and admitting in one step. It stays in the working directory until someone reads the
+source; if that happens the fact belongs in `software/milc/applications/ks-imp-rhmc.md`.
+
+*Also left alone deliberately.* The capture had no MPI tracing, which cost its analysis every
+communication reading. That is not a handbook fact: the extraction's own capability note already
+prints the re-profile command, so the executable form exists and prose would only duplicate it.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check

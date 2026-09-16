@@ -250,6 +250,9 @@ class RocpdProfile:
                 has_pmc_counters=self._table_has_data("rocpd_pmc_event"),
                 has_sysmetrics=False,
                 has_launch_geometry=self._has_launch_geometry(),
+                # rocpd_memory_copy carries a direction string and no per-end memory
+                # kind, so residency is unavailable rather than "all device memory".
+                has_transfer_residency=False,
                 schema_version=self._schema_version,
             )
         return self._capabilities

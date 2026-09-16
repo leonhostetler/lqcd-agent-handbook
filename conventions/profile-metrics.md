@@ -141,6 +141,17 @@ slices, which are per-launch host overhead spread across every kernel, and a few
 slices of milliseconds, which are real host-side work at a structural boundary. One total
 covering both describes neither.
 
+**And the structural bucket is not one mechanism either.** `[experiment]` The histogram
+separates diffuse from structural and stops there, so the natural next step — sampling the
+*phase* — is the wrong one: it averages every structural stall together with the ordinary
+host work around them. Measured on one capture, a single phase's slices above 10 ms held two
+unrelated mechanisms, a large host `memset` and application vector arithmetic. Sampled per
+gap, one mechanism was about 89% of samples in its gaps and the other 46-61% in different
+ones. Sampled over the enclosing phase, the same two symbols read 4.5% and 11.2% — a profile
+of "some host work" in which neither mechanism is identifiable and nothing suggests there
+were two. **Sample the individual gap, not the phase that contains it**; `gap-detail` does
+that per gap and reports the traced coverage beside it.
+
 **An untraced category is reported as null, and null is not zero.** Where the capture cannot
 observe a category the extraction emits no number for it, names the reason, and lists it among
 what the residual absorbs. This is the absent-instrumentation rule below applied where it is
@@ -185,6 +196,19 @@ Per-direction intervals are **merged before measuring**, for the reason in the f
 transfers issued on several streams run concurrently, and summing their durations returns
 work rather than elapsed time. A hand-rolled version that sums instead of merges overstates
 both the total and the overlap — by 28% on the capture above.
+
+**A direction is not one population, and the per-direction rate is what hides that.**
+`[experiment]` Where a capture records the memory *residency* of each end and not only the
+direction, one `copyKind` can hold two populations whose effective rates differ by orders of
+magnitude — measured on one capture, a factor of about 400 between a destination-managed and
+a source-managed population of comparable volume inside a single device-to-device row. The
+merged per-direction rate sits between them and looks unremarkable, which is the reading to
+distrust whenever a run reports non-zero managed memory. `memcpy` reports the residency rows
+beside the per-direction ones and flags a split above an order of magnitude;
+[`../software/quda/internals/managed-memory.md`](../software/quda/internals/managed-memory.md)
+owns what causes it. A format that records no per-end kind reports residency **unavailable**,
+which is the absent-instrumentation rule again and not a claim that every end was ordinary
+device memory.
 
 **The same rule applies one level up, and it is the easier one to miss: the per-direction rows
 must not be added to each other.** Directions run concurrently too — a device-to-device copy

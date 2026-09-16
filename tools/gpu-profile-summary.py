@@ -45,6 +45,7 @@ from gpu_profile.cross_rank import (  # noqa: E402
     select_primary_rank,
 )
 from gpu_profile.diagnostics import capability_notes  # noqa: E402
+from gpu_profile.phases import detect_phases  # noqa: E402
 from gpu_profile.metrics import (  # noqa: E402
     _compute_launch_overhead,
     _window_idle_time,
@@ -63,6 +64,8 @@ from gpu_profile.metrics import (  # noqa: E402
     compute_launch_geometry,
     compute_marker_ranges,
     compute_memcpy_by_kind,
+    compute_gap_details,
+    compute_transfer_residency,
     compute_mpi_ops,
     compute_profile_span,
     compute_profile_summary,
@@ -100,7 +103,37 @@ def _plain(obj):
     return obj
 
 
-def _window(args) -> tuple[int, int] | None:
+def _window(args, profile=None) -> tuple[int, int] | None:
+    """Resolve the analysis window from `--phase N` or from an explicit ns pair.
+
+    `--phase N` exists because the ns pair is transcribed by hand out of a phase table
+    into every windowed call, and a mistyped or stale boundary returns a plausible
+    window with no error. Phase boundaries are a property of the capture **and** the
+    `--max-phases` cap, so resolving the index here — against the same segmentation the
+    table came from — is what keeps the two from disagreeing. The pair remains available
+    for a window that is not a phase, such as a single gap.
+    """
+    phase = getattr(args, "phase", None)
+    if phase is not None:
+        if args.start_ns is not None or args.end_ns is not None:
+            raise SystemExit("error: --phase is mutually exclusive with --start-ns/--end-ns")
+        if profile is None:  # pragma: no cover - guarded by caller wiring
+            raise SystemExit("error: --phase is not supported by this subcommand")
+        if phase < 1:
+            raise SystemExit("error: --phase is 1-based; the first phase is --phase 1")
+        # detect_phases, not compute_profile_summary: resolving a boundary needs the
+        # segmentation only, and the full summary costs roughly three times as much
+        # while discarding everything but the windows. Same defect `cmd_phases` carried.
+        phases = detect_phases(profile, max_phases=args.max_phases)
+        if not phases:
+            raise SystemExit("error: this capture has no phases to select")
+        if phase > len(phases):
+            raise SystemExit(
+                f"error: --phase {phase} out of range: segmentation at "
+                f"--max-phases {args.max_phases} selected {len(phases)} phase(s)"
+            )
+        chosen = phases[phase - 1]
+        return int(chosen.start_ns), int(chosen.end_ns)
     if args.start_ns is None or args.end_ns is None:
         return None
     if args.end_ns <= args.start_ns:
@@ -141,7 +174,7 @@ def cmd_phases(profile, args) -> dict:
 def cmd_kernels(profile, args) -> dict:
     device_info = compute_device_info(profile)
     overhead = _compute_launch_overhead(profile)
-    win = _window(args)
+    win = _window(args, profile)
     if win:
         evts = profile.kernel_events()
         total = _window_kernel_time(evts, *win)
@@ -156,15 +189,27 @@ def cmd_kernels(profile, args) -> dict:
 
 
 def cmd_gaps(profile, args) -> dict:
-    win = _window(args)
+    win = _window(args, profile)
     total_idle_s, buckets = (
         _window_idle_time(profile.kernel_events(), *win) if win else compute_gap_histogram(profile)
     )
     return {"total_idle_s": round(total_idle_s, 3), "buckets": _plain(buckets)}
 
 
+def cmd_gap_detail(profile, args) -> dict:
+    win = _window(args, profile)
+    result = compute_gap_details(
+        profile,
+        *(win or (None, None)),
+        top=args.top,
+        min_gap_s=args.min_gap_s,
+        symbols=args.symbols,
+    )
+    return _plain(result)
+
+
 def cmd_idle_attribution(profile, args) -> dict:
-    win = _window(args)
+    win = _window(args, profile)
     result = compute_idle_attribution(profile, *(win or (None, None)))
     return _plain(result)
 
@@ -181,7 +226,7 @@ def cmd_launch_geometry(profile, args) -> dict:
 
 
 def cmd_transfer_overlap(profile, args) -> dict:
-    win = _window(args)
+    win = _window(args, profile)
     bounds = win or (None, None)
     return {
         "directions": _plain(compute_transfer_overlap(profile, *bounds)),
@@ -193,29 +238,35 @@ def cmd_transfer_overlap(profile, args) -> dict:
 
 
 def cmd_memcpy(profile, args) -> dict:
-    win = _window(args)
+    win = _window(args, profile)
     transfers = (
         _window_memcpy_by_kind(profile.memcpy_events(), *win)
         if win
         else compute_memcpy_by_kind(profile)
     )
-    return {"transfers": _plain(transfers)}
+    # Residency travels with the per-direction rows rather than behind a flag: the
+    # per-direction figure is the one that misleads when a direction holds two
+    # populations, so a session that reads `transfers` must see the split beside it.
+    residency = compute_transfer_residency(
+        profile, start_ns=(win[0] if win else None), end_ns=(win[1] if win else None)
+    )
+    return {"transfers": _plain(transfers), "residency": _plain(residency)}
 
 
 def cmd_mpi(profile, args) -> dict:
-    win = _window(args)
+    win = _window(args, profile)
     ops = _window_mpi_ops(profile, *win) if win else compute_mpi_ops(profile)
     return {"mpi_present": profile.capabilities.has_mpi, "ops": _plain(ops)}
 
 
 def cmd_streams(profile, args) -> dict:
-    win = _window(args)
+    win = _window(args, profile)
     streams = _window_streams(profile.kernel_events(), *win) if win else compute_streams(profile)
     return {"streams": _plain(streams)}
 
 
 def cmd_markers(profile, args) -> dict:
-    win = _window(args)
+    win = _window(args, profile)
     ranges = (
         _window_marker_ranges(profile, *win, limit=args.top)
         if win
@@ -457,7 +508,7 @@ def cmd_host_samples(profile, args) -> dict:
     only instrument in the capture that can say which code was running, and on one
     profile it named a 55 s stretch that every traced category reported as empty.
     """
-    win = _window(args)
+    win = _window(args, profile)
     return _plain(
         compute_host_samples(
             profile,
@@ -475,7 +526,7 @@ def cmd_window_breakdown(profile, args) -> dict:
     inter-kernel idle is empty before the first kernel, so every category
     intersected against it reads zero. This answers what is actually in there.
     """
-    win = _window(args)
+    win = _window(args, profile)
     breakdown = compute_window_breakdown(
         profile,
         start_ns=win[0] if win else None,
@@ -530,9 +581,17 @@ def build_parser() -> argparse.ArgumentParser:
         if window:
             p.add_argument("--start-ns", type=int, help="window start (absolute ns)")
             p.add_argument("--end-ns", type=int, help="window end (absolute ns)")
+            p.add_argument(
+                "--phase",
+                type=int,
+                help="1-based phase index instead of an ns pair; resolved against "
+                "--max-phases so the window cannot disagree with the phase table",
+            )
         if top is not None:
             p.add_argument("--top", type=int, default=top, help=f"entries to return (default {top})")
-        if phases:
+        # --phase resolution needs the cap, so a windowed subcommand carries it too.
+        # Registering it once avoids an argparse conflict where both flags are set.
+        if phases or window:
             p.add_argument("--max-phases", type=int, default=8, help="phase cap (1 disables)")
         p.set_defaults(func=fn)
         return p
@@ -542,6 +601,17 @@ def build_parser() -> argparse.ArgumentParser:
     add("kernels", cmd_kernels, window=True, top=15)
     add("gaps", cmd_gaps, window=True)
     add("idle-attribution", cmd_idle_attribution, window=True)
+    p = add("gap-detail", cmd_gap_detail, window=True, top=5)
+    p.add_argument(
+        "--min-gap-s",
+        type=float,
+        default=0.1,
+        help="smallest gap to name individually (default 0.1 s); below this the "
+        "residual's bucket histogram describes the population better",
+    )
+    p.add_argument(
+        "--symbols", type=int, default=8, help="host-sample symbols per gap (default 8)"
+    )
     add("transfer-overlap", cmd_transfer_overlap, window=True)
     add("memcpy", cmd_memcpy, window=True)
     add("mpi", cmd_mpi, window=True)

@@ -92,10 +92,16 @@ selected k equals the cap, the elbow may lie above it and a larger cap may segme
 
 Then account for the dominant phase's elapsed time, in a fixed order — kernel work, memory
 transfers, communication, idle gaps — using `kernels`, `memcpy`, `transfer-overlap`, `mpi`,
-`gaps`, `idle-attribution`, `streams` with the phase's `--start-ns` and `--end-ns`. Rank by
+`gaps`, `gap-detail`, `idle-attribution`, `streams` with the phase's `--phase N` — which
+resolves against the same segmentation and cap the table came from, so the window cannot
+disagree with it — or an explicit `--start-ns`/`--end-ns` pair for a window that is not a
+phase. Rank by
 share of elapsed time, never by how unusual a number looks. Two of those are the ones that
 change conclusions: `transfer-overlap` because a transfer class only costs what it exposes, and
 `idle-attribution` because idle is the largest line in most phases and is otherwise unnamed.
+Read `memcpy`'s residency rows rather than only its per-direction ones wherever the run reports
+non-zero managed memory: one direction can hold two populations orders of magnitude apart, and
+the per-direction rate is their average.
 
 **The account must close, and `idle-attribution` is what closes it — on the window, not only
 on the idle.** Check `outside_kernel_span_s` first: the account closes as
@@ -115,6 +121,15 @@ zero, and the residual has absorbed it.
 Where a large share of the window lies outside the kernel span, `window-breakdown` describes
 what occupies it. An idle split cannot: before the first kernel there is no inter-kernel
 idle to intersect against, so it reports the size of that part and names none of it.
+
+**Where the residual is structural rather than diffuse, name the gaps one at a time.** Run
+`gap-detail` on the window: it takes the gaps between *merged* kernel intervals — so it does
+not depend on kernels never overlapping, which a hand-written consecutive-launch query
+silently does — and reports each large gap's traced coverage beside the host symbols sampled
+inside it. Do this instead of sampling the phase, not as well: one histogram bucket routinely
+holds two unrelated mechanisms, and a phase-level profile averages them into a single
+unrecognisable "some host work". See
+[`conventions/profile-metrics.md`](../conventions/profile-metrics.md).
 
 **Both of those size host time without naming it, and `host-samples` is what names it.** The
 residual and the uncovered remainder are unattributed *because* no traced call was in progress,

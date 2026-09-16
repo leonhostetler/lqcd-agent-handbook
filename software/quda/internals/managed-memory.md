@@ -59,20 +59,57 @@ thinks the transfer is.
 The signature in a trace is specific enough to diagnose without counters:
 
 - a **device-to-device** copy running one to three orders of magnitude below device
-  bandwidth, while other copies of the same size and kind run at full rate;
+  bandwidth, while other copies of the same kind run at full rate;
 - **unified-memory migration events** — many of them, at page granularity — lying
   *inside* those slow copies' intervals rather than beside them;
-- the migration direction is **host-to-device**, because the source was never resident.
+- the migration direction is **host-to-device**, because the managed end was not
+  device-resident.
 
-Two copies of identical size and `copyKind` differing by more than an order of
-magnitude is the discriminator: a rate difference that large is not contention and not
-clock behaviour, and `conventions/profile-metrics.md` lists neither as a cause of a
-23x spread. Group by size *and* by enclosing annotation range before concluding —
-see [`../profiling.md`](../profiling.md), which owns the name-resolution rules.
+**Split the direction by the memory residency of its two ends; that is the
+discriminator, and it needs no size matching.** `[experiment]` A copy's `copyKind` says
+device-to-device while `srcKind`/`dstKind` say which end is managed, and the two
+populations separate completely: the copies whose **destination** is managed are the slow
+ones, and the copies whose **source** is managed run at full device rate. Measured on one
+CUDA capture, one direction held a destination-managed population at single-digit GB/s and
+a source-managed population of comparable total volume at over 3000 GB/s — a factor of
+about 400 inside one `copyKind`, on one device, in one run. A rate difference that large is
+not contention and not clock behaviour, and
+[`../../../conventions/profile-metrics.md`](../../../conventions/profile-metrics.md) lists
+neither as a cause of a spread that size.
+
+This supersedes an earlier formulation that asked for *two copies of identical size*
+differing by an order of magnitude, and grouping by size and by enclosing annotation
+range. Both work and both are avoidable work: residency is one `GROUP BY` and it does not
+require finding a matched pair. `gpu-profile-summary.py memcpy` reports the residency rows
+beside the per-direction ones and names a split above an order of magnitude itself.
+
+**A per-direction rate averages the two populations and is the misleading number.** This
+is not a hypothetical: until 2026-09-15 the extraction read `copyKind` and `bytes` only, so
+it reported one device-to-device row whose rate sat between the two populations and looked
+unremarkable. The merged figure is a correct aggregate and the wrong quantity for this
+question. Where a capture records no per-end memory kind — rocpd does not — residency is
+reported **unavailable**, which is not the same as both ends being ordinary device memory.
+
+**Zero user-prefetch migrations is the direct evidence that the gate never fired.**
+`[experiment]` A migration event carries a cause, and the vendor vocabulary distinguishes a
+page fault from a speculative prefetch from an explicit **user** prefetch. On a capture
+whose managed memory arrived through `qudaAllocateManaged`, the user-prefetch cause was
+absent from the profile entirely while the page-fault cause ran into the millions. That is
+a profile-side test of the same conclusion the log-side test below reaches, and it is worth
+having both: it is positive evidence about what the run did, not an inference from what the
+run failed to print.
 
 `Managed memory used` in a run's own end-of-run report establishes that managed memory
 exists; only the absence of `Using managed memory for CUDA allocations` establishes
 which route allocated it.
+
+**Where a slow population is found, confirm the mechanism rather than stopping at the
+rate.** Count the migration events lying inside one slow copy's own interval. On the
+capture above, a single copy of a few hundred megabytes carried over seventeen thousand
+host-to-device migrations covering more than 80% of its duration, and the migrated volume
+matched the copy's payload — the whole destination buffer was being faulted in while the
+copy ran. A rate split says the populations differ; only the enclosed migrations say why.
+See [`../profiling.md`](../profiling.md), which owns the name-resolution rules.
 
 ## What follows for a suggestion
 
@@ -86,4 +123,13 @@ application change that stops routing those fields through managed memory. All t
 are tuning-mode actions and none is validated here.
 
 **This leaf records a mechanism, not a measurement.** How much any particular run loses
-to it is a property of that run and belongs in its working directory.
+to it is a property of that run and belongs in its working directory. The magnitudes quoted
+above are there to make the signature recognisable — the shape of the split and its rough
+order — and not as expected values for any other run.
+
+**The source reading and the empirical confirmation are at different revisions.** The gate
+described above was read in the source at the commit in `observed_on`. The `[experiment]`
+figures were measured on a CUDA capture whose build was configured from a different revision
+(tunecache descriptor `1.1.0-3ada421b8-sm_100`, CUDA 13.1). They therefore corroborate the
+mechanism across two revisions rather than confirming it at the one the source was read at,
+and neither establishes the other: re-read the gate before relying on it in a third.

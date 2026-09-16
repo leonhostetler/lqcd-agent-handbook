@@ -49,6 +49,10 @@ class ProfileCapabilities:
     has_pmc_counters: bool
     has_sysmetrics: bool
     has_launch_geometry: bool
+    #: Whether transfers record the *memory residency* of each end, not just a direction.
+    #: One direction can hold two populations whose rates differ by orders of magnitude,
+    #: and a per-direction row averages them into one unremarkable figure.
+    has_transfer_residency: bool
     schema_version: str
 
 
@@ -102,6 +106,11 @@ class MemcpyRow:
     direction: str  # "Host-to-Device" | "Device-to-Host" | "Device-to-Device" | "Peer-to-Peer"
     bytes: int
     duration_ns: int
+    #: Memory residency of each end, where the format records it: "Device", "Managed",
+    #: "Pinned", "Pageable", ... ``None`` means the format carries no such column, which
+    #: is not the same as the ends being ordinary device memory.
+    src_kind: str | None = None
+    dst_kind: str | None = None
 
 
 @dataclass(slots=True)
