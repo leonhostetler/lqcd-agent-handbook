@@ -11,15 +11,20 @@ omitted it too.
 
 from __future__ import annotations
 
+import importlib
 import sys
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+DIAGNOSTICS = ROOT / "tools" / "gpu_profile" / "diagnostics.py"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT / "tools"))
 
+import gpu_profile.diagnostics as diagnostics  # noqa: E402
 from gpu_profile.base import Format, ProfileCapabilities  # noqa: E402
 from gpu_profile.diagnostics import capability_notes  # noqa: E402
+from support import PerturbationMixin  # noqa: E402
 
 
 def _no_capabilities() -> ProfileCapabilities:
@@ -87,6 +92,79 @@ class RocpdReprofileCommands(unittest.TestCase):
         """The nsys side is untouched by this change and must stay actionable."""
         lines = _command_lines(Format.NSYS, "nsys profile")
         self.assertGreaterEqual(len(lines), 4, "nsys re-profile commands went missing")
+
+
+class CapabilityNoteControls(PerturbationMixin, unittest.TestCase):
+    """Each control reverts part of the fix and asserts the guards above would notice.
+
+    Run by hand when the fix landed; carried here so they run on every suite, because
+    the defect this repository keeps recording is a control that goes inert later.
+    """
+
+    def setUp(self) -> None:
+        # Registered before any perturbation, so it runs *after* the file is restored:
+        # addCleanup is LIFO, and reloading a still-perturbed module would leak it.
+        self.addCleanup(importlib.reload, diagnostics)
+
+    def _notes(self, fmt: Format) -> list:
+        importlib.reload(diagnostics)
+        return diagnostics.capability_notes(fmt, _no_capabilities())
+
+    def _lines(self, fmt: Format, needle: str) -> list[str]:
+        return [
+            line
+            for note in self._notes(fmt)
+            for line in note.message.splitlines()
+            if needle in line
+        ]
+
+    def test_emptying_the_output_constant_is_caught(self):
+        """The constant must be the thing interpolated, not decoration beside the guard."""
+        self.perturb(
+            DIAGNOSTICS,
+            '_ROCPD_OUTPUT = "ROCPROFSYS_USE_ROCPD=true"',
+            '_ROCPD_OUTPUT = ""',
+        )
+        lines = self._lines(Format.ROCPD, "rocprof-sys-sample")
+        self.assertTrue(lines, "no commands were produced; the control proves nothing")
+        self.assertFalse(
+            any("ROCPROFSYS_USE_ROCPD=true" in line for line in lines),
+            "emptying the constant did not change the commands; it is not consulted",
+        )
+
+    def test_dropping_mpip_from_the_mpi_note_is_caught(self):
+        self.perturb(
+            DIAGNOSTICS,
+            'f"  Re-profile with: {_ROCPD_OUTPUT} {_MPIP} "',
+            'f"  Re-profile with: {_ROCPD_OUTPUT} "',
+        )
+        r1 = [n for n in self._notes(Format.ROCPD) if n.code == "R1"]
+        self.assertEqual(len(r1), 1)
+        self.assertNotIn("ROCPROFSYS_USE_MPIP=true", r1[0].message)
+
+    def test_suppressing_the_rocpd_branch_is_caught(self):
+        """The vacuity guard: every check above iterates, so an empty list must be visible."""
+        self.perturb(DIAGNOSTICS, "    elif fmt is Format.ROCPD:", "    elif False:")
+        self.assertEqual(self._notes(Format.ROCPD), [])
+
+    def test_a_rocm_variable_reaching_an_nsys_note_is_caught(self):
+        """The specificity control: the rocpd guard must not match everything."""
+        self.perturb(
+            DIAGNOSTICS,
+            '"  Re-profile with: nsys profile -t cuda ..."',
+            '"  Re-profile with: ROCPROFSYS_USE_ROCPD=true nsys profile -t cuda ..."',
+        )
+        self.assertTrue(
+            any("ROCPROFSYS" in n.message for n in self._notes(Format.NSYS)),
+            "the perturbation did not reach an nsys note",
+        )
+
+    def test_the_source_is_restored_between_controls(self):
+        """Guards the mixin itself: a leaked perturbation would silently weaken the suite."""
+        self.assertIn(
+            '_ROCPD_OUTPUT = "ROCPROFSYS_USE_ROCPD=true"',
+            DIAGNOSTICS.read_text(),
+        )
 
 
 if __name__ == "__main__":

@@ -22,12 +22,12 @@ to Slice 4. **The pre-first-kernel window breakdown landed 2026-09-15** as
 what `idle-attribution` can only size. **Six controls now cover it, not the three recorded here
 on landing** — a coverage defect found in use on 2026-09-15 added three and repaired one of the
 original three, which the fix had made inert; see the Slice 6 entry. Each asserts its
-perturbation landed. **Two items remain owed, and the 2026-09-16 batch discharged neither** —
-it closed three *newly* crossed items and left these where they were. One crossed
-[§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s threshold during the
-exercises and is owed rather than optional. **The untraced-control comparison was reassigned to
+perturbation landed. **One item remains owed, not the two recorded here before.** The
+perturbation runner was **withdrawn 2026-09-16**: the tool it asked for was already in the tree
+as a per-file test helper, and what was missing was extraction and adoption, which the
+ninth-session entry records. **The untraced-control comparison was reassigned to
 Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` — a Slice 4 deliverable that has
-not been written — is the run-log reader it will be built into; one floating item remains.
+not been written — is the run-log reader it will be built into; that is the floating item.
 
 **The capture gap is closed (2026-09-16).** `conventions/profile-capture.md` now carries the
 planning-time recipe — what to request from Nsight Systems, rocprofv3 and rocprof-sys, the
@@ -497,6 +497,15 @@ would catch them next time. A tool taking (fix anchor, replacement, named test) 
 asserting each replacement breaks its own test is the shape; `repeated-work.md`'s own rule that
 a harness which cannot fail is the same defect as a guard that cannot fire is the reason it is
 owed.
+
+**Withdrawn 2026-09-16: the tool was already in the tree when this was written.** The shape
+named above is a description of `WindowBreakdownControls.perturb`, committed in `c327813` some
+two and a half hours before this paragraph landed in `079ff6d`, and copied into two more test
+files the same night. This paragraph counted eleven hand reversions and none of the helpers
+already performing them. The in-test form is also
+better than the runner it asked for — a standalone runner checks once, at authoring time, while
+a control carrying its own perturbation re-checks on every suite run, which is the only thing
+that would have caught a control going inert *later*. See the ninth-session entry.
 
 **A change-proposal harness qualifies**: overlay a scratch tree, regenerate the indices, run the
 validator and the suite, emit a diffstat and a privacy sweep. Performed three times in the
@@ -2229,6 +2238,97 @@ constant that is consulted from one sitting decoratively beside the guard. The s
 got the same treatment outside the suite: removed, both machine profiles fail validation;
 restored, they pass. Full suite 401 passing, validator unchanged at 17 P2 advisories and Tier 0
 5844/6144 bytes, references 625 to 635.
+
+**The perturbation runner was withdrawn and its helper extracted instead, 2026-09-16**
+(ninth session). The operator asked whether the runner recorded above was really necessary. It
+was not, and the ordering is the reusable part: **the tool it asked for was already in the tree
+when the item was written.** `WindowBreakdownControls.perturb` — assert the anchor matched,
+rewrite the source, run the real tool, assert the behaviour moved, restore in `tearDown` — is
+exactly the (anchor, replacement, named test) triple that paragraph specified, and it landed in
+`c327813`, roughly two and a half hours before `079ff6d` recorded the need for it. It was then
+copied into `test_gpu_profile_cross_rank.py` and `test_gpu_profile_host_samples.py` the same
+night, the same error string verbatim in all three, while the item went on reading as owed.
+
+*Why the existing form is better than the one that was asked for, rather than merely equivalent.*
+A standalone runner checks a control once, when it is written. A control carrying its own
+perturbation re-checks on every suite run. The most valuable catch of this class this document
+records — `test_summing_categories_instead_of_merging_is_caught` going inert because a *later,
+unrelated* fix removed the only overlapping category its fixture had — happened long after
+authoring time, and a one-shot runner would never have seen it. The owed item was aimed at the
+wrong moment.
+
+*What was actually owed.* Extraction and adoption. `tests/support.py` gains `PerturbationMixin`,
+the three copies now use it, and `tests/test_gpu_profile_capability_notes.py` — written the day
+before with its five perturbations run by hand — carries them as controls that run in CI.
+
+*The rest of the suite needed almost nothing, and an earlier draft of this entry said otherwise.*
+That draft claimed ten of fourteen control files still hand-perturb and that their controls
+prove nothing once their session ends. **Measured, that is false.** Those files carry
+*fixture-variation* controls — vary the input, assert the output moves — which run on every
+suite like any other test. Eight fixes this document records as hand-verified were reverted in
+turn and **seven were caught by controls already committed**: gap-detail's merged intervals, the
+residency rate split, the overhang warning, the hardcoded outside-span term, the query guard's
+nested-scan threshold, the per-figure `hand_derived` guard, and rocpd's work-item grid
+normalisation. Source perturbation earns its place where a guard concerns output shape or
+wording, which no fixture distinguishes from a hardcoded value; where a control can discriminate
+through the public interface it already does, and adding a second layer would be ceremony.
+
+*The eighth was a real gap, and three wrong turns reaching it are the useful part.* The
+transfer-overlap path merges kernel intervals and **nothing caught reverting that merge**. First
+diagnosis, that the control was missing, was wrong twice over. The first probe perturbed
+`compute_transfer_overlap` while running `gap_detail`'s tests — the wrong function for the
+module under test, and the reported miss was the probe's fault rather than the suite's. The
+control then written passed without catching anything, because `intersect_duration_ns` merges
+both its arguments internally, so the call-site merge alone decides nothing. Correcting the
+geometry did not fix it either: the walk revisits a kernel only when a transfer *spans* several,
+and the first fixture put the transfer *inside* them. **The two merges are redundant with each
+other**, so dropping either alone moves no number and only dropping both does — which is
+precisely why this was missing rather than weak, and why a reader meeting either call would
+reasonably take it for the load-bearing one. One control now covers the pair, and it is the only
+test in the suite that exercises concurrent kernels at all: the shared nsys fixture has none.
+Suite 407.
+
+*What the sweep did not cover, so the seven-of-eight is not read as a clean bill.* Eight fixes
+were probed, across `metrics.py`, `rocpd.py`, the query guard and the hypothesis record. **Not
+probed:** `test_gpu_profile.py`'s four recorded breakages — the one remaining file that rewrites
+source, and so the likeliest place for another gap — `propose-change`'s nineteen fixture-based
+checks, and the session-logging and slice-0 controls. The sweep also probes only fixes this
+document happens to record; a fix that was never written up cannot be probed for, and most of
+the suite predates the practice of recording them.
+
+*The extraction is not a pure move, and the difference is the point.* All three copies checked
+only `assertIn(old, original)` before writing, so a replacement **equal to** the text it
+replaces passed and wrote nothing — which is exactly how the fifth vacuous control recorded
+above got in, a string replaced with itself. `perturb` now fails on a no-op edit. It reports
+that in one line rather than through `assertNotEqual`, whose failure output renders both copies
+of the file: the first version of this check emitted 138 KB around a one-line finding.
+Restoration is now `addCleanup` plus an `atexit` hook rather than `tearDown` alone, so a raising
+test and an interrupted run both put the source back. Neither survives `SIGKILL`, so
+`tools/run-change-proposal` printing its diff *before* it runs the suite remains the backstop,
+and the helper says so where someone changing it will read it.
+
+*Controls, and the meta-control that matters here.* Disabling `perturb` so it writes nothing
+must break the controls that depend on it: **13 failures across the three converted files**, and
+exactly **4** in the new capability-notes file — its four perturbation controls — while its fifth,
+which asserts the source is pristine between tests, correctly still passes. That split is what
+distinguishes controls that depend on the perturbation from controls that would fail for any
+reason. The no-op-edit check was separately verified by making one control's replacement
+identical to its original and confirming the named failure. Full suite 406 passing, validator
+unchanged at 17 P2 advisories and Tier 0 5844/6144 bytes.
+
+*The transferable finding, and it is about the checkpoint rather than about this item.*
+`repeated-work.md` asks whether a repeated action should become a tool. It does not ask whether
+one already exists, and on this occasion one did, in the same session, committed hours earlier.
+**A by-hand count establishes that a procedure is repeated, never that nothing performs it** —
+so the search for an existing implementation belongs at the moment the item is written, when the
+count is taken. **Amending `conventions/repeated-work.md` to require an owed item to name what
+it searched was considered and declined** — one missed search does not carry a convention
+change, and the checkpoint stands as written. Two later sessions then duplicated
+that implementation without the owed item registering either event, which is the sharper half:
+nothing re-reads an owed item against the work that follows it, so an item can be silently
+satisfied and still read as outstanding. The nearest recorded relative is the `schema`
+dead-code report below, where reading a consumer and grepping one spelling of its producer
+produced a claim that was confident, specific and false.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check

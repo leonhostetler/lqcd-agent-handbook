@@ -266,6 +266,61 @@ class TransferOverlapTests(AttributionTestBase):
         for t in self.overlap().values():
             self.assertAlmostEqual(t.overlapped_s + t.exposed_s, t.total_s, places=9)
 
+    def test_a_transfer_spanning_concurrent_kernels_is_not_double_counted(self):
+        """The control for interval merging on the transfer-overlap path.
+
+        `overlapped` is a two-pointer walk over (transfers, kernels), and it is
+        merged **twice**: once where `compute_transfer_overlap` builds the kernel
+        list, and again inside `intersect_duration_ns`, which merges both its
+        arguments. The two are redundant, so **dropping either alone changes
+        nothing** and only dropping both moves a number -- which is why this was
+        missing rather than merely weak. Recorded because a reader meeting either
+        call would reasonably take it for the load-bearing one.
+
+        Geometry decides whether the walk can double-count at all. It revisits a
+        kernel only when a *transfer spans several*: a transfer lying inside two
+        concurrent kernels advances past both and is counted once either way. A
+        transfer that spans a kernel with a second nested inside it is counted
+        twice, and that is the shape built here.
+
+        The shared fixture has no concurrent kernels anywhere, so nothing else in
+        the suite reaches this path. Found 2026-09-16 by reverting the merges and
+        watching the suite stay green.
+        """
+        kernel = (1_000_000_000, 1_002_000_000)
+        path = build_idle_attribution_nsys_db(
+            self.dir / "spanning.sqlite", hidden_memcpy=kernel
+        )
+        conn = sqlite3.connect(path)
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(CUPTI_ACTIVITY_KIND_KERNEL)")]
+        row = dict(zip(cols, list(conn.execute(
+            "SELECT * FROM CUPTI_ACTIVITY_KIND_KERNEL ORDER BY start LIMIT 1"))[0]))
+        # A shorter kernel nested inside the first, on another stream: the two are
+        # concurrent, and the transfer spans both.
+        row["start"], row["end"] = 1_000_500_000, 1_001_000_000
+        if "streamId" in row:
+            row["streamId"] = 77
+        conn.execute(
+            f"INSERT INTO CUPTI_ACTIVITY_KIND_KERNEL ({','.join(cols)}) "
+            f"VALUES ({','.join('?' for _ in cols)})",
+            [row[c] for c in cols],
+        )
+        conn.commit()
+        conn.close()
+
+        profile = open_profile(path)
+        self._open.append(profile)
+        h2d = {t.direction: t for t in compute_transfer_overlap(profile)}["Host-to-Device"]
+
+        self.assertAlmostEqual(h2d.total_s, 0.002, places=9, msg="fixture geometry moved")
+        self.assertLessEqual(
+            h2d.overlapped_s, h2d.total_s,
+            "a transfer was hidden for longer than it lasted; the nested kernel was "
+            "counted a second time, so the interval sets are being walked unmerged",
+        )
+        self.assertGreaterEqual(h2d.exposed_s, 0.0, "exposed time went negative")
+        self.assertAlmostEqual(h2d.overlapped_s, 0.002, places=9)
+
 
 class TransferUnionControls(AttributionTestBase):
     """The per-direction rows must not be added up, so the tool does the merge.

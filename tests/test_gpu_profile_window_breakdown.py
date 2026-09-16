@@ -25,6 +25,7 @@ TOOL = ROOT / "tools" / "gpu-profile-summary.py"
 METRICS = ROOT / "tools" / "gpu_profile" / "metrics.py"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from support import PerturbationMixin  # noqa: E402
 from gpu_profile_fixtures import (  # noqa: E402
     build_synthetic_nsys_db,
     build_synthetic_rocpd_db,
@@ -199,21 +200,13 @@ class WindowBreakdownTests(unittest.TestCase):
         self.assertEqual(self.nsys.read_bytes(), before)
 
 
-class WindowBreakdownControls(unittest.TestCase):
+class WindowBreakdownControls(PerturbationMixin, unittest.TestCase):
     """Each control perturbs the implementation and asserts the perturbation landed."""
 
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.db = build_synthetic_nsys_db(Path(self._tmp.name) / "n.sqlite")
-        self.original = METRICS.read_text()
-
-    def tearDown(self) -> None:
-        METRICS.write_text(self.original)
-        self._tmp.cleanup()
-
-    def perturb(self, old: str, new: str) -> None:
-        self.assertIn(old, self.original, "control edit matched nothing; it would prove nothing")
-        METRICS.write_text(self.original.replace(old, new, 1))
+        self.addCleanup(self._tmp.cleanup)
 
     def test_summing_categories_instead_of_merging_is_caught(self):
         """The recorded defect this guards: a hand pass summed peer-to-peer transfer
@@ -222,6 +215,7 @@ class WindowBreakdownControls(unittest.TestCase):
         `covered`, so the window identity still balances -- only the value moves."""
         before = json.loads(run("window-breakdown", str(self.db)).stdout)["covered_s"]
         self.perturb(
+            METRICS,
             "    covered_ns = sum(e - s for s, e in merge_intervals(all_intervals))",
             "    covered_ns = sum(e - s for s, e in all_intervals)",
         )
@@ -230,6 +224,7 @@ class WindowBreakdownControls(unittest.TestCase):
 
     def test_reporting_an_untraced_category_as_zero_is_caught(self):
         self.perturb(
+            METRICS,
             "                    name=name, available=False, total_s=None,\n"
             "                    pct_of_window=None, events=None, unavailable_reason=reason,",
             "                    name=name, available=False, total_s=0.0,\n"
@@ -249,6 +244,7 @@ class WindowBreakdownControls(unittest.TestCase):
         make every other assertion here vacuous."""
         before = json.loads(run("window-breakdown", str(self.db)).stdout)
         self.perturb(
+            METRICS,
             "        if name not in _ANNOTATION_ONLY_CATEGORIES:\n"
             "            all_intervals.extend(clipped)",
             "        if True:\n"
@@ -266,6 +262,7 @@ class WindowBreakdownControls(unittest.TestCase):
         that would exclude markers anyway."""
         before = json.loads(run("window-breakdown", str(self.db)).stdout)["covered_s"]
         self.perturb(
+            METRICS,
             '_ANNOTATION_ONLY_CATEGORIES = frozenset({"markers"})',
             "_ANNOTATION_ONLY_CATEGORIES = frozenset()",
         )
@@ -274,6 +271,7 @@ class WindowBreakdownControls(unittest.TestCase):
 
     def test_dropping_the_exclusion_caveat_is_caught(self):
         self.perturb(
+            METRICS,
             '            "Coverage counts traced activity only; "',
             '            "" if True else "Coverage counts traced activity only; "',
         )
@@ -282,6 +280,7 @@ class WindowBreakdownControls(unittest.TestCase):
 
     def test_dropping_the_caveat_is_caught(self):
         self.perturb(
+            METRICS,
             '        caveats.append(\n            "A category reported as unavailable was not traced.',
             '        pass  # noqa\n        _unused = (\n            "A category reported as unavailable was not traced.',
         )

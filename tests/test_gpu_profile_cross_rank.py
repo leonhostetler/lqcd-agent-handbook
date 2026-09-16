@@ -28,6 +28,7 @@ DIFF = ROOT / "tools" / "gpu-profile-diff.py"
 CROSS_RANK = ROOT / "tools" / "gpu_profile" / "cross_rank.py"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from support import PerturbationMixin  # noqa: E402
 from gpu_profile_fixtures import (  # noqa: E402
     build_synthetic_nsys_db,
     build_synthetic_rocpd_db,
@@ -252,7 +253,7 @@ class CrossRankTests(unittest.TestCase):
         self.assertNotIn("Traceback", proc.stderr)
 
 
-class CrossRankRefusalControls(unittest.TestCase):
+class CrossRankRefusalControls(PerturbationMixin, unittest.TestCase):
     """Each control perturbs the implementation and asserts the perturbation landed."""
 
     @classmethod
@@ -269,16 +270,6 @@ class CrossRankRefusalControls(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls._tmp.cleanup()
 
-    def setUp(self) -> None:
-        self.original = CROSS_RANK.read_text()
-
-    def tearDown(self) -> None:
-        CROSS_RANK.write_text(self.original)
-
-    def perturb(self, old: str, new: str) -> None:
-        self.assertIn(old, self.original, "control edit matched nothing; it would prove nothing")
-        CROSS_RANK.write_text(self.original.replace(old, new, 1))
-
     def test_both_paths_share_one_overview_builder(self):
         """Emptying `compute_rank_overviews` must empty the refusal *and* the success
         payload. If only one moves, the builder was re-inlined and the two can drift
@@ -289,6 +280,7 @@ class CrossRankRefusalControls(unittest.TestCase):
         self.assertTrue(aligned["per_rank_overview"])
 
         self.perturb(
+            CROSS_RANK,
             "    overviews = []\n    for rid in sorted(summaries):",
             "    overviews = []\n    for rid in []:",
         )

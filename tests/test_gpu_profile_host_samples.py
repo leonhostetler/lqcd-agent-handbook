@@ -34,6 +34,7 @@ METRICS = ROOT / "tools" / "gpu_profile" / "metrics.py"
 ROCPD = ROOT / "tools" / "gpu_profile" / "rocpd.py"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from support import PerturbationMixin  # noqa: E402
 from gpu_profile_fixtures import (  # noqa: E402
     build_synthetic_nsys_db,
     build_synthetic_rocpd_db,
@@ -166,7 +167,7 @@ class HostSampleTests(unittest.TestCase):
         self.assertEqual(self.nsys.read_bytes(), before)
 
 
-class HostSampleControls(unittest.TestCase):
+class HostSampleControls(PerturbationMixin, unittest.TestCase):
     """Each control perturbs the implementation and asserts the perturbation landed."""
 
     def setUp(self) -> None:
@@ -174,23 +175,13 @@ class HostSampleControls(unittest.TestCase):
         root = Path(self._tmp.name)
         self.nsys = build_synthetic_nsys_db(root / "n.sqlite")
         self.rocpd = build_synthetic_rocpd_db(root / "r.db")
-        self.nsys_src = NSYS.read_text()
-        self.rocpd_src = ROCPD.read_text()
-        self.metrics_src = METRICS.read_text()
 
     def tearDown(self) -> None:
-        NSYS.write_text(self.nsys_src)
-        ROCPD.write_text(self.rocpd_src)
-        METRICS.write_text(self.metrics_src)
         self._tmp.cleanup()
-
-    def perturb(self, path: Path, original: str, old: str, new: str) -> None:
-        self.assertIn(old, original, "control edit matched nothing; it would prove nothing")
-        path.write_text(original.replace(old, new, 1))
 
     def test_counting_every_frame_instead_of_the_leaf_is_caught(self):
         before = json.loads(run("host-samples", str(self.nsys)).stdout)
-        self.perturb(NSYS, self.nsys_src, "WHERE c.stackDepth = 0", "WHERE c.stackDepth >= 0")
+        self.perturb(NSYS, "WHERE c.stackDepth = 0", "WHERE c.stackDepth >= 0")
         after = json.loads(run("host-samples", str(self.nsys)).stdout)
         self.assertIn(
             "caller_frame", [r["name"] for r in after["by_symbol"]],
@@ -204,7 +195,7 @@ class HostSampleControls(unittest.TestCase):
         before = json.loads(run("host-samples", str(self.nsys)).stdout)
         self.assertTrue(before["available"])
         self.perturb(
-            NSYS, self.nsys_src,
+            NSYS,
             'has_cpu_samples=(\n                    self._table_has_data("COMPOSITE_EVENTS")',
             'has_cpu_samples=(\n                    False and self._table_has_data("COMPOSITE_EVENTS")',
         )
@@ -215,7 +206,7 @@ class HostSampleControls(unittest.TestCase):
         """If rocpd returned an empty aggregate instead of None, "cannot resolve
         symbols" would silently become "the host did nothing"."""
         self.perturb(
-            ROCPD, self.rocpd_src,
+            ROCPD,
             "        `capabilities.has_cpu_samples` still reports truthfully whether the capture\n"
             "        has any.\n        \"\"\"\n        return None",
             "        `capabilities.has_cpu_samples` still reports truthfully whether the capture\n"
@@ -251,7 +242,7 @@ class HostSampleControls(unittest.TestCase):
         before = json.loads(run("host-samples", str(self.nsys)).stdout)
         self.assertTrue(any("not a duration" in c for c in before["caveats"]))
         self.perturb(
-            METRICS, self.metrics_src,
+            METRICS,
             '        "Samples are a count, not a duration.',
             '        "REMOVED BY CONTROL.',
         )
@@ -263,7 +254,7 @@ class HostSampleControls(unittest.TestCase):
 
     def test_dropping_the_leaf_frame_caveat_is_caught(self):
         self.perturb(
-            METRICS, self.metrics_src,
+            METRICS,
             '        "Only the leaf frame is counted,',
             '        "REMOVED BY CONTROL,',
         )
@@ -275,7 +266,7 @@ class HostSampleControls(unittest.TestCase):
         sampling supports no claim about the host, and equally none that it was
         idle."""
         self.perturb(
-            METRICS, self.metrics_src,
+            METRICS,
             "    if not profile.capabilities.has_cpu_samples:\n        return _empty(",
             "    if False and not profile.capabilities.has_cpu_samples:\n        return _empty(",
         )
