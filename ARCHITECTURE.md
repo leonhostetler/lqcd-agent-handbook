@@ -1,6 +1,24 @@
 # LQCD Agent Handbook — Architecture
 
-This document is the durable design authority for the handbook. Changes require a stated reason and an update to the decision log. Mutable build state and the next action live only in `ROADMAP.md`.
+<a id="what-this-document-is"></a>
+## 0. What this document is
+
+This document is the durable design authority for the handbook. It is read in full at the
+start of every developer-mode session, so every byte is paid on every session.
+
+**It holds:** locked decisions and their reopen triggers; design principles; the directory,
+knowledge-atom, screening and mode contracts; and the mechanism each rule exists to protect.
+
+**It does not hold:** dated amendment histories, the evidence or session that produced a
+decision, measured figures, the narrative of how a defect was found, or a next action. A
+decision's *reason* is one sentence here; its *evidence* is an episode and belongs in
+`DEVLOG.md`; rationale about how a tool behaves belongs in that tool or its controls, where
+it is read only when the tool is being changed.
+
+**When a decision changes, rewrite the rule — never append an amendment.** Carry forward
+only the clause that stops it being re-litigated, and record the change in `DEVLOG.md`.
+Changes require a stated reason and an update to the decision log. Mutable build state and
+the next action live only in `ROADMAP.md`.
 
 <a id="decisions-locked"></a>
 ## 1. Decisions locked
@@ -25,22 +43,21 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 
 | Decision | Choice | Reopen when |
 |---|---|---|
-| **Stacks** | Validated machine × software × toolchain × **build profile** records, filed **under the machine** ([§stacks](#stacks)). Never speculative — a stack exists only if it was built and run | — |
-| **Build profiles** | Named option sets with **capabilities** live in `software/<name>/build-profiles.yaml`; stacks reference a profile and record what it **cost** here. Where a build may run is machine knowledge; a compute-node build is a job under [§budget-rule](#budget-rule) ([§build-profiles](#build-profiles)) | — |
-| **Application guides** | A suite's version-scoped input grammar, work units, output structure, timing-marker semantics, and completion/correctness signals live in `software/<name>/applications/`. They are application guides, not build profiles: work modes own the experimental method, build profiles own compiled capabilities and instrumentation, and stacks own the exact combinations validated on a machine ([§application-guides](#application-guides)) | Several suites expose a stable, useful application schema that is better represented as validated structured data than as prose |
-| **Development conventions** | Software-specific code-change and contribution rules live in `software/<name>/development.md`. Because they vary by project and cut across work modes, they load whenever that software is modified or prepared for review; modes and playbooks point there rather than duplicate them. Only software-independent rules belong in `conventions/`. When a rule is executable, its project-specific helper stays centrally discoverable in `tools/`, carries the software name, and is routed only from that development leaf ([§directory-layout](#directory-layout)) | — |
-| **Profile-analysis capability** | Split on what the artifact is. Deterministic extraction from a profiler database — vendor SQL, string-table joins, concurrency-aware interval merging, phase segmentation, cross-rank alignment — ships as a handbook tool that makes no model call and opens no socket. The interpretation contract — what each metric means, what it may not be read to say, what a hypothesis must carry — ships as leaves the session executes itself. The handbook never wraps a second agent ([§profile-analysis](#profile-analysis)) | A profile format arrives whose extraction cannot be made offline and deterministic |
-| **Solver placement** | Solver availability and behavior are software-specific. Implementation knowledge lives in `software/<name>/solvers/`; build profiles declare enabled capabilities, and stacks record what was validated. Software-independent terminology belongs in `conventions/`, while `playbooks/tune-solver.md` owns the selection procedure | A body of actionable solver knowledge proves genuinely software-independent |
+| **Stacks** | Validated machine × software × toolchain × **build profile** records, filed **under the machine**. Never speculative — a stack exists only if it was built and run ([§stacks](#stacks)) | — |
+| **Build profiles** | Named option sets with **capabilities** in `software/<name>/build-profiles.yaml`; stacks reference a profile and record what it **cost**. Where a build may run is machine knowledge, and a compute-node build is a job under [§budget-rule](#budget-rule) ([§build-profiles](#build-profiles)) | — |
+| **Application guides** | A suite's input grammar, work units, output structure, timing-marker semantics and completion signals live in `software/<name>/applications/`, version-scoped. Work modes own the method, build profiles own compiled capabilities, stacks own what was validated ([§application-guides](#application-guides)) | Several suites expose an application schema better represented as validated structured data than as prose |
+| **Development conventions** | Software-specific code-change rules live in `software/<name>/development.md` and load whenever that software is modified or prepared for review; only software-independent rules belong in `conventions/`. An executable one keeps its helper in `tools/`, named for the software and routed only from that leaf ([§directory-layout](#directory-layout)) | — |
+| **Profile-analysis capability** | Split on what the artifact is: deterministic extraction from a profiler database ships as an offline tool that makes no model call, the interpretation contract ships as leaves the session executes itself, and the handbook never wraps a second agent ([§profile-analysis](#profile-analysis)) | A profile format arrives whose extraction cannot be made offline and deterministic |
+| **Solver placement** | Implementation knowledge lives in `software/<name>/solvers/`; build profiles declare enabled capabilities and stacks record what was validated. Software-independent terminology belongs in `conventions/`, and `playbooks/tune-solver.md` owns the selection procedure | A body of actionable solver knowledge proves genuinely software-independent |
 | **Indexing** | Tier-0 `INDEX.md` is a ~dozen-line routing table; per-domain indices are **generated**, committed, and grouped by scoped object ([§indexing](#indexing)) | A domain has enough objects that grouping obscures rather than improves cold reading |
 | **Version pins** | `project.yaml` carries **none**. Pins live in stacks; the checkout in front of you is session state ([§version-lifetimes](#version-lifetimes)) | — |
 | **Branch policy** | **There is none, deliberately.** QUDA and MILC are built from `develop`, a feature branch, or a fork, per episode; tagged releases are not used. So the branch is session state too, and the environment-vs-stack check reports **ancestry — including `diverged` — never a commit distance** ([§version-lifetimes](#version-lifetimes)) | Either project adopts a real release cadence |
-| **Node types** | One `machines/<name>/` per machine, with `node_types:` inside for CPU/GPU partitions *and* for heterogeneous accelerators — never `machine-gpu/` beside `machine-cpu/`. Node types carry build-determining fields separately from sizing-determining ones, including documented installed inventory per type; stacks record `validated_on:` as a list, and shared-architecture compatibility is **reported as an inference, never as validation**. An explicit operator declaration selects the node type; without one, exactly one profiled node type is the unambiguous default, while multiple profiled types require a declaration. A login host alone never selects it. The resolved type is reconciled against vendor runtime telemetry once a job runs ([§node-types](#node-types)) | — |
+| **Node types** | One `machines/<name>/` per machine with `node_types:` inside, for CPU/GPU partitions and heterogeneous accelerators alike — never `machine-gpu/` beside `machine-cpu/`. Build-determining fields are carried separately from sizing-determining ones, shared-architecture compatibility is **reported as an inference, never as validation**, and a login host alone never selects a type ([§node-types](#node-types)) | — |
 | **Machine order** | Frontier → DeltaAI → Aurora, onboarded as needed rather than as slices. Scheduler and accelerator fields are **discriminated on type from slice 2** so PBS and non-NVIDIA arrive as values, not restructures ([§build-order](ROADMAP.md#build-order)) | — |
-| **Scheduler submission surface** | Recorded **once per scheduler type** in `conventions/scheduler-surfaces.yaml` — directive prefix, account/chdir/output option names, and the job-id, array, and submit-directory variables — so submission guidance stays scheduler-agnostic. A machine profile names its `type` and carries only what its site genuinely changes or provides; a site facility that does not exist is an explicit `null`, never omitted ([§scheduler-surface](#scheduler-surface)) | A scheduler arrives whose submission surface cannot be expressed as named options and variables |
-| **The plan itself** | Ships in the repo as `ARCHITECTURE.md` (durable) + `ROADMAP.md` (state), developer-mode only ([§plan-ships-with-handbook](#plan-ships-with-handbook)) | — |
+| **Scheduler submission surface** | Recorded **once per scheduler type** in `conventions/scheduler-surfaces.yaml`, so submission guidance stays scheduler-agnostic. A machine profile names its `type` and overrides only what its site genuinely changes; a site facility that does not exist is an explicit `null`, never omitted ([§scheduler-surface](#scheduler-surface)) | A scheduler arrives whose submission surface cannot be expressed as named options and variables |
+| **The plan itself** | Ships in the repo as `ARCHITECTURE.md` (durable design), `ROADMAP.md` (mutable state) and `DEVLOG.md` (the episode record, never loaded at session start), developer-mode only ([§plan-ships-with-handbook](#plan-ships-with-handbook)) | — |
 | **Cross-references** | Stable `<a id="slug">` anchors, not section numbers; numbers stay in headings and may change freely. Validator-enforced. **Long documents only** — knowledge files are already addressed by path ([§stable-anchors](#stable-anchors)) | — |
 | **Predictions** | The loop is mandatory in benchmarking and tuning, but records live in the **working directory**; only `prediction.schema.json` ships ([§records-in-working-directory](#records-in-working-directory)) | — |
-
 <a id="decisions-knowledge-contract"></a>
 ### 1.3. Knowledge contract
 
@@ -61,30 +78,29 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 
 | Decision | Choice | Reopen when |
 |---|---|---|
-| **Automation of repeated work** | Two separate rules, deliberately not merged. **Authoring time** ([§prefer-a-tool](#prefer-a-tool)): a mined fact that can be executed must ship as a script plus an index line. The by-hand counter's exemption is scoped to procedures **no tool in `tools/` could execute**, not to everything a profiler-database reader cannot emit (narrowed 2026-09-15, [§profile-analysis](#profile-analysis)). **Working practice** (`conventions/repeated-work.md`): a procedure a campaign repeats should become a tool, surfaced by a checkpoint at each study or phase closure and each work-mode change rather than by an event trigger, because the set of repeated actions is not visible at the start. Every work mode carries the checkpoint in its `Done` and `Tools and routing` sections, so a mode change fires it mechanically, and the Tier-0 standing rule names the trigger and points at the leaf on [§batch-scripts](#batch-scripts)'s pattern. A new tool is not trusted on a passing run: it must be made to fail on purpose, and a no-op negative test is vacuous | A checkpoint proves too weak in practice — the next stronger anchor is a required field in an existing mandatory record, not a louder instruction |
-| **Tier-2 never cites a developer document** | A leaf, playbook, mode or convention must not send a reader into `ARCHITECTURE.md` or `ROADMAP.md` for operative content. Cite the Tier-0 standing rule, which every session already carries, or restate the operative sentence in the leaf. Those two documents are read as a **precondition for editing** ([§developer-obligations](#developer-obligations)), and Tier 0 states that developer-only planning is not opened in user mode; a Tier-2 pointer into them inverts the tier structure, since the leaf is meant to be the smallest thing that answers the question. **The exception is a document whose subject *is* handbook development** — the developer-mode entry step in `playbooks/start-session.md` names both correctly. Provenance is not a reason to link: recording where a rationale lives is a developer concern, and a sentence that cannot stand without the citation belongs in the leaf | A Tier-2 reader demonstrably needs design rationale that cannot be restated in a sentence — which is a signal the leaf is missing content, not that the link is wanted |
-| **Context compaction** | Named as a routing trigger in Tier 0, and it must **stay** in Tier 0. A compaction summarizes the conversation while re-supplying the entrypoint, so every Tier-2 leaf — and every playbook and mode document — is lost with it. The task-time surfaces that make [§batch-scripts](#batch-scripts)'s Tier-0 pointer *fire* therefore cannot serve here: they are removed by the same event they would respond to, which inverts that section's placement argument. The loss is also silent, since a summary still supports a confident restatement of a band or a parameter meaning, so the rule carries an explicit no-recall clause rather than only a reload instruction. Full orientation is deliberately **not** re-run: machine, node type, stack and modes are stable and recorded | Moving this rule into a leaf to reclaim Tier-0 bytes — which would silently disable it — or a frontend that demonstrably preserves loaded leaf content across a compaction |
+| **Automation of repeated work** | Two rules, deliberately not merged. **Authoring time** ([§prefer-a-tool](#prefer-a-tool)): a mined fact that can be executed ships as a script plus an index line, and a figure escapes the by-hand counter only when no tool in `tools/` could execute the procedure. **Working practice** (`conventions/repeated-work.md`): a procedure a campaign repeats should become a tool, surfaced by a checkpoint at each study or phase closure and each work-mode change rather than by an event trigger, because the set of repeated actions is not visible at the start. A new tool is not trusted on a passing run: it must be made to fail on purpose, and a no-op negative test is vacuous | A checkpoint proves too weak in practice — the next stronger anchor is a required field in an existing mandatory record, not a louder instruction |
+| **Tier-2 never cites a developer document** | A leaf, playbook, mode or convention must not send a reader into `ARCHITECTURE.md`, `ROADMAP.md` or `DEVLOG.md` for operative content: cite the Tier-0 standing rule, which every session already carries, or restate the operative sentence in the leaf. Such a pointer inverts the tier structure, since the leaf is meant to be the smallest thing that answers the question. **The exception is a document whose subject *is* handbook development.** Provenance is not a reason to link | A Tier-2 reader demonstrably needs design rationale that cannot be restated in a sentence — which signals the leaf is missing content, not that the link is wanted |
+| **Context compaction** | Named as a routing trigger in Tier 0, and it must **stay** in Tier 0. A compaction summarizes the conversation while re-supplying the entrypoint, so every leaf, playbook and mode document is lost with it — and the task-time surfaces that make other Tier-0 pointers fire cannot serve here, being removed by the same event they would respond to. The loss is silent, since a summary still supports a confident restatement of a band or a parameter meaning, so the rule carries an explicit no-recall clause rather than only a reload instruction. Full orientation is deliberately **not** re-run: machine, node type, stack and modes are stable and recorded | Moving this rule into a leaf to reclaim Tier-0 bytes — which would silently disable it — or a frontend that demonstrably preserves loaded leaf content across a compaction |
 | **Work mode** | Current, not permanent — may change mid-session, but only by explicit declaration. It follows the immediate decision and deliverable, not every tool used along the way ([§work-mode-currency](#work-mode-currency)) | — |
-| **Task-time Tier-2 routing** | Session startup loads Tier 1 only. Before substantive LQCD analysis or action, and whenever a task narrows or changes, the agent derives named applications, solvers, ensembles, and the immediate decision from the operator request and active project instructions, then uses `INDEX.md` and only the matching domain indices to load the smallest Tier-2 leaves whose `load_when` matches. Interpretation of mechanisms, parameters, failures, campaign evidence, or next candidates waits for this check | A reliable executable task router makes the Tier-0 checkpoint redundant |
-| **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate — the solver, build, runtime, resource-placement, and workflow choices being evaluated — while benchmarking measures a candidate and workload frozen before the measured series. A campaign may move from tuning to confirmatory benchmarking, but never occupies a hybrid mode, and an exploratory winner needs an independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
-| **Performance and tuning boundary** | Performance mode **diagnoses**: it captures or ingests a profile and produces a ranked, evidenced hypothesis list. Tuning mode **searches**: it applies a change, rebuilds, remeasures, and selects a candidate. A profile-driven optimisation loop therefore crosses a mode boundary and is declared at the crossing; it is never one mode doing both, for the same reason tuning and benchmarking are not ([§work-modes](#work-modes), [§profile-analysis](#profile-analysis)) | A diagnosis phase proves to carry no decision content distinct from the search that follows it |
+| **Task-time Tier-2 routing** | Startup loads Tier 1 only. Before substantive analysis or action, and whenever a task narrows or changes, derive the named applications, solvers, ensembles and immediate decision from the request and the active project instructions, then load the smallest Tier-2 leaves whose `load_when` matches. Interpretation waits for this check | A reliable executable task router makes the Tier-0 checkpoint redundant |
+| **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate; benchmarking measures a candidate and workload frozen before the measured series. A campaign may move from one to the other but never occupies a hybrid mode, and an exploratory winner needs independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
+| **Performance and tuning boundary** | Performance **diagnoses**: it ingests a profile and produces a ranked, evidenced hypothesis list. Tuning **searches**: it applies a change, rebuilds, remeasures and selects. A profile-driven optimisation loop crosses the boundary and is declared at the crossing, never one mode doing both ([§work-modes](#work-modes), [§profile-analysis](#profile-analysis)) | A diagnosis phase proves to carry no decision content distinct from the search that follows it |
 | **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; missing session logging produces a non-blocking offer in the orientation report ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
 | **Privacy-screening boundary** | Screen only the exact material crossing into the handbook: a user-mode inbox entry or a direct developer-mode change. Handbook privacy rules never mandate scanning, redacting, or rewriting the working project that holds source evidence ([§privacy-screening](#privacy-screening), [§handbook-modes](#handbook-modes)) | The repository's publication boundary changes |
 | **Concurrency** | Unique filenames for every user-mode write; `base_handbook_commit` on proposals. No branches, no PRs, no curator ([§freshness-model](#freshness-model)) | The handbook gains contributors beyond the operator |
-| **Intake lifecycle** | An inbox entry has two pending states, not one: **untracked** (filed locally, unreachable from any other clone) and **committed** (transported so another machine can review it). Both are pending; committing is transport, never admission. Detection is therefore a **listing of `inbox/`**, never a reading of `git status` ([§freshness-model](#freshness-model)) | Intake gains a review queue outside the repository, or entries stop travelling between clones |
+| **Intake lifecycle** | An inbox entry has two pending states: **untracked** and **committed**. Both are pending, and committing is transport rather than admission, so detection is a **listing of `inbox/`**, never a reading of `git status` ([§freshness-model](#freshness-model)) | Intake gains a review queue outside the repository, or entries stop travelling between clones |
 | **Handbook change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
-| **Project Git authority** | Authorization to change project code does not authorize commits or publication. Canonical `AGENTS.md` owns the standing rule: the agent requires an explicit operator request before committing, pushing, or opening or updating a pull or merge request. The default handoff is an uncommitted working tree, a validation summary, and a suggested commit message | The operator explicitly delegates a named class of Git actions |
+| **Project Git authority** | Authorization to change project code does not authorize commits or publication; canonical `AGENTS.md` owns the standing rule. The default handoff is an uncommitted working tree, a validation summary, and a suggested commit message | The operator explicitly delegates a named class of Git actions |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | The operator specifies an unattended submission loop up front — see [§deferred-decisions](ROADMAP.md#deferred-decisions). Reaching the point where submission is the only manual step is not itself the trigger |
-| **Batch submission scripts** | Guidance is one universal Tier-2 convention leaf, loaded before writing, modifying, or reviewing a batch script or preparing a submit command. Reached from a Tier-0 pointer **and from every task-time routing surface that can reach script work** — modes' "Tools and routing", playbook routing tables — after the pointer alone was observed not to fire (amended 2026-08-29). Mechanically decidable rules move to `tools/check-batch-script.py`, which is **advisory lint, never a sandbox** ([§batch-scripts](#batch-scripts)) | Slice 7 lands a `PreToolUse` guard that enforces rather than advises |
+| **Batch submission scripts** | One universal Tier-2 convention leaf, loaded before writing, modifying or reviewing a batch script or preparing a submit command. Reached from a Tier-0 pointer **and from every task-time routing surface that can reach script work**, because the pointer alone was observed not to fire. Mechanically decidable rules move to `tools/check-batch-script.py`, which is **advisory lint, never a sandbox** ([§batch-scripts](#batch-scripts)) | Slice 7 lands a `PreToolUse` guard that enforces rather than advises |
 | **Chargeable account** | **Never inferred** — not from a scheduler or environment default, an accounting query, another script in the working directory, or an archived campaign script. Enumerating available accounts is expected; selecting one is not ([§account-rule](#account-rule)) | The operator declares a standing per-campaign default account |
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
 | **Test builds** | Build the complete available test suite by default. A reduced test build requires an **explicit operator instruction for that build**; record the opt-out and exact excluded targets. Test execution may remain focused on the validation contract | The complete suite cannot be compiled within available build resources and the operator adopts another standing policy |
-| **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared interpreter dispatcher and checker, and an offer-only installer. The dispatcher selects a compatible versioned Python without loading a module; adapters are copied into `~/.claude/` or `~/.codex/`, and Codex still requires user trust. Logs remain **operator-facing provenance backups**: agents do not read them unless the operator explicitly requests review, and authorized review treats them as private evidence rather than canonical knowledge ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
-| **Interpreter selection** | One shared dispatcher probes caller-declared requirements and rejects any candidate that emits diagnostics. The `PATH` scan never loads a module. A caller whose output is read by a human may additionally opt into **discovering** module-provided interpreters — enumerated from the module system, never named in the tool ([§session-logging](#session-logging)) | A caller needs an interpreter that neither `PATH` nor the module system exposes |
+| **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared interpreter dispatcher and checker, and an offer-only installer. Logs are **operator-facing provenance backups**: agents do not read them unless the operator explicitly requests review, and authorized review treats them as private evidence rather than canonical knowledge ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
+| **Interpreter selection** | One shared dispatcher probes caller-declared requirements and rejects any candidate that emits diagnostics; the `PATH` scan never loads a module. A caller whose output a human reads may opt into **discovering** module-provided interpreters, enumerated from the module system and never named in the tool ([§session-logging](#session-logging)) | A caller needs an interpreter that neither `PATH` nor the module system exposes |
 | **Repo name** | `lqcd-agent-handbook` ([§locating-handbook](#locating-handbook)) | — |
-| **Locating the handbook** | `LQCD_HANDBOOK` is the sole interface; **the launcher fails fast if it is unset** — no `$HOME` fallback. No canonical path, and no clone path recorded anywhere in the repo: [§deny-list](#deny-list) denies it. Validation is **identity by content**, not by path ([§locating-handbook](#locating-handbook)) | — |
-
+| **Locating the handbook** | `LQCD_HANDBOOK` is the sole interface and **the launcher fails fast if it is unset** — no `$HOME` fallback, no canonical path, and no clone path recorded anywhere, since [§deny-list](#deny-list) denies it. Validation is **identity by content**, not by path ([§locating-handbook](#locating-handbook)) | — |
 ---
 
 <a id="design-principles"></a>
@@ -101,9 +117,6 @@ A handbook that gets read in full costs more tokens than it saves. Three tiers, 
 
 If canonical `AGENTS.md` starts accumulating facts instead of pointers, the design has failed.
 `CLAUDE.md` is a generated compatibility mirror and may never diverge from it.
-A prior deep-dive investigation grew a very long entry document. That is appropriate
-for an investigation read by long sessions and completely wrong for a handbook read by
-dozens of short ones.
 
 **P2 — One *canonical source* per fact; restatements must point to it.** Not "a fact may
 appear only once" — that rule forbids a build skill from saying *"on Perlmutter, use the
@@ -174,12 +187,16 @@ lqcd-agent-handbook/
 │                              #   validator-enforced and never edited independently.
 ├── INDEX.md                   # ROUTING TABLE ONLY (§indexing): ~a dozen lines, one per
 │                              #   domain. Never one line per file — that does not scale.
-├── ARCHITECTURE.md            # the durable design: this document's §decisions-locked
+├── ARCHITECTURE.md            # the durable design: this document's §what-this-document-is
 │                              #   … §predict-compare-loop. Developer mode only.
 │                              #   Changes rarely and never silently.
-├── ROADMAP.md                 # the mutable build state: this document's §build-order
-│                              #   … §deferred-decisions — slice status, next action,
-│                              #   acceptance results, pending decisions. Dev mode only.
+├── ROADMAP.md                 # the mutable build state: slice status, the next action,
+│                              #   the todo list, open questions, deferred decisions, and
+│                              #   the settled/rejected list. Dev mode only.
+├── DEVLOG.md                  # append-only episode record: session narratives, defect
+│                              #   forensics, measured figures, acceptance evidence.
+│                              #   Developer mode only and NOT loaded at session start —
+│                              #   opened by name (§plan-ships-with-handbook).
 ├── handbook.yaml              # the repo's own posture: phase (bootstrap|maintenance),
 │                              #   schema versions, tier-budget limits
 ├── README.md                  # for humans arriving on GitHub
@@ -296,8 +313,14 @@ lqcd-agent-handbook/
 │   ├── session_logging.py         # shared configuration/merge helpers
 │   ├── log-session-claude.sh      # Claude Stop-hook logger copied into user config
 │   ├── log-session-codex.py       # Codex Stop-hook logger copied into user config
-│   ├── memory_model.py            # admitted from a validated source model
-│   ├── check_decomposition.py     # admitted from a validated source tool
+│   ├── quda-staggered-memory.py, quda-staggered-decomposition.py
+│   │                              #   admitted from validated source models (§prefer-a-tool)
+│   ├── quda-mg-observables.py, quda_staggered_geometry.py
+│   ├── gpu-profile-summary.py, gpu-profile-diff.py, gpu_profile/
+│   │                              #   offline extraction and diff (§profile-analysis)
+│   ├── hypothesis-record.py       # derives speedup bounds; checks figure provenance
+│   ├── propose-change.py          # the pre-commit harness (§developer-obligations)
+│   ├── select-python, run-*       # interpreter dispatcher and its runners
 │   ├── extract-milc-timings.py
 │   ├── summarize-slurm-job.py
 │   ├── check-batch-script.py      # advisory batch-script lint (§batch-scripts)
@@ -308,6 +331,7 @@ lqcd-agent-handbook/
 │   │                          #   HIP instances rather than from one (§stacks)
 │   ├── machine.schema.json, project.schema.json, ensemble.schema.json
 │   ├── build-profiles.schema.json, stack.schema.json
+│   ├── scheduler-surface.schema.json, hypothesis.schema.json
 │   └── incident.schema.json, prediction.schema.json
 │
 └── inbox/                     # the ONLY path a user-mode agent may write to.
@@ -327,12 +351,14 @@ lqcd-agent-handbook/
 
 A developer-mode agent cannot adhere to an architecture it cannot read, and [§developer-obligations](#developer-obligations) item 1 makes
 this document the authority. It therefore lives **in the repo**, not beside the corpus that
-happened to prompt it. It moves in slice 0, split along the durable/mutable seam:
+happened to prompt it. It moves in slice 0, split along the durable/mutable seam, and gains
+a third file once the episode record outgrows the state it was stored beside:
 
-| File | Holds | Changes |
-|---|---|---|
-| `ARCHITECTURE.md` | [§decisions-locked](#decisions-locked) through [§predict-compare-loop](#predict-compare-loop): principles, layout, the four axes, the knowledge-atom contract, screening, the mode specifications, the prediction loop, **and the decision log** | rarely, deliberately, with the reason recorded |
-| `ROADMAP.md` | [§build-order](ROADMAP.md#build-order) through [§deferred-decisions](ROADMAP.md#deferred-decisions): slice definitions, per-slice status and acceptance results, **the next action**, open questions, and the deferred-decision register | every developer session |
+| File | Holds | Loaded in developer mode | Changes |
+|---|---|---|---|
+| `ARCHITECTURE.md` | [§what-this-document-is](#what-this-document-is) through [§predict-compare-loop](#predict-compare-loop): principles, layout, the four axes, the knowledge-atom contract, screening, the mode specifications, the prediction loop, **and the decision log** | in full, every session | rarely, deliberately, with the reason recorded |
+| `ROADMAP.md` | [§build-order](ROADMAP.md#build-order) through [§deferred-decisions](ROADMAP.md#deferred-decisions): slice status, **the next action**, the todo list, open questions, the deferred-decision register, and the settled/rejected list | in full, every session | every developer session |
+| `DEVLOG.md` | session narratives, defect forensics, measured figures, acceptance evidence — the episodes the other two cite but must not carry | **never** | appended to, never rewritten |
 
 **The split is not cosmetic.** A prior investigation established the rule it cost sessions
 to learn: *duplicating mutable state across two files guarantees they drift.* So —
@@ -347,6 +373,13 @@ to learn: *duplicating mutable state across two files guarantees they drift.* So
 That last line is what keeps the Tier-0 budget intact (P1). The plan is substantial and it
 is irrelevant to a user-mode session tuning a solver — so it is developer-mode Tier 1, and
 a user-mode session pays two lines of routing for it, not two documents.
+
+**`DEVLOG.md` is not read at session start, and that is what makes it affordable.** Both
+other files load in full every developer session, so moving prose between them saves
+nothing; only moving it out of the loaded set does. A session opens `DEVLOG.md` by name
+when it needs the evidence behind a decision, and not otherwise. The rule is stated here
+and in `modes/developer.md` rather than in Tier 0, because it can only apply to a session
+that has already loaded both.
 
 **The decision log is [§decisions-locked](#decisions-locked)**, which already carries every settled decision with its reopen
 trigger. It is a section, not a directory, and it travels with `ARCHITECTURE.md`. What it
@@ -663,7 +696,7 @@ succeeds slowly.
 session start.** CPU-vs-GPU does not stop at the build and the queue. It decides **which
 solvers exist at all** — the deflated-CG and multigrid landscape admitted from the source tuning
 corpus is QUDA-on-GPU, and a CPU run is a different regime — and it decides whether
-`memory_model.py`'s device-memory half means anything. All of that follows from the stack in
+`quda-staggered-memory.py`'s device-memory half means anything. All of that follows from the stack in
 one lookup. [§loading-chain](#loading-chain) step 3 resolves it accordingly.
 
 **Two failure modes this creates, both handled by reporting rather than by machinery:**
@@ -699,7 +732,7 @@ identical binaries for no reason; *not* splitting on architecture silently runs 
 build on sm_90 hardware. `node_types` therefore carries both the build-determining fields
 (vendor, arch, toolchain constraints) and the sizing-determining ones (device memory, GPUs
 per node, interconnect), and consumers take what they need: the build path reads the first
-group, `memory_model.py` and `check_decomposition.py` read the second.
+group, `quda-staggered-memory.py` and `quda-staggered-decomposition.py` read the second.
 
 **Compatibility is inferable; validation is not.** [§stacks](#stacks)'s rule 1 — a stack exists only if it
 was validated — must not be quietly weakened into "an sm_80 stack covers every sm_80 node
@@ -996,15 +1029,15 @@ Seven rules:
 3a. **Frontend session tooling is declared non-content in `.gitignore`, so it never reaches
    rule 3.** An agent sandbox materialises a placeholder at every path it denies writes to,
    and Git reports each as `??` although nothing was authored — enough to stop a session on
-   the sandbox's own bookkeeping, as ten such paths did on Perlmutter on 2026-08-28. Do not
-   try to recognise a placeholder by inspecting it: that same sandbox represented the same
-   paths first as character devices owned by `nobody` and then, minutes later, as empty
-   unwritable regular files owned by the operator. Ownership, size, mode, and file type all
-   moved. Declaration is stable where inspection is not, so `.mcp.json`, `.claude/*`, and
-   `.agents/*` are ignored, with the handbook-owned `skills/` directories re-included — a
-   new or modified file under `.claude/skills/` is still reported, because that part *is*
-   handbook content. Extend the ignore list when a frontend adds a tooling path; outside
-   those declared paths, a `??` entry is real and rule 3 applies unchanged.
+   the sandbox's own bookkeeping. **Do not try to recognise a placeholder by inspecting it:**
+   one sandbox represented the same paths first as character devices owned by `nobody` and
+   then, minutes later, as empty unwritable regular files owned by the operator, so
+   ownership, size, mode and file type all moved. Declaration is stable where inspection is
+   not, so `.mcp.json`, `.claude/*`, and `.agents/*` are ignored, with the handbook-owned
+   `skills/` directories re-included — a new or modified file under `.claude/skills/` is
+   still reported, because that part *is* handbook content. Extend the ignore list when a
+   frontend adds a tooling path; outside those declared paths, a `??` entry is real and
+   rule 3 applies unchanged.
 4. **A committed inbox entry is pending intake too, and it is the ordinary
    cross-machine case.** An untracked proposal cannot leave the clone that wrote it, so the
    only way to put one in front of the machine that will review it is to commit it.
@@ -1073,97 +1106,85 @@ TOML. Codex supplies `transcript_path` and `last_assistant_message`, documents i
 transcript JSONL as unstable, and requires the operator to review and trust the exact
 non-managed hook definition through `/hooks`.
 
-**Interpreter selection is explicit and does not mutate modules.** A live Perlmutter
-startup exposed two independent hazards: the unversioned system `python3` was too old to
-parse the tools, while a module-provided Python emitted scheduler-authentication diagnostics
-into otherwise valid JSON. NERSC's site-injected Python monitor can also sample
-nondeterministically at interpreter exit, after an otherwise clean capability probe. The
-shared dispatcher therefore disables NERSC PyMon for its own subprocess, prefers a
-compatible versioned command, verifies the required Python, YAML, and TOML capabilities,
-rejects candidates that emit diagnostics during the probe, and only then executes the
-checker or installer. The disable variable is inert away from NERSC and does not alter the
-caller's module state. The Codex installer records the selected absolute interpreter in the
-hook command, so later hooks do not depend on `PATH` or a module environment.
+**Interpreter selection is explicit and does not mutate modules.** A shared dispatcher
+prefers a compatible versioned command, verifies the caller's declared capabilities, and
+**rejects any candidate that emits diagnostics during the probe** — an unversioned system
+`python3` may be too old to parse the tools, and a module-provided one may write site
+authentication noise into otherwise valid output. Where a site injects a Python monitor that
+samples at interpreter exit, the dispatcher disables it for its own subprocess only; the
+variable is inert elsewhere and never alters the caller's module state. The Codex installer
+pins the selected absolute interpreter into the hook command, so later hooks do not depend
+on `PATH` or a module environment.
 
 **The no-module rule is scoped to the session-logging path, not to every caller.** Its
 reason is output integrity: this checker's stdout is parsed as JSON, so an interpreter that
 emits site diagnostics corrupts the result even when its imports succeed. That reason does
-not transfer to a caller whose output a human reads. A Perlmutter developer session found
-the consequence: the knowledge validator additionally requires `jsonschema`, no interpreter
-on `PATH` provided it, and [§developer-obligations](#developer-obligations) item 6 makes that
-validator mandatory before every commit — so the one check guarding the privacy deny-list
-could not be run at all.
+not transfer to a caller whose output a human reads — and scoping it too widely once made
+the mandatory pre-commit validator unrunnable, because its `jsonschema` dependency existed
+only in a module.
 
 **A human-facing caller may therefore opt into module-provided interpreters, by discovery
 rather than by name.** The dispatcher enumerates what the module system offers and probes
 each candidate with the caller's own requirements, in the same preference order the `PATH`
 scan uses; it never carries a module name, which would be machine knowledge in a shared tool
-(P3). The existing safeguards are what make this safe without new machinery — because the
-dispatcher already suppresses the site Python monitor for its own subprocess, the preferred
-module on the machine that exposed the defect probes cleanly and is selected, while the
-reject-on-output rule still stands guard over any candidate that emits regardless. Selection
-remains explicit, the probe is unchanged, and the load happens in the dispatcher's own
-process, so no caller's environment is mutated. Session logging does not pass the flag and
-its behaviour is unchanged.
+(P3). No new machinery is needed to make this safe: the reject-on-output rule still guards
+every candidate, selection stays explicit, and the load happens in the dispatcher's own
+process, so no caller's environment is mutated.
 
 **Startup checks and offers; it never auto-installs.** After handbook freshness is
-established, `lqcd-start-session` runs `tools/check-session-logging.py` through the shared
-interpreter dispatcher for the active frontend. Missing, stale, or broken state produces a non-blocking offer in the orientation
+established, `lqcd-start-session` runs the checker through the dispatcher for the active
+frontend. Missing, stale, or broken state produces a non-blocking offer in the orientation
 report rather than a second mandatory question. Codex trust is not inferred from config
 files: configured state is reported separately, and the operator completes trust in the
 frontend. Declining changes nothing and is not persisted.
 
-**Installation remains a user decision.** On explicit consent,
-`tools/install-session-logging.py` dispatches to the active frontend, backs up and merges
-user configuration, preserves unrelated hooks, and copies the adapter into that
-frontend's user directory. It refuses malformed or ambiguous configuration rather than
-guessing. It cannot arrive merely through `--add-dir` ([§loading-invariants](#loading-invariants)), and it
-must not point a global hook into `$LQCD_HANDBOOK`: unrelated sessions must not fail
-because a clone moved or disappeared. The startup checker compares the copy with the
-handbook and can offer repair when they drift.
+**Installation remains a user decision.** On explicit consent the installer dispatches to
+the active frontend, backs up and merges user configuration, preserves unrelated hooks, and
+copies the adapter into that frontend's user directory. It refuses malformed or ambiguous
+configuration rather than guessing. It cannot arrive merely through
+[§loading-invariants](#loading-invariants)'s `--add-dir`, and it **must not point a global
+hook into `$LQCD_HANDBOOK`**: unrelated sessions must not fail because a clone moved. The
+startup checker compares the copy with the handbook and can offer repair when they drift.
 
-**The plugin question was reconsidered here and the launcher design remains.** This logger
-applies to every agent session on the account, not only projects that enable an LQCD
-plugin. Codex plugin hooks still require the same explicit trust, and a plugin would not
-provide the Claude adapter. The offer-only user installer is therefore the smaller common
-contract; Slice 7 may revisit plugins for enforcement hooks and agents with different
-scope.
+**A plugin would not replace this.** The logger applies to every agent session on the
+account, not only projects that enable an LQCD plugin; Codex plugin hooks still require the
+same explicit trust; and a plugin would not provide the Claude adapter. The offer-only user
+installer is the smaller common contract. Slice 7 may revisit plugins for enforcement hooks,
+whose scope is different.
 
 **What the logs are for.** `[operator]` They are a last-resort backup of the work and
 thinking a session contained — an **ultimate provenance record for the operator**, not a
-routine knowledge source for the agent.
-**Explicit review is a narrow operator-controlled exception.** It exists for recovery or
-targeted reasoning analysis. Authorization to read is not publication clearance: the
-transcript remains private, and any durable candidate follows mined-material
-classification, targeted repository-boundary privacy screening, and an affirmative publishability decision
-before admission. Two consequences:
+routine knowledge source for the agent. **Explicit review is a narrow operator-controlled
+exception**, for recovery or targeted reasoning analysis. Authorization to read is not
+publication clearance: the transcript stays private, and any durable candidate follows
+mined-material classification, repository-boundary screening, and an affirmative
+publishability decision before admission. Two consequences:
 
 - **They are not an input to the capture loop ([§predict-compare-loop](#predict-compare-loop)) by default.** Predictions and
   comparisons live in session memory, or — when work crosses sessions — in a document the
   agent writes deliberately into the working directory. Reasoning worth keeping should be
-  written down on purpose. Routine capture never mines logs merely because they are
-  present; only an explicit operator request activates the exception above.
+  written down on purpose.
 - **`conventions/orientation.md` carries an explicit rule: do not read `session_*.log`
-  unless the operator explicitly requests it.** This has to be a rule rather than an omission, because a
-  fresh agent landing in a working directory will *see* the file, obviously relevant and
-  full of context. It is a token trap — verbatim transcript is the least dense form of that
-  knowledge and the most likely to be stale. State the reason with the rule; a rule without
-  one gets rationalized around.
+  unless the operator explicitly requests it.** This has to be a rule rather than an
+  omission, because a fresh agent landing in a working directory will *see* the file,
+  obviously relevant and full of context. It is a token trap — verbatim transcript is the
+  least dense form of that knowledge and the most likely to be stale. State the reason with
+  the rule; a rule without one gets rationalized around.
 
-**The privacy consequence is immediate.** During bootstrap, most sessions are developer-mode
-sessions run *inside the handbook repo* — so the hook drops verbatim transcripts into a
-public repo's working tree, `git add`-able, containing precisely what [§deny-list](#deny-list) denies:
-usernames, paths, hostnames, and whatever was discussed. `session_*.log` goes in
-`.gitignore` **at slice 0**, and `PRIVACY.md` names it as a known hazard. A file nobody
-reads is exactly the file that gets committed by accident.
+**The privacy consequence is immediate.** During bootstrap most sessions are developer-mode
+sessions run *inside the handbook repo*, so the hook drops verbatim transcripts into a
+public repo's working tree, `git add`-able, containing precisely what
+[§deny-list](#deny-list) denies. `session_*.log` goes in `.gitignore` **at slice 0**, and
+`PRIVACY.md` names it as a known hazard. A file nobody reads is exactly the file that gets
+committed by accident.
 
-**Prose-only, for now.** Both filters exclude tool I/O, which sits in mild tension
-with "a backup of the actual work": on a debugging session the build command and its error
-output *are* the work, and what survives is the narration about it. The raw transcript JSONL
-under each frontend's user state still holds everything, so it remains the true last
-resort — but it is keyed by session id, nowhere near the work, and the first thing lost
-when a machine is rebuilt or a scratch filesystem is purged. Archiving it alongside the
-log is parked in [§deferred-decisions](ROADMAP.md#deferred-decisions) rather than decided here.
+**Prose-only, for now.** Both filters exclude tool I/O, which sits in tension with "a backup
+of the actual work": on a debugging session the build command and its error output *are* the
+work, and what survives is the narration about it. The raw transcript JSONL under each
+frontend's user state still holds everything, so it remains the true last resort — but it is
+keyed by session id, nowhere near the work, and the first thing lost when a machine is
+rebuilt or a scratch filesystem purged. Archiving it is parked in
+[§deferred-decisions](ROADMAP.md#deferred-decisions).
 
 <a id="locating-handbook"></a>
 ### 4.6. Locating the handbook: `LQCD_HANDBOOK` is the contract
@@ -1362,24 +1383,13 @@ exception with a landing slice. The completed validator enforces:
    is fine; restating a number that could drift is not (advisory, heuristic);
 8. **cross-reference integrity** — in the long documents, every `](#slug)` and every bare
    `§slug` resolves to a declared `<a id="slug">`, and a link's visible text matches its
-   target; **and repository-wide, every explicit `](<relative-path>.md#slug)` resolves to a
-   declared anchor in an existing target file.** See [§stable-anchors](#stable-anchors) for
-   why this is a check and not a convention.
-
-   **Amended 2026-09-03: the check was scoped to the long documents and that scope hid three
-   broken links.** `playbooks/`, `modes/` and the knowledge leaves point at each other by
-   anchor too, and those are the *task-time* surfaces — the ones a session follows while
-   working, where a dead pointer means guidance silently fails to load. The limit was found
-   by planting a bogus anchor in `playbooks/tune-solver.md` and observing that the validator
-   stayed silent, then confirmed by widening the check: three leaves
-   (`hierarchy-and-setup.md`, `tuning.md`, `coarse-deflation.md`) linked
-   `diagnostics.md#observable-extraction-contract`, whose section existed while the anchor
-   did not. A GitHub reader followed those links successfully on the auto-generated heading
-   slug, which is exactly why nobody noticed: the repository's own anchor contract and the
-   renderer's fallback disagreed, and only the contract survives a heading rename. **A guard
-   whose scope excludes the surfaces most likely to break is a guard that cannot fire** — the
-   same defect class as [§batch-scripts](#batch-scripts), where a correctly indexed rule did
-   not reach the moment it applied.
+   target; **and repository-wide, every relative link resolves to an existing file and every
+   `](<relative-path>.md#slug)` to a declared anchor inside it.** The repository-wide half is
+   not optional scope. `playbooks/`, `modes/` and the leaves are the task-time surfaces, where
+   a dead pointer means guidance silently fails to load, and **a guard whose scope excludes
+   the surfaces most likely to break is a guard that cannot fire.** A renderer that falls back
+   to auto-generated heading slugs will follow a link this check rejects, so resolving in a
+   browser is not evidence. See [§stable-anchors](#stable-anchors).
 
 Run it in CI and from `lqcd-capture-learning` before anything is committed.
 
@@ -1548,16 +1558,14 @@ tool's success message is more dangerous than its blind spots. Two rules follow.
 
 > `no deny-list matches · schema valid · provenance complete · publishability NOT checked`
 
-Naming the thing it cannot check is what stops it from being mistaken for permission. This
-is a wording change in a script and it is the cheapest safeguard in this document.
+Naming the thing it cannot check is what stops it from being mistaken for permission.
 
-**2. Mined material defaults to staying out.** Under [§developer-obligations](#developer-obligations) item 3 extractions are already
-quarantined, but the *disposition* was wrong: an unclassified fact
-drifted toward admission, because the mining step exists to feed the handbook. Inverted —
-**material from a prior corpus stays in its working directory unless someone affirmatively
-classifies it as publishable.** Absence of a decision means "stays out." Under [§no-escape-hatch](#no-escape-hatch)'s
-three-tier model this is nearly free: the working directory is where it already sits, so the
-default is inaction.
+**2. Mined material defaults to staying out.** **Material from a prior corpus stays in its
+working directory unless someone affirmatively classifies it as publishable**; absence of a
+decision means "stays out". The opposite disposition is the natural one, because the mining
+step exists to feed the handbook, and it lets an unclassified fact drift toward admission.
+Under [§no-escape-hatch](#no-escape-hatch)'s three-tier model the inversion is nearly free:
+the working directory is where the material already sits, so the default is inaction.
 
 **The inversion applies to mining, not to ordinary capture.** A fact learned while using the
 handbook — "this cmake flag is required on Frontier" — needs no publication decision and
@@ -1572,14 +1580,13 @@ what has been published. The control is therefore procedural rather than technic
 inversion guarantees mined material *reaches the operator as a decision* instead of being
 admitted by default.
 
-**Quarantine cannot live inside the repo it is quarantining against.** An earlier draft
-staged extractions in `inbox/mining/<source>/`. That is self-defeating: if the directory is
-committed, staging *is* publishing, and the decision the quarantine exists to force has
-already been made. Gitignoring it would work mechanically but reinstates the rejected
-`local/` pattern ([§no-escape-hatch](#no-escape-hatch)) — local state hiding inside a public repo. So **`inbox/mining/` is
-removed**; mining stages in the working directory beside the source corpus, which is where
-rule 2 above already said the material stays by default, and candidates enter through
-`inbox/proposals/` after their exact proposed content is screened at the repository boundary.
+**Quarantine cannot live inside the repo it is quarantining against.** Staging extractions
+in an `inbox/mining/` directory is self-defeating: committed, staging *is* publishing, and
+the decision the quarantine exists to force has already been made; gitignored, it reinstates
+the rejected `local/` pattern ([§no-escape-hatch](#no-escape-hatch)) — local state hiding
+inside a public repo. Mining therefore stages in the working directory beside the source
+corpus, and candidates enter through `inbox/proposals/` after their exact proposed content
+is screened at the repository boundary.
 
 <a id="ensemble-numbers"></a>
 ### 6.3a. Ensemble-scoped numbers: decided per class, at the moment of import
@@ -1876,7 +1883,7 @@ if I hit this again?* Usually the answer is a durable fact one level up —
 > episode: "one run died while allocating a level-2 coarse-link field"
 > → **software × solver fact**: "level-2 coarse-link memory scales as
 > `V_local(l2) × (2·nvec_1)²`, ×2 for `use_mma`, ×4 copies — check it before choosing a
-> decomposition" → and, better still, `tools/check_decomposition.py` ([§prefer-a-tool](#prefer-a-tool)).
+> decomposition" → and, better still, `tools/quda-staggered-decomposition.py` ([§prefer-a-tool](#prefer-a-tool)).
 
 When an episode resists conversion — a one-off failure with no generalisable cause — it
 becomes an `incidents/` entry under whichever object it attaches to (machine, software, or
@@ -1895,7 +1902,7 @@ because they answer different questions: this one asks what form knowledge shoul
 one asks what an operator should stop doing by hand. Widening this section to cover both
 would conflate a carrying-cost argument with a defect-rate argument.
 
-The most token-efficient form of a mined fact is executable. `memory_model.py` encodes a
+The most token-efficient form of a mined fact is executable. `quda-staggered-memory.py` encodes a
 large body of validated knowledge at effectively zero carrying cost — a session pays only
 when it invokes it, and it pays nothing to *know it exists* beyond one `INDEX.md` line.
 Where a finding can be expressed as a script plus a one-line pointer, it must be. A
@@ -1940,8 +1947,8 @@ about how far a fact travels, not about whether it is true.
 An agent may submit to a scheduler **only** when a node-hour or GPU-hour ceiling has been
 stated explicitly by the operator. It tracks consumption against that ceiling and stops at
 it. No ceiling stated ⇒ the agent prepares the job and hands the submit command to the
-operator. This lives in `conventions/running.md` and is restated in canonical `AGENTS.md` because it
-is the one rule with irreversible consequences.
+operator. This lives in `conventions/batch-scripts.md` and is restated in canonical `AGENTS.md` because
+it is the one rule with irreversible consequences.
 
 **Granted in the opening message; scoped to the campaign; tracked in the working
 directory.** `[operator]` Those three are separate, and conflating them is what makes
@@ -2012,28 +2019,21 @@ full credentials, outside whatever constrains the agent's own tool calls. That i
 every frontend, so the guidance is frontend-agnostic; it is true under every scheduler, so it
 reads [§scheduler-surface](#scheduler-surface) rather than naming directives.
 
-**Placement: one universal Tier-2 leaf, reached from a Tier-0 pointer.** The requirement is
-that it load *only* before batch-script work and *every* time, and those pull opposite ways —
-Tier 0 guarantees "every time" and cannot afford the content (P1), while a Tier-2 leaf affords
-the content and needs a trigger. The resolution is the one `conventions/filesystem-discovery.md`
-already uses: the leaf holds the rules, and a single Tier-0 standing-rule line names the
-trigger and points at it. Its `load_when` covers writing, modifying, and reviewing a script
-*and* preparing a submit command, so the no-ceiling handoff of [§budget-rule](#budget-rule) is
-covered rather than exempt.
+**Placement: one universal Tier-2 leaf, reached from a Tier-0 pointer *and* from every
+task-time surface that can reach script work.** The requirement is that it load *only* before
+batch-script work and *every* time, and those pull opposite ways — Tier 0 guarantees "every
+time" and cannot afford the content (P1), while a Tier-2 leaf affords the content and needs a
+trigger. So the leaf holds the rules, a Tier-0 standing-rule line names the trigger, and the
+`modes/*.md` routing sections and the playbooks' routing tables name it too. Its `load_when`
+covers writing, modifying and reviewing a script *and* preparing a submit command, so the
+no-ceiling handoff of [§budget-rule](#budget-rule) is covered rather than exempt.
 
-**Amended 2026-08-29: a Tier-0 pointer alone does not achieve "every time".** In a tuning
-session on Perlmutter an agent wrote three launchers and submitted three jobs without opening
-the leaf. Nothing was missing: the Tier-0 line was in context for the whole session and
-`conventions/INDEX.md` indexed the leaf with a matching `load_when`. The failure is that the
-routing an agent *executes* at task time is not the routing it *loaded* at session start. The
-task-time surfaces — `modes/*.md` "Tools and routing", the playbooks' task-triggered routing
-tables, and the working project's own submission checklist — each named some conventions and
-not this one, and a list that names two conventions reads as complete.
-
-The revised decision keeps the Tier-0 pointer and adds the trigger to every task-time surface
-that can reach batch-script work. The Tier-0 line still guarantees the rule is *present*; the
-task-time surfaces are what make it *fire*. This does not weaken P1: the leaf still holds the
-content and Tier 0 still holds only the pointer.
+**The Tier-0 pointer alone was tried and does not achieve "every time".** An agent wrote and
+submitted three launchers without opening the leaf, with the Tier-0 line in context all session
+and the leaf correctly indexed with a matching `load_when`. The routing an agent *executes* at
+task time is not the routing it *loaded* at session start, and a task-time list naming two
+conventions reads as complete. Tier 0 keeps the rule *present*; the task-time surfaces are what
+make it *fire*. P1 is intact, because the leaf still holds the content.
 
 **The invariant is positive; the prohibited list is illustrative.** A batch script is
 **append-only with respect to inputs and shared data** — read what exists, create what does
@@ -2084,30 +2084,29 @@ prompt string only because the analyzer had nowhere else to put it. A software-i
 goes to `conventions/`; an application-specific one — how a kernel name resolves to the source
 that generated it — goes to `software/<name>/` under P3.
 
-**The tool exposes the aggregations, not only the database.** Concurrency-aware busy time,
+**The tool owns the aggregations, not only the database.** Concurrency-aware busy time,
 name-grouped kernel totals, windowed phase breakdowns and stable variance are each a correct
 answer that an ad-hoc query gets wrong in a way that reads as plausible — summing durations
-returns work where the reader wanted elapsed time. Raw query access remains, as the escape
-hatch it is: read-only, row-capped, plan-checked and deadline-bounded.
+returns work where the reader wanted elapsed time.
 
-**Two of those were claimed before they were true, and the hazard was misnamed.** Until
-2026-09-15 this paragraph read "read-only, row-capped and interruptible, because an uncapped
-scan of a multi-gigabyte profile is the ordinary accident". Measured, a single scan of a
-5,066,637-row event table costs **0.23 s**; scans were never the accident. The accident is a
-**nested loop**: a profiler export carries no index on any event table, so a correlated
-subquery re-scans the inner table once per outer row. One such query on a real capture asked
-for 4.75M x 5.07M row visits to re-derive a 260-row constant. It returned a single row, so the
-row cap bounded nothing — `fetchmany` bounds what Python materialises, never what SQLite
-evaluates — and the CLI passed no `stop_event`, so "interruptible" named a parameter no caller
-supplied and the process had to be killed. It cost 26 minutes and produced nothing.
+**An aggregation can be worse than absent, and a tool-emitted one is the more persuasive
+error.** A merged row can be a correct aggregate of the wrong question: averaging two
+populations whose rates stand orders of magnitude apart reports an unremarkable middle that
+quietly refutes the discriminator a leaf exists to name. So a subcommand whose output can be
+read as refuting a leaf is a defect of the same class as a missing subcommand, and **where a
+split exists it travels beside the merged row rather than behind a flag** — the session that
+reads the misleading figure is exactly the one that would not think to ask for the split.
 
-The correction is in the order the failure demands. **Predicting beats bounding**: planning is
-free, so `EXPLAIN QUERY PLAN` runs first and a correlated scan of a large table is refused with
-the rewrite named, at a cost of milliseconds. The deadline is the backstop for what the plan
-check cannot size — a scan behind an alias or a derived-table name — and it is a default rather
-than an option, because a guard nobody passes is the defect being repaired. The override exists
-because the check is deliberately conservative: plans carry no row estimates, so outer
-cardinality is unknown and a cheap nested loop is flagged alongside an impossible one.
+**Raw query access is the escape hatch: read-only, row-capped, plan-checked and
+deadline-bounded.** The hazard is a nested loop, not a scan — a profiler export carries no index
+on any event table, so a correlated subquery re-scans the inner table once per outer row, while
+a single scan of a multi-million-row table costs a fraction of a second. **Predicting beats
+bounding**: planning is free, so `EXPLAIN QUERY PLAN` runs first and a correlated scan of a
+large table is refused with the rewrite named. The row cap does not help, because it bounds what
+Python materialises rather than what SQLite evaluates; the deadline is the backstop for what the
+plan check cannot size, and it is a default rather than an option, because a guard nobody passes
+is no guard. The check is deliberately conservative — plans carry no row estimates — so an
+override exists. The measurements and the plan shapes are in the guard's own docstrings.
 
 **The handbook does not wrap a second agent.** A session is already an agent with tools, a
 transcript and a working directory. Calling another one across a network adds a key, a provider,
@@ -2116,74 +2115,31 @@ of reaching one. The session performs the analysis; the tool supplies the number
 
 **A hypothesis is an `inferred` claim and carries that tier's obligations.** Under
 [§evidence-vocabulary](#evidence-vocabulary) an inference names its premises and stays labelled
-as one. Here that is a hard rule rather than a style note: **every figure a hypothesis cites is
-traceable to a named command, and any quantity the extraction did not emit is declared as
-hand-derived** rather than passed off as tool output. A hypothesis also records the queries its
-evidence came from, so the analysis can be re-derived rather than re-trusted; the prose session
-log deliberately omits tool output ([§session-logging](#session-logging)), so the record is the
-only durable trace. The failure this guards was observed in the source analyzer's own
-evaluation — a hypothesis citing fabricated numbers scored identically to one citing real ones,
-because nothing compared the evidence against the profile. A confident wrong answer is the
-expensive failure in this mode, not a missed finding.
+as one. Here that is a hard rule: **every figure a hypothesis cites is traceable to a named
+command, and any quantity the extraction did not emit is declared hand-derived** rather than
+passed off as tool output. A hypothesis also records the queries its evidence came from, so the
+analysis can be re-derived rather than re-trusted; the prose session log deliberately omits tool
+output ([§session-logging](#session-logging)), so the record is the only durable trace.
 
-**Amended 2026-09-14, on two divergences the first real analysis session exposed.** This
-paragraph previously required that *every figure be one the extraction tool emitted*, and stated
-that *the tool re-checks quoted values rather than the session vouching for them*. Neither held.
-`schemas/hypothesis.schema.json` has always carried `extraction.derived_by_hand` for quantities
-the tool did not produce, which the first requirement forbids outright; and
-`tools/hypothesis-record.py` checks that a figure **names** a listed command, never that its
-value matches the profile — re-reading a multi-gigabyte database to verify every cited number is
-a different and far larger tool than the one that exists. The requirement is restated as
-traceability plus declaration, which is what the schema and the checker actually enforce, and the
-value-checking claim is withdrawn rather than left standing as an aspiration the text asserted as
-fact. That leaves a named residual risk: a declared hand-derived figure is unverified, so
-[§prefer-a-tool](#prefer-a-tool) governs what follows from it — an aggregation a session derives
-by hand more than twice is a missing subcommand, not a standing practice.
+Two limits are stated rather than implied. **Traceability is not value-checking:** the checker
+verifies that a figure names a shipped command, never that its value matches the profile, and
+re-reading a multi-gigabyte database to verify every cited number would be a far larger tool
+than the one that exists. A declared hand-derived figure is therefore unverified. The failure
+this guards was observed in the source analyzer's own evaluation — a hypothesis citing
+fabricated numbers scored identically to one citing real ones, because nothing compared the
+evidence against the profile. A confident wrong answer is the expensive failure in this mode,
+not a missed finding.
 
-**Amended 2026-09-15: that counter applies to aggregations over profile data, and not to
-arithmetic that crosses out of the profile.** A figure combining a profile quantity with one from
-outside it — an application timer, a run log, a build record — can never be emitted by a tool
-that reads a profiler database, so counting it toward the threshold generates proposals for
-subcommands nobody can write. Such figures are hand-derived permanently and by construction, and
-what is owed for them is declaration, not automation. The distinction matters because the
-playbook now recommends comparing a capture against an untraced control run, which is exactly
-this kind of arithmetic and is expected rather than exceptional.
-
-**Narrowed 2026-09-15 (same day, by the fourth acceptance exercise): the exemption is about
-which tool, not about whether one is possible.** The amendment above reasons from "no tool that
-reads a profiler database can emit it" to "declaration, not automation", and that step does not
-hold. A tool that reads application run logs can emit it, and `tools/` is not confined to
-profiler readers. The exemption is restated: a figure escapes the counter when **no tool in
-`tools/` could execute the procedure**, not merely when no subcommand of the profile extractor
-could. Declaration is owed either way; it is not a substitute for automation where automation is
-available.
-
-The correction rests on evidence rather than on symmetry. That exercise performed the
-untraced-control comparison by hand six times in one session, and the procedure carries a silent
-trap: the control's first solve absorbs the autotune sweep, so including it moves the control
-mean by roughly four-fold and yields an inflation factor near 1.0 — which reads as "tracing is
-nearly free", the opposite of the true conclusion, reached through arithmetic that looks
-entirely ordinary. `conventions/repeated-work.md` makes the quiet-failure condition the one that
-decides automation. The blanket exemption removed from the counter exactly the class whose
-failure is quietest, which inverts what the counter exists to do.
-
-**Amended 2026-09-16: an aggregation can be *worse* than absent, and that raises the
-obligation rather than restating it.** The paragraph above argues the tool should expose the
-aggregations because an ad-hoc query gets them wrong in a way that reads as plausible. The
-converse occurred and is the sharper case: a *tool-emitted* aggregation was itself the wrong
-quantity, and read as plausible for the same reason. Transfers were grouped by direction alone,
-so one row averaged an unprefetched-managed population against an ordinary one — about two
-orders of magnitude apart — and reported a mid-range bandwidth that looked ordinary and
-contradicted the signature a leaf existed to name. The merged figure was a *correct* aggregate;
-it was the wrong question, and being tool-emitted is what made it persuasive.
-
-Two things follow. A subcommand whose output can be read as refuting a leaf's discriminator is a
-defect of the same class as a missing subcommand, not a lesser one, and the counter in the
-paragraph above applies to it. And where a split exists, it travels **beside** the merged row
-rather than behind a flag — a session that reads the misleading figure is exactly the session
-that would not think to ask for the split. The design choice is recorded here because the
-opposite choice, a `--by-residency` flag, is the natural one and would have preserved the
-defect for anyone who did not already suspect it.
+**An aggregation derived by hand more than twice is a missing tool, not a standing practice.**
+That is [§prefer-a-tool](#prefer-a-tool) governing what follows from an unverified hand-derived
+figure. A figure escapes the counter only when **no tool in `tools/` could execute the
+procedure** — not merely when no subcommand of the profile extractor could, since `tools/` is
+not confined to profiler readers and a run-log reader can emit arithmetic that crosses out of
+the profile. Declaration is owed either way and never substitutes for automation where
+automation is available. The class this protects is the one whose failure is quietest: comparing
+a capture against an untraced control combines a profile figure with an application timer, and
+including the control's first solve moves its mean severalfold and inverts the conclusion,
+through arithmetic that looks entirely ordinary.
 
 **Derived quantities are computed, never asked for.** A speedup bound that follows arithmetically
 from a claimed runtime fraction is computed by the tool. The session supplies judgement and

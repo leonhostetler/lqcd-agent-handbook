@@ -3,7 +3,8 @@
 Developer mode is explicit; never infer it from a request or from an editable checkout.
 Read `ARCHITECTURE.md`, `ROADMAP.md`, and `handbook.yaml` before changing the handbook.
 `ARCHITECTURE.md` is the design authority, while `ROADMAP.md` alone owns mutable state
-and the next action.
+and the next action. `DEVLOG.md` holds the episode record and is **not** read at session
+start; open it by name only when you need the evidence behind a decision.
 
 ## Before editing
 
@@ -37,6 +38,8 @@ and the next action.
 - Keep knowledge atomic and scoped. Prefer executable tools to repeated formulas.
 - Use one canonical home per value; other documents should point to it.
 - Keep each commit to one fact class so a faulty import can be reverted cleanly.
+- Record an episode in `DEVLOG.md`, never in `ARCHITECTURE.md` or `ROADMAP.md`. When a
+  decision changes, rewrite the rule in place rather than appending a dated amendment.
 - Do not read `session_*.log` unless the operator explicitly requests it.
   Authorized review still follows mined-material classification, privacy, and publishability gates.
 - Run `tools/run-change-proposal` before every commit. It performs the whole sequence a

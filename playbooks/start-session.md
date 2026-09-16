@@ -94,6 +94,8 @@ profile, software profile, stack, or work-mode document.
 
 Default the handbook mode to **user**. Accept **developer** only when explicitly declared;
 then read `ARCHITECTURE.md`, `ROADMAP.md`, `handbook.yaml`, and `modes/developer.md`.
+Do not read `DEVLOG.md` at startup; it is opened by name when an episode's evidence is
+needed.
 
 Ask one question only: which current work mode applies — debugging, performance,
 benchmarking, tuning, or production? State it after the operator answers. A mode changes

@@ -1072,6 +1072,48 @@ def validate_tier_zero(root: Path, errors: list[str]) -> tuple[int, int]:
     return total, maximum
 
 
+def validate_developer_docs(root: Path, errors: list[str]) -> tuple[int, int]:
+    """Budget the documents a developer-mode session loads in full.
+
+    ARCHITECTURE.md and ROADMAP.md are read at the start of every developer session, so
+    their combined size is paid on every session. The episode record deliberately is not
+    in this list: it is opened by name, and listing it here would defeat the split that
+    created it (ARCHITECTURE.md §plan-ships-with-handbook).
+    """
+    config = load_yaml(root / "handbook.yaml")
+    block = config.get("developer_docs") if isinstance(config, dict) else None
+    if not isinstance(block, dict):
+        errors.append("handbook.yaml: developer_docs must be a mapping")
+        return 0, 0
+    names = block.get("files")
+    if not isinstance(names, list) or not names:
+        errors.append("handbook.yaml: developer_docs.files must be a non-empty list")
+        return 0, 0
+    episode = block.get("episode_record")
+    if isinstance(episode, str) and episode in names:
+        errors.append(
+            f"handbook.yaml: developer_docs.files must not list the episode record "
+            f"{episode}; it is not loaded at session start"
+        )
+    total = 0
+    for name in names:
+        path = root / str(name)
+        if not path.is_file():
+            errors.append(f"handbook.yaml: developer_docs.files names a missing file {name}")
+            continue
+        total += path.stat().st_size
+    maximum = int(block.get("max_combined_bytes", 0))
+    if maximum <= 0:
+        errors.append("handbook.yaml: developer_docs.max_combined_bytes must be positive")
+    elif total > maximum:
+        errors.append(
+            f"developer documents are {total} bytes; limit is {maximum}. "
+            f"Move episode material to {episode or 'the episode record'} rather than "
+            "raising the limit."
+        )
+    return total, maximum
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
@@ -1093,6 +1135,11 @@ def main() -> int:
     except Exception as exc:
         errors.append(f"Tier-0 configuration error: {exc}")
         tier_bytes, tier_limit = 0, 0
+    try:
+        dev_bytes, dev_limit = validate_developer_docs(root, errors)
+    except Exception as exc:
+        errors.append(f"developer-docs configuration error: {exc}")
+        dev_bytes, dev_limit = 0, 0
 
     for warning in warnings:
         print(f"warning: {warning}", file=sys.stderr)
@@ -1106,7 +1153,8 @@ def main() -> int:
             f"{index_count} generated indices · "
             f"{restatement_count} P2 advisories · "
             f"{reference_count} references · "
-            f"Tier 0 {tier_bytes}/{tier_limit} bytes · publishability NOT checked",
+            f"Tier 0 {tier_bytes}/{tier_limit} bytes · "
+            f"dev docs {dev_bytes}/{dev_limit} bytes · publishability NOT checked",
             file=sys.stderr,
         )
         return 1
@@ -1119,7 +1167,8 @@ def main() -> int:
         f"{index_count} generated indices current · "
         f"{restatement_count} P2 advisories · "
         f"{reference_count} references resolved · "
-        f"Tier 0 {tier_bytes}/{tier_limit} bytes · publishability NOT checked"
+        f"Tier 0 {tier_bytes}/{tier_limit} bytes · "
+            f"dev docs {dev_bytes}/{dev_limit} bytes · publishability NOT checked"
     )
     return 0
 

@@ -15,6 +15,12 @@ tier_0:
     - INDEX.md
   max_combined_bytes: 6144
   max_entrypoint_bytes: 5120
+developer_docs:
+  files:
+    - ARCHITECTURE.md
+    - ROADMAP.md
+  max_combined_bytes: 200000
+  episode_record: DEVLOG.md
 repository:
   name: lqcd-agent-handbook
   canonical_remote: https://github.com/leonhostetler/lqcd-agent-handbook.git

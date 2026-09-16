@@ -145,7 +145,10 @@ def run_validator(root: Path, run=_run) -> Step:
     summary = (proc.stdout.strip().splitlines() or [""])[-1]
     if not summary:
         return Step("validator", False, "validator exited 0 but printed no summary")
-    return Step("validator", True, summary[:300])
+    # 400, not 300: the summary ends with "publishability NOT checked", and truncating
+    # that away would leave the harness reporting a clean validator run with the one
+    # phrase §validator-not-clearance exists for removed.
+    return Step("validator", True, summary[:400])
 
 
 def run_suite(root: Path, run=_run) -> Step:
