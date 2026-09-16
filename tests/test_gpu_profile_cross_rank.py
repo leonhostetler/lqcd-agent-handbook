@@ -25,6 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SUMMARY = ROOT / "tools" / "gpu-profile-summary.py"
 DIFF = ROOT / "tools" / "gpu-profile-diff.py"
+CROSS_RANK = ROOT / "tools" / "gpu_profile" / "cross_rank.py"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gpu_profile_fixtures import (  # noqa: E402
@@ -153,6 +154,55 @@ class CrossRankTests(unittest.TestCase):
         # different k, or the refusal under test is not the one being reported.
         self.assertGreater(len(set(out["selected_k_by_rank"].values())), 1)
 
+    # -- what a refusal still owes the caller ---------------------------------
+
+    def test_a_refusal_still_carries_the_per_rank_overview(self):
+        """`align_phases` is handed the ProfileSummary objects it rejects, so the
+        whole-profile comparison survives its refusal and must be reported.
+
+        The recorded cost of not doing so: a session re-ran `summary` once per rank
+        to recover exactly these numbers, ~47 s per rank, after the refusal had
+        already spent ~190 s computing them.
+        """
+        out = self.payload(SUMMARY, "cross-rank", str(self.d0), str(self.d1))
+        self.assertFalse(out["cross_rank_available"])
+        self.assertEqual(
+            sorted(r["rank_id"] for r in out["per_rank_overview"]), out["rank_ids"]
+        )
+
+    def test_the_refused_overview_equals_a_per_rank_summary(self):
+        """The point of the fix: these are the numbers a session would otherwise
+        re-derive, so they must be the same numbers."""
+        out = self.payload(SUMMARY, "cross-rank", str(self.d0), str(self.d1))
+        by_rank = {r["rank_id"]: r for r in out["per_rank_overview"]}
+        for rid, path in ((0, self.d0), (1, self.d1)):
+            single = self.payload(SUMMARY, "summary", str(path))
+            self.assertAlmostEqual(
+                by_rank[rid]["gpu_kernel_s"], single["gpu_kernel_s"], places=6
+            )
+            self.assertAlmostEqual(
+                by_rank[rid]["gpu_idle_s"], single["total_gpu_idle_s"], places=6
+            )
+            self.assertAlmostEqual(
+                by_rank[rid]["gpu_utilization_pct"], single["gpu_utilization_pct"], places=6
+            )
+
+    def test_a_refusal_still_names_the_outlier_rank(self):
+        """`select_primary_rank` runs before alignment and its reason was dropped
+        on this path -- the same defect as the overview, one field over."""
+        out = self.payload(SUMMARY, "cross-rank", str(self.d0), str(self.d1))
+        self.assertIsNotNone(out.get("primary_rank_reason"))
+        self.assertIn(str(out["primary_rank_id"]), [str(r) for r in out["rank_ids"]])
+
+    def test_the_refusal_bounds_what_the_overview_proves(self):
+        """Whole-profile agreement is weaker than per-phase agreement: imbalance in
+        one phase can cancel against the opposite imbalance in another. Emitting the
+        overview without saying so would trade a missing number for a wrong reading.
+        """
+        out = self.payload(SUMMARY, "cross-rank", str(self.d0), str(self.d1))
+        self.assertTrue(any("cancelled by the" in c for c in out["caveats"]))
+        self.assertTrue(any("--max-phases" in c for c in out["caveats"]))
+
     def test_mixed_format_profiles_are_refused(self):
         """Two profilers record different things, so a delta across them has no
         denominator. Refusing is the measurement, not a limitation."""
@@ -200,6 +250,60 @@ class CrossRankTests(unittest.TestCase):
         proc = run(DIFF, str(self.r0), str(Path(self._tmp.name) / "absent.sqlite"))
         self.assertNotEqual(proc.returncode, 0)
         self.assertNotIn("Traceback", proc.stderr)
+
+
+class CrossRankRefusalControls(unittest.TestCase):
+    """Each control perturbs the implementation and asserts the perturbation landed."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls._tmp = tempfile.TemporaryDirectory()
+        root = Path(cls._tmp.name)
+        cls.d0 = build_synthetic_nsys_db(root / "diverge.0.sqlite")
+        cls.d1 = build_synthetic_nsys_db(root / "diverge.1.sqlite")
+        _add_late_burst(cls.d1)
+        cls.a0 = build_synthetic_nsys_db(root / "report.0.sqlite")
+        cls.a1 = build_synthetic_nsys_db(root / "report.1.sqlite")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._tmp.cleanup()
+
+    def setUp(self) -> None:
+        self.original = CROSS_RANK.read_text()
+
+    def tearDown(self) -> None:
+        CROSS_RANK.write_text(self.original)
+
+    def perturb(self, old: str, new: str) -> None:
+        self.assertIn(old, self.original, "control edit matched nothing; it would prove nothing")
+        CROSS_RANK.write_text(self.original.replace(old, new, 1))
+
+    def test_both_paths_share_one_overview_builder(self):
+        """Emptying `compute_rank_overviews` must empty the refusal *and* the success
+        payload. If only one moves, the builder was re-inlined and the two can drift
+        -- which is how the refusal came to report nothing in the first place."""
+        refused = json.loads(run(SUMMARY, "cross-rank", str(self.d0), str(self.d1)).stdout)
+        aligned = json.loads(run(SUMMARY, "cross-rank", str(self.a0), str(self.a1)).stdout)
+        self.assertTrue(refused["per_rank_overview"])
+        self.assertTrue(aligned["per_rank_overview"])
+
+        self.perturb(
+            "    overviews = []\n    for rid in sorted(summaries):",
+            "    overviews = []\n    for rid in []:",
+        )
+        refused2 = json.loads(run(SUMMARY, "cross-rank", str(self.d0), str(self.d1)).stdout)
+        aligned2 = json.loads(run(SUMMARY, "cross-rank", str(self.a0), str(self.a1)).stdout)
+        self.assertEqual(refused2["per_rank_overview"], [], "refusal path does not use the builder")
+        self.assertEqual(aligned2["per_rank_overview"], [], "success path does not use the builder")
+
+    def test_the_refusal_is_not_unconditional(self):
+        """The no-op guard: an aligned pair must still succeed, or every assertion
+        about the refusal payload is being made about every run."""
+        aligned = json.loads(run(SUMMARY, "cross-rank", str(self.a0), str(self.a1)).stdout)
+        self.assertTrue(aligned["cross_rank_available"])
+        refused = json.loads(run(SUMMARY, "cross-rank", str(self.d0), str(self.d1)).stdout)
+        self.assertFalse(refused["cross_rank_available"])
 
 
 if __name__ == "__main__":

@@ -358,17 +358,18 @@ def _imbalance(values: list[float]) -> float:
     return (max(values) - min(values)) / mean
 
 
-def compute_cross_rank_summary(
-    summaries: dict[int, ProfileSummary],
-    primary_rank_id: int,
-    phase_alignment: str,
-) -> CrossRankSummary:
-    """Compute cross-rank imbalance metrics from per-rank ProfileSummary objects."""
-    rank_ids = sorted(summaries)
+def compute_rank_overviews(summaries: dict[int, ProfileSummary]) -> list[RankOverview]:
+    """Whole-profile figures per rank.
 
-    # --- Per-rank overview (whole-profile) ---
+    Separate from ``compute_cross_rank_summary`` because it needs no phase
+    alignment: it is a projection of summaries the caller already holds. That
+    matters on the refusal path — ``align_phases`` receives these same objects and
+    rejecting its own precondition is no reason to discard them. Recomputing them
+    afterwards costs a full re-read per rank (~47 s each on one four-rank capture),
+    which is what a session did before this was split out.
+    """
     overviews = []
-    for rid in rank_ids:
+    for rid in sorted(summaries):
         s = summaries[rid]
         mpi_wait = sum(op.total_s for op in s.mpi_ops)
         overviews.append(
@@ -381,6 +382,18 @@ def compute_cross_rank_summary(
                 gpu_utilization_pct=s.gpu_utilization_pct,
             )
         )
+    return overviews
+
+
+def compute_cross_rank_summary(
+    summaries: dict[int, ProfileSummary],
+    primary_rank_id: int,
+    phase_alignment: str,
+) -> CrossRankSummary:
+    """Compute cross-rank imbalance metrics from per-rank ProfileSummary objects."""
+    rank_ids = sorted(summaries)
+
+    overviews = compute_rank_overviews(summaries)
 
     # --- Derived node topology ---
     # Computed here rather than left to the model: "are these ranks co-located?"

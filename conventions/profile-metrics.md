@@ -317,3 +317,12 @@ waiting.
 
 Comparing captures taken by two different profilers is not a measurement: the two record
 different things, so a delta across them has no denominator.
+
+**A whole-profile rank comparison is weaker than a per-phase one, and agreement in it proves
+less than it appears to.** Imbalance confined to one phase can be cancelled by the opposite
+imbalance in another, so ranks whose whole-run totals match are shown only to be free of gross
+whole-run skew — not to be balanced. The extraction reports the whole-profile view even when
+phase alignment is refused, because it has already derived it and discarding it sends a session
+to re-derive the same numbers by hand; the reading it licenses is bounded in the same output.
+Where the refusal is a near miss on segmentation rather than a real difference in workload,
+forcing a common `k` recovers the per-phase view, and that is the comparison to quote.

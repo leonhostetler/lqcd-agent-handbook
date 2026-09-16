@@ -39,6 +39,7 @@ from gpu_profile import open_profile  # noqa: E402
 from gpu_profile.cross_rank import (  # noqa: E402
     align_phases,
     compute_cross_rank_summary,
+    compute_rank_overviews,
     parse_rank_ids,
     select_consensus_k,
     select_primary_rank,
@@ -368,6 +369,14 @@ def cmd_cross_rank(_unused, args) -> dict:
         # margin -- observed once as "15.8% above optimal (threshold: 15%)", a
         # 0.8-point miss that --max-phases would have settled -- so a session that
         # sees only the symptom hand-rolls a comparison it did not need to.
+        #
+        # The per-rank overview is emitted rather than discarded. `align_phases`
+        # is handed the very ProfileSummary objects it is built from, so refusing
+        # the phase comparison is no reason to throw away the whole-profile one:
+        # the alternative is a session re-running `summary` once per rank to
+        # recover numbers this process already has. Measured on one four-rank
+        # capture, that re-derivation cost ~47 s per rank after the refusal had
+        # already spent ~190 s computing them.
         return {
             "cross_rank_available": False,
             "reason": alignment_note,
@@ -375,6 +384,24 @@ def cmd_cross_rank(_unused, args) -> dict:
             "selected_k_by_rank": {str(r): selected_ks[r] for r in sorted(selected_ks)},
             "rank_ids": sorted(summaries),
             "primary_rank_id": primary_rank_id,
+            "primary_rank_reason": primary_reason,
+            "per_rank_overview": _plain(compute_rank_overviews(summaries)),
+            "caveats": [
+                "Phase alignment was refused, so no per-phase comparison is available. "
+                "The whole-profile figures below are the ones this run had already "
+                "derived; they are reported rather than discarded.",
+                "A whole-profile comparison is weaker than the per-phase one it stands "
+                "in for. Imbalance confined to one phase can be cancelled by the "
+                "opposite imbalance in another, so ranks that agree here are not "
+                "thereby shown to be balanced -- read agreement as the absence of "
+                "gross whole-run skew, nothing more.",
+                "Forcing a common segmentation with --max-phases <k> may let the "
+                "per-phase comparison proceed -- selected_k_by_rank and consensus_note "
+                "say which k each rank chose and by how much consensus missed. It is "
+                "not guaranteed: equalising k clears only the phase-count check, and a "
+                "set whose phases then diverge in name and duration is refused again, "
+                "which is a finding about the workloads rather than a tool limit.",
+            ],
         }
 
     summary = compute_cross_rank_summary(summaries, primary_rank_id, alignment)

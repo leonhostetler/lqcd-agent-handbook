@@ -1792,6 +1792,44 @@ instrument that named this session's largest finding, it has two silent failure 
 window CTE per outer row — and it is squarely a profiler-database aggregation, so the 2026-09-15
 narrowing does not exempt it. Owed as a subcommand.
 
+**Refusal payload defect, 2026-09-15** (sixth session, second change). `cross-rank` discarded
+the per-rank `ProfileSummary` objects it had already built whenever phase alignment refused.
+`align_phases` is handed those objects and rejects its own precondition, not the data; the
+session that hit this then re-ran `summary` once per rank — ~47 s each — to recover numbers the
+refused process had spent ~190 s computing. `compute_rank_overviews` is split out of
+`compute_cross_rank_summary` because it needs no alignment, and the refusal now carries
+`per_rank_overview`, `primary_rank_reason` (dropped on that path for the same reason, one field
+over) and three caveats. On the four-rank B200 capture the refusal now reports what the session
+derived by hand: four ranks at 124.8–125.9 s kernel time and 37.9–38.2% utilisation, with
+`no clear outlier (all ranks within 20% of median GPU idle 126.5s)`.
+
+*The caveat was written wrong first and corrected by testing it.* The draft claimed
+`--max-phases <k>` "may let the per-phase comparison proceed". On the synthetic divergent pair
+that is false in a way the draft would have hidden: forcing k equalises the counts and the run
+is then refused by a *second* check, on name and duration divergence. On the real capture it is
+true — `--max-phases 5` unblocks the full per-phase view. Both were measured before the sentence
+was settled, and the shipped wording names both outcomes. **An untested "may" in a caveat is the
+same defect class as an untested number in a hypothesis**, and it was one edit away from
+shipping.
+
+*What the unblocked comparison then showed, recorded because it qualifies a reading rather than
+adding one.* Phase 2 reports a kernel imbalance of **4.000**, which is `(max - min) / mean` over
+0.057 s against a mean of 0.0143 s: rank 2 ran 57 ms of kernel work in a 5 s window where the
+other three ran none. The score is arithmetically correct and describes 57 ms, so it overturns
+nothing — and it explains the refusal itself, since that burst is exactly the extra timeline
+structure that drove rank 2 to k=7 while its peers chose k=5. A ratio whose denominator is near
+zero is reported without a floor; that is pre-existing behaviour on the success path, is **not**
+changed here, and is recorded so the next occurrence is not read as a large imbalance.
+
+*Controls.* Four assertions — the refusal carries an overview covering every rank; those figures
+equal what `summary` returns per rank, which is the re-derivation the change removes; the
+outlier reason survives; the caveats bound what whole-profile agreement proves. Two controls:
+emptying `compute_rank_overviews` must empty **both** the refusal and the success payload, which
+pins that one builder serves both and they cannot drift apart again; and an aligned pair must
+still succeed, so the refusal has not become unconditional. `conventions/profile-metrics.md`
+gains the durable residue under "One rank's profile is one rank's view" — whole-profile agreement
+bounds gross skew and nothing finer.
+
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check
 landed early in Slice 0c ([§session-logging](ARCHITECTURE.md#session-logging)). Slice 7 retains
