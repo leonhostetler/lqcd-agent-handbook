@@ -7,6 +7,7 @@ evidence: docs
 sources:
   - https://docs.olcf.ornl.gov/systems/frontier_user_guide.html
   - https://docs.olcf.ornl.gov/data/index.html
+  - operator's screened project records
 observed: "2026-08-17"
 observed_on:
   machine: frontier
@@ -36,6 +37,16 @@ Use the Cray compiler wrappers and the `gfx90a` target recorded in the profile. 
 compatible CPE and ROCm combination; exact version pins belong in a validated stack, not
 the machine profile. GPU-aware Cray MPICH additionally requires the target and ROCm modules
 plus `MPICH_GPU_SUPPORT_ENABLED=1`; linking details remain toolchain-specific.
+
+**A lone `rocm/<version>` pin resolves silently to something else.** `[inferred]` `PrgEnv-amd`
+carries its own default `amd/<version>`, so a pinned ROCm loaded on its own conflicts with it;
+the conflict is resolved without a message and the job proceeds against the meta-module's ROCm
+rather than the one named. Load the matching `amd/<version>` and `rocm/<version>` **together
+and after** `PrgEnv-amd`. `module reset` discards the login shell's environment, so a
+submission script inherits no pin, and an unversioned `rocm` there resolves to whatever the
+site currently defaults to — which is how a script that worked last month runs against a
+different ROCm without saying so. This is one observation plus the module-resolution mechanism,
+kept labelled as an inference rather than promoted on a single occurrence.
 
 Login nodes are appropriate for editing and compilation, but not parallel or threaded jobs
 or long, compute-intensive, or memory-intensive builds. Move those builds to a compute

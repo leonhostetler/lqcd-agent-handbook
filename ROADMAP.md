@@ -29,36 +29,14 @@ exercises and is owed rather than optional. **The untraced-control comparison wa
 Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` — a Slice 4 deliverable that has
 not been written — is the run-log reader it will be built into; one floating item remains.
 
-**The handbook can read a profile and cannot take one — owed, and larger than anything else on
-this list (found by review 2026-09-16).** `conventions/profile-capture.md` states what a capture
-must *establish* — validate the artifact and not the exit status, record a wall-clock anchor
-where the format carries none, obtain an untraced control — and
-`machines/perlmutter/profile-capture.md` adds where nsys can write. **No invocation exists
-anywhere.** `nsys profile`, `rocprofv3` and `rocprof-sys` appear in no leaf; there is no
-statement of which instrumentation answers which question, no `nsys export --type sqlite` step
-although every tool the handbook ships requires it, no per-rank output convention although
-`cross-rank`'s rank-ID parsing depends on one, and no machine profile records whether a profiler
-is present or under what module.
-
-The asymmetry runs the wrong way: **the rules exist because captures went wrong, and the recipe
-that would have prevented them is missing.** A session is told to verify that requested tracing
-options took effect, with no canonical statement of what to request — and the fifth acceptance
-exercise met exactly that, on a capture whose `cudaProfilerStart` bracket was not honoured
-because `--capture-range=cudaProfilerApi` was never passed.
-
-Three surfaces already assume the capability: `modes/performance.md` opens "It captures or
-ingests a profiler database", the playbook's step 1 asks whether capture is in scope and notes
-it consumes allocation, and the capture convention requires an anchor for rocpd without showing
-how to record one.
-
-What closes it, and it is two changes rather than one.
-`conventions/profile-capture.md` takes the vendor-neutral recipe: which instrumentation answers
-which question, the export step, the per-rank output convention, and the anchor line for formats
-that need it. **`machines/<name>/` takes profiler availability** — present or not, under what
-module, with any site constraint — which is machine knowledge and is currently absent from all
-three profiles. The working project holds exercised material for both: its benchmark submission
-scripts carry real invocations, and their `.qdstrm` checks are this convention's
-artifact-validation rule already in executable form.
+**The capture gap is closed (2026-09-16).** `conventions/profile-capture.md` now carries the
+planning-time recipe — what to request from Nsight Systems, rocprofv3 and rocprof-sys, the
+`nsys export --type sqlite` step every tool here requires, the per-rank naming rule, and what no
+tracer setting supplies — and the machine profiles carry profiler availability as an optional
+`profilers:` block, present on Perlmutter and Frontier and deliberately absent on DeltaAI, where
+it was never established. The import also found that the tool's own rocpd re-profile commands
+produced an unreadable artifact; see the eighth-session entry below, which records that, the
+per-rank constraint behind the naming rule, and one newly owed item in `diagnostics.py`.
 
 **The change-proposal harness landed 2026-09-15** as `tools/run-change-proposal`, discharging
 the owed item recorded below. `modes/developer.md` now names it as the pre-commit step, with
@@ -2162,6 +2140,95 @@ source; if that happens the fact belongs in `software/milc/applications/ks-imp-r
 *Also left alone deliberately.* The capture had no MPI tracing, which cost its analysis every
 communication reading. That is not a handbook fact: the extraction's own capability note already
 prints the re-profile command, so the executable form exists and prose would only duplicate it.
+
+**Amended 2026-09-16 by the eighth session: the executable form existed and was wrong.** The
+reasoning above holds for Nsight Systems and failed for rocpd — every rocpd re-profile command
+the capability notes printed omitted `ROCPROFSYS_USE_ROCPD=true`, so following one produced a
+capture this repository cannot open. "The tool already prints it" is a sound reason to decline
+prose only once the printed command has been checked, which this entry did not do.
+
+**Capture recipe, profiler availability, and an unreadable re-profile command, 2026-09-16**
+(eighth session). Closes the capture gap the 2026-09-16 review opened, in the two changes that
+review specified plus a third the work turned up. Nothing measured was admitted; the fact class
+cleared by the operator beforehand was profiler invocation and output-format settings, carrying
+no allocation, path, host, run-identifier or measurement detail.
+
+*The recipe.* `conventions/profile-capture.md` gains what to request from Nsight Systems,
+rocprofv3 and rocprof-sys, the `nsys export --type sqlite` step every tool here requires, and a
+section stating that no tracer setting supplies achieved bandwidth, cache behaviour or
+occupancy — counter collection is a separate job, because replay distorts the durations a timing
+capture exists to measure. The leaf opens by naming `tools/gpu_profile/diagnostics.py` canonical
+for the remedial mapping and declining to restate it, because the two are not the same object:
+the tool runs on a profile and this runs when there is not one yet. That distinction is what
+separates this from the prose the seventh session correctly rejected as duplication.
+
+*The third change, and it is why the second sentence above needed writing.* The seventh-session
+entry closed by leaving MPI-capture prose out, on the grounds that the extraction already prints
+the re-profile command. It does — and **on ROCm that command produced a file this repository
+cannot open.** rocprof-sys writes a perfetto trace unless `ROCPROFSYS_USE_ROCPD=true` is set, and
+none of R1, R2, R3, R4 or R5 mentioned it; a session following the tool's own advice would have
+spent an allocation and received an artifact `open_profile()` rejects. R1 additionally needed
+`ROCPROFSYS_USE_MPIP=true`, without which the MPI ranges it exists to recover are absent. The
+flags themselves — `--trace`, `--mpi` — were **left alone**: the evidence shows they are
+insufficient, not wrong, and rewriting an unverified flag is the overclaim this document keeps
+recording. `tests/test_gpu_profile_capability_notes.py` pins it **structurally**, walking every
+rocpd note rather than asserting on the five by name, so the next note added is covered.
+
+*The per-rank convention turned out to be a constraint rather than a convention.* `[source]`
+`parse_rank_ids` extracts every integer from each stem, requires all stems to yield the same
+count, and requires exactly one position to vary. A name carrying a second varying integer — a
+node ID is the obvious one — silently falls back to positional order, so every per-rank figure
+is attributed to whichever file globbed first. The payload says so in
+`rank_ids_parsed_from_filenames`, and the leaf now says to read that field before any per-rank
+number. This is the one part of the capture gap that was not visible from the outside: the
+ROADMAP recorded "no per-rank output convention", and what was missing was a rule about what may
+not appear in the name.
+
+*Machine side, and the absence is deliberate.* `schemas/machine.schema.json` gains an optional,
+permissive `profilers` object — no `schema_version` bump, on the 2026-08-28 precedent where
+profiles gained only an optional field. Perlmutter records Nsight Systems under `cudatoolkit`;
+Frontier records `rocprofv3` and `rocprof-sys-sample` under `rocm`, the second flagged
+`module_version_sensitive`. **DeltaAI records nothing.** It is NVIDIA and CUDA, so `nsys` is very
+likely present — and that is exactly the interpolation [§stacks](ARCHITECTURE.md#stacks) rule 1
+forbids. An absent key means nobody established it, which is the true statement.
+
+*Filing, decided against the first draft.* The Frontier module-pin fact — a lone `rocm/<version>`
+pin conflicts with `PrgEnv-amd`'s own `amd/<version>` default and resolves silently to the older
+one — was drafted into the new capture leaf and moved to `machines/frontier/notes.md`, because it
+governs any pinned ROCm work rather than profiling specifically. The capture leaf cites it and
+keeps only what is capture-specific: a correct pin can still land on a module that does not ship
+the profiler, and that failure presents as a job that merely ran without profiling. Both new
+facts are tagged `[inferred]` rather than `reproduced` — each rests on one observation plus a
+mechanism, and `observed` would have forced a durable rule into `incidents/`.
+
+*Rejected, recorded so it is not re-litigated.* The source reference's capability matrix claims
+memory bandwidth as a percentage of peak and a GPU occupancy estimate for both formats. Both
+contradict the tracer rule `modes/performance.md` and
+[§profile-analysis](ARCHITECTURE.md#profile-analysis) already carry, so the rows were dropped and
+the opposite section written instead. Importing a matrix wholesale is how a known overclaim
+enters a convention. A `capture_notes:` pointer field in the machine profiles was also drafted
+and dropped: the validator resolves Markdown links and not bare YAML strings, so it would have
+rotted unchecked.
+
+*Newly owed.* **`diagnostics.py`'s N4 offers a remedy that the mode forbids reading.** It tells a
+session to re-profile with `--gpu-metrics-device=all` so that memory-bound versus compute-bound
+classification need not "use heuristics only" — while `modes/performance.md` and
+[§profile-analysis](ARCHITECTURE.md#profile-analysis) both rule that question out of a tracer
+entirely and send it to a counter-collecting run. The note invites precisely the reading the mode
+exists to prevent. Not fixed here: it is a different fact class from the output-format defect,
+and whether the sampled device-wide metrics that flag collects can support any part of that
+classification is a judgement this session could not verify offline. R4's rocpd twin carries the
+same wording.
+
+*Controls.* Five in the new file, and all five perturbations were run and confirmed to fail
+distinctly: the fix reverted entirely (two failures), the constant present but emptied, MPIP
+dropped from R1 alone, the whole ROCPD branch disabled (three failures, the vacuity guard), and
+a ROCm variable leaked into an nsys note. The emptied-constant case is the one worth naming — it
+is the shape of the five vacuous controls this document already records, and it distinguishes a
+constant that is consulted from one sitting decoratively beside the guard. The schema addition
+got the same treatment outside the suite: removed, both machine profiles fail validation;
+restored, they pass. Full suite 401 passing, validator unchanged at 17 P2 advisories and Tier 0
+5844/6144 bytes, references 625 to 635.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check

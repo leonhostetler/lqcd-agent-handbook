@@ -49,6 +49,11 @@ build_environment:
       cxx: CC
       fortran: ftn
     cuda_module: cudatoolkit
+profilers:
+  nsight_systems:
+    commands:
+      - nsys
+    provided_by_module: cudatoolkit
 node_types:
   cpu:
     description: CPU-only compute node.

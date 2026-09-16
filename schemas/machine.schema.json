@@ -95,6 +95,11 @@
       "type": "object",
       "additionalProperties": true
     },
+    "profilers": {
+      "type": "object",
+      "description": "Profilers the site provides, keyed by profiler. Optional: an absent key means nobody has established what this site provides, and a consumer must ask rather than assume.",
+      "additionalProperties": true
+    },
     "node_types": {
       "type": "object",
       "minProperties": 1,

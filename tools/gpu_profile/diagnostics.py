@@ -6,6 +6,14 @@ from dataclasses import dataclass
 
 from .base import Format, ProfileCapabilities
 
+# rocprof-sys writes a perfetto trace unless told otherwise, and rocpd is the only format this
+# reader accepts. A re-profile command that omits this therefore produces a run that succeeds
+# and an artifact that cannot be opened -- so every rocpd command below carries it, and
+# tests/test_gpu_profile_capability_notes.py pins that structurally rather than per note.
+_ROCPD_OUTPUT = "ROCPROFSYS_USE_ROCPD=true"
+# MPI ranges come from the MPIP interposer, which is separately opt-in.
+_MPIP = "ROCPROFSYS_USE_MPIP=true"
+
 
 @dataclass
 class CapabilityNote:
@@ -77,7 +85,8 @@ def capability_notes(fmt: Format, caps: ProfileCapabilities) -> list[CapabilityN
                 message=(
                     "No MPI events found — comm/compute overlap, rank-imbalance, and "
                     "collective breakdown are unavailable.\n"
-                    "  Re-profile with: rocprof-sys-sample --trace --mpi -- <app> <args>"
+                    f"  Re-profile with: {_ROCPD_OUTPUT} {_MPIP} "
+                    "rocprof-sys-sample --trace --mpi -- <app> <args>"
                 ),
             ))
         if not caps.has_memcpy or not caps.has_runtime_api:
@@ -86,7 +95,7 @@ def capability_notes(fmt: Format, caps: ProfileCapabilities) -> list[CapabilityN
                 message=(
                     "No memory transfer or HIP/HSA API events found — H2D/D2H bandwidth, "
                     "CPU-GPU overlap, and launch overhead are unavailable.\n"
-                    "  Re-profile with: rocprof-sys-sample --trace -- <app> <args>"
+                    f"  Re-profile with: {_ROCPD_OUTPUT} rocprof-sys-sample --trace -- <app> <args>"
                 ),
             ))
         if not caps.has_markers:
@@ -95,7 +104,8 @@ def capability_notes(fmt: Format, caps: ProfileCapabilities) -> list[CapabilityN
                 message=(
                     "No ROCTX markers found — phase names will be auto-derived from kernel "
                     "names; user-defined region labels are unavailable.\n"
-                    "  Re-profile with: rocprof-sys-sample --trace -- <app> <args>\n"
+                    f"  Re-profile with: {_ROCPD_OUTPUT} "
+                    "rocprof-sys-sample --trace -- <app> <args>\n"
                     "  (and ensure the application calls roctxRangePush/roctxRangePop)"
                 ),
             ))
@@ -106,7 +116,7 @@ def capability_notes(fmt: Format, caps: ProfileCapabilities) -> list[CapabilityN
                     "No OS-level regions found — rocprofv3 traces none, so idle time the "
                     "host spends blocked in the OS cannot be separated from host compute "
                     "and the idle-attribution residual absorbs it.\n"
-                    "  Re-profile with: rocprof-sys-sample --trace -- <app> <args>"
+                    f"  Re-profile with: {_ROCPD_OUTPUT} rocprof-sys-sample --trace -- <app> <args>"
                 ),
             ))
         if not caps.has_pmc_counters:
@@ -117,7 +127,8 @@ def capability_notes(fmt: Format, caps: ProfileCapabilities) -> list[CapabilityN
                     "compute-bound classification will use heuristics only; occupancy and "
                     "cache hit rates are unavailable.\n"
                     "  Re-profile with: "
-                    "rocprof-sys-sample --trace --hardware-counters <counters> -- <app> <args>"
+                    f"{_ROCPD_OUTPUT} rocprof-sys-sample --trace "
+                    "--hardware-counters <counters> -- <app> <args>"
                 ),
             ))
 

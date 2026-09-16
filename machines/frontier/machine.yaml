@@ -66,6 +66,16 @@ build_environment:
     rocm_module: rocm
     target_module: craype-accel-amd-gfx90a
     gpu_arch: gfx90a
+profilers:
+  rocprofv3:
+    commands:
+      - rocprofv3
+    provided_by_module: rocm
+  rocprof_sys:
+    commands:
+      - rocprof-sys-sample
+    provided_by_module: rocm
+    module_version_sensitive: true
 node_types:
   gpu-mi250x:
     description: Compute node with four MI250X packages exposed as eight GCD devices.

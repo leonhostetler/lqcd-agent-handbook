@@ -1,6 +1,6 @@
 ---
 title: Capturing a GPU profile
-summary: What a capture must establish before the run — that the artifact is validated rather than the exit status, that a capture-scope bracket in the application is honoured only when the profiler was told to honour it, that a wall-clock anchor exists where the format does not carry one, whether an untraced control run exists to bound what tracing cost, and why a capture meant to compare configurations must not trace the comparison.
+summary: What to request from a tracer and how to name its per-rank output, then what a capture must establish before the run — that the artifact is validated rather than the exit status, that a capture-scope bracket in the application is honoured only when the profiler was told to honour it, that a wall-clock anchor exists where the format does not carry one, whether an untraced control run exists to bound what tracing cost, and why a capture meant to compare configurations must not trace the comparison.
 scope: [universal]
 load_when: Planning, submitting, or validating a profiled run.
 evidence: reproduced
@@ -8,16 +8,118 @@ observations: 2
 sources:
   - operator's screened project records
   - vendor tracer documentation for Nsight Systems and ROCm Systems Profiler
-observed: "2026-09-15"
+  - this repository's extraction tool, tools/gpu_profile/
+observed: "2026-09-16"
 observed_on:
   requirements: gpu-profile-capture
-review_by: "2027-09-15"
+review_by: "2027-09-16"
 ---
 
 # Capturing a GPU profile
 
 A capture consumes allocation and cannot be repeated cheaply, so what it must contain is
 decided before the run, not discovered after it.
+
+## Decide what the trace must record, before submitting
+
+**This is the one part of capture the extraction cannot advise on, because it runs before
+there is a profile.** `tools/gpu_profile/diagnostics.py` owns the remedial direction — given a
+capture, which missing capability costs which analysis, and what to add on the next run — and
+its notes are printed by `summary` and `schema`. It is canonical for that mapping and is not
+restated here. What follows is the planning-time recipe it has no way to supply.
+
+Narrow the trace to what the question needs. Every traced domain is intercepted calls, and
+interception is what the run pays for; the section on untraced controls below is the reason
+that matters.
+
+### Nsight Systems
+
+```
+nsys profile -t cuda,nvtx,osrt,mpi --mpi-impl=<mpich|openmpi> \
+  -o <prefix>_%q{SLURM_PROCID} <app> <args>
+```
+
+| Requested | Supplies | Without it |
+|---|---|---|
+| `-t cuda` | kernel timing, transfers, CUDA runtime API | nothing this handbook's tooling reads |
+| `-t nvtx` | application annotation ranges | phases are inferred from kernel-distribution change points and labelled by dominant kernel |
+| `-t osrt` | OS-runtime calls | host time blocked in the OS cannot be separated from host compute; the idle residual absorbs it |
+| `-t mpi` + `--mpi-impl` | MPI operation ranges | no communication finding, and no cross-rank imbalance. The implementation flag is required alongside `-t mpi` |
+| `--sample=process-tree` | host call-stack sampling | `host-samples` is unavailable, so unattributed host time can be sized and never named |
+| `-c cudaProfilerApi` | honours an application's `cudaProfilerStart`/`Stop` bracket | the bracket is ignored — see the section below, which is why this is not optional where the application has one |
+
+**Export before analysing.** Every tool here reads SQLite, not the report:
+
+```
+nsys export --type sqlite --output <name>.sqlite <name>.nsys-rep
+```
+
+### rocprofv3
+
+```
+rocprofv3 --sys-trace --output-format rocpd -d <outdir> -o <prefix>_%pid% <app> <args>
+```
+
+`--sys-trace` is a bundle. A narrow set such as `--hip-trace --hsa-trace` omits kernel timing
+and transfers, leaving `rocpd_kernel_dispatch` and `rocpd_memory_copy` empty in a file that
+opens cleanly. No export step is needed — rocpd is already SQLite.
+
+**rocprofv3 does not intercept MPI at all**, so `has_mpi` is false on every rocprofv3 capture
+and no flag changes that. A communication question needs rocprof-sys.
+
+### rocprof-sys
+
+Its controls are environment variables rather than flags, and two of them decide whether the
+capture is readable at all:
+
+```
+export ROCPROFSYS_USE_ROCPD=true    # rocpd SQLite; the default sink is perfetto, which is not read here
+export ROCPROFSYS_USE_MPIP=true     # MPI interposer; this is what makes has_mpi true
+export ROCPROFSYS_USE_ROCM=true
+export ROCPROFSYS_ROCM_DOMAINS="hip_runtime_api_ext,kernel_dispatch,memory_copy,memory_allocation,marker_api,marker_core_range_api"
+export ROCPROFSYS_USE_PID=true      # one file per rank
+export ROCPROFSYS_OUTPUT_PREFIX="rank_"
+export ROCPROFSYS_TIME_OUTPUT=false # no timestamp suffix on the output directory
+export ROCPROFSYS_TRACE=false       # perfetto backend off; it writes files nothing here reads
+
+srun -n <ranks> rocprof-sys-sample -o <outdir> -- <app> <args>
+```
+
+`ROCPROFSYS_USE_ROCPD` is the one to check first when a capture cannot be opened: without it
+the run succeeds and writes a format this handbook's reader does not accept. The explicit
+domain list is worth its length because the default set is version-dependent, and
+`hip_runtime_api_ext` is what makes host-side synchronisation visible.
+
+### What no tracer setting supplies
+
+Achieved bandwidth, cache behaviour, coalescing and achieved occupancy are not tracer output at
+any flag setting. `--gpu-metrics-device` and `ROCPROFSYS_ROCM_EVENTS` collect sampled or
+replayed counters and are a **separate job**, not an addition to a timing capture: counter
+collection serialises kernel replay and distorts exactly the durations the timing capture
+exists to measure. [`profile-metrics.md`](profile-metrics.md) owns what may not be read from a
+trace, and it is not relaxed by having asked for more domains.
+
+## Name per-rank outputs so the rank ID is the only varying integer
+
+Multi-rank analysis needs one file per rank, and `cross-rank` recovers which rank is which
+**from the filenames**. `[source]` `parse_rank_ids` in `tools/gpu_profile/cross_rank.py`
+extracts every non-negative integer from each stem, requires all stems to yield the same
+count, and requires exactly one position to vary across the set; those values are then the
+rank IDs. Anything else falls back to positional order.
+
+**The failure is quiet and produces a plausible answer.** A name carrying a second varying
+integer — a node ID, a host-assigned identifier, a per-rank job step — has two varying
+positions, so the fallback fires and every per-rank figure is attributed to whichever rank the
+shell happened to glob first. The payload reports this as
+`rank_ids_parsed_from_filenames: false`; **read that field before reading any per-rank
+number**, because nothing else about the output looks different.
+
+So the rank ID goes in, and everything else that varies stays out. A profiler-supplied rank
+substitution is the reliable way to get it — `%q{SLURM_PROCID}` for Nsight Systems under
+Slurm, a PID-derived suffix for rocprof-sys — and a fixed prefix shared by every rank carries
+the rest. Where the profiler writes a per-run subdirectory instead, renaming to the flat
+per-rank form afterwards is a deterministic post-step and leaves the originals alone if it
+matches nothing.
 
 ## A profiler's exit status is not a completion signal
 
@@ -36,6 +138,19 @@ This is the exact-artifact rule of [`measurement.md`](measurement.md) applied to
 that document remains canonical for predeclaring an expected-artifact manifest. Failing to apply
 it here has a specific cost: a silent capture failure is discovered after the allocation is
 spent, and one lost capture can remove the only run covering a condition.
+
+**The rocpd equivalent is a truncated file rather than a missing one.** `[inferred]` from the
+flush mechanism plus one observed truncated capture, and kept labelled as an inference rather
+than promoted on a single occurrence. The rocpd writer flushes to SQLite at process exit, so a
+rank killed before it finishes leaves a `.db` that opens, reports a schema version, and carries
+empty `rocpd_kernel_dispatch`,
+`rocpd_memory_copy` and `rocpd_memory_allocate` tables while the API regions already written
+survive. The signature is those tables empty **with a journal sidecar** (`.db-journal` or
+`.db-wal`) beside the file; the same tables empty with no sidecar means a narrow flag set
+instead, which is a different repair. Where the scheduler may reach walltime, give the writer a
+graceful shutdown ahead of `SIGKILL` — under Slurm, a `--signal` directive with a lead time in
+the minutes, whose exact spelling comes from the scheduler surface record rather than from
+here.
 
 ## A capture-scope control can return success without gating the trace
 
