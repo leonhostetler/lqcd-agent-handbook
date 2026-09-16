@@ -32,7 +32,17 @@ def _build_synthetic_db(path: Path) -> None:
     NVTX range:    [950_000_000 .. end_of_kernels] "computePhase"
     MPI_Barrier:   [500_000_000 .. 600_000_000]    100 ms
     MPI_Allreduce: [700_000_000 .. 750_000_000]    50 ms
+    MPI_Allreduce: [795_000_000 .. 815_000_000]    20 ms  (wraps the CPU sync below)
     CPU sync:      [800_000_000 .. 810_000_000]    10 ms
+
+    The third MPI range deliberately encloses the CPU sync, so one traced activity
+    category overlaps another — a CUDA-aware collective synchronising the stream from
+    inside the call. It is what keeps the merge-versus-sum control in
+    test_gpu_profile_window_breakdown.py able to fail: without a real activity-on-
+    activity overlap, summing and merging return the same number and the control is
+    inert. Before 2026-09-15 that control passed only because an NVTX range overlapped
+    a runtime call, which stopped counting toward coverage when annotations were
+    excluded from it.
 
     Kernel timeline:
       Kernel3D  ×10: 2 ms each, 5 µs inter-kernel gap  (<10 µs bucket)  → 20 ms total
@@ -168,6 +178,11 @@ def _build_synthetic_db(path: Path) -> None:
         [
             (500_000_000, 600_000_000, 5),  # MPI_Barrier  100 ms
             (700_000_000, 750_000_000, 6),  # MPI_Allreduce 50 ms
+            # Encloses the cuStreamSynchronize below: an activity-on-activity overlap,
+            # which is the case `conventions/profile-metrics.md` describes and the only
+            # thing that keeps merge-versus-sum distinguishable once annotations are
+            # excluded from coverage. See this function's docstring.
+            (795_000_000, 815_000_000, 6),  # MPI_Allreduce 20 ms
         ],
     )
 

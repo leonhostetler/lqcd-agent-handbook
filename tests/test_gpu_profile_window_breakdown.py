@@ -113,6 +113,54 @@ class WindowBreakdownTests(unittest.TestCase):
         self.assertLessEqual(out["covered_s"], total + 1e-9)
         self.assertLessEqual(out["covered_s"], out["window_s"] + 1e-9)
 
+    # -- an annotation is not an account --------------------------------------
+
+    def test_an_annotation_does_not_count_as_coverage(self):
+        """A marker names which region the window falls in, not what occupied it.
+
+        The defect this guards was measured: an 88.0 s startup window wrapped in a
+        single 87.286 s range reported 0.199 s uncovered (0.23%); excluding the
+        annotation reports 69.218 s (78.66%), and that time was the run's largest
+        bottleneck. Folding annotations into coverage silences the one field the
+        playbook reads to find it.
+        """
+        out = self.payload("window-breakdown", str(self.nsys))
+        cats = {c["name"]: c for c in out["categories"]}
+        self.assertTrue(cats["markers"]["available"])
+        self.assertGreater(
+            cats["markers"]["total_s"], 0.0,
+            "fixture must place a marker inside the head window or this proves nothing",
+        )
+        # Fixture head window is [500 ms, 1000 ms]. Activity occupies, merged:
+        #   MPI      [500,600] + [700,750] + [795,815]        = 0.170 s
+        #   host_api [800,810] (inside the MPI range) + 50 us = 0.00005 s extra
+        # so the activity union is 0.17005 s. The marker [950,1000] adds 0.04995 s of
+        # time no activity category covers, and that time must land in uncovered_s.
+        self.assertAlmostEqual(out["covered_s"], 0.17005, places=6)
+        self.assertAlmostEqual(out["uncovered_s"], 0.5 - 0.17005, places=6)
+        activity = sum(
+            c["total_s"] for n, c in cats.items() if c["available"] and n != "markers"
+        )
+        self.assertLess(
+            out["covered_s"], activity + cats["markers"]["total_s"],
+            "coverage must not have absorbed the annotation",
+        )
+
+    def test_the_marker_is_still_reported_beside_the_account(self):
+        """Excluded from coverage, not dropped: which range a window falls in is
+        worth knowing, and top_events is where it is read."""
+        out = self.payload("window-breakdown", str(self.nsys))
+        self.assertIn("markers", [c["name"] for c in out["categories"]])
+        self.assertIn("markers", [e["category"] for e in out["top_events"]])
+        self.assertTrue(
+            any("markers" in b["by_category_s"] for b in out["bins"]),
+            "markers must still appear in the per-bin occupancy",
+        )
+
+    def test_the_coverage_exclusion_is_caveated(self):
+        out = self.payload("window-breakdown", str(self.nsys))
+        self.assertTrue(any("traced activity only" in c for c in out["caveats"]))
+
     # -- bins and naming ------------------------------------------------------
 
     def test_bins_tile_the_window_without_gaps(self):
@@ -194,6 +242,43 @@ class WindowBreakdownControls(unittest.TestCase):
             any(c["total_s"] == 0.0 for c in missing),
             "perturbation did not take effect",
         )
+
+    def test_counting_an_annotation_as_coverage_is_caught(self):
+        """Revert the exclusion and coverage must rise. If it does not, either the
+        fixture has no marker-only time in the window or the guard is inert -- both
+        make every other assertion here vacuous."""
+        before = json.loads(run("window-breakdown", str(self.db)).stdout)
+        self.perturb(
+            "        if name not in _ANNOTATION_ONLY_CATEGORIES:\n"
+            "            all_intervals.extend(clipped)",
+            "        if True:\n"
+            "            all_intervals.extend(clipped)",
+        )
+        after = json.loads(run("window-breakdown", str(self.db)).stdout)
+        self.assertGreater(
+            after["covered_s"], before["covered_s"],
+            "re-including annotations did not raise coverage; the control is inert",
+        )
+        self.assertLess(after["uncovered_s"], before["uncovered_s"])
+
+    def test_emptying_the_annotation_set_is_caught(self):
+        """The constant must be the thing consulted, not decoration beside a guard
+        that would exclude markers anyway."""
+        before = json.loads(run("window-breakdown", str(self.db)).stdout)["covered_s"]
+        self.perturb(
+            '_ANNOTATION_ONLY_CATEGORIES = frozenset({"markers"})',
+            "_ANNOTATION_ONLY_CATEGORIES = frozenset()",
+        )
+        after = json.loads(run("window-breakdown", str(self.db)).stdout)["covered_s"]
+        self.assertGreater(after, before, "the constant is not consulted")
+
+    def test_dropping_the_exclusion_caveat_is_caught(self):
+        self.perturb(
+            '            "Coverage counts traced activity only; "',
+            '            "" if True else "Coverage counts traced activity only; "',
+        )
+        out = json.loads(run("window-breakdown", str(self.db)).stdout)
+        self.assertFalse(any("traced activity only" in c for c in out["caveats"]))
 
     def test_dropping_the_caveat_is_caught(self):
         self.perturb(

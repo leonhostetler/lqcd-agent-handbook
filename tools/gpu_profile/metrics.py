@@ -343,6 +343,22 @@ def _idle_intervals(
 
 _WINDOW_BIN_DEFAULT = 8
 
+# Categories that label a window rather than describe activity inside it.
+#
+# `mpi`, `host_api` and `os_runtime` each name what a thread was *doing*, so time they
+# occupy is time the window is accounted for. A marker range names which annotated
+# region the code was in, which is not the same claim: an outer range wrapping a whole
+# run covers every window completely while explaining none of it. Folding markers into
+# coverage therefore drives `uncovered_s` to ~0 on exactly the captures where the
+# uncovered remainder is the finding. Measured on one 88.0 s startup window whose single
+# enclosing range covered 87.286 s: reported 0.199 s uncovered (0.23%) where the traced
+# activity categories in fact left 69.218 s (78.66%) unexplained, and that time was the
+# run's largest bottleneck.
+#
+# Markers stay in `categories`, `top_events` and `bins` -- knowing which range a window
+# falls in is useful. They are excluded only from the coverage arithmetic.
+_ANNOTATION_ONLY_CATEGORIES = frozenset({"markers"})
+
 
 def _kernel_span_ns(profile: Profile) -> tuple[int, int] | None:
     evts = profile.kernel_events()
@@ -425,7 +441,8 @@ def compute_window_breakdown(
                 events=len(rows),
             )
         )
-        all_intervals.extend(clipped)
+        if name not in _ANNOTATION_ONLY_CATEGORIES:
+            all_intervals.extend(clipped)
         for r in rows:
             key = (r.name, name)
             named.setdefault(key, []).append(
@@ -472,6 +489,19 @@ def compute_window_breakdown(
         "Occupancy is merged per category and categories are not summed: an event "
         "inside another traced call belongs to both, so the parts may overlap.",
     ]
+    annotated = [
+        c.name for c in categories
+        if c.available and c.name in _ANNOTATION_ONLY_CATEGORIES
+    ]
+    if annotated:
+        caveats.append(
+            "Coverage counts traced activity only; "
+            + ", ".join(sorted(annotated))
+            + " is reported beside it but excluded, because an annotation says which "
+            "region the window falls in and not what occupied it. An enclosing range "
+            "would otherwise report the window as fully covered while explaining none "
+            "of it."
+        )
     if any(not c.available for c in categories):
         caveats.append(
             "A category reported as unavailable was not traced. That is not the same "

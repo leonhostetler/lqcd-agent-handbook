@@ -19,9 +19,10 @@ tuning.
 to Slice 4. **The pre-first-kernel window breakdown landed 2026-09-15** as
 `gpu-profile-summary.py window-breakdown`, with the definition in
 `conventions/profile-metrics.md` and the step in `playbooks/analyze-profile.md`; it describes
-what `idle-attribution` can only size, and three controls cover it — summing categories instead
-of merging, reporting an untraced category as `0.0`, and dropping the untraced caveat — each
-asserting its perturbation landed. **Two items remain owed.** One crossed [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s threshold during the
+what `idle-attribution` can only size. **Six controls now cover it, not the three recorded here
+on landing** — a coverage defect found in use on 2026-09-15 added three and repaired one of the
+original three, which the fix had made inert; see the Slice 6 entry. Each asserts its
+perturbation landed. **Two items remain owed.** One crossed [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s threshold during the
 exercises and is owed rather than optional. **The untraced-control comparison was reassigned to
 Slice 4 on 2026-09-15**, where `tools/extract-milc-timings.py` — a Slice 4 deliverable that has
 not been written — is the run-log reader it will be built into; one floating item remains.
@@ -1732,6 +1733,64 @@ and `outside_kernel_span_s` is that signal. **`conventions/profile-metrics.md` g
 residual still bounds**, admitted on the check 2 ruling and deliberately held until it was given,
 because writing it from the session whose grade turned on that reasoning would have contaminated
 the grade.
+
+**Coverage defect found in use, 2026-09-15** (sixth session), on a MILC `su3_rhmd_hisq` RHMC
+capture from a 4-rank single-node JLSE B200 run. Not an acceptance exercise — Slice 6 is
+accepted, and this is the first defect the accepted tooling produced against a real analysis.
+The isolation precondition was **not** met and no grade is claimed from this session: two prior
+hypothesis records and their transcripts sat in the capture directory. Their filenames were
+visible in a directory listing and none was opened, but that is weaker than the third exercise's
+standard and is recorded rather than waived.
+
+*The defect.* `compute_window_breakdown` accumulated **every** category into `all_intervals`,
+including `markers`, so `covered_s` counted annotation ranges as accounted time. On the capture's
+88.0 s startup window a single `qudaInit` range covering 87.286 s drove the output to **0.199 s
+uncovered, 0.23%** — a window reading as fully accounted for. With annotations excluded the same
+window reports **69.218 s uncovered, 78.66%**. That 69.2 s was the largest bottleneck in the run:
+single-threaded MILC host code, found by CPU sampling through the raw-query escape hatch, not by
+the field built to point at it. The failure is the reassuring direction — `uncovered_s` is the
+one number the playbook reads to decide a window is *not* explained, and an outer range silences
+it on exactly the captures where it matters. `mpi`, `host_api` and `os_runtime` name what a
+thread was doing; a marker names which region the code was in, and that is not the same claim.
+`_ANNOTATION_ONLY_CATEGORIES` now gates the coverage arithmetic, markers stay in `categories`,
+`top_events` and `bins`, a caveat states the exclusion, and
+`conventions/profile-metrics.md` gains **"An annotation bounds a window; it does not account for
+it."**
+
+*The second defect, which is the more transferable one.* The fix silently made
+`test_summing_categories_instead_of_merging_is_caught` inert, and it caught itself: after the
+change, summing and merging returned the same 0.16005 s. The synthetic nsys fixture's **only**
+interval overlap was an NVTX range over a `cudaLaunchKernel`, so the merge-versus-sum control had
+always been resting on the very category the fix removes from coverage. **A control that
+exercises an invariant only through a category a later change may exclude is resting on a
+coincidence, and nothing marks it as such while it passes.** Repaired in the fixture rather than
+in the control: a third `MPI_Allreduce` `[795 ms, 815 ms]` now encloses the existing
+`cuStreamSynchronize [800, 810]`, giving a genuine activity-on-activity overlap — the CUDA-aware
+collective case `conventions/profile-metrics.md` already describes — so merge and sum differ
+without any annotation. This is the fourth time in this repository a control has been found
+vacuous, and the first found by the control's own landing assertion rather than by reading
+output.
+
+*Controls.* Three added — an annotation must not raise coverage, emptying
+`_ANNOTATION_ONLY_CATEGORIES` must raise it (so the constant is shown to be consulted rather than
+decoration beside a guard that would exclude markers anyway), and dropping the exclusion caveat
+is caught — plus the repaired merge-versus-sum control, six in total. Each was reverted and
+confirmed to break. Full suite 317 passing; validator unchanged from baseline at 17 P2 advisories
+and Tier 0 5844/6144 bytes.
+
+*Queued from the same session's review, each owed as its own change under the one-fact-class
+rule.* `cross-rank` discards the per-rank `ProfileSummary` objects it already holds when phase
+alignment refuses, so a session re-derives them at ~47 s per rank — `align_phases` receives them,
+and emitting them alongside the refusal costs nothing. The `phases` subcommand returns a payload
+byte-identical to `summary["phases"]` at the same ~48.7 s, which `playbooks/analyze-profile.md`
+induces by prescribing both in consecutive steps. `schema`'s `--table <NAME>` branch is
+unreachable, the only `--table` being the global boolean, which is silently ignored for that
+subcommand. And the **windowed CPU-sampling leaf-symbol breakdown reached three hand uses in one
+session**, crossing [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s threshold: it is the
+instrument that named this session's largest finding, it has two silent failure modes — omitting
+`stackDepth = 0` counts every frame of every stack, and omitting `MATERIALIZED` re-derives the
+window CTE per outer row — and it is squarely a profiler-database aggregation, so the 2026-09-15
+narrowing does not exempt it. Owed as a subcommand.
 
 ### Slice 7 — automation and enforcement
 `tools/log-session-*.{sh,py}`, the offer-only installer, and the detect-and-offer check

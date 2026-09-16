@@ -212,6 +212,19 @@ belongs to both, and adding them over-accounts. What no traced category covers i
 remainder, and it is exactly as untrustworthy as the capture's coverage — an untraced category
 may own all of it.
 
+**An annotation bounds a window; it does not account for it.** The categories that count toward
+coverage are the ones naming what a thread was *doing* — communication, the runtime API, OS
+runtime. A marker range names which annotated region the code was in, and a run-spanning outer
+range therefore covers every window in the profile while explaining nothing in any of them.
+Measured on one capture, an 88.0 s startup window enclosed by a single 87.286 s range reported
+**0.199 s uncovered, 0.23%** — a window that reads as fully accounted for. With the annotation
+excluded the same window reports **69.218 s uncovered, 78.66%**, and that time was the largest
+bottleneck in the run. It was found by CPU sampling rather than by the field built to point at
+it. The extraction now excludes annotation-only categories from `covered_s` and says so in
+its caveats, so `uncovered_s` carries the reading it is quoted for. **A marker still belongs in
+the output** — which range a window falls in is worth knowing — so read it as a label beside the
+account, never as part of it.
+
 ## What a tracer does not record
 
 `[docs]` Nsight Systems and ROCm Systems Profiler are **tracers**. They record API calls, kernel

@@ -146,6 +146,12 @@ class WindowBreakdown:
     This exists for the window that lies outside the kernel span — before the first
     kernel or after the last — which ``IdleAttribution`` reports the size of and
     cannot describe, because inter-kernel idle is empty there by construction.
+
+    ``covered_s`` is the merged occupancy of the **activity** categories only — the
+    ones naming what a thread was doing. Annotation-only categories are listed in
+    ``categories`` and excluded from it; see ``_ANNOTATION_ONLY_CATEGORIES`` in
+    ``metrics.py`` for why. So ``uncovered_s`` means "no traced activity accounts for
+    this", which is the reading the playbook acts on, and not "no event overlaps it".
     """
 
     region: str
