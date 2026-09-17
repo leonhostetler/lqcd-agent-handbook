@@ -209,6 +209,26 @@ Two of those build stages also completed and saved work beyond the cache — an 
 that case — which turned the second submission into a cheap load. So the two-submission rule
 bounds the first stage; it does not imply the second costs the same.
 
+**A sweep over a key-bearing parameter introduces one new shape per value, so the tuning cost
+scales with the sweep.** Where the parameter being varied is itself part of the tune key — a batch
+or right-hand-side width is the common case, since kernels are instantiated per width — each new
+value is a shape the cache has never held, and the rule above applies once per value rather than
+once per rig. Budget it that way: count the distinct new shapes the rig will introduce, not the
+number of submissions.
+
+**The cost lands as wall clock, and it lands on the last legs.** A leg pays its tuning when it
+first runs, so a multi-leg rig spends that cost leg by leg and arrives at its final legs with
+whatever walltime is left. In one recorded fourteen-leg run about a quarter of the booked walltime
+went to tuning six new widths, and the final leg was killed by the wall before reaching its first
+solve.
+
+**What earns this its own rule is that the measurement checks cannot catch it.** That same run's
+timings were clean: its input structure kept every tuning event inside a discarded first solve, so
+every retained figure was uncontaminated and both the first-solve and tuning-event checks passed.
+The defect was in the *schedule*, not in the numbers — so a rig whose measurements are verified
+correctly can still lose a leg this way, and only a walltime estimate that counts new shapes
+prevents it.
+
 ## An absent cache and an empty one are not the same file
 
 QUDA cold-starts when the cache file is **missing** and **aborts** when it is present and
