@@ -7,6 +7,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from support import interpreter_for  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 CHECKER = ROOT / "tools" / "check-batch-script.py"
 RUNNER = ROOT / "tools" / "run-batch-script-check"
@@ -30,7 +34,7 @@ class BatchScriptCheckerTests(unittest.TestCase):
             script = Path(temp_dir) / "job.sbatch"
             script.write_text(body)
             return subprocess.run(
-                [sys.executable, str(CHECKER), str(script), *arguments],
+                [interpreter_for("yaml"), str(CHECKER), str(script), *arguments],
                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
             )
 

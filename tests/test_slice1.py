@@ -8,6 +8,19 @@ import subprocess
 import unittest
 from pathlib import Path
 
+import pathlib  # noqa: E402
+# Guard the in-process imports below. Choosing another interpreter cannot help here --
+# these must import in *this* one -- so an absent dependency becomes a loud module skip
+# rather than a collection error naming a missing module instead of a behaviour.
+import importlib.util as _dep_util  # noqa: E402
+_DEP_SUPPORT_SPEC = _dep_util.spec_from_file_location(
+    "handbook_dep_guard", pathlib.Path(__file__).resolve().parents[1] / "tests/support.py"
+)
+_DEP_SUPPORT = _dep_util.module_from_spec(_DEP_SUPPORT_SPEC)
+assert _DEP_SUPPORT_SPEC.loader is not None
+_DEP_SUPPORT_SPEC.loader.exec_module(_DEP_SUPPORT)
+_DEP_SUPPORT.require_importable("yaml", "jsonschema")
+
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 

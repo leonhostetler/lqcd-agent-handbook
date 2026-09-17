@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from support import PerturbationMixin  # noqa: E402
+from support import PerturbationMixin, interpreter_for  # noqa: E402
 
 HANDBOOK = ROOT / "handbook.yaml"
 ARCHITECTURE = ROOT / "ARCHITECTURE.md"
@@ -43,7 +43,7 @@ HISTORICAL_FORMS = (
 
 def run_validator() -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(VALIDATOR)],
+        [interpreter_for("yaml", "jsonschema"), str(VALIDATOR)],
         cwd=ROOT,
         text=True,
         stdout=subprocess.PIPE,

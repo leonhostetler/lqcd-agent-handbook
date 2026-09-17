@@ -1980,3 +1980,136 @@ nothing re-reads an owed item against the work that follows it, so an item can b
 satisfied and still read as outstanding. The nearest recorded relative is the `schema`
 dead-code report below, where reading a consumer and grepping one spelling of its producer
 produced a claim that was confident, specific and false.
+
+---
+
+<a id="debugging-knowledge-import"></a>
+## Debugging-knowledge import, and the test-interpreter repair (2026-09-17)
+
+Two episodes from one session. The first admitted knowledge mined from an operator campaign; the
+second repaired the suite that was supposed to be guarding it, and which had been red on `main`
+long enough to read as normal.
+
+### The import
+
+The source was a split-grid deflation campaign in an operator working project: eighteen
+investigation documents totalling about 1.1 MB, and thirty-five session transcripts totalling
+about 1.6 MB, read under an explicit operator instruction to include the transcripts.
+`ARCHITECTURE.md` §session-logging permits that as a narrow exception and requires the transcript
+be treated as private evidence rather than as canonical knowledge; it was. Extraction staged in
+the working project beside the corpus, never in this repository, per
+[§validator-not-clearance](ARCHITECTURE.md#validator-not-clearance).
+
+Thirty-five candidates passed the admission test and landed as five commits, one fact class each:
+`conventions/diagnostic-rigs.md` with six new `modes/debugging.md` method items; the batch-script
+facts; the QUDA autotuning facts; the QUDA development facts with one memory-leaf addition; and
+`machines/perlmutter/communication-defects.md`.
+
+*What was rejected, which is the half that stops the next session re-litigating.* Every campaign
+timing, speedup ratio, per-rank memory figure and iteration count — **episode tier** under
+[§scope-levels](ARCHITECTURE.md#scope-levels) *and* unpublished measurement under `PRIVACY.md`.
+The `1133` corruption defect itself, for the same reason; its method residue was admitted as six
+of the new debugging-method items, the defect was not. The split-grid scheme and its cost model,
+which describe an unmerged feature branch and are not debugging knowledge. A single-bad-node
+episode, whose transferable residue was too thin to carry. And `grep -ci nan` matching a MILC
+`EVENANDODD` token, which `conventions/running.md` already covers as the anchor-your-patterns
+rule — admitting the token would have put one rule in two places.
+
+*Publishability was decided per class at the moment of import*, as
+[§ensemble-numbers](ARCHITECTURE.md#ensemble-numbers) requires: method and mechanism publishable;
+vendor-defect mechanism publishable after redaction; campaign measurements out; and of three
+borderline single figures, only the vendor PMI byte limit admitted, the two that were measurements
+of the operator's own application left out. The two admitted vendor defects carry their variable
+and symbol names deliberately — an operator ruling, taken after the first draft had genericised
+them, on the grounds that a session meeting either failure needs to grep for the exact string.
+Node names, job and ticket identifiers, run-directory names and paths stayed out in every draft.
+
+*One published position was reversed.* `software/quda/internals/autotuning.md` stated that manual
+tunecache row removal "is not a handbook-supported selective-invalidation method". The corpus
+contains a worked instance: thirty-two placement-sensitive dslash-policy rows identified from
+source by their `p2p=` field, stripped, and the resulting run showing exactly those rows retuning
+and nothing else, inside the discarded first solve. The sentence now keeps the caution, names the
+instance, and states the obligations that come with it. The new fact underneath it is that `p2p=`
+is a globally reduced boolean rather than placement, so the key is byte-identical across two
+placements whose tuned answers differ — which is why the gap had never been noticed.
+
+*What the checks caught that review had not.* `tests/test_reserved_terms.py` found five uses of
+`configuration` where §reserved-terms requires `candidate`, in text written by someone who had
+read that section the same session. The validator found a `review_by` on a file whose
+`observed_on` carried a version anchor. Both are the case for mechanical enforcement of a naming
+rule, and neither was visible on re-reading.
+
+*The transferable finding, and it is about the transcripts.* The distilled investigation documents
+carried nearly everything; of the candidates admitted, exactly **one** — that piping a module
+command into another command runs it in a subshell, so the environment change is discarded and the
+check reports on an environment that was never established — came from the 1.6 MB of transcripts
+and from nowhere else. Every other transcript passage that looked like a finding was a restatement
+of something a document already owned, usually better. That is one admitted fact per 1.6 MB, against
+thirty-four per 1.1 MB, and it is direct support for
+[§session-logging](ARCHITECTURE.md#session-logging)'s claim that verbatim transcript is the least
+dense form of the knowledge it contains. **It is not an argument against ever reading them** — the
+one fact was real, and cheap once authorised — but it prices the exception, and the price is why
+the rule is do-not-read-unless-asked rather than read-if-present.
+
+### The test-interpreter repair
+
+The suite was red on upstream `f1876d6`: five failures and seven collection errors, unrelated to
+the import. Establishing that took three attempts, and the first two were invalid in ways worth
+recording. A `git archive` export of `HEAD` compared against the modified tree appeared to show one
+extra error — an artifact of the export lacking the agent sandbox's unreadable `.mcp.json`
+placeholder, which `shutil.copytree` dies on. A hand-made copy of the modified tree then appeared
+to show a different extra failure — an artifact of that copy excluding `.claude` and `.agents`, so
+the validator correctly reported the frontend skills missing. **Only the third comparison, with
+identical exclusions on both sides, was evidence**; it showed the two trees byte-identical in
+outcome, and so the import introducing nothing.
+
+*The cause was one thing.* `tools/run-validator` has never invoked the validator through
+`sys.executable`; it goes through `tools/select-python`, which probes for an interpreter carrying
+the caller's declared modules, including module-provided ones. The suite never adopted that
+contract: eleven test files subprocessed dependency-carrying tools with `sys.executable`, and seven
+modules imported `jsonschema` in process. PyYAML was present on this machine and `jsonschema` was
+not, which is exactly the seven. The rule the two cases differ by is now stated in
+`tests/support.py`: inside a tool already launched through `select-python`, `sys.executable` is
+correct, because it inherits a dependency set something established; inside a test it is not.
+
+*What the repair was worth: 341 collected tests became 414.* The seven unloadable modules had been
+hiding seventy-three tests, and among them three genuinely broken call sites — `test_slice0.py`
+invoking the validator through a bare `python3`, which on this system is 3.6 and too old to parse
+the file at all, the precise thing `run-validator`'s own comment warns against. A fourth un-adopted
+copy of `handbook_copy_ignore` was found in `test_propose_change.py`; `tests/support.py`'s comment
+already recorded that three near-identical copies existed before the helper was extracted, and this
+was one the extraction missed. **A collection error is not one failure. It is an unknown number of
+tests that did not run**, and nothing in a summary line distinguishes the two.
+
+*The guard was made to fail on purpose, and that is what caught the defect in the guard.* Run under
+an interpreter lacking `jsonschema`, `interpreter_for` and `require_importable` skip loudly rather
+than falling back — a fallback reinstates the original defect wearing a different error message —
+and the first version printed its banner **seven times**, once per module, because several test
+modules load `support.py` through `spec_from_file_location` and each got its own copy of the
+module-level dedupe state. Seven repeated banners is the cry-wolf failure `conventions/running.md`
+names, not a loud warning; the registry now hangs off `sys`, the one object guaranteed shared, and
+the banner was verified to appear exactly once. `run_suite`'s new fail-on-skip branch was exercised
+directly against all three outcomes rather than assumed, because the degraded run genuinely reports
+`OK (skipped=7)`, which reads as success to anything checking only a return code.
+
+*The transferable finding.* A permanently red suite is the cry-wolf failure applied to the one
+instrument that would otherwise catch a regression, and it had been red long enough that its
+redness carried no information — which is how three real defects sat inside it unnoticed. The
+mechanism is worth separating from the moral: nothing here failed to try. The suite ran, reported,
+and was read; what it reported was a missing module, and a missing module reads as an environment
+problem rather than as an unexercised check. **An environment-shaped failure message is the most
+effective way to make a real defect invisible**, because it invites exactly one response, which is
+to ignore it.
+
+*What is owed rather than done.* Both conventions the repair establishes are held by habit alone —
+nothing prevents the next test from reaching for `sys.executable`, or for a bare `ignore_patterns`,
+and a reintroduction passes on any machine whose default interpreter happens to carry the
+dependency. Recorded as `ROADMAP.md` X.4. The suite already enforces two naming conventions this
+way, in `tests/test_reserved_terms.py` and `tests/test_role_not_index.py`, so the shape exists.
+
+*Scope, stated rather than implied.* The stdlib-only `sys.executable` call sites were deliberately
+left alone; only the five tools with third-party imports are in scope, plus three legitimate uses —
+a fixture shebang and two assertions about what the session-logging installer pins. The suite was
+verified green under the interpreter `select-python` selects and loud under one that fails its
+requirements; it has not been exercised on a machine where **no** satisfying interpreter exists,
+so the skip path is proven by construction and by the negative test, not by that environment.

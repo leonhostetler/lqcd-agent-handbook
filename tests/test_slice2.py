@@ -10,6 +10,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pathlib  # noqa: E402
+# Guard the in-process imports below. Choosing another interpreter cannot help here --
+# these must import in *this* one -- so an absent dependency becomes a loud module skip
+# rather than a collection error naming a missing module instead of a behaviour.
+import importlib.util as _dep_util  # noqa: E402
+_DEP_SUPPORT_SPEC = _dep_util.spec_from_file_location(
+    "handbook_dep_guard", pathlib.Path(__file__).resolve().parents[1] / "tests/support.py"
+)
+_DEP_SUPPORT = _dep_util.module_from_spec(_DEP_SUPPORT_SPEC)
+assert _DEP_SUPPORT_SPEC.loader is not None
+_DEP_SUPPORT_SPEC.loader.exec_module(_DEP_SUPPORT)
+_DEP_SUPPORT.require_importable("yaml", "jsonschema")
+
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -21,6 +34,7 @@ SUPPORT_SPEC = importlib.util.spec_from_file_location(
 SUPPORT = importlib.util.module_from_spec(SUPPORT_SPEC)
 assert SUPPORT_SPEC.loader is not None
 SUPPORT_SPEC.loader.exec_module(SUPPORT)
+interpreter_for = SUPPORT.interpreter_for
 handbook_copy_ignore = SUPPORT.handbook_copy_ignore
 VALIDATOR_SPEC = importlib.util.spec_from_file_location(
     "validate_knowledge_slice2", ROOT / "tools/validate-knowledge.py"
@@ -100,7 +114,7 @@ class SliceTwoStackTests(unittest.TestCase):
 class SliceTwoIndexTests(unittest.TestCase):
     def run_indexer(self, root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, str(root / "tools/build-index.py"), *args, "--root", str(root)],
+            [interpreter_for("yaml"), str(root / "tools/build-index.py"), *args, "--root", str(root)],
             cwd=root,
             text=True,
             stdout=subprocess.PIPE,

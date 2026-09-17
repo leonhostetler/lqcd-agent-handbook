@@ -152,11 +152,31 @@ def run_validator(root: Path, run=_run) -> Step:
 
 
 def run_suite(root: Path, run=_run) -> Step:
+    """Run the suite, and fail the step on a skip as well as on a failure.
+
+    `unittest` renders a whole suite of skipped modules as `OK (skipped=N)`, which reads
+    as success from a step that only inspects the return code. A skipped check is a check
+    that did not run, and this harness reports what it examined rather than only what it
+    concluded -- so a skip is reported by count and fails the proposal. The usual cause
+    is a missing dependency, which `run-change-proposal` declares to `select-python`
+    precisely so that it does not arise.
+    """
     proc = run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"], root)
-    tail = [ln for ln in proc.stderr.strip().splitlines() if ln.startswith("Ran ")]
+    lines = proc.stderr.strip().splitlines()
+    tail = [ln for ln in lines if ln.startswith("Ran ")]
     ran = tail[-1] if tail else "no test count reported"
     if proc.returncode != 0:
         return Step("suite", False, f"{ran}; FAILED")
+    skipped = next(
+        (ln for ln in reversed(lines) if ln.startswith("OK") and "skipped=" in ln), ""
+    )
+    if skipped:
+        count = skipped.partition("skipped=")[2].rstrip(")").partition(",")[0]
+        return Step(
+            "suite",
+            False,
+            f"{ran}; {count} SKIPPED -- those checks did not run; see the banner above",
+        )
     return Step("suite", True, ran)
 
 

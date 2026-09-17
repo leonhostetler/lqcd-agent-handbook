@@ -12,6 +12,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pathlib  # noqa: E402
+# Guard the in-process imports below. Choosing another interpreter cannot help here --
+# these must import in *this* one -- so an absent dependency becomes a loud module skip
+# rather than a collection error naming a missing module instead of a behaviour.
+import importlib.util as _dep_util  # noqa: E402
+_DEP_SUPPORT_SPEC = _dep_util.spec_from_file_location(
+    "handbook_dep_guard", pathlib.Path(__file__).resolve().parents[1] / "tests/support.py"
+)
+_DEP_SUPPORT = _dep_util.module_from_spec(_DEP_SUPPORT_SPEC)
+assert _DEP_SUPPORT_SPEC.loader is not None
+_DEP_SUPPORT_SPEC.loader.exec_module(_DEP_SUPPORT)
+_DEP_SUPPORT.require_importable("yaml", "jsonschema")
+
 import yaml
 from jsonschema import Draft202012Validator
 
@@ -23,6 +36,7 @@ SUPPORT_SPEC = importlib.util.spec_from_file_location(
 SUPPORT = importlib.util.module_from_spec(SUPPORT_SPEC)
 assert SUPPORT_SPEC.loader is not None
 SUPPORT_SPEC.loader.exec_module(SUPPORT)
+interpreter_for = SUPPORT.interpreter_for
 handbook_copy_ignore = SUPPORT.handbook_copy_ignore
 
 
@@ -84,7 +98,7 @@ class SliceZeroTests(unittest.TestCase):
 
     def test_validator_reports_limited_scope(self):
         result = subprocess.run(
-            ["python3", str(ROOT / "tools/validate-knowledge.py")],
+            [interpreter_for("yaml", "jsonschema"), str(ROOT / "tools/validate-knowledge.py")],
             cwd=ROOT,
             text=True,
             stdout=subprocess.PIPE,
@@ -109,7 +123,7 @@ class SliceZeroTests(unittest.TestCase):
             (handbook_copy / "PRIVACY.md.orig").write_text(private_path)
 
             result = subprocess.run(
-                ["python3", str(handbook_copy / "tools/validate-knowledge.py")],
+                [interpreter_for("yaml", "jsonschema"), str(handbook_copy / "tools/validate-knowledge.py")],
                 cwd=handbook_copy,
                 text=True,
                 stdout=subprocess.PIPE,
@@ -152,7 +166,7 @@ class SliceZeroTests(unittest.TestCase):
             orientation.write_text(text)
 
             result = subprocess.run(
-                ["python3", str(handbook_copy / "tools/validate-knowledge.py")],
+                [interpreter_for("yaml", "jsonschema"), str(handbook_copy / "tools/validate-knowledge.py")],
                 cwd=handbook_copy,
                 text=True,
                 stdout=subprocess.PIPE,
@@ -278,7 +292,7 @@ class SliceZeroTests(unittest.TestCase):
             target.write_text(target.read_text() + "\n[no such leaf](does-not-exist.md)\n")
 
             result = subprocess.run(
-                [sys.executable, str(handbook_copy / "tools/validate-knowledge.py")],
+                [interpreter_for("yaml", "jsonschema"), str(handbook_copy / "tools/validate-knowledge.py")],
                 cwd=handbook_copy,
                 text=True,
                 stdout=subprocess.PIPE,
@@ -292,7 +306,7 @@ class SliceZeroTests(unittest.TestCase):
         """A check that silently matches nothing is a recurring failure mode here, so
         pin that the anchorless pass contributes rather than trusting that it ran."""
         result = subprocess.run(
-            [sys.executable, str(ROOT / "tools/validate-knowledge.py")],
+            [interpreter_for("yaml", "jsonschema"), str(ROOT / "tools/validate-knowledge.py")],
             cwd=ROOT,
             text=True,
             stdout=subprocess.PIPE,
@@ -321,7 +335,7 @@ class SliceZeroTests(unittest.TestCase):
             manifest.write_text(yaml.safe_dump(config, sort_keys=False))
 
             result = subprocess.run(
-                [sys.executable, str(handbook_copy / "tools/validate-knowledge.py")],
+                [interpreter_for("yaml", "jsonschema"), str(handbook_copy / "tools/validate-knowledge.py")],
                 cwd=handbook_copy,
                 text=True,
                 stdout=subprocess.PIPE,
@@ -350,7 +364,7 @@ class SliceZeroTests(unittest.TestCase):
             manifest.write_text(yaml.safe_dump(config, sort_keys=False))
 
             result = subprocess.run(
-                [sys.executable, str(handbook_copy / "tools/validate-knowledge.py")],
+                [interpreter_for("yaml", "jsonschema"), str(handbook_copy / "tools/validate-knowledge.py")],
                 cwd=handbook_copy,
                 text=True,
                 stdout=subprocess.PIPE,
@@ -377,7 +391,7 @@ class SliceZeroTests(unittest.TestCase):
                 mirror.write("\nfrontend-only drift\n")
 
             result = subprocess.run(
-                [sys.executable, str(handbook_copy / "tools/validate-knowledge.py")],
+                [interpreter_for("yaml", "jsonschema"), str(handbook_copy / "tools/validate-knowledge.py")],
                 cwd=handbook_copy,
                 text=True,
                 stdout=subprocess.PIPE,
@@ -391,7 +405,7 @@ class SliceZeroTests(unittest.TestCase):
 
     def test_entrypoint_sync_check_and_repair(self):
         check = subprocess.run(
-            [sys.executable, str(ROOT / "tools/sync-agent-entrypoints.py"), "--check"],
+            [interpreter_for("yaml"), str(ROOT / "tools/sync-agent-entrypoints.py"), "--check"],
             cwd=ROOT,
             text=True,
             stdout=subprocess.PIPE,
@@ -412,7 +426,7 @@ class SliceZeroTests(unittest.TestCase):
             (handbook_copy / "CLAUDE.md").write_text("stale\n")
             repaired = subprocess.run(
                 [
-                    sys.executable,
+                    interpreter_for("yaml"),
                     str(handbook_copy / "tools/sync-agent-entrypoints.py"),
                 ],
                 cwd=handbook_copy,

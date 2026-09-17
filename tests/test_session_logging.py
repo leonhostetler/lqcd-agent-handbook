@@ -21,6 +21,7 @@ SUPPORT_SPEC = importlib.util.spec_from_file_location(
 SUPPORT = importlib.util.module_from_spec(SUPPORT_SPEC)
 assert SUPPORT_SPEC.loader is not None
 SUPPORT_SPEC.loader.exec_module(SUPPORT)
+interpreter_for = SUPPORT.interpreter_for
 handbook_copy_ignore = SUPPORT.handbook_copy_ignore
 RUNNER = ROOT / "tools/run-session-logging-python"
 
@@ -561,7 +562,7 @@ class SessionLoggingTests(unittest.TestCase):
             )
             (handbook / "tools/log-session-codex.py").unlink()
             result = subprocess.run(
-                [sys.executable, str(handbook / "tools/validate-knowledge.py")],
+                [interpreter_for("yaml", "jsonschema"), str(handbook / "tools/validate-knowledge.py")],
                 cwd=handbook,
                 text=True,
                 stdout=subprocess.PIPE,

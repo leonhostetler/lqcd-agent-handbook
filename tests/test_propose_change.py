@@ -43,6 +43,14 @@ pc = importlib.util.module_from_spec(_spec)
 sys.modules["_propose_change"] = pc
 _spec.loader.exec_module(pc)
 
+_support_spec = importlib.util.spec_from_file_location(
+    "handbook_test_support", ROOT / "tests/support.py"
+)
+SUPPORT = importlib.util.module_from_spec(_support_spec)
+assert _support_spec.loader is not None
+_support_spec.loader.exec_module(SUPPORT)
+handbook_copy_ignore = SUPPORT.handbook_copy_ignore
+
 
 @dataclass
 class FakeProc:
@@ -208,7 +216,9 @@ class EndToEndNegative(unittest.TestCase):
     def test_a_planted_deny_list_violation_fails_the_validator_step(self):
         with tempfile.TemporaryDirectory() as d:
             copy = Path(d) / "hb"
-            shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns(".git", "__pycache__"))
+            shutil.copytree(
+                ROOT, copy, ignore=handbook_copy_ignore(ROOT, ".git", "__pycache__")
+            )
             clean = pc.run_validator(copy)
             self.assertTrue(clean.ok, f"copy is not clean to begin with: {clean.detail}")
 

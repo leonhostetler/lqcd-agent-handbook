@@ -12,7 +12,14 @@ if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
 fi
 here="$(cd -- "$here" && pwd)"
 
+# The harness itself imports nothing third-party, but its suite step runs the tests in
+# this same interpreter, and seven test modules import PyYAML and jsonschema in process
+# to check schemas. Declaring them here is what keeps those checks running rather than
+# skipping: `sys.executable` inside a tool launched this way inherits a dependency set
+# something established, which is exactly the property a bare `python3` lacks.
 exec "${BASH:-bash}" "$here/select-python" \
     --label "the change-proposal harness" \
     --allow-module-load \
+    --require yaml \
+    --require jsonschema \
     -- "$here/propose-change.py" "$@"

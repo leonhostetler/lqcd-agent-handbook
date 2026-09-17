@@ -4,8 +4,16 @@
 from __future__ import annotations
 
 import atexit
+import functools
+import os
 import shutil
+import subprocess
+import sys
+import unittest
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SELECT_PYTHON = ROOT / "tools" / "select-python"
 
 # The frontend tooling paths `.gitignore` declares non-content, in the form `copytree`
 # needs. An agent sandbox materialises a placeholder at every path it denies writes to —
@@ -25,6 +33,142 @@ EXPECTED_SCHEMA_OBJECTS = 30
 TOOLING_FILES = (".mcp.json",)
 TOOLING_DIRECTORIES = (".claude", ".agents")
 TOOLING_KEEP = ("skills",)
+
+
+# ---------------------------------------------------------------------------
+# Interpreter selection for tools that carry dependencies
+# ---------------------------------------------------------------------------
+#
+# `tools/run-validator` has never invoked the validator through `sys.executable`; it
+# goes through `tools/select-python`, which probes for an interpreter carrying the
+# caller's declared modules -- including module-provided ones -- and rejects any
+# candidate that emits diagnostics. That contract exists because a live session once
+# found the mandatory validator unrunnable: no interpreter on `PATH` carried its one
+# third-party dependency.
+#
+# The suite never adopted it, and subprocessed the same dependency-carrying tools with
+# `sys.executable` -- the interpreter running the tests, which need not carry anything.
+# The failure that produces is not a missing check, it is a check that reports a missing
+# module while naming a behaviour it never exercised, and five such tests asserted on
+# validator *output*. The tempting repair is to loosen those assertions until the suite
+# is green, at which point they pass without the validator ever running.
+#
+# The rule the two cases differ by:
+#
+#   Inside a tool already launched through `select-python`, `sys.executable` is correct
+#   -- it inherits a dependency set something established. Inside a test it is not,
+#   because nothing established what the suite's interpreter carries.
+#
+# Only five tools carry third-party imports: `validate-knowledge.py` (PyYAML and
+# jsonschema) and `build-index.py`, `check-batch-script.py`, `sync-agent-entrypoints.py`
+# and `session_logging.py` (PyYAML). Every other tool is stdlib-only and its
+# `sys.executable` call sites are correct as they stand.
+
+# Deliberately not a module-level set. Several test modules load this file through
+# `spec_from_file_location`, each getting its own copy, so module-level state dedupes
+# nothing -- the first version of this printed the banner once per module, seven times
+# in a row, which is the cry-wolf failure `running.md` names rather than the loud
+# warning it was meant to be. `sys` is the one object guaranteed to be shared.
+_REGISTRY = "_lqcd_handbook_announced_dependencies"
+
+
+def _announced() -> set[tuple[str, ...]]:
+    seen = getattr(sys, _REGISTRY, None)
+    if seen is None:
+        seen = set()
+        setattr(sys, _REGISTRY, seen)
+    return seen
+
+
+def _announce(requirements: tuple[str, ...], detail: str) -> None:
+    """Say on stderr, once per requirement set, that checks did not run.
+
+    A skip is quiet by default -- `unittest` renders a whole suite of them as
+    `OK (skipped=N)`, which reads as success. That is the cry-wolf failure inverted:
+    instead of an alarm nobody believes, an absence nobody notices. The banner exists
+    so the operator cannot mistake "did not run" for "passed".
+    """
+    seen = _announced()
+    if requirements in seen:
+        return
+    seen.add(requirements)
+    wanted = ", ".join(requirements)
+    bar = "!" * 74
+    print(
+        f"\n{bar}\n"
+        f"!! CHECKS DID NOT RUN -- no interpreter carries: {wanted}\n"
+        f"!! {detail}\n"
+        "!! The tests below are SKIPPED, not passing. Nothing they cover was\n"
+        "!! verified, including the privacy deny-list and the schema checks.\n"
+        "!! Supply the dependencies, or make them loadable through the module\n"
+        "!! system so tools/select-python can find them, and re-run.\n"
+        f"{bar}\n",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
+@functools.lru_cache(maxsize=None)
+def _select(requirements: tuple[str, ...]) -> str:
+    argv = [
+        os.environ.get("BASH") or shutil.which("bash") or "bash",
+        str(SELECT_PYTHON),
+        "--label",
+        "the handbook test suite",
+        "--allow-module-load",
+    ]
+    for module in requirements:
+        argv += ["--require", module]
+    # `select-python` ends in `exec "$candidate" "$@"`, so everything after `--` is
+    # interpreter argv; `-c` passes straight through.
+    argv += ["--", "-c", "import sys; print(sys.executable)"]
+    proc = subprocess.run(argv, text=True, capture_output=True, check=False)
+    if proc.returncode != 0 or not proc.stdout.strip():
+        detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        return "\0" + (detail[-1] if detail else "select-python found no candidate")
+    return proc.stdout.strip()
+
+
+def interpreter_for(*requirements: str) -> str:
+    """Path to an interpreter carrying `requirements`, or skip loudly.
+
+    Use this instead of `sys.executable` whenever a test subprocesses a tool with a
+    third-party import. Never fall back to `sys.executable` on failure: that reinstates
+    the defect this exists to remove, wearing a different error message.
+    """
+    resolved = _select(tuple(requirements))
+    if resolved.startswith("\0"):
+        _announce(tuple(requirements), resolved[1:])
+        raise unittest.SkipTest(
+            f"no interpreter carries {', '.join(requirements)} -- this check DID NOT RUN"
+        )
+    return resolved
+
+
+def require_importable(*modules: str) -> None:
+    """Skip the calling module loudly unless `modules` import in *this* interpreter.
+
+    For a test that parses YAML in-process rather than subprocessing a tool, choosing a
+    different interpreter cannot help -- the import has to succeed here. Call this at
+    module scope, above the import it guards; `unittest`'s loader turns a module-level
+    `SkipTest` into a reported skip rather than a collection error.
+    """
+    missing = tuple(m for m in modules if not _importable(m))
+    if not missing:
+        return
+    _announce(missing, f"this interpreter is {sys.executable}")
+    raise unittest.SkipTest(
+        f"{', '.join(missing)} not importable here -- these checks DID NOT RUN"
+    )
+
+
+def _importable(module: str) -> bool:
+    import importlib.util
+
+    try:
+        return importlib.util.find_spec(module) is not None
+    except (ImportError, ValueError):  # pragma: no cover - malformed name or package
+        return False
 
 
 def handbook_copy_ignore(root, *patterns):
