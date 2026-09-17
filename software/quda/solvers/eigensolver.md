@@ -112,6 +112,14 @@ requested eigenvalues converged. **Where a partial factorization is genuinely wa
 `require_convergence` false and inspect what came back; where it is not, size the cap for
 convergence rather than for cost.**
 
+**A preserved deflation space is not `n_conv` vectors resident.** `computeEvals` grows the
+eigenvector array by `compute_evals_batch_size` and never trims it, so what is preserved — and
+logged at `QUDA_VERBOSE` as `Preserving deflation space of size <n>` — is larger than the converged
+count, for the life of the job. Size a capacity estimate from the logged number rather than from
+`n_conv`, and read
+[`../internals/device-memory-pool.md`](../internals/device-memory-pool.md) before repairing it:
+the obvious trim destroys live Krylov vectors.
+
 ## Interpret Chebyshev acceleration correctly
 
 QUDA's Chebyshev polynomial is small on `[a_min, a_max]` and grows only below `a_min`.

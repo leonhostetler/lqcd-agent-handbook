@@ -62,6 +62,14 @@ communication-pool estimate to a measured `Pinned device memory used`; that woul
 twice. Scheduler `MaxRSS` includes the application, MPI, runtime, libraries, and untracked
 allocation, so it is not interchangeable with a QUDA host counter.
 
+**The device counter carries two systematic corrections, and they run in opposite directions.**
+QUDA's pool can charge a live allocation far more than it requested, which the counter includes
+and the field arithmetic below does not; and every allocation is rounded up to the driver's
+granularity, which the counter excludes because it records requested bytes. A residual between a
+computed total and a measured high-water mark is therefore not automatically an error in these
+formulas, and a saving modelled inside a pooled object may not be recoverable at all. See
+[`../internals/device-memory-pool.md`](../internals/device-memory-pool.md).
+
 All formulas below are per rank. `V0` is fine **local** volume. Local shape matters even
 at fixed volume because communication storage scales with partitioned surfaces.
 
