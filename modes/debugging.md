@@ -96,6 +96,57 @@ Before editing, building, or running anything:
 15. Validate in layers: source mechanism, independent reproducer, compilation, focused runtime
     check, regression coverage, and integration exercise. State which layers were completed and
     never claim beyond the capabilities that were built and executed.
+16. When a fault's only symptom is a secondary failure inside the error-reporting path, reduce
+    scale to find the regime where the diagnostic survives rather than to make the fault go away.
+    An error path that allocates, formats, or writes can itself be the thing that dies, in which
+    case the message names the reporting failure and the real cause never escapes — confirm that
+    by searching every log at the operating point for the expected primary message and reporting
+    its count as zero, not by assuming it was absent. A fault that changes *character* with scale
+    frequently has, below the operating point, a size at which it still fires and still explains
+    itself; that regime is cheaper than an instrumented build and is the step to take before one.
+    Relatedly, an allocator's abort message names the allocation that *detected* damage, never the
+    code that wrote it, so it is a detector and not an attribution.
+17. To attribute memory corruption to a library rather than to the caller, bracket the suspect
+    entry point with an exerciser that forces the allocator through every bin class, including a
+    large mapped allocation and a forced consolidation, and run it immediately before and
+    immediately after. A clean pre-call result on every rank and a failing post-call result on
+    every rank converts "something corrupts the heap" into "this call corrupts the heap", which is
+    the claim a vendor report needs and the one a caller-side audit cannot reach.
+18. When a failure looks like a scale threshold, hold the scale fixed and vary the formatting,
+    encoding, or serialization parameter instead. A threshold that two units of scale straddle is a
+    size limit on a *representation*, not on the thing represented — and the apparent threshold
+    then moves with any parameter that changes the representation's density, so the same job can
+    fail at a far smaller size under a different encoding. Establish which by measurement, because
+    the two readings recommend opposite mitigations.
+19. A conclusion drawn from a run in which several components moved together is not a controlled
+    result, however decisive it looks. Before building on it, cost the single-variable version:
+    once the fault's real trigger is known it is frequently reproducible at trivial scale, and a
+    multi-component inference resting on a large run has been replaced by a three-leg test at two
+    nodes in under a minute. Hold the *producer* of a disputed value fixed as well as the consumer.
+20. State the founding assumption of every detector, and name the configuration in which it fails.
+    A diagnostic whose validity rests on a condition that holds only in the degenerate test
+    configuration produces false positives exactly when the work moves to the real one — in one
+    recorded case the detector's only firing in its life was on the first leg with non-degenerate
+    inputs, which was also the configuration the campaign was adopting as standard. Three rules
+    follow. **A detector's two readings need not carry equal weight**: corroborate every positive
+    against a second signal the run already emits, chosen so that a real event must move it — an
+    event claiming a large state change while costing zero iterations is not credible. **A detector
+    that has never fired on a known-true positive has not been validated**, so its silence carries
+    no information; this is [`conventions/repeated-work.md`](../conventions/repeated-work.md)'s "a
+    harness that cannot fail is the same defect as a guard that cannot fire", applied to a runtime
+    diagnostic rather than to tooling. And **a detector that adds work inside the window it
+    observes may mask the fault**, which is a live alternative explanation for its silence and must
+    be listed beside "fixed" and "chance".
+21. Before concluding an intermittent fault is fixed, compute what the clean streak actually
+    excludes, at the *lower* bound of the fault rate rather than at its point estimate, and count
+    **opportunities** rather than runs or legs. A rate estimated from two events supports readings
+    from "overwhelming evidence of a fix" to "no evidence at all"; in the recorded case five clean
+    opportunities left a better-than-even chance of a wholly unfixed fault, and seventeen were
+    needed to exclude it. Where the answer is "not many", report the question as open. Paired runs
+    that differ greatly in incidental timing — a cold-cache and a warm-cache execution of the same
+    key, for instance — are a perturbation experiment nobody had to pay for: a fault that survives
+    a large perturbation of its surroundings is unlikely to be suppressed by a small added
+    operation, which discriminates "masked" from "fixed" at no cost.
 
 ## Permissions and safeguards
 
@@ -122,6 +173,11 @@ requires a new or rebuilt stack.
 Load `conventions/batch-scripts.md` before writing, modifying, or reviewing any batch script or
 preparing a submit command. A diagnostic rerun is still a submission, and debugging is where a
 script is most likely to be edited quickly under pressure.
+
+Load [`conventions/diagnostic-rigs.md`](../conventions/diagnostic-rigs.md) before designing,
+scoring, or interpreting a diagnostic run made of several legs. Debugging is where rigs are built,
+and a rig that is broken reports success — the evidence that would have contradicted it is the
+evidence that went missing.
 
 Load [`conventions/repeated-work.md`](../conventions/repeated-work.md) at each study or phase closure and at each work-mode change, to decide whether a procedure now repeated by hand should become a tool.
 
