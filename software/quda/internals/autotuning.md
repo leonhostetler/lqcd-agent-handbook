@@ -119,6 +119,80 @@ coarse-operator kernels are instantiated per coarse colour. **Treat warmth as pe
 shape *and* colour.** Budget a cold retune whenever either moves, and do not carry a warm
 measurement across such a change without re-warming.
 
+## Rank placement inside a node is not encoded in any key
+
+The tunecache is keyed on the tuning *question*. Where a change moves the right *answer* without
+moving the question, every entry is reused and QUDA answers the new situation from memory. **Rank
+placement within a node is the one such change identified so far, and it is invisible.**
+
+Which ranks share a node decides how much of a halo exchange crosses the intra-node interconnect
+rather than the fabric, which is exactly what a dslash *policy* tuner times its candidates against.
+Four fields in a policy key look as though they carry placement, and none does:
+
+| field | what it actually is | moves with placement? |
+| --- | --- | --- |
+| partition topology | the **logical** rank grid, global dims divided by the partitioning | no |
+| device ordering | the visible-device list as each rank sees it | no |
+| partitioned-dimension mask | which dimensions are partitioned at all | no |
+| `p2p=` | see below | **no** |
+
+`p2p=` is the decisive-looking one. It is built from a count of peer-to-peer-enabled directions
+that is **globally reduced across the job and then collapsed to a boolean**, multiplied by a
+build-time constant describing which peer-to-peer features are compiled and enabled. It
+therefore decodes as *"peer-to-peer exists somewhere in this job, and all its features are
+enabled"*, and takes the same value under any placement that co-locates ranks at all. **The key
+string is byte-identical across two placements whose tuned answers differ.**
+
+Every other knob in a staggered campaign — geometry, partitioning, right-hand-side count — changes
+a local volume, a communication dimension, or the RHS count, so the cache misses and retunes
+unprompted. Placement is the exception, which is why it goes unnoticed.
+
+**The stake is concentrated, not diffuse.** In one measured cache of roughly eight hundred entries,
+exactly thirty-two carried `p2p=` and all thirty-two were `Staggered` dslash *policy* entries — one
+per exercised sub-grid volume and precision. In the run of interest those two policy entries were
+the top two lines of the profile at over ninety percent cumulative. Note that entries merely
+*mentioning* a policy in their auxiliary string are a much larger and different set: the majority
+tune launch parameters for one kernel and carry no placement content at all. Select on the
+`p2p=` field, not on the word.
+
+**The remedy, as validated:** seed a fresh cache from the existing one with the `p2p=`-carrying rows
+removed. In the recorded case exactly the stripped entries retuned and nothing else, all of it
+inside the discarded first solve, costing one warm-up solve rather than a separate tuning pass.
+What remains argued rather than measured is that those rows are the *complete* placement-sensitive
+set; the stripped cache was never run against an unstripped one, so the evidence shows stripping
+them is sufficient for a clean comparison, not that stripping fewer would have failed.
+
+**The general rule this instantiates:** before reusing a cache across a change, ask not only which
+keys the change moves but whether it moves any tuned *answer* while leaving its key fixed. A key
+field that names a globally reduced or build-derived quantity is the shape to look for,
+because such a field distinguishes builds and jobs while being constant across the placements,
+orderings and assignments within one job.
+
+## Counting tuning events: do not anchor the pattern
+
+A tuning diagnostic is not always emitted at the start of a line. Where a solve runs on a
+sub-partition, QUDA prefixes the line with a sub-grid and cycle tag, so the record does not begin
+with `Tuned`. **Anchoring the count as `grep -c "^Tuned "` therefore undercounts precisely the
+events that occur inside a timed solve** — which are the only ones that contaminate a measurement.
+Recorded undercounts from one campaign: two reported against four actual, and fifty-five against
+eighty-six.
+
+Count unanchored, then compare line positions against the first solve marker:
+
+```bash
+grep -c "Tuned " <log>                      # total, unanchored
+grep -n "Tuned " <log> | tail -1            # last tuning event
+grep -n "<first solve marker>" <log> | head -1
+```
+
+**A nonzero count is not itself disqualifying.** What disqualifies a figure is a tuning event
+*inside the measured region*. In one fourteen-leg run, eight legs had nonzero counts and zero
+contaminated timings, because every event landed before the first solve completed; the count alone
+would have condemned the run. This is the QUDA-specific detection procedure for the rule
+[`measurement.md`](../../../conventions/measurement.md) states generally — locate the last tuning
+event relative to the first retained sample, and label the figure `clean` or `contaminated`
+accordingly.
+
 **Budget a shape QUDA has never built as two submissions, not one.** The first execution of
 a new coarsest shape pays its whole tuning cost at once, and that cost is of the same order
 as a short-queue walltime — it can consume the allocation before the run reaches the stage
@@ -216,10 +290,16 @@ independently demonstrated:
 
 Also use a fresh cache when the affected keys cannot be bounded with confidence. At the observed
 revision, QUDA exposes a read-only cache map and no supported interface for deleting or retuning a
-selected on-disk entry. Manual TSV surgery is format-sensitive and is not a handbook-supported
-selective-invalidation method. A naturally new key can be added to a copied cache; an affected
-unchanged key requires a fresh cache unless a future QUDA revision supplies a supported selective
-replacement mechanism.
+selected on-disk entry, so removing rows from the stored file is unsupported, format-sensitive, and
+the caller's responsibility to validate. It is nonetheless the only mechanism available when the
+affected set is small, identifiable by a key field, and expensive to retune wholesale — and it has
+been done successfully once, by selecting on `p2p=` for a placement change (see *Rank placement
+inside a node is not encoded in any key*). Where it is used, the obligations are the caller's:
+identify the affected rows from the source rather than by pattern-matching prose, seed a copy and
+preserve the original immutably, and **verify from the run that exactly the intended rows retuned
+and nothing else** — a check the tuning-event count makes cheap. A naturally new key can be added
+to a copied cache; an affected unchanged key otherwise requires a fresh cache unless a future QUDA
+revision supplies a supported selective replacement mechanism.
 
 ## Controlled cross-build reuse workflow
 
