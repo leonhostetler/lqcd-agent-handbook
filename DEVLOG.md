@@ -2113,3 +2113,81 @@ a fixture shebang and two assertions about what the session-logging installer pi
 verified green under the interpreter `select-python` selects and loud under one that fails its
 requirements; it has not been exercised on a machine where **no** satisfying interpreter exists,
 so the skip path is proven by construction and by the negative test, not by that environment.
+
+## Tuning and QUDA-development import from the same campaign (2026-09-17)
+
+A second pass over the corpus the debugging import had just finished with, run the same day, at the
+operator's request and again with the transcripts explicitly in scope. The question was different —
+tuning practice and QUDA/MILC development knowledge rather than debugging method — which is the only
+reason a second pass over an exhausted corpus was worth anything.
+
+Seven candidates landed as three commits, one fact class each: the QUDA device-memory internals leaf
+with pointers from the staggered-memory and eigensolver leaves; the new MILC development leaf; and
+three tuning-practice rules across `conventions/diagnostic-rigs.md`, `conventions/measurement.md`
+and `modes/tuning.md`. Extraction staged in the working project beside the corpus throughout.
+
+*What made them admissible at all, given the standing deferral.* `ROADMAP.md` parks split-grid
+deflation solver knowledge, and the corpus is a split-grid campaign, so the governing question for
+every candidate was whether it survives without the branch. Each source claim was therefore verified
+against upstream `develop` — `quda f2df42ac4`, `milc 6b9b8a0` — rather than against the operator's
+checkout, and only claims present there were admitted. That check paid for itself immediately: the
+pooled allocator, the `computeEvals` grow, the one-field-at-a-time deflation space and the duplicate
+MILC link-load file are all upstream behaviour, reproducible by anyone with no access to the branch,
+while `tol_cycle` — the parameter that turns a restart tolerance into a cycle count — exists only on
+the branch.
+
+*The substantive result is a pair, not a fact.* QUDA's pool charges a live allocation the whole
+reused block, which the device counter includes and a field total does not; and every allocation is
+rounded to the driver's granularity, which the counter excludes because it records requested bytes.
+The two run in opposite directions, so the counter is neither an upper nor a lower bound on what the
+driver holds, and a residual between a computed total and a measured high-water mark is not
+automatically an error in the field formulas. Neither half is useful alone: one would have read as a
+reason to distrust the counter upward, the other downward.
+
+*A judgement call worth recording because it will look like an omission.* The band rule in
+`diagnostic-rigs.md` — that a knob reaching the behaviour under test only through an integer-valued
+comparison has reachable settings that collapse into bands — came from a real four-point fit, and it
+is stated with **no worked example**. Naming the parameter it came from would send a reader on stock
+QUDA looking for cycles that do not exist there, which is the parked dependency re-entering through
+an illustration rather than through a claim. The rule loses concreteness and keeps its
+independence; that was the trade, and it was deliberate.
+
+*What was rejected.* Every campaign timing, speedup, iteration count, memory figure and node-hour —
+episode tier, and unpublished measurement. The split-grid cycle mapping and every `tol_restart` band
+figure, per the deferral above. Split-grid iteration reporting, whose generalisable residue could not
+be stated without describing the unmerged orchestrator. The rank-order placement protocol, because
+`conventions/measurement.md` already owns that fact and the corpus case differs only in the shared
+setting being chooseable rather than constraint-imposed — at most a clause, and admitting it would
+put one rule in two places. The campaign's Python tools, of which the pool simulator is the most
+generalisable, deferred as a `prefer-a-tool` decision rather than admitted. And retained-mapping
+caches as a memory-accounting term, deferred because `machines/perlmutter/communication-defects.md`
+already owns those variables as a correctness matter and a second framing would split one object
+across two leaves.
+
+*The transcript finding reproduces, and that is the point of recording it again.* The debugging pass
+reported one admitted fact from 1.6 MB of transcript against thirty-four from 1.1 MB of documents.
+This pass asked a genuinely different question of the same transcripts and admitted **none** from
+them: every candidate was carried by an investigation document and verified against public source.
+Two passes, two fact classes, one shared conclusion — which is stronger evidence for
+[§session-logging](ARCHITECTURE.md#session-logging)'s do-not-read-unless-asked rule than either pass
+alone, because the obvious objection to the first result was that it asked the wrong question.
+
+*Two errors caught in drafting, both by checking rather than by reading.* A claim that the MILC-facing
+QUDA header includes `quda.h` inside its own `extern "C"` block was wrong — it includes it before
+opening that block, and `quda.h` supplies its own linkage. And the trim hazard on `computeEvals` was
+stated in the corpus as six deflated Krylov solvers; upstream `develop` now has seven. Both were
+one command to check and neither was visible on re-reading the prose.
+
+*Scope, stated rather than implied.* The leaves record mechanisms, not magnitudes; the only measured
+quantity admitted anywhere is a 2 MiB allocation granularity, labelled `[observed]` and flagged as a
+driver property rather than a QUDA constant. The pooled-reuse and granularity terms have **not** been
+separated by experiment — they were derived from source and from a reconciliation between computed
+totals and measured high-water marks, which cannot attribute a residual to one alone. And two of the
+admitted items correspond to repairs the campaign itself has deferred on blast radius, so the
+handbook now records mechanism and repair hazard for changes nobody has made; a session that picks
+either up should check the leaf against what it actually finds rather than trusting it.
+
+*What is owed.* `modes/tuning.md` grew by about 800 bytes, on a Tier-1 document already at 13 KB
+against P1's 10–15 KB budget for the whole tier. The addition was accepted because a gate on whether
+a search starts is useless if it only loads once someone goes looking for it, but the mode document
+is now the obvious candidate if Tier 1 has to be cut.
