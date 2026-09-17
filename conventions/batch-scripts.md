@@ -140,9 +140,35 @@ temporary files behind is always preferable to risking data that cannot be recre
 
 ## Variables and paths
 
-Use `set -euo pipefail`, and quote every path expansion. Note that `set -e` does not reach
-inside a job step launched by the scheduler's parallel launcher — check that step's exit
-status explicitly.
+**Use `set -uo pipefail` unconditionally, and decide `-e` deliberately.** Quote every path
+expansion. `-u` and `pipefail` have no downside and catch the undeclared-variable and
+silent-pipeline-failure classes described below. `-e` is different: it is a policy about what a
+failure should cost, and the right answer depends on which resource is scarce and on whether the
+job's units of work are independent.
+
+**Fail fast when the job is one unit of work, or when a later stage consumes an earlier one's
+output.** Continuing burns allocation producing nothing, or — worse — produces a later result that
+rests on a broken predecessor and carries no sign of it.
+
+**Do not fail fast when independent legs sit behind a queue wait.**
+[`measurement.md`](measurement.md) records that queue time is charged per submission regardless of
+how little the job does, and that node-hours and wall-clock are different budgets that can pull
+opposite ways. This is where they pull opposite: exiting on the first failing leg saves that leg's
+node-hours and forfeits the whole wait, and every leg that never ran must be re-queued from the back
+before it yields any data. At a long queue and a short job the wait dominates by an order of
+magnitude or more. Guard each leg's launch explicitly, record the failure, and continue.
+
+Two obligations come with that choice, because removing `-e` also removes the thing that was
+concealing weak scoring. **A failure that compromises a shared precondition must still stop the
+job** — a filled filesystem, a truncated shared input, a corrupted cache — since every later leg
+then runs against a broken environment and will be scored as though it did not; one recorded run
+lost thirteen of fourteen legs exactly this way, and scored four of the wreckage clean. And **the
+results block must run on every exit path** and distinguish *failed* from *never ran*, so a missing
+leg is reported rather than silently absent. See
+[`diagnostic-rigs.md`](diagnostic-rigs.md) for the leg ordering and validity gates this implies.
+
+Note separately that `set -e` does not reach inside a job step launched by the scheduler's parallel
+launcher — check that step's exit status explicitly, whichever policy is in force.
 
 **Reference only variables the machine profile declares.** A profile records the filesystem
 roots its site provides and, in its scheduler block, whether the site exports a node-local
@@ -158,6 +184,47 @@ loses the terminal records it was about to write — including the ones that say
 exits with a status describing the teardown rather than the run, so the failure is reported as
 something it was not. Guard such assignments explicitly, or accept a failing status with `|| true`
 where absence is legitimate, and never let the last records depend on a file that may not exist.
+
+### The script's own directory is not `$0`, and modules resolve at start time
+
+Two things a batch script believes about its own environment are established when the job
+**starts**, not when it was written or submitted. Both failures are invisible on a login node, so
+both survive careful reading and a dry run and fail only once the allocation is held.
+
+**The script that runs is a copy.** Schedulers commonly stage the submitted script into a spool
+directory owned by the system and execute it there, so `dirname "$0"` resolves to that spool copy —
+not to the directory holding the job's inputs. One rig resolved itself this way and ran with no
+inputs, no auxiliary files and nowhere writable: **zero of sixteen legs, on a full-scale allocation,
+in thirteen seconds.**
+
+Use the scheduler surface's submission-directory variable instead — but note that it is the
+*submission* directory, not the script's, so submitting from a parent directory breaks it again, and
+a directory-changing directive separates the two deliberately. What makes it safe is not the
+variable but an **explicit assertion, before anything else runs**, that the resolved directory
+contains the files this job needs:
+
+```bash
+here=$(cd "${<submit-dir-variable>:-$(dirname "$0")}" && pwd -P)
+for f in <the files this job cannot run without>; do
+  [ -r "$here/$f" ] || { echo "FATAL: $here is not the job directory ($f missing)"; exit 1; }
+done
+```
+
+**Modules resolve to whatever the site default is when the job starts.** A script that resets the
+module environment or loads an unversioned module binds to the defaults in force at start time.
+Across a long queue wait the site may have changed them: one job built under one programming
+environment sat queued for roughly thirty-three hours, started after the site advanced its defaults,
+and lost every leg in seconds to unresolved shared libraries from the previous accelerator-toolkit
+major version. Nothing else about the run was wrong, and the rebuild then met an unrelated defect in
+the newly-defaulted communication library, so the queue wait cost two submissions rather than one.
+
+So **pin exact module versions in the script**, record the build-time module set beside the binary,
+and have the job compare the two and abort on a mismatch rather than running into a link failure.
+The exposure window is the queue wait, so it grows with exactly the jobs that cost most to lose.
+
+**And check module state without a pipeline.** Piping a module command into another command runs it
+in a subshell, so the environment change is discarded and the check reports on an environment that
+was never established.
 
 Never build a destructive target from an unvalidated variable, a `..` segment, a wildcard, or
 command substitution. **Never rely on a preceding `cd` for safety** — a failed or unexpected
@@ -230,7 +297,11 @@ a stub:
   inputs are read-only, so leave them at their real paths. A guard that checks only a *size*
   can be satisfied by a sparse file, so even a very large input costs no space.
 - **Positive control:** on correct inputs the script must run to completion. If it does not,
-  that is a defect in the script, not in the harness — do not submit.
+  that is a defect in the script, not in the harness — do not submit. New rig machinery is the
+  part most likely to be wrong, and a second recorded loss was introduced **by the fix for the
+  first**. A rig's preamble — directory resolution, input assertions, module pinning, placement
+  checks — is independent of node count, so it can be exercised in full on one node in a debug
+  class before the machinery goes to scale. Do that for any preamble that changed.
 - **Negative test, one guard at a time:** perturb the input that guard protects and require
   the run to fail. **A perturbation that changed nothing is not a test** — confirm the file
   actually differs before believing the result, because an expression that matched nothing
