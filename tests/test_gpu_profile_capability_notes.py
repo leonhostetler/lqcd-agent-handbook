@@ -3,7 +3,10 @@
 
 These notes are the only place the tooling tells a session what to ask for on the
 next capture, so a note that names an insufficient command is worse than silence:
-it is followed. The rocpd guard below is structural rather than per note, because
+it is followed. The same reason is why the counter notes name no command at all --
+the question they report is not answerable by any capture flag, and offering one
+invited exactly the reading the performance mode exists to prevent. The rocpd
+guard below is structural rather than per note, because
 the defect it pins was not specific to any one of them -- every rocpd re-profile
 command omitted the output-format variable, and the next note added would have
 omitted it too.
@@ -43,6 +46,13 @@ def _no_capabilities() -> ProfileCapabilities:
         has_transfer_residency=False,
         schema_version="3",
     )
+
+
+# The counter notes name no re-profile command on purpose, so the nsys guard below is a
+# per-note expectation rather than a count. A count cannot distinguish a note that lost its
+# command from the one note that must not carry one, and it was a count that let the
+# forbidden counter remedy sit in N4 and R4 unnoticed.
+NO_COMMAND_NOTES = {"N4", "R4"}
 
 
 def _command_lines(fmt: Format, needle: str) -> list[str]:
@@ -88,10 +98,38 @@ class RocpdReprofileCommands(unittest.TestCase):
                 "ROCPROFSYS", note.message, f"nsys note {note.code} names a ROCm variable"
             )
 
-    def test_nsys_notes_still_name_a_command(self) -> None:
-        """The nsys side is untouched by this change and must stay actionable."""
-        lines = _command_lines(Format.NSYS, "nsys profile")
-        self.assertGreaterEqual(len(lines), 4, "nsys re-profile commands went missing")
+    def test_every_other_nsys_note_names_a_command(self) -> None:
+        """Every note but the counter one must stay actionable."""
+        for note in capability_notes(Format.NSYS, _no_capabilities()):
+            if note.code in NO_COMMAND_NOTES:
+                continue
+            self.assertIn(
+                "nsys profile",
+                note.message,
+                f"nsys note {note.code} names no re-profile command",
+            )
+
+    def test_counter_notes_offer_no_capture_flag(self) -> None:
+        """The counter notes must not name a remedy the mode and conventions forbid.
+
+        Counter collection is a separate job: it serialises kernel replay and distorts
+        the durations a timing capture exists to measure. So there is no flag that adds
+        counters to *this* capture, and a note offering one is followed -- which is how
+        a session ends up classifying memory- versus compute-bound from a trace.
+        """
+        fired = set()
+        for fmt in (Format.NSYS, Format.ROCPD):
+            for note in capability_notes(fmt, _no_capabilities()):
+                if note.code not in NO_COMMAND_NOTES:
+                    continue
+                fired.add(note.code)
+                for forbidden in ("--gpu-metrics-device", "--hardware-counters", "Re-profile"):
+                    self.assertNotIn(
+                        forbidden,
+                        note.message,
+                        f"counter note {note.code} offers a capture-side counter remedy",
+                    )
+        self.assertEqual(fired, NO_COMMAND_NOTES, "a counter note did not fire")
 
 
 class CapabilityNoteControls(PerturbationMixin, unittest.TestCase):

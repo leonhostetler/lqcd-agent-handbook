@@ -72,9 +72,13 @@ def capability_notes(fmt: Format, caps: ProfileCapabilities) -> list[CapabilityN
             notes.append(CapabilityNote(
                 code="N4",
                 message=(
-                    "No hardware performance counters found — memory-bound vs. "
-                    "compute-bound classification will use heuristics only.\n"
-                    "  Re-profile with: nsys profile --gpu-metrics-device=all ..."
+                    "No hardware performance counters in this capture. Memory- versus "
+                    "compute-bound classification, achieved occupancy and cache behaviour "
+                    "are not questions this capture can answer, and no flag added to it "
+                    "makes them so: counter collection serialises kernel replay and "
+                    "distorts the durations a timing capture exists to measure.\n"
+                    "  Record them as questions for a separate counter-collecting run. "
+                    "Do not classify from this one."
                 ),
             ))
 
@@ -123,12 +127,13 @@ def capability_notes(fmt: Format, caps: ProfileCapabilities) -> list[CapabilityN
             notes.append(CapabilityNote(
                 code="R4",
                 message=(
-                    "No hardware performance counters found — memory-bound vs. "
-                    "compute-bound classification will use heuristics only; occupancy and "
-                    "cache hit rates are unavailable.\n"
-                    "  Re-profile with: "
-                    f"{_ROCPD_OUTPUT} rocprof-sys-sample --trace "
-                    "--hardware-counters <counters> -- <app> <args>"
+                    "No hardware performance counters in this capture. Memory- versus "
+                    "compute-bound classification, occupancy and cache hit rates are not "
+                    "questions this capture can answer, and no flag added to it makes them "
+                    "so: counter collection serialises kernel replay and distorts the "
+                    "durations a timing capture exists to measure.\n"
+                    "  Record them as questions for a separate counter-collecting run. "
+                    "Do not classify from this one."
                 ),
             ))
 
