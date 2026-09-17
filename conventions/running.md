@@ -125,6 +125,30 @@ attribute an out-of-memory event, invalid decomposition, launch failure, or miss
 the candidate merely because it occurred during that candidate's run. Use `unknown` when the
 evidence does not distinguish candidate, environment, or protocol causes.
 
+**A host-memory kill is a specific claim, and the job's own request settles it.** Schedulers
+enforce host memory as a per-node ceiling, so the figure a per-rank high-water must be compared
+against is the job's **own** requested memory divided by its node count and then by ranks per node
+— not a site-wide node capacity, and not a job-wide average. Derive it from the job record, then
+compare the worst rank's reported maximum resident size per step against it.
+
+Two failure modes this separates, and they invite opposite next moves:
+
+- **Orders of magnitude below the ceiling.** The run did not die of host memory, whatever else was
+  true. In a recorded case the worst step sat two orders of magnitude under the derived per-rank
+  ceiling, which retired a suspected recurrence that had already consumed one investigation. Note
+  that a *small* maximum is not evidence of health either: a run killed early may never have
+  finished allocating its baseline.
+- **At or near the ceiling.** Then attribute it to host memory only after checking *which* node.
+  The ceiling is per node and the kill lands on the busiest one, so a job-wide mean can sit
+  comfortably under a limit that one node crossed.
+
+**Record the derived ceiling beside the disposition**, because the comparison is what makes the
+reason class defensible; without it, `environment or infrastructure failure` and
+`candidate or resource-plan incompatibility` are indistinguishable for the same observation. And
+where nothing sampled host memory during the run, say so and use `unknown` rather than inferring
+from the scheduler's summary alone: a per-node reading taken before the first work unit costs
+seconds and turns this from an investigation into a lookup.
+
 ## Preserve cost and evidentiary value
 
 Every allocation-consuming run remains in the workflow-cost ledger regardless of disposition.
