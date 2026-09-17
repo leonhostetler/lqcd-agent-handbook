@@ -51,6 +51,34 @@ unit, measure it separately and include or amortize it in the workflow projectio
 first solve is a steady-state solver convention, not an instruction to remove recurring cost
 from an end-to-end workflow benchmark.
 
+## Check the derived solve count before booking, not after
+
+The rule above says a single solve is not representative evidence. The trap is that **how many
+solves each solver instance performs is frequently derived from a candidate's parameters rather
+than chosen** — a batch width divided by a partition count, a source count divided by a grouping —
+so it can fall to one without anyone selecting it, and nothing in the request says so.
+
+When it does, excluding the first solve leaves **nothing**. The run completes, prints timings, and
+carries no steady-state sample at all. That does not look like a failed measurement; it looks like a
+measurement.
+
+**Memory fit and measurability pull in opposite directions, which is why this recurs.** The width
+chosen to make a candidate fit within a device or node limit is often exactly the width that drives
+the per-instance count to one. In a recorded case a width was recommended because it made the target
+fit, and would have yielded no usable per-iteration figure; the smallest width that buys a warm
+second solve cost substantially more memory, and that cost had to be found before the run could be
+booked.
+
+So, before booking:
+
+- **Compute the per-instance solve count from the candidate's own parameters**, not from the total
+  number of solves the job performs.
+- **Require at least two per instance** for any steady-state figure, and budget what the second one
+  costs as part of the measurement rather than as overhead.
+- **Never carry a width out of a capacity document into a measurement plan without recomputing it.**
+  A width chosen to satisfy a memory constraint carries no guarantee about the measurement, and the
+  two documents rarely state each other's constraint.
+
 ## Establish the machine's single-measurement resolution before ranking on time
 
 Repeating solves inside one job bounds solve-to-solve spread. It does not bound the spread

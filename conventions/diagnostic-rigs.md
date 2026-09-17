@@ -4,7 +4,7 @@ summary: How to build a diagnostic run whose legs are interpretable, what a rig 
 scope: [universal]
 load_when: Designing, scoring, or interpreting a diagnostic run made of several legs, or adding instrumentation, environment-variable comparisons, or resource sampling to an existing one.
 evidence: reproduced
-observations: 14
+observations: 15
 sources:
   - operator's screened split-grid deflation campaign records
 observed: "2026-09-17"
@@ -60,6 +60,27 @@ recorded case, silently, with whole messages lost and the completion call return
 Bounded values also stay closer to the configuration being characterised. If the question requires
 the cache genuinely off, treat the result as provisional until the disabled path is independently
 shown to be correct.
+
+**Two values of a continuous knob can be the same candidate.** Where a parameter reaches the
+behaviour under test only through a ceiling, a floor, or a comparison that yields an integer — a
+count of cycles, passes, restarts, or refreshes — its reachable settings collapse into a small
+number of bands, and every value inside one band produces an identical schedule. A "scan" across
+such a knob is then one leg repeated, and it returns a flat result that reads exactly like the knob
+not mattering.
+
+Three consequences, and the first two are booking decisions:
+
+- **Derive the bands before choosing values, and take one value per band.** The mapping is
+  arithmetic and costs nothing to work out; the legs it saves are not.
+- **Never choose a value that sits on a band boundary.** Rounding, or a slightly different achieved
+  value of whatever the knob is compared against, moves it into the neighbouring band — so the leg
+  silently duplicates one already run, and nothing in the request shows it.
+- **Record the answer as the integer the knob produced, not as the knob's value.** That mapping
+  usually depends on a second parameter, so the same value means a different schedule in a run whose
+  target differs, and a setting carried across on its face changes the experiment.
+
+Then **confirm the realised integer in the run's own output before interpreting that leg's timing**,
+for the reason the rest of this section gives: the request is not the evidence.
 
 ## Build the validity gate into the rig
 

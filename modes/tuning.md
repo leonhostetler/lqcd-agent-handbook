@@ -35,6 +35,15 @@ Before changing a build, parameter, decomposition, or runtime setting:
    allocation-consuming trial. Record expected runtime, resource cost, memory, iterations, and
    the reason the proposed change should help.
 
+**Do not calibrate a cost model while the components its coefficients belong to are still changing.**
+A coefficient measured across a component under active revision measures a transient: it bakes in a
+cost the campaign intends to remove, and afterwards nothing distinguishes it from a durable one.
+Before booking a calibration campaign, list the components the coefficients belong to — transport,
+decomposition, input construction, the solver itself — and state for each whether it is settled.
+Where any is not, say so and treat the plan as a framework rather than a measurement programme,
+writing down the conditions that would clear the gate so a later session can check them instead of
+re-deriving them. This gates starting the search; the handoff rule below gates promoting its winner.
+
 ## Tuning method
 
 1. Establish a correct baseline with isolated outputs and a recorded environment. If the
