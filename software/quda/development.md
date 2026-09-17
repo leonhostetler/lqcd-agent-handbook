@@ -117,12 +117,38 @@ combination at runtime. Validate every affected precision and representation pat
   values for coverage without checking that the harness reaches the changed path. For a
   distributed change, include a non-degenerate partition in which the affected communication
   must occur and retain a marker or event count showing that it did.
+
+  **A distributed change has two peer kinds, and a run contains only the ones its placement
+  created.** Peers on different nodes exchange large messages through a rendezvous handshake that
+  completes before any payload moves; co-located peers exchange through the intra-node
+  peer-to-peer path, which has no handshake and reads the send buffer immediately. That difference
+  is tens of microseconds of slack, and it reliably hides a race against unretired device work. A
+  device-side transport change passed a multi-node rig **three times, bit-identically, across three
+  code paths, on code that was wrong**, because the rig ran one rank per node and every peer was
+  therefore remote; at four ranks per node the same commit produced NaN on the first exchange. Note
+  that the two obvious rungs have *opposite* blind spots — a single-node correctness harness never
+  leaves the node, and a one-rank-per-node multi-node rig never stays on it — so the fault lived in
+  the placement neither rung could create.
+
+  Therefore **validate any change to a device-side communication path with at least two ranks
+  sharing a node**, and record ranks-per-node beside every result, because a pass is evidence only
+  for the peer kinds the run actually contained. For each rung of a validation ladder, write down
+  what it *structurally cannot* create rather than only what it tests, and assert the placement
+  from inside the job rather than trusting the request — see
+  [`conventions/diagnostic-rigs.md`](../../conventions/diagnostic-rigs.md).
 - When Dslash behavior is in scope, cover the applicable operator families, precisions, and
   partitionings using the current tests rather than copying the wiki's historical shell loops.
 - For large multigrid changes, define an impact-specific test matrix; the wiki's exhaustive
   examples are guidance, not a minimum for every change.
 - Record the build configuration, commands, results, and untested scope in the review or
   handoff.
+
+**Iteration counts are the right invariant for a transport or data-movement change.** Such a change
+is not a numerical one, so counts must be bit-identical solve for solve against the unmodified path;
+any drift means the operators being compared disagree, which is a defect rather than a tolerance
+question. Pair it with an output comparison at printed precision and with a check that the timers
+the change was meant to move are the only ones that moved — if a solver-internal count or maximum
+shifts, the change leaked out of the layer it was scoped to.
 
 ## Preserve solver semantics when changing execution
 
@@ -147,6 +173,31 @@ If a public setter is callable before `initQuda`, keep that path to pure data st
 assume communicator-backed logging, `comm_*`, `printfQuda`, or `errorQuda` is available there;
 defer communicator-dependent validation and messages until the first post-initialization use,
 or make post-initialization an explicit API precondition.
+
+## A buffer's memory kind decides which calls on its path are synchronous
+
+Accelerator copy APIs are host-blocking for most transfer directions, and the vendor
+API-synchronization contract carves out an explicit exception: **for transfers from device memory
+to device memory, no host-side synchronization is performed.** The driver-API forms and the HIP
+equivalents state the same. The call enqueues and returns.
+
+The consequence is a change that is silent in review. When a staging buffer moves from pinned host
+memory to device memory, an unedited copy call on its path changes from host-blocking to
+asynchronous, because the direction changed underneath it. In one recorded case the communication
+call on the following line then began handing the fabric a buffer the copy had not yet written.
+Correctness had been arriving for free from the *direction* of the copy, nothing in the diff said
+so, and the result was wrong data moving at several times the previous speed.
+
+**The communication layer is not a participant in the accelerator stream.** Nothing orders an RDMA
+or peer-to-peer engine against default-stream work, so a packing kernel or a device-to-device copy
+may still be pending when a transfer is started. The receive side carries the mirror hazard: a
+device-to-device copy *out of* a shared receive buffer is equally unretired when the next receive is
+armed into it, or when the buffer is returned to a pool.
+
+So whenever a buffer changes memory kind, **re-derive which calls on its path were synchronous
+because of the old kind, and enumerate them** rather than assuming the edit was local. Where a
+drain is required, prefer one that stays correct if stream assignment changes later, and place it so
+the packing loop's own ordering is not relied upon across iterations.
 
 ## Preserve interface and build contracts
 

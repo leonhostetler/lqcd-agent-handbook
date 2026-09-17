@@ -566,6 +566,27 @@ another machine or allocator, measure the gap and supply a local margin. A predi
 inside its own error band is an unresolved sizing result, not evidence that a nearly
 fitting job is safe.
 
+### A silent abort with no error text is a device out-of-memory until proven otherwise
+
+A device-memory exhaustion on this path has been observed to produce **no QUDA error text on any
+rank** — no allocation-failure message, no `errorQuda` line, nothing but the MPI abort cascade. The
+telemetry sample immediately preceding it showed the device essentially full.
+
+So when a run aborts with a nonspecific status and the log carries no error text, **the diagnostic
+is the device-telemetry series, not the log**. Check the last sample before the abort before
+pursuing any other hypothesis, and treat the absence of an allocation-failure message as
+uninformative rather than as evidence against exhaustion.
+
+Two consequences for sizing. Budget against the **observed usable ceiling** rather than the device's
+nominal capacity; a margin computed against the nominal figure has been observed to be
+substantially smaller in practice, and a candidate projected to fit under it did not survive.
+And where the telemetry sampler covers one node at a coarse interval, every peak it reports is a
+**floor** on the true maximum across all nodes and between samples, so a projection validated
+against such a peak is validated against a lower bound.
+
+**Evidence:** one occurrence with corroborating telemetry. Sufficient to justify checking telemetry
+first; not sufficient to claim why the message is absent.
+
 ## Exhaustive inverse node sizing
 
 `mg-search` answers the inverse question without selecting only one cube-like layout. It
