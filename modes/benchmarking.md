@@ -19,6 +19,11 @@ Before preparing, submitting, or analyzing a measured series:
 2. State the decision the benchmark will support, the target quantity, the production work
    unit, and the comparison or acceptance threshold. Examples of work units include one solve,
    one source, one gauge configuration, or one complete job payload.
+   **Record the production scale the result is for — a solve count, a range, or explicitly
+   undetermined.** The measured series runs few solves by design, to price one-time and
+   recurring cost cheaply; it never stands in for production. Report every share, crossover or
+   ranking with the solve count it holds at, and where the scale is undetermined report the
+   cost model and crossover rather than a single winner (`../conventions/measurement.md`).
 3. Establish the division of labour: analyze-only, prepare-and-handoff, or
    prepare+submit+analyze. Permission to benchmark does not authorize project edits, rebuilds,
    Git actions, or scheduler submission unless the operator included those actions in scope.

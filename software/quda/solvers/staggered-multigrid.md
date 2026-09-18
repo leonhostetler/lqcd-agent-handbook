@@ -186,7 +186,13 @@ Separate these costs in every measurement:
 Hierarchy setup is reusable only across solves for which its links, mass/update policy,
 parameter file, decomposition, and other operator state remain valid. A timing that
 omits setup answers a different question from end-to-end time. Always state the solve
-count over which setup is amortized.
+count over which setup is amortized, and take it from the **production** campaign rather than
+from however many solves a tuning or benchmark trial ran — the trial runs few by design, to
+price setup and recurring cost cheaply
+([`../../../conventions/measurement.md`](../../../conventions/measurement.md)). Because MG's
+one-time cost is large relative to one solve, the ranking of two hierarchies routinely inverts
+between a low and a high production count, so a cost share or a winner reported without its
+solve count is not a partial answer but a wrong one.
 
 ## Build and stack requirements
 

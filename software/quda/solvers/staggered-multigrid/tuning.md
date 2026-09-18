@@ -37,6 +37,32 @@ families, begin with
 [`../staggered-solver-selection.md`](../staggered-solver-selection.md); this procedure
 assumes MG has passed those gates.
 
+**Multigrid is normally tuned for more than one production regime, and a tuning trial's own
+solve count is not one of them.** MG has the widest one-time-to-recurring ratio of the three
+staggered solvers — near-null generation plus a coarsest eigensolve, against a solve that may
+take seconds — so the hierarchy that minimises setup is routinely *not* the one that minimises
+solve time, and the ranking between them **inverts** across the regimes named in
+[`../staggered-solver-selection.md`](../staggered-solver-selection.md):
+
+| regime | production shape | what the hierarchy is chosen for |
+|---|---|---|
+| **setup-dominated** | few solves per compatible hierarchy, so setup is paid almost per solve | minimise near-null and eigensolve cost; a cheaper coarsest grid and a smaller requested eigenspace can win even at more outer iterations |
+| **mixed** | setup amortises over enough solves that neither term dominates | both terms live; the winner is the measured crossover, not either term alone |
+| **throughput-dominated** | many solves per hierarchy, so setup approaches negligible | minimise recurring solve cost; setup is nearly free to spend, so a larger coarsest grid or richer eigenspace becomes affordable |
+
+**The regime does not have to be known in advance.** Where the campaign's scale is known, say
+which rows it reaches. Where it is not — which is common, and is what an exploratory campaign
+is for — measure `I` and `R` and let the crossover locate the boundary; the regime is then a
+result of this procedure rather than an input to it. Either way the trial's own
+solves-per-setup is never the production count: a trial running six solves per setup is an
+instrument setting from
+[`../../../../conventions/measurement.md`](../../../../conventions/measurement.md), and reading
+a cost share off it to conclude that solve-side candidates cannot matter is a statement about
+the trial, not the campaign.
+
+Carry whatever is known forward. A hierarchy screened, ranked or rejected under one regime has
+not been evaluated under another.
+
 ## 2. Establish source legality and stack proof
 
 Confirm the outer GCR-MG contract, build options, compiled coarse colours and MRHS
@@ -355,6 +381,14 @@ candidates and compute the setup/recurring crossover for the declared solve coun
 the result as `coarsest_vector_density(m)`, not as a transferable bare-mass table. Do not
 interpolate an entire schedule from an unmeasured pair.
 
+**Report the crossover, not only a winner, and price it with
+[`../../../../tools/amortize-cost.py`](../../../../tools/amortize-cost.py) rather than by
+hand.** The same measured `(setup, recurring)` pair selects different hierarchies at different
+production solve counts, so a schedule is valid only over a stated solve-count range. Where the
+campaign's scale is known, emit the schedule for each regime it reaches; where it is not, emit
+the crossover so the boundary is located rather than assumed. The tool reports crossovers with
+no solve count supplied and shares only at counts it is given.
+
 Pooled measurements must keep hierarchy reuse compatible. Combining setup from one
 operator state with solve time from another does not define a crossover.
 
@@ -383,5 +417,7 @@ Stop or return to an earlier gate when:
 - memory lands inside the uncertainty/advisory band or MRHS-MG relies on an absolute
   width model that does not exist;
 - the claimed benefit disappears when setup is amortized over the declared compatible
-  solve count; or
+  solve count;
+- a cost share, ranking or winner has been reported as though it were independent of the
+  production solve count, or a trial's own solves-per-setup has been used as that count; or
 - correctness or reproducibility fails.

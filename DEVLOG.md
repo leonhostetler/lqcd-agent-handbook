@@ -2191,3 +2191,67 @@ either up should check the leaf against what it actually finds rather than trust
 against P1's 10–15 KB budget for the whole tier. The addition was accepted because a gate on whether
 a search starts is useless if it only loads once someone goes looking for it, but the mode document
 is now the obvious candidate if Tier 1 has to be cut.
+
+<a id="trial-versus-production"></a>
+## The trial-versus-production rule, and why the existing one never fired (2026-09-18)
+
+*The episode.* A tuning session working a staggered-MG campaign divided a trial's setup cost by
+its total cost, obtained a share in the high nineties, and reasoned forward from it: *so
+solve-side candidates cannot matter.* The trial ran a handful of solves per setup. The share was
+arithmetically correct and described the instrument. The operator identified it immediately, and
+noted this was not the first time the distinction had been litigated — which is what moved the
+response from a correction to a handbook change.
+
+*The forensics, which decided where the fix went.* The rule already existed. `playbooks/tune-solver.md`
+§5 said "use the production `N`, not the number of solves in a convenient test"; `modes/tuning.md`
+§1 and `software/quda/solvers/staggered-multigrid/tuning.md` gate 1 both required a declared solve
+count. All three were loaded in that session and the error happened anyway. So the defect was not a
+missing rule but a **placement** one: the rule was stated once, as an input to declare at gate 1,
+with nothing guarding the point of use three gates later where a share is actually computed. A rule
+that fires only at the start of a procedure does not survive the middle of it.
+
+*A second finding, from the same audit.* The regime vocabulary — setup-dominated, mixed,
+throughput-dominated — already existed in `staggered-solver-selection.md`, imported at Stage 3 and
+recorded in the Stage-3 entry above. It had never propagated out of the leaf that chooses **between
+solver families** into the conventions, the mode documents, or the MG tuning gates, so a session
+tuning one solver never met it. Propagation, not invention, was most of the work.
+
+*The first draft was wrong and was rejected.* It required a declared production solve count before
+tuning could start. The operator rejected that: it would tax every campaign setup, and it is wrong
+about exploratory tuning, where the regimes are an **output** of the measured crossovers rather than
+an input. The accepted form leads with the purpose of a trial — a cheap instrument for pricing the
+terms of a cost model — and handles the unknown case by reporting `C(N) = I + N·R` and the crossover,
+which is strictly more informative than a winner and needs no declaration at all. `ARCHITECTURE.md`
+§7.1a carries an explicit clause saying an agent that blocks on the number has misread the section;
+`ROADMAP.md` §6 records the rejection so a future session does not tighten it back.
+
+*Acceptance evidence.* Nine files: `ARCHITECTURE.md` (§7.1 mode sketches, new §7.1a, one §1.4
+decision row), `ROADMAP.md`, `conventions/measurement.md`, both work-mode documents, the MG overview
+and its tuning leaf, plus `tools/amortize-cost.py` and `tests/test_amortize_cost.py`. The harness
+reported 9 changed files, indices current, 669 references resolved, 422 tests passing, Tier 0
+unchanged at 5844/6144 bytes and developer documents at 196479/200000.
+
+*The tool is the half with teeth, and it was made to fail on purpose.* `amortize-cost.py` reports
+pairwise crossovers with **no** solve count supplied, and reports shares, per-solve costs and
+rankings **only** at counts it is explicitly given; there is no default and none is inferred. Per
+[§decisions-operation](ARCHITECTURE.md#decisions-operation)'s rule that a new tool is not trusted on
+a passing run, `--solves` was perturbed to default to a small count — reintroducing exactly the
+defect — and 2 of its 7 tests failed, including the behavioural one rather than only the source-text
+assertion. Restoring passed all 7.
+
+*A privacy defect caught in the hand pass, not by the harness.* The first version of the test
+fixture used a real campaign's measured setup total, solve total and node count as its example
+inputs. Under [§ensemble-numbers](ARCHITECTURE.md#ensemble-numbers)'s sharp filter those are
+measurements we made rather than published properties of an ensemble, and they would have been
+irreversible in a public repository. They were replaced with synthetic round values that exercise
+the same property — a setup share that is dominant at a small solve count and a minority at a large
+one — at no cost to the test. The mechanical checks passed both before and after, which is the point
+of the harness ending by naming the categories it cannot decide.
+
+*Scope and what is owed.* The three regime names are reused from the existing leaf rather than
+coined, so nothing needs refitting. No numerical band was added anywhere. The MG gate-1 claim that
+multigrid has the widest one-time-to-recurring ratio of the three staggered solvers is a structural
+statement about what setup builds, not a measured ratio, and is deliberately unquantified. Still
+owed: the working-directory analysis that triggered this still frames its candidate ordering off a
+trial-derived share and should be re-cut against the new rule before anyone acts on it; that is
+project work under the project's own instructions, not handbook material.

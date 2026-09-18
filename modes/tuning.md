@@ -16,6 +16,12 @@ Before changing a build, parameter, decomposition, or runtime setting:
 1. State the production decision to be made, the representative workload, and the objective:
    elapsed time, node- or GPU-hours, memory fit, throughput, time to solution, or a declared
    combination. Name every hard constraint separately from the optimization objective.
+   **Record what is known about production scale — a solve count, a range, or explicitly that
+   it is undetermined — and do not block on it.** Trials are cheap precisely because they run
+   few solves; their job is to measure one-time and recurring cost so production can be costed
+   at counts they never ran. Where the scale is undetermined, the deliverable is the cost model
+   and its crossovers, and the regimes fall out of those. The trial's own solves-per-setup is
+   never the production count (`../conventions/measurement.md`).
 2. Establish the division of labour: analysis-only, prepare-and-handoff, or
    prepare+submit+analyze. Permission to tune does not authorize project edits, rebuilds, Git
    actions, or scheduler submission unless the operator included those actions in scope.
@@ -205,7 +211,9 @@ Campaign-specific optima and search histories remain in the working directory.
 ## Done
 
 Tuning is done when a candidate is selected against the declared objective and
-constraints; its correctness scope, environment, resource cost, warm state, and sensitivity are
+constraints **and reported with the solve-count range it wins over** — one candidate where it
+wins across the plausible range, otherwise the measured crossover and the candidate on each
+side of it; its correctness scope, environment, resource cost, warm state, and sensitivity are
 recorded; rejected and untested alternatives are named; and an independent confirmatory
 benchmark is defined. Before closing, run the automation checkpoint in
 [`conventions/repeated-work.md`](../conventions/repeated-work.md) and record its outcome,

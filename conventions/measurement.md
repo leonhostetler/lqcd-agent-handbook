@@ -79,6 +79,53 @@ So, before booking:
   A width chosen to satisfy a memory constraint carries no guarantee about the measurement, and the
   two documents rarely state each other's constraint.
 
+## A trial's solve count is an instrument setting, not the workload being decided
+
+The section above sets a trial's solves-per-instance from what a **steady-state sample**
+needs — at least two, so one survives excluding the first. That is the whole reason the number
+is small: solves cost allocation, and a trial exists to measure the *terms* of a cost model
+cheaply, not to rehearse production. Production may run hundreds or thousands of solves
+against one setup, and the trial deliberately does not.
+
+**So the trial measures `I` and `R`; the projection supplies `N`.** Keeping those separate is
+the point of the recurrence classes and the projection formula below.
+
+**The failure is using a correct number to answer a question it does not address.** Divide a
+trial's setup cost by its total cost and a share appears — "setup is 96% of this run". It is
+arithmetically right and it describes the instrument. One step further it becomes "so
+solve-side candidates cannot matter", which is a claim about production. Nothing looks wrong
+at any step, which is why it survives review. The same substitution turns "won our six-solve
+trial" into "is faster".
+
+**Three rules. None of them requires the production solve count to be known in advance.**
+
+1. **Never let the trial's count stand in for production's.** Production's may be known, known
+   only as a range, or genuinely undetermined — an exploratory campaign that *discovers* its
+   regimes from the measured crossovers is normal, and then the regime is a result rather than
+   an input. What is not legitimate is adopting the trial's count silently because it is the
+   number at hand.
+2. **State the solve count any share, ratio, ranking or winner holds at.** When production's is
+   unknown this costs nothing and gives the better answer: report `C(N) = I + N·R` and the
+   crossover `N*` instead of a winner. That locates the regime boundary rather than assuming
+   it.
+3. **Where a one-time term trades against a recurring one, no solve-count-free winner exists.**
+   The ranking inverts across the crossover. Classify the workload against its measured
+   crossovers using the canonical vocabulary — **setup-dominated**, **mixed**,
+   **throughput-dominated**
+   ([`staggered-solver-selection.md`](../software/quda/solvers/staggered-solver-selection.md)).
+
+**A truncated trial is legitimate; a truncated conclusion is not.** Measuring six solves to
+project a thousand is exactly the intended use, provided the projection is built from the
+recurrence classes below and the extrapolation is labelled. What is not intended is skipping
+the projection and reporting the trial's own proportions as the campaign's.
+
+Use [`../tools/amortize-cost.py`](../tools/amortize-cost.py) rather than doing this by hand. Given
+each candidate's one-time and recurring cost and the resource it was measured at, it reports
+pairwise crossovers with **no solve count supplied**, and reports cost per solve, total
+resource cost, and setup share only at solve counts it is explicitly given. The exploratory
+path therefore needs no declaration, while a share detached from its solve count cannot be
+produced.
+
 ## Establish the machine's single-measurement resolution before ranking on time
 
 Repeating solves inside one job bounds solve-to-solve spread. It does not bound the spread
@@ -373,7 +420,7 @@ Classify every projected term:
 | Source recurring | Source construction and its associated propagators or contractions. |
 | Solve recurring | A homogeneous steady-state solve class with a declared production count. |
 | Cadence-dependent | Checkpoints, measurements, saves, or output performed every declared number of work units. |
-| Excluded from production | Diagnostic work or an artifact of the tuning/benchmark protocol. |
+| Excluded from production | Diagnostic work, or an artifact of the tuning/benchmark protocol — **including the trial's own solves-per-setup count and any share, ratio or ranking derived from it**. |
 
 The same operation can have a different recurrence in another production design. State the
 reuse scope rather than assigning recurrence from its position in one output file.

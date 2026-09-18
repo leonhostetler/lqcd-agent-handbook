@@ -84,6 +84,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Work mode** | Current, not permanent — may change mid-session, but only by explicit declaration. It follows the immediate decision and deliverable, not every tool used along the way ([§work-mode-currency](#work-mode-currency)) | — |
 | **Task-time Tier-2 routing** | Startup loads Tier 1 only. Before substantive analysis or action, and whenever a task narrows or changes, derive the named applications, solvers, ensembles and immediate decision from the request and the active project instructions, then load the smallest Tier-2 leaves whose `load_when` matches. Interpretation waits for this check | A reliable executable task router makes the Tier-0 checkpoint redundant |
 | **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate; benchmarking measures a candidate and workload frozen before the measured series. A campaign may move from one to the other but never occupies a hybrid mode, and an exploratory winner needs independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
+| **Trial shape versus production workload** | A tuning or benchmarking trial runs few solves by design: it prices one-time and recurring cost cheaply so production can be costed at counts it never ran. Its own solve count is an instrument setting, and any share, ratio, ranking or winner derived from it carries the count it holds at. **Not a mandatory declaration** — where the production count is unknown the deliverable is `C(N) = I + N·R` and the crossover, so an exploratory campaign discovers its regimes instead of declaring them ([§trial-is-an-instrument](#trial-is-an-instrument)) | An objective appears whose ranking is genuinely solve-count-independent, or the crossover form proves unusable for a real decision |
 | **Performance and tuning boundary** | Performance **diagnoses**: it ingests a profile and produces a ranked, evidenced hypothesis list. Tuning **searches**: it applies a change, rebuilds, remeasures and selects. A profile-driven optimisation loop crosses the boundary and is declared at the crossing, never one mode doing both ([§work-modes](#work-modes), [§profile-analysis](#profile-analysis)) | A diagnosis phase proves to carry no decision content distinct from the search that follows it |
 | **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; missing session logging produces a non-blocking offer in the orientation report ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
@@ -1673,11 +1674,14 @@ distinguishing content:
   analyze-only). Warm-up and setup are included, excluded, or separately amortized according
   to the production state being estimated; there is no universal first-solve discard rule.
   **Predict before running** ([§predict-compare-loop](#predict-compare-loop)), report uncertainty, and state which components become
-  negligible at production scale. Changing a measured parameter ends the benchmark series
+  negligible at production scale **and the solve count at which they do**
+  ([§trial-is-an-instrument](#trial-is-an-instrument)). Changing a measured parameter ends the benchmark series
   and returns the decision to tuning.
 - **tuning** — needs the hypothetical production campaign, machine, objective, constraints,
   and tunable parameter space. It adaptively searches node placement, decomposition, solver,
-  build, runtime, and workflow choices and produces a candidate by following
+  build, runtime, and workflow choices and produces a candidate, or a cost model and the
+  solve-count range each candidate wins over ([§trial-is-an-instrument](#trial-is-an-instrument)),
+  by following
   `playbooks/tune-solver.md` when applicable, with the relevant
   `software/<name>/solvers/`, resolved build profile and stack, ensemble knowledge, and
   memory model. **Predict before every allocation-consuming trial**
@@ -1695,6 +1699,54 @@ profile to find out where the time goes is performance. Measuring
 a candidate while deciding what to try next is tuning. Measuring a fixed candidate to estimate
 its performance or cost is benchmarking. A campaign may pass through debugging, performance,
 tuning, benchmarking, and production in sequence; exactly one governs each phase.
+
+<a id="trial-is-an-instrument"></a>
+### 7.1a. A trial is an instrument for costing production, not a small production run
+
+**This is what tuning and benchmarking are for.** A trial is deliberately cheap: it runs a
+handful of solves per setup because solves consume allocation and a steady-state sample needs
+only a few. Its job is to measure the **terms of a cost model** — one-time setup `I` and
+recurring per-solve cost `R` — so that production can be costed at solve counts the trial
+never ran and which may be orders of magnitude larger. The trial's own solve count is an
+instrument setting, on the same footing as its repetition count or its truncated workload. It
+is an input to the measurement, never the workload the decision is about.
+
+**The failure this prevents is silent, and it is a misreading of the purpose above rather than
+of any single rule.** An agent divides a trial's setup cost by its total cost, obtains a share
+— "setup is 96% of this run" — and reasons forward: *so solve-side candidates cannot matter.*
+The arithmetic is right and the conclusion is about the instrument. Nothing in the run looks
+wrong, which is why review does not catch it. The same substitution turns "this candidate won
+our six-solve trial" into "this candidate is faster", which is only true in a regime nobody
+stated.
+
+Three rules follow, and none of them is a question the agent must ask before starting.
+
+1. **The trial's solve count never stands in for production's.** Production's may be known up
+   front, known only as a range, or genuinely unknown at the outset — **exploratory tuning
+   that discovers its own regimes is normal and expected**, and the regimes are then an output
+   of the measured crossovers rather than an input. What is never legitimate is silently
+   adopting the trial's count because it is the number at hand.
+2. **A cost share, ratio, ranking, or winner carries the solve count it holds at.** When the
+   production count is unknown this costs nothing and yields the better deliverable: report
+   `C(N) = I + N·R` and the crossover `N*`, which is strictly more informative than a winner
+   and locates the regime boundary instead of assuming it.
+3. **Where one-time and recurring terms trade against each other, "which candidate is best"
+   has no solve-count-free answer.** The ranking inverts across the regime boundary, so a
+   single winner reported without its range has silently chosen a regime. The regime
+   vocabulary is canonical in `software/quda/solvers/staggered-solver-selection.md`:
+   **setup-dominated**, **mixed**, **throughput-dominated**.
+
+**Do not convert this into a mandatory declaration.** An agent that blocks a campaign until the
+operator supplies a production solve count has misread this section: the unknown case is
+already handled, by measuring `I` and `R` and reporting the crossover. Ask only when the
+operator's own objective cannot be evaluated without a number, and prefer a bounded sweep to a
+question.
+
+The operational statement is canonical in `conventions/measurement.md`. Rule 2 also gets a
+structural guard rather than a prose one, under [§prefer-a-tool](#prefer-a-tool):
+`tools/amortize-cost.py` reports crossovers with no solve count supplied, and reports shares
+and rankings only at solve counts it is explicitly given — so the share detached from its `N`
+is unavailable to construct, while the exploratory path stays open.
 
 <a id="work-mode-currency"></a>
 ### 7.2. Work mode is *current*, not permanent — and mostly not asked about
