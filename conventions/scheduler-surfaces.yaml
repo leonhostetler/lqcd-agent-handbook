@@ -32,6 +32,18 @@ surfaces:
     array_job_id_variable: SLURM_ARRAY_JOB_ID
     array_task_id_variable: SLURM_ARRAY_TASK_ID
     submit_dir_variable: SLURM_SUBMIT_DIR
+    parallel_launcher: srun
+    task_label_option: "--label"
+    accounting_command: sacct
+    live_step_command: sstat
+    accounting_job_option: "--jobs"
+    accounting_job_option_short: "-j"
+    accounting_format_option: "--format"
+    accounting_units_option: "--units"
+    # Per-step host memory, plus the node that set the maximum. MaxRSS is the
+    # maximum over the step's tasks, not a job-wide mean, so MaxRSSNode is what
+    # makes a per-node ceiling comparison possible at all.
+    step_accounting_fields: "JobID,JobName,Elapsed,NNodes,NTasks,MaxRSS,MaxRSSNode,AveRSS,MaxVMSize,State,ExitCode"
 evidence: docs
 observed: "2026-08-28"
 observed_on:
@@ -42,3 +54,6 @@ sources:
   - https://slurm.schedmd.com/salloc.html
   - https://slurm.schedmd.com/squeue.html
   - https://slurm.schedmd.com/sinfo.html
+  - https://slurm.schedmd.com/srun.html
+  - https://slurm.schedmd.com/sacct.html
+  - https://slurm.schedmd.com/sstat.html

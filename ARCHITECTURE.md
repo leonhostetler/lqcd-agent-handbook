@@ -95,6 +95,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Project Git authority** | Authorization to change project code does not authorize commits or publication; canonical `AGENTS.md` owns the standing rule. The default handoff is an uncommitted working tree, a validation summary, and a suggested commit message | The operator explicitly delegates a named class of Git actions |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | The operator specifies an unattended submission loop up front — see [§deferred-decisions](ROADMAP.md#deferred-decisions). Reaching the point where submission is the only manual step is not itself the trigger |
 | **Batch submission scripts** | One universal Tier-2 convention leaf, loaded before writing, modifying or reviewing a batch script or preparing a submit command. Reached from a Tier-0 pointer **and from every task-time routing surface that can reach script work**, because the pointer alone was observed not to fire. Mechanically decidable rules move to `tools/check-batch-script.py`, which is **advisory lint, never a sandbox** ([§batch-scripts](#batch-scripts)) | Slice 7 lands a `PreToolUse` guard that enforces rather than advises |
+| **Run instrumentation** | In every work mode but production, a batch script on accelerated nodes starts a background accelerator-memory sampler covering the whole run; production is **exempt, not forbidden**. The rule lives in the batch-script leaf because that is where it binds. Its *presence* half is mechanically decidable and joins `tools/check-batch-script.py` as a note, raised to a warning when a non-production work mode is supplied; period and coverage stay with the reviewer. Motivated by teardown-printed counters: an aborted run yields no memory figure at all, and that is exactly the run that needed one. **Host memory is the same argument with no sampler**: the scheduler already measured per-step resident memory, so every script records its own step accounting at teardown, in every mode and with no production exemption, as a sampled lower bound rather than a peak ([§batch-scripts](#batch-scripts)) | A sampler's own overhead is shown to distort the measurement it serves, or a scheduler supplies equivalent per-device high-water accounting |
 | **Chargeable account** | **Never inferred** — not from a scheduler or environment default, an accounting query, another script in the working directory, or an archived campaign script. Enumerating available accounts is expected; selecting one is not ([§account-rule](#account-rule)) | The operator declares a standing per-campaign default account |
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
 | **Test builds** | Build the complete available test suite by default. A reduced test build requires an **explicit operator instruction for that build**; record the opt-out and exact excluded targets. Test execution may remain focused on the validation contract | The complete suite cannot be compiled within available build resources and the operator adopts another standing policy |
@@ -2095,6 +2096,27 @@ exists" would forbid the warm-state contract tuning mode requires. Any enumerati
 destructive commands stays explicitly non-exhaustive, because an agent reading a long specific
 list infers that absence means permission; the case that decides the commands nobody
 enumerated is *name the approved writable root this write lands under, or do not write it*.
+
+**A batch script is also the only place run instrumentation can be added.** In every work
+mode but production, a job on accelerated nodes starts a background sampler that records
+accelerator memory for the whole run. The reason is asymmetric in a way that is easy to miss:
+an application's own high-water counters are printed during teardown, so the runs that most
+need them — killed by the out-of-memory handler, by a signal, or at a walltime limit — print
+none, and the figure cannot be recovered afterwards at any price short of running the job
+again. Instrumentation is therefore not a refinement added once a run disappoints; the
+decision is made when the script is written, and a script without it converts a diagnosable
+failure into an unexplainable one. Production is **exempt rather than forbidden**, because its
+deliverable is monitoring rather than measurement. The sampler's *presence* is mechanically
+decidable and joins the lint below; its period, coverage, and whether it wrote anything are
+not, and the leaf says so rather than implying they were checked.
+
+**The host side needs no sampler, only a query nobody makes.** The scheduler already measures
+per-step resident memory; that record just does not outlive the job unless the job writes it
+down. So every script ends by recording its own step accounting, in every mode and with no
+production exemption: the cost is one guarded command, and the figure decides whether a
+failure was a host-memory kill. It is a **lower bound**, sampled at the accounting system's
+gather period, and a maximum over a step's tasks rather than a per-node table; both limits
+travel with the number.
 
 **Checkable rules become a tool.** [§prefer-a-tool](#prefer-a-tool) applies directly. Whether
 `set -euo pipefail` is present, whether the script submits another job, whether the working

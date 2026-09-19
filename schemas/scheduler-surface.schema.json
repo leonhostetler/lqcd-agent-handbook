@@ -63,7 +63,16 @@
           "job_id_variable": { "type": "string" },
           "array_job_id_variable": { "type": "string" },
           "array_task_id_variable": { "type": "string" },
-          "submit_dir_variable": { "type": "string" }
+          "submit_dir_variable": { "type": "string" },
+          "parallel_launcher": { "type": "string" },
+          "task_label_option": { "type": "string" },
+          "accounting_command": { "type": "string" },
+          "live_step_command": { "type": "string" },
+          "accounting_job_option": { "type": "string" },
+          "accounting_job_option_short": { "type": "string" },
+          "accounting_format_option": { "type": "string" },
+          "accounting_units_option": { "type": "string" },
+          "step_accounting_fields": { "type": "string" }
         }
       }
     },

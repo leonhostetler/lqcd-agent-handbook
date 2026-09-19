@@ -138,6 +138,100 @@ The question that decides every case nobody enumerated: **name the approved writ
 this write lands under, or do not write it.** Do not add cleanup logic for tidiness. Leaving
 temporary files behind is always preferable to risking data that cannot be recreated.
 
+## Instrument the run before you need the number
+
+**In every work mode except production, a job on accelerated nodes samples accelerator memory
+in the background for the whole run.** In production it is optional and still useful for
+triage. The sampler belongs in the script from the start; it is not something added after a
+run has already disappointed.
+
+**The mechanism is that an application's own memory counters are printed on a clean exit, and
+the runs that most need those counters do not have one.** A library that reports its
+high-water allocation during teardown reports nothing when the process is killed by the
+out-of-memory handler, by a signal, or at a walltime limit — which is exactly the set of
+outcomes where the memory figure decides the diagnosis. **A background sampler is therefore
+not redundant with those counters: it is the only source that survives the failure it exists
+to explain.** A capacity model is not a substitute either, since a model predicts named
+allocation phases and the peak can fall outside all of them.
+
+Where nothing sampled, say so. A run with no telemetry yields `unknown`; do not infer a peak
+from a scheduler summary or from a model ([`running.md`](running.md)).
+
+### What the sampler has to satisfy
+
+Each item has a failure behind it rather than a preference:
+
+- **It samples every node the job holds**, not the one the batch script happens to run on.
+  Device capacity is exhausted per device, and the node that runs out is usually not the one
+  running the script. Launch it across the allocation through the parallel launcher.
+- **Its period is short relative to the shortest phase whose peak must be attributed.** A
+  period chosen for a long run can produce *zero* samples inside a short terminal phase, which
+  is indistinguishable from a phase that allocated nothing. Choose it from the phase structure
+  the run is expected to have, and **record the period beside the output** — a peak read at an
+  unrecorded period is not a bound.
+- **Its output is machine-readable, with a fixed field order and a header written once**, kept
+  in its own file rather than interleaved into the application log. Reconciliation has to find
+  the peak without parsing prose.
+- **It dies with the job.** A sampler that outlives its allocation is the watch defect in
+  [`running.md`](running.md): an unbounded loop survives the job, and a stale sampler cannot
+  be told from a live one. Bound it by the job's own lifetime, never by a loop with no exit.
+- **It cannot fail the job.** Instrumentation runs in the background, and a missing or
+  unreadable accelerator tool degrades the record without costing the allocation. Record the
+  absence; do not make it fatal.
+- **Its command comes from the machine profile's declared accelerator vendor**, like every
+  other tool name in this leaf — never from memory, never from an assumption about the
+  hardware. Resolve the vendor, then the command.
+
+**A reference implementation ships with the handbook.** `tools/gpu-memory-sampler.sh`
+satisfies all six properties and is the supported way to meet this rule. It requires
+`--vendor`, `--interval` and `--max-seconds` explicitly: a default period would be this
+handbook asserting a sampling rate it has not measured, and a default deadline would be the
+unbounded loop above wearing a number. Its header block shows the launcher invocation, and
+the line-labelling option is what makes each node's samples attributable. AMD sampling is
+deliberately unimplemented — the field layout must first be established against the installed
+tool — and the script records that rather than guessing a parse.
+
+**Presence is not periodicity.** A static reviewer, including `tools/run-batch-script-check`,
+can see that a sampler is invoked; it cannot see that the sampler ran, covered the run, or
+wrote anything. Confirm the output exists and spans the run before treating a missing peak as
+a measured absence.
+
+**Evidence and scope:** mechanism, universal to accelerated jobs under any scheduler. The
+clean-exit limitation is a property of how libraries report teardown counters and is expected
+to transfer. No sampling period, overhead figure, or per-vendor field layout is asserted here:
+establish each against the tool actually installed.
+
+### Record what the scheduler already measured, before the job exits
+
+**Every batch script ends by writing its own per-step accounting into the run root.** The
+scheduler measured host memory per step whether or not anyone asked; the only question is
+whether that record outlives the job. Query it at teardown for this job's own id, using the
+accounting command and the per-step fields the surface record names, and keep the output
+beside the run's other raw evidence.
+
+It is queryable afterwards, so the reason to do it in the script is not access — it is that
+"afterwards" depends on somebody remembering, while a job that records itself does not.
+**The comparison this feeds cannot be reconstructed from memory either.** Attributing a
+failure to host memory requires the job's *own* requested memory per node, divided by its
+node count and then by ranks per node; a site-wide node capacity and a job-wide mean both
+give the wrong answer ([`running.md`](running.md)). Both halves live in the job record, and
+they are cheapest to capture while the job still is one.
+
+Four properties, and the first two decide how the number may be used:
+
+- **The per-step maximum is sampled, at the accounting system's own gather period**, so a
+  short-lived peak can be missed exactly as a too-slow accelerator sampler misses one. Treat
+  it as a **lower bound** on what the step actually held, never as the peak.
+- **It is a maximum over the step's tasks, reported against the node that set it** — not a
+  job-wide mean and not a per-node table. Record that node: the ceiling is per node, and the
+  kill lands on the busiest one.
+- **The step must have finished** for its figures to be complete, which is why this belongs in
+  teardown rather than mid-run. A still-running step is a different query, and the surface
+  record names that one separately.
+- **It must not fail the job.** The accounting database can be unreachable, and this runs in
+  the teardown path where a failing command substitution costs the terminal records — the trap
+  described under *Variables and paths* below. Guard it, record the failure, and carry on.
+
 ## Variables and paths
 
 **Use `set -uo pipefail` unconditionally, and decide `-e` deliberately.** Quote every path
