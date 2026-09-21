@@ -75,6 +75,31 @@ done
 # the selected script, which may receive hook JSON through this channel.
 exec 3<&0
 
+# A module load, and a site's shell profile, inject PYTHONPATH entries that are not
+# where the requirements come from: monitoring shims and patch directories, which on a
+# cluster sit on a shared filesystem. Python searches them before everything else on
+# every import, so the cost is paid once per interpreter start. Measured on Perlmutter,
+# two such entries made one tool 2.7x slower -- 1.26s against 3.38s -- and a test suite
+# pays that hundreds of times over, which was most of why it took minutes.
+#
+# So drop them. But only after proving, with THIS interpreter, that the requirements
+# still import without them: searching modules at all was about finding those
+# requirements, and a site that really does serve them from PYTHONPATH must keep it.
+# A failed probe means keep it and accept the cost, never guess.
+drop_injected_pythonpath() {
+    local interpreter="$1"
+    [[ -n "${PYTHONPATH:-}" ]] || return 0
+    # With no declared requirement the probe is a bare version check, which passes with
+    # PYTHONPATH cleared no matter what that path was carrying. Dropping it on that
+    # evidence would be dropping it untested, so a caller that declares nothing keeps
+    # whatever it was given.
+    (( ${#require[@]} + ${#require_any[@]} > 0 )) || return 0
+    if PYTHONPATH= "$interpreter" -c "$probe" >/dev/null 2>&1; then
+        unset PYTHONPATH
+    fi
+}
+
+
 # NERSC's site-injected Python monitor can sample at interpreter exit and append
 # scheduler-authentication diagnostics after otherwise valid JSON. Disable that
 # monitor for these deterministic subprocesses. The variable is inert on systems
@@ -122,6 +147,7 @@ for name in "${path_names[@]}"; do
     while IFS= read -r candidate; do
         [[ -x "$candidate" ]] || continue
         if probe_ok "$candidate" -c "$probe"; then
+            drop_injected_pythonpath "$candidate"
             exec "$candidate" "$@" <&3 3<&-
         fi
         record_rejection "$candidate" "$probe_rc" "$probe_out"
@@ -143,6 +169,7 @@ if (( allow_module_load )) && [[ "$(type -t module 2>/dev/null || true)" == func
             [[ -n "$mod" ]] || continue
             if probe_ok bash -c "module load '${mod}' >/dev/null 2>&1 && exec python3 -c \"\$1\"" _ "$probe"; then
                 module load "$mod" >/dev/null 2>&1
+                drop_injected_pythonpath "$(type -P python3)"
                 exec python3 "$@" <&3 3<&-
             fi
             record_rejection "module ${mod}" "$probe_rc" "$probe_out"

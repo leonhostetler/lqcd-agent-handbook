@@ -2255,3 +2255,73 @@ statement about what setup builds, not a measured ratio, and is deliberately unq
 owed: the working-directory analysis that triggered this still frames its candidate ordering off a
 trial-derived share and should be re-cut against the new rule before anyone acts on it; that is
 project work under the project's own instructions, not handbook material.
+
+## The suite took minutes because every interpreter start searched a shared filesystem (2026-09-21)
+
+A developer-mode session reported that `tools/run-change-proposal` took about seven minutes on a
+Perlmutter login node, which makes an ordinary documentation change impractical. It now takes
+**55 seconds**, and the suite alone went from roughly **420 seconds to 49**. Three changes did it;
+none of them touched what is tested.
+
+*The dominant cause was an unexamined consequence of an earlier correctness fix.* On 2026-08-28
+`--allow-module-load` was added because the validator could not run at all: the only interpreter on
+`PATH` carried PyYAML but not `jsonschema`. That entry checks the validator returns identical
+results under 3.11, 3.12 and 3.14, and says nothing about cost — reasonably, since the alternative
+was a tool that did not run. But a `module load` injects `PYTHONPATH` entries, and on this machine
+they were `/global/common/software/nersc9/numba-cuda-580-patch/patch` and `/opt/nersc/pymon`. Both
+exist to place `usercustomize` / `sitecustomize` hooks, which Python imports at every interpreter
+start, and both sit on a shared filesystem that Python then searches ahead of everything else on
+every import. Measured over three rounds, the validator took **1.26 s with `PYTHONPATH` unset
+against 3.38 s with it** — 2.7x, paid once per subprocess. `tools/select-python` now drops those
+entries, but only after proving with that same interpreter that the caller's declared requirements
+still import without them; a caller that declares nothing keeps whatever it was given, because a
+bare version check passes regardless and would be dropping the path untested. One module through
+the dispatcher went from 43 s to 13 s.
+
+*This repository cannot be harmed by that drop, and the check is recorded so a later reader need
+not redo it.* Every import across `tools/` is stdlib or one of `yaml`, `jsonschema`, `tomli` — all
+declared requirements the probe tests — and nothing imports numba, CUDA or the site monitor. The
+monitor's removal is the stronger form of a decision already taken: the dispatcher has exported
+`NERSC_PYMON_DISABLE=1` since 2026-08-17, after PyMon appended MUNGE text to otherwise valid
+checker JSON. That export stays, and the forced-monitoring regression still covers it, because the
+regression turns on the variable rather than on the path. The failure mode if a future tool does
+need an undeclared site module is a loud `ImportError`, not a wrong answer; the residual unknown is
+that this was measured on Perlmutter only, and the guard is machine-independent by construction
+rather than by test.
+
+*The second change was the validator parsing YAML in pure Python, 3.2 times over.* Profiling put
+58 % of its runtime inside PyYAML's scanner, with 266 parses of about 84 distinct documents.
+libyaml was present and unused. `tools/validate-knowledge.py` now selects `CSafeLoader` when the
+build has it and memoises on document text, which is exact because nothing rewrites a file while a
+validation runs; callers mutate what they get back, so the cached object is never handed out
+directly. The tool went from 3.69 s to 1.22 s with **byte-identical output**.
+
+*The third was a latent fragility the investigation exposed rather than caused.*
+`tests/test_amortize_cost.py` imported `support` without putting `tests/` on `sys.path`, relying on
+`unittest discover -s tests` to have done it. It was the only one of the fifteen modules importing
+`support` that did so. Under any invocation naming the module directly it raised
+`ModuleNotFoundError` and its seven tests did not run — 416 reported instead of 422 — and inside an
+experimental parallel runner it loaded or failed **depending on which modules shared its worker**.
+A test result that depends on scheduling is worse than a slow suite.
+
+*A rejected approach, recorded because the reasoning is the transferable part.* The session first
+built a parallel runner splitting modules across workers, with the modules that rewrite real files
+through `PerturbationMixin` held back to a serial phase. Measured back to back it was **slower** —
+280 s against 100 s — for two reasons that outlast the experiment: the perturbing modules cannot
+overlap anything, and cost hints taken from in-test time do not predict wall time, which is
+dominated by subprocess latency. The comparison was also confounded, since runs issued directly did
+not pay the `PYTHONPATH` penalty that runs through the dispatcher did. It was removed. What remains
+useful is the measurement behind it: the suite makes **322 subprocess launches accounting for 95 %
+of its wall time**, so at about 0.056 s per interpreter start roughly 18 s is a floor for the
+current test design, and the way past it is fewer launches rather than more workers. Merging test
+modules would not help at all — all 34 already import in one process, in 0.6 s.
+
+*Still owed.* Two further reductions were identified and deliberately not taken: 132 launches of
+`gpu-profile-summary.py` costing about 20 s could largely move in-process, and `select-python`'s own
+7 invocations cost 11.8 s because each re-runs module discovery. The first trades away testing the
+CLI as a program, which is the same isolation `propose-change.py` deliberately keeps for the
+validator; the second needs a cache whose staleness would fail confusingly. Both were judged to cost
+more than the remaining ~20 s is worth, and neither is blocked if that judgement changes. The suite
+step also reports only `unittest`'s internal timing, which is why a fourfold environmental swing
+read as a constant seven minutes and cost a long investigation to see through; giving it a
+wall-clock line is a cheap thing a later session should do.

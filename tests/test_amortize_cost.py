@@ -7,10 +7,17 @@ these tests are what keep the structural half of the guard from regressing.
 
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 
-from support import interpreter_for
+# Every other test module does this, and this one relied on `unittest discover -s tests`
+# having made the directory importable instead. That works under discovery and fails
+# under any invocation that names the module directly, which made whether this module
+# loaded at all depend on how the suite happened to be launched.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from support import interpreter_for  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "amortize-cost.py"

@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import datetime as dt
+import functools
 import json
 import re
 import subprocess
@@ -53,9 +55,30 @@ DENY_PATTERNS = {
 }
 
 
+# PyYAML's pure-Python parser accounted for 58% of this tool's runtime, and the same
+# documents were being parsed 3.2 times over -- 266 parses of 84 distinct documents.
+# Both are fixed here, and together they cut the tool's wall time by more than half.
+#
+# libyaml is present in every interpreter `tools/select-python` will hand this tool, but
+# the fallback is kept because a build without it must still work, only slower. The
+# memo is keyed on the text, which is exact: nothing rewrites a file while a validation
+# runs, so identical text is identical data. Callers mutate what they get back, so the
+# cached object is never handed out directly.
+_YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
+
+@functools.lru_cache(maxsize=None)
+def _parse_yaml(text: str) -> Any:
+    return yaml.load(text, Loader=_YAML_LOADER)
+
+
+def _yaml_from_text(text: str) -> Any:
+    return copy.deepcopy(_parse_yaml(text))
+
+
 def load_yaml(path: Path) -> Any:
     try:
-        return yaml.safe_load(path.read_text())
+        return _yaml_from_text(path.read_text())
     except Exception as exc:
         raise ValueError(f"{path}: invalid YAML: {exc}") from exc
 
@@ -68,7 +91,7 @@ def frontmatter(path: Path) -> dict[str, Any] | None:
     if end < 0:
         return None
     try:
-        data = yaml.safe_load(text[4:end])
+        data = _yaml_from_text(text[4:end])
     except Exception as exc:
         raise ValueError(f"{path}: invalid frontmatter YAML: {exc}") from exc
     return data if isinstance(data, dict) else None
