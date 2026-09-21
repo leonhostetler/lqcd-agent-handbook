@@ -47,6 +47,7 @@ including shapes that change nothing about what actually runs:
 | `VAR=value sacct …` — an environment prefix | fails |
 | a pipe, a `timeout` wrapper, or one command among several in a script | fails |
 | spawned from a shell script, or from a language runtime's subprocess call | fails |
+| a submission client wrapped in anything — including a preceding directory change | fails, differently: see below |
 
 This is narrower than "run it directly". An environment prefix is enough to break it.
 
@@ -55,6 +56,21 @@ address of `family = 0, port = 0`: no address was resolved, rather than a connec
 or timed out. The output is a header with no data rows, and the exit status is non-zero. **A
 real outage does not look like this** — it reports an inability to contact the controller, or
 it times out. Treat the address-family signature as sandbox, not cluster.
+
+**The submission client fails differently again, and its symptom points at the site.** Where the
+accounting client reports a socket error, a submission client wrapped in anything can report a
+container-runtime *ownership* complaint about a root-owned configuration file and then die with a
+**segmentation fault**. Nothing about that reads as a restriction on the agent: it reads as a
+broken site install, and it has been reported as one. It is the sandbox's user-namespace mapping
+showing through.
+
+**Submission usually still works, and assuming otherwise is expensive.** Because the bare command
+is exempt, an agent that has authority to submit can normally submit — so a misdiagnosis here does
+not merely mislabel a fault, it reaches for the no-authority fallback in
+[`batch-scripts.md`](batch-scripts.md) and hands the operator a command to run by hand. That
+converts working automation into a manual step and reads as helplessness rather than caution.
+**Retry bare before concluding anything**: before reporting a service unavailable, before
+recording an environment finding, and before handing over a submit command.
 
 **A hang is the same cause wearing a different face.** Commands that query the controller
 rather than the accounting database, and even a plain hostname lookup, hang instead of failing
