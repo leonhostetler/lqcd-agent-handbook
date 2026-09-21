@@ -18,6 +18,10 @@ SOURCE_REVISION = "quda-b6998853f"
 # kernels only for these coarse gauge colors.  The coarse gauge field combines spin and
 # color as N = 2 * nvec_(L-1), so the restriction acts on a DERIVED quantity.
 MMA_COARSE_GAUGE_COLORS = (12, 48, 64, 128, 192)
+# Fine staggered colour. Enters coarse_fine_work as N_c^2 and is a property of the
+# staggered operator, not of any fitted population.
+FINE_COLOURS = 3
+
 CORPUS_V3_MIN = 10_000
 CORPUS_ASPECT_MAX = 1.5
 # Every corpus band in this module was fitted on four-level hierarchies. This constant is the
@@ -419,6 +423,48 @@ def evaluate_decomposition(
             metrics["coarsest_vector_density"] = nvec3 / coarsest_global_volume
             if levels == 4:
                 metrics["nu3"] = nvec3 / coarsest_global_volume
+
+        # coarse_fine_work: how many full fine-operator applications one coarsest apply
+        # costs. The solver-tuning procedure requires this screen -- an adequate coarsest
+        # volume says the coarse problem is well posed and says nothing about whether the
+        # coarse grid is cheap relative to the fine one -- and until now no tool emitted it,
+        # so every campaign following the gate computed it by hand.
+        #
+        # The trap it removes is which count to use. The coarse gauge colour is
+        # 2 * nvec_(L-1), and L-1 is a LEVEL INDEX, not a role: that is nvec_2 at four
+        # levels and nvec_1 at three. nvec_3 is a deflation count and never a coarse colour.
+        # Getting this wrong at three levels silently squares the wrong number.
+        #
+        # This is a dimensionless ratio derived from the lattice, the executed blocks and
+        # the coarse colour -- a quantity, not a fitted band -- so unlike the corpus screens
+        # it is not scoped to a level count and carries no population. It is emitted
+        # wherever the coarsest-defining count is unambiguous, and declined elsewhere rather
+        # than guessed.
+        #
+        # It is computed from the EFFECTIVE blocks, not the requested ones. The formula holds
+        # no rank geometry, so two placements running the same hierarchy price identically --
+        # but a placement whose local extents force QUDA to halve a requested block runs a
+        # DIFFERENT hierarchy, and this ratio moves accordingly. That is the executed
+        # hierarchy being priced, which is the one worth pricing; check
+        # `requested_blocks_changed` before comparing two placements.
+        coarsest_defining_nvec = {4: nvec2, 3: nvec1}.get(levels)
+        if coarsest_defining_nvec:
+            coarse_gauge_colour = 2 * coarsest_defining_nvec
+            metrics["coarse_gauge_colour"] = coarse_gauge_colour
+            metrics["coarse_fine_work"] = (
+                coarsest_global_volume * coarse_gauge_colour ** 2
+            ) / (product(global_dims) * FINE_COLOURS ** 2)
+            metrics["coarse_fine_work_basis"] = (
+                f"2*nvec_{levels - 2}={coarse_gauge_colour} over N_c={FINE_COLOURS}"
+            )
+        else:
+            # Two levels has no aggregation-built coarsest operator, so there is no coarse
+            # colour to square. Saying so beats omitting the key, which reads as "computed
+            # and unremarkable".
+            metrics["coarse_fine_work"] = None
+            metrics["coarse_fine_work_basis"] = (
+                f"not evaluated: no unambiguous coarsest-defining nvec at {levels} levels"
+            )
         if corpus_advisories:
             if levels != CORPUS_FITTED_LEVELS:
                 # Not a warning about this candidate: a refusal to evaluate. Every corpus band

@@ -121,6 +121,21 @@ defined in [`the MG overview`](../staggered-multigrid.md). The ratio is dimensio
 reads directly: its value is **how many full fine-operator applications one coarsest apply
 costs.**
 
+**Do not compute it by hand.**
+[`quda-staggered-decomposition.py`](../../../../tools/quda-staggered-decomposition.py) emits it
+as `metrics.coarse_fine_work`, beside the coarsest volume and cell shape it already reports, and
+names what it squared in `metrics.coarse_fine_work_basis`. The hand calculation has a specific
+trap: `nvec_(L-1)` is a **level index**, so the coarsest-defining count is `nvec 2` at four
+levels and `nvec 1` at three, while `nvec 3` is a deflation count and never a coarse colour
+([level naming](../staggered-multigrid.md#level-naming)). The tool declines to evaluate where
+that count is ambiguous rather than guessing.
+
+It is computed from the **effective** blocks. Two placements running the same hierarchy
+therefore price identically — the formula holds no rank geometry — but a placement whose local
+extents force QUDA to halve a requested block is running a different hierarchy, and the ratio
+moves with it. Check `requested_blocks_changed` before reading a difference between two
+placements as a difference between two candidates.
+
 **Mechanism.** The coarse operator is dense in coarse colour. Aggregation cuts sites but
 raises per-site work by `(2 * nvec_(L-1))^2 / N_c^2`, and for a **single** aggregation stage
 the volume reduction is very nearly cancelled by that density growth. **Depth, not block
