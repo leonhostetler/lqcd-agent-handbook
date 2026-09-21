@@ -119,6 +119,14 @@ coarse-operator kernels are instantiated per coarse colour. **Treat warmth as pe
 shape *and* colour.** Budget a cold retune whenever either moves, and do not carry a warm
 measurement across such a change without re-warming.
 
+**Gauge reconstruct is the same mechanism and is easier to miss, because it is set in the
+environment rather than in any input file.** Reconstruct is a template parameter, so each type
+is a separate kernel specialisation: changing it produces new keys for *exactly* the
+gauge-touching kernels while every other entry still hits. A run seeded from a cache built at
+another reconstruct is therefore **partly** warm — neither the cold-start case nor the warm one —
+and a timing taken from it has to say so. See
+[`milc-gauge-reconstruct.md`](milc-gauge-reconstruct.md) for the variables and their defaults.
+
 ## Rank placement inside a node is not encoded in any key
 
 The tunecache is keyed on the tuning *question*. Where a change moves the right *answer* without

@@ -61,6 +61,17 @@ build_options:
     type: boolean
     capabilities:
       - MILC interface
+  QUDA_RECONSTRUCT:
+    meaning: >-
+      Three-bit mask selecting which gauge reconstruct types are instantiated, over 18,
+      13/12 and 9/8; the observed default 7 compiles all three. Reconstruct is a template
+      parameter, so a type absent from the mask cannot be requested at runtime and fails
+      naming the mask rather than the request.
+    type: string
+    capabilities:
+      - gauge reconstruct 18
+      - gauge reconstruct 13/12
+      - gauge reconstruct 9/8
   QUDA_INTERFACE_QDP:
     meaning: Builds the QDP field ordering; QUDA's native staggered validation executables exercise this ordering.
     type: boolean
