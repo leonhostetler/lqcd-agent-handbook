@@ -61,7 +61,11 @@ compiled fixed node or I/O geometry. Each subsequent input set is ordered. At th
 revision its major sections are:
 
 1. starting and ending gauge-field handling, tadpole factor, gauge fixing, smearing controls,
-   coordinate origin, and temporal boundary condition;
+   coordinate origin, and temporal boundary condition.
+   The reload keyword in this section is a correctness choice, not a performance one: only
+   two of the three detect a SciDAC/LIME gauge configuration, and the third reads it as MILC binary
+   while the log reports the format correctly identified. See
+   [`../internals/gauge-read-dispatch.md`](../internals/gauge-read-dispatch.md);
 2. optional eigenpair and chiral-condensate measurements;
 3. base sources and modified sources;
 4. propagator sets, each with a set type, inverter controls, source reference, and one or more

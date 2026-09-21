@@ -164,6 +164,11 @@ validated one in the DeltaAI stack; validate the saved field directly before rel
 validated DeltaAI smoke test used `forget` ending-lattice handling. It had one `reload_parallel`
 input set and did not test save or continuation.
 
+**The reload keyword is a correctness choice.** Only two of the three detect a
+SciDAC/LIME gauge configuration; `reload_mpiio` reads one as MILC binary and the log still
+reports the format correctly identified — see
+[`../internals/gauge-read-dispatch.md`](../internals/gauge-read-dispatch.md).
+
 ## Output and timing boundaries
 
 One normally exiting process emits one `start: <date/time>` and `exit: <date/time>` pair. Unlike
