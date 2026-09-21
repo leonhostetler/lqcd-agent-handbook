@@ -46,7 +46,9 @@ Fetch the configured upstream when available. If the fetch fails because the env
 cannot take Git's credential lock — a sandbox with a read-only `HOME` reports
 `unable to get credential storage lock` — retry once as
 `GIT_TERMINAL_PROMPT=0 git -c credential.helper= fetch`. That needs no credentials for a
-public HTTPS remote and fails fast instead of hanging on a prompt. If the retry also fails,
+public HTTPS remote and fails fast instead of hanging on a prompt. That lock error is a denied
+write wearing a misleading message; see [`../conventions/agent-sandbox.md`](../conventions/agent-sandbox.md)
+for the class. If the retry also fails,
 freshness is unverified: report that and stop rather than continuing on possibly stale
 knowledge. If local HEAD matches upstream, continue.
 If upstream is a fast-forward and the tree is clean or contains only untracked pending

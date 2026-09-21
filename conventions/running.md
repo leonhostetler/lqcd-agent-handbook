@@ -75,6 +75,12 @@ queued" — while the same command run directly succeeds. One recorded campaign 
 completions this way, one of which was reported to the operator as a finished job while it was
 still running. **A single empty result is never evidence of termination.**
 
+**Getting the record at all is a separate problem, and it has its own rules.** Under an
+agent sandbox an accounting query can fail on the shape of the command alone — "directly"
+is narrower than it sounds — and the failure imitates a scheduler outage. See
+[`agent-sandbox.md`](agent-sandbox.md) before concluding the scheduler is unavailable, and
+before writing a tool that fetches the record itself.
+
 **Prefer a marker the job writes itself.** A lifecycle record the job appends in its own teardown
 means the job reached teardown; nothing else needs consulting, and its absence is informative in a
 way a failed query is not. Give the watch a wall-clock backstop somewhat longer than the requested

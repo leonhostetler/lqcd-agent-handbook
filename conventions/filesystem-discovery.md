@@ -14,6 +14,10 @@ review_by: "2027-08-20"
 
 # Bounded filesystem discovery
 
+Treat filesystem traversal as scoped work. For what a sandbox does to commands and paths more
+generally, and why its failures imitate machine faults, see
+[`agent-sandbox.md`](agent-sandbox.md).
+
 Treat filesystem traversal as scoped work. A broader sandbox, an approval path, or a compute
 allocation may change where or how a command runs; none makes an unbounded scan acceptable.
 

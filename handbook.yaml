@@ -14,7 +14,7 @@ tier_0:
     - AGENTS.md
     - INDEX.md
   max_combined_bytes: 6144
-  max_entrypoint_bytes: 5120
+  max_entrypoint_bytes: 5632
 developer_docs:
   files:
     - ARCHITECTURE.md

@@ -113,7 +113,7 @@ A handbook that gets read in full costs more tokens than it saves. Three tiers, 
 
 | Tier | Content | Budget | Loaded |
 |---|---|---|---|
-| 0 | canonical `AGENTS.md` (≤ 5 KB) + `INDEX.md` (a few hundred bytes) | **≤ 6 KB combined** | loaded by Codex through its additive pointer or through Claude's exact `CLAUDE.md` mirror ([§loading-chain](#loading-chain)) |
+| 0 | canonical `AGENTS.md` (≤ 5.5 KB) + `INDEX.md` (a few hundred bytes) | **≤ 6 KB combined** | loaded by Codex through its additive pointer or through Claude's exact `CLAUDE.md` mirror ([§loading-chain](#loading-chain)) |
 | 1 | one mode doc + one `machine.yaml` + one `project.yaml` + the nearest `stack.yaml` | ~10–15 KB | once machine and software are **detected** and the mode is stated ([§work-mode-currency](#work-mode-currency)) |
 | 2 | everything else | unbounded | on demand, by name, from `INDEX.md` |
 
@@ -183,7 +183,7 @@ This is the **target completed-bootstrap layout**, not an inventory of files cur
 
 ```
 lqcd-agent-handbook/
-├── AGENTS.md                  # CANONICAL Tier-0 entrypoint (§loading-chain). ≤5 KB;
+├── AGENTS.md                  # CANONICAL Tier-0 entrypoint (§loading-chain). ≤5.5 KB;
 │                              #   router + standing rules, never a place for facts.
 ├── CLAUDE.md                  # exact generated mirror of AGENTS.md for Claude Code;
 │                              #   validator-enforced and never edited independently.

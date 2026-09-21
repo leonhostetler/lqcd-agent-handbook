@@ -38,6 +38,9 @@ Exactly one handbook mode is current:
   shell, module, package, or known-prefix metadata rather than a mounted-filesystem scan.
   Never bypass an installed traversal guard by changing tools, moving to a compute node, or
   requesting approval for an equivalent broad scan. See `conventions/filesystem-discovery.md`.
+- A sandbox restriction imitates a machine, scheduler, or permission fault, and a site
+  query can fail on the shape of the command alone. Before reporting a service
+  unavailable, see `conventions/agent-sandbox.md`.
 - Never submit a scheduler job without an explicit campaign-scoped node-hour or GPU-hour
   ceiling. Without one, prepare the job and hand the submit command to the operator.
   Never infer the chargeable account. Before writing, modifying, or reviewing a batch
