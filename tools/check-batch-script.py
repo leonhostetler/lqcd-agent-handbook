@@ -88,10 +88,12 @@ TELEMETRY = {
     "amd": ("rocm-smi", "amd-smi"),
 }
 
-# The handbook's own reference sampler satisfies the rule without naming a vendor
-# tool on the script's command line, so recognise it too -- otherwise using the
-# supported implementation would trip the check written to encourage it.
-SAMPLER_TOOL = "gpu-memory-sampler"
+# The handbook's own monitor and sampler satisfy the rule without naming a vendor
+# tool on the script's command line, so recognise them too -- otherwise using the
+# prescribed implementation would trip the check written to encourage it.
+# monitor-gpu.sh is the one the leaf prescribes; gpu-memory-sampler.sh is retained
+# for the all-node arrangement the leaf does not prescribe.
+SAMPLER_TOOLS = ("monitor-gpu", "gpu-memory-sampler")
 
 
 def accelerator_vendors(machine: str | None) -> set[str] | None:
@@ -239,7 +241,7 @@ def check(path: pathlib.Path, machine: str | None,
     vendors = accelerator_vendors(machine)
     if vendors:
         recognised = {command for commands in TELEMETRY.values() for command in commands}
-        recognised.add(SAMPLER_TOOL)
+        recognised.update(SAMPLER_TOOLS)
         found = any(
             re.search(rf"(?<![\w.-]){re.escape(command)}\b", code)
             for _, code in code_lines
@@ -249,7 +251,7 @@ def check(path: pathlib.Path, machine: str | None,
             expected = ", ".join(sorted(
                 command for vendor in vendors for command in TELEMETRY.get(vendor, ())
             )) or "an accelerator telemetry tool"
-            message = (f"no accelerator memory sampler ({expected}); "
+            message = (f"no accelerator memory monitor (monitor-gpu.sh, or {expected}); "
                        "conventions/batch-scripts.md requires one in every work mode "
                        "but production")
             if work_mode and work_mode.lower() != "production":
