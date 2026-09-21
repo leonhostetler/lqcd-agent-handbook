@@ -21,9 +21,11 @@ start; open it by name only when you need the evidence behind a decision.
    its operational evidence under its own instructions.
 3. Apply the operator-approval gate in `ARCHITECTURE.md` §7.5a. Show the exact proposed
    diff and obtain explicit approval before any handbook write.
-4. Treat commits as operator-owned. After applying and verifying an approved change, stop
-   with the working-tree diff. Never commit unless the operator explicitly requests that
-   specific commit.
+4. Treat commits **and the index** as operator-owned. After applying and verifying an
+   approved change, stop with the working-tree diff, unstaged. Never stage and never commit
+   unless the operator explicitly requests that specific action. Staging is not a harmless
+   preparatory step: it leaves `git diff` empty, so the operator's review reports an
+   unchanged tree.
 5. Check the current `phase` in `handbook.yaml`. Restructuring is expected during
    `bootstrap`; during `maintenance`, propose architectural changes first.
 6. For mined material, extract outside this repository. Classify scope, durability,
