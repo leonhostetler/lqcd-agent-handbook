@@ -41,6 +41,21 @@ HISTORICAL_FORMS = (
 )
 
 
+def developer_docs_cap() -> str:
+    """The literal `max_combined_bytes: N` line under `developer_docs`.
+
+    Read rather than pinned. The same key also appears under `tier_0`, so the value is
+    what disambiguates the two -- and a control that hardcoded the number failed the
+    moment the budget was raised, which is a test breaking for a reason unrelated to
+    what it checks.
+    """
+    text = HANDBOOK.read_text()
+    block = text[text.index("developer_docs:"):]
+    found = re.search(r"max_combined_bytes: (\d+)", block)
+    assert found, "developer_docs.max_combined_bytes is missing from handbook.yaml"
+    return f"max_combined_bytes: {found.group(1)}"
+
+
 def run_validator() -> subprocess.CompletedProcess:
     return subprocess.run(
         [interpreter_for("yaml", "jsonschema"), str(VALIDATOR)],
@@ -67,7 +82,7 @@ class DeveloperDocBudget(PerturbationMixin, unittest.TestCase):
 
     def test_a_lowered_cap_is_caught(self):
         """Control: the budget must be able to fail."""
-        self.perturb(HANDBOOK, "max_combined_bytes: 200000", "max_combined_bytes: 1000")
+        self.perturb(HANDBOOK, developer_docs_cap(), "max_combined_bytes: 1000")
         result = run_validator()
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertRegex(result.stdout, r"developer documents are \d+ bytes; limit is 1000")

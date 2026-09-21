@@ -19,7 +19,7 @@ developer_docs:
   files:
     - ARCHITECTURE.md
     - ROADMAP.md
-  max_combined_bytes: 200000
+  max_combined_bytes: 250000
   episode_record: DEVLOG.md
 repository:
   name: lqcd-agent-handbook
