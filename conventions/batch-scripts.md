@@ -193,8 +193,12 @@ convention rather than a machine note:
 2. **The two halves live in different files.** The indices are inside the wrapper; the CPU count
    is a scheduler directive in the launcher. Neither is wrong alone and no diff shows the
    mismatch.
-3. **It is invisible to static review.** A linter sees a plausible directive and a plausible
-   wrapper, and nothing connects them.
+3. **It was invisible to static review, and this is the one of the four that tooling closes.**
+   A reviewer sees a plausible directive and a plausible wrapper and nothing connects them, so
+   `tools/check-batch-script.py` now derives both sides — the highest index named by the script
+   or by a wrapper it references, against the per-task CPU count times the tasks-per-node count —
+   and reports a mismatch as an error. It reports plainly when it could not read a wrapper, or
+   when binding is by NUMA node rather than by index, rather than passing such a script silently.
 4. **The per-task CPU count looks like a threading knob and is an addressing one.** On a machine
    with simultaneous multithreading the OpenMP thread count counts *cores* per rank while the
    scheduler's per-task CPU count claims *hardware threads* of those cores, so the two differ by

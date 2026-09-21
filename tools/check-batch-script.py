@@ -7,7 +7,8 @@ genuinely approved, whether an invoked program is safe, or what the author meant
 Those stay with the reviewer, and `conventions/batch-scripts.md` owns the rules.
 
 What it does decide is mechanical: whether the script submits another job, whether
-it names a destructive operation, whether it hardens itself, and -- given a machine
+it names a destructive operation, whether it hardens itself, whether a binding
+wrapper's CPU indices fit the cpuset the directives request, and -- given a machine
 profile -- whether it pins the directives whose defaults are unsafe. Scheduler
 directive and option names come from conventions/scheduler-surfaces.yaml, keyed by
 the profile's scheduler type, so this tool carries no scheduler knowledge of its own.
@@ -152,6 +153,96 @@ def load_surface(machine: str | None):
     return surface, scheduler
 
 
+# A binding wrapper names absolute CPU indices; the job's per-node cpuset must
+# contain every one of them. Both halves are derivable -- the wrapper's ranges on
+# one side, cpus-per-task x tasks-per-node on the other -- so this is a check and
+# not a judgement. Getting it wrong kills every rank inside the binding tool before
+# the application is executed, and the campaign that established the rule lost three
+# submissions to it.
+#
+# Only forms that name explicit indices are recognised. A wrapper that binds by
+# some other means has nothing to compare and is passed over in silence, because a
+# lint that fires where it cannot decide is worse than one that stays quiet.
+CPU_INDEX_FORMS = (
+    re.compile(r"--physcpubind[=\s]+([0-9,\-]+)"),
+    re.compile(r"taskset\s+(?:-c|--cpu-list)\s+([0-9,\-]+)"),
+)
+WRAPPER_TOKEN = re.compile(r"[\w./$%{}-]*?([\w.-]+\.sh)")
+
+
+def highest_cpu_index(text: str) -> int | None:
+    """Highest CPU ordinal named by any recognised binding form, or None."""
+    highest = None
+    for form in CPU_INDEX_FORMS:
+        for match in form.finditer(text):
+            for part in match.group(1).split(","):
+                if not part:
+                    continue
+                for bound in part.split("-"):
+                    if bound.isdigit():
+                        value = int(bound)
+                        highest = value if highest is None else max(highest, value)
+    return highest
+
+
+def resolve_wrapper(script: pathlib.Path, code_lines) -> tuple[pathlib.Path, int] | None:
+    """Find a referenced script that names CPU indices, and its highest index.
+
+    A reference may be written through a variable, so the basename is also looked
+    for beside the script and in the handbook's own tools directory. Returning
+    None means no binding wrapper could be READ -- never that none is used.
+    """
+    seen = set()
+    for _, code in code_lines:
+        for match in WRAPPER_TOKEN.finditer(code):
+            basename = match.group(1)
+            literal = match.group(0)
+            candidates = [script.parent / basename, HANDBOOK / "tools" / basename]
+            if "$" not in literal and "%" not in literal:
+                candidates.insert(0, (script.parent / literal).resolve())
+            for candidate in candidates:
+                key = str(candidate)
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    body = candidate.read_text()
+                except (OSError, UnicodeDecodeError):
+                    continue
+                highest = highest_cpu_index(body)
+                if highest is not None:
+                    return candidate, highest
+    return None
+
+
+def logical_cpus(machine: str | None) -> set[int]:
+    """Logical CPUs per node across a profile's node types, where recorded."""
+    if machine is None:
+        return set()
+    profile_path = HANDBOOK / "machines" / machine / "machine.yaml"
+    if not profile_path.exists():
+        return set()
+    profile = yaml.safe_load(profile_path.read_text())
+    counts = set()
+    for node_type in (profile.get("node_types") or {}).values():
+        sizing = (node_type or {}).get("sizing") or {}
+        if isinstance(sizing.get("logical_cpus_per_node"), int):
+            counts.add(sizing["logical_cpus_per_node"])
+    return counts
+
+
+def directive_value(directives: list[str], long_opt: str, short_opt: str | None) -> str | None:
+    """Value of a directive option; the LAST occurrence wins, as schedulers do."""
+    forms = [long_opt] + ([short_opt] if short_opt else [])
+    found = None
+    for line in directives:
+        for form in forms:
+            match = re.search(rf"(?<![\w-]){re.escape(form)}(?:=|\s+)(\S+)", line)
+            if match:
+                found = match.group(1)
+    return found
+
+
 def option_present(directives: list[str], long_opt: str, short_opt: str | None) -> bool:
     forms = [long_opt] + ([short_opt] if short_opt else [])
     for line in directives:
@@ -227,6 +318,56 @@ def check(path: pathlib.Path, machine: str | None,
     elif machine is None:
         notes.append((0, "no --machine given: directive, nested-submission, and "
                          "accelerator-telemetry checks were skipped"))
+
+    # -- binding wrapper against the job's cpuset ------------------------------
+    # conventions/batch-scripts.md: when a binding wrapper names explicit CPU
+    # indices, the job must request at least as many CPUs per node as the highest
+    # index it names, plus one.
+    if surface and directives and surface.get("cpus_per_task_option"):
+        # A script may bind inline rather than through a wrapper, and then the
+        # indices are already in front of us; only fall back to resolving a
+        # referenced file when they are not.
+        inline = highest_cpu_index("\n".join(code for _, code in code_lines))
+        if inline is not None:
+            resolved = (path, inline)
+        else:
+            resolved = resolve_wrapper(path, code_lines)
+        if resolved is not None:
+            wrapper, highest = resolved
+            needed = highest + 1
+            per_task = directive_value(directives, surface["cpus_per_task_option"],
+                                       surface.get("cpus_per_task_option_short"))
+            per_node = directive_value(directives, surface["tasks_per_node_option"], None)
+            try:
+                held = int(per_task) * int(per_node)
+            except (TypeError, ValueError):
+                held = None
+            name = wrapper.name
+            if held is None:
+                notes.append((0, f"{name} names CPU indices up to {highest}, but "
+                                 f"{surface['cpus_per_task_option']} and "
+                                 f"{surface['tasks_per_node_option']} were not both given as "
+                                 "plain integers, so its cpuset could not be checked"))
+            elif held < needed:
+                errors.append((0, f"{name} names CPU index {highest}, so the job needs at least "
+                                  f"{needed} CPUs per node, but the directives request {held} "
+                                  f"({per_task} x {per_node}). Every rank will fail inside the "
+                                  "binding tool before the application starts; only the upper "
+                                  "part of each range will be reported out of range"))
+            else:
+                known = logical_cpus(machine)
+                if known and held > max(known):
+                    warnings.append((0, f"directives request {held} CPUs per node but the profile "
+                                        f"records at most {max(known)} logical CPUs per node"))
+                if known and needed > max(known):
+                    warnings.append((0, f"{name} names CPU index {highest}, beyond the "
+                                        f"{max(known)} logical CPUs the profile records; it does "
+                                        "not fit any node type recorded for this machine"))
+        elif re.search(r"(?<![\w.-])(numactl|taskset)(?![\w-])", "\n".join(c for _, c in code_lines)):
+            notes.append((0, "a binding tool is invoked but no explicit CPU indices were found "
+                             "in this script or in a wrapper it names, so the cpuset check was "
+                             "not performed; binding by NUMA node rather than by index needs no "
+                             "such check"))
 
     # -- accelerator telemetry --------------------------------------------------
     # The leaf requires a background accelerator-memory sampler in every work mode
