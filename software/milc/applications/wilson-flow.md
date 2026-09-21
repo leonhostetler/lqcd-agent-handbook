@@ -79,6 +79,18 @@ the Zeuthen correction routine is an empty placeholder. The resulting staple use
 coefficients without the declared correction. Do not treat token acceptance as an implemented or
 validated Zeuthen-flow calculation.
 
+### This application does NOT implement proofreading, and setting `prompt 2` runs the job
+
+Some MILC applications act on `prompt 2` to parse an input and perform no physics. **This one
+does not.** The shared input reader accepts the value `2` unconditionally, but without the
+corresponding guard the application reads the input exactly as if `prompt 0` and then
+**proceeds to run the real calculation**.
+
+Do not set `prompt 2` here expecting a syntax check. `tools/milc-proofread-input.sh` carries
+the list of applications that implement it and **refuses** this one rather than running it.
+For an application without the mode, the cheap pre-submission check is a short job in a debug
+class, not a proofread.
+
 ## Portable build recipe
 
 Use MILC `develop` and the `wilson-flow-quda` profile in `../build-profiles.yaml`; do not switch

@@ -31,6 +31,13 @@ except ImportError:  # pragma: no cover - the runner guarantees this
 HANDBOOK = pathlib.Path(__file__).resolve().parents[1]
 SURFACES = HANDBOOK / "conventions" / "scheduler-surfaces.yaml"
 
+# An application fed its input on stdin cannot be checked by this lint: whether that
+# input parses is a question only the application answers. The warning exists because
+# the answer is cheap and the omission is expensive -- one campaign lost a two-day
+# queue wait and its only authorised submission to a misplaced comment line. Note the
+# limit: a script passing its input as argv rather than on stdin is NOT detected here.
+STDIN_REDIRECT = re.compile(r"<\s*[\"']?\$?[\w{}./$-]+\.(?:inp|in|input)\b")
+
 # Destructive operations. Illustrative, not exhaustive -- the leaf says so, and so
 # does this list: absence from it is an oversight, never permission. Each entry is
 # (regex, human description).
@@ -261,6 +268,19 @@ def check(path: pathlib.Path, machine: str | None,
             warnings.append((0, f"no per-step accounting query ({accounting}); "
                                 "conventions/batch-scripts.md requires the script to record "
                                 "its own host-memory accounting before it exits"))
+
+    # Proofreading belongs at authoring time, which is when this lint runs. At run
+    # time it saves nothing: an application that parses its whole input before
+    # computing fails the job anyway, after the queue wait and the submission are
+    # already spent.
+    for number, code in code_lines:
+        if STDIN_REDIRECT.search(code):
+            warnings.append((number,
+                             "an input file is piped into a program on stdin and this lint "
+                             "cannot tell whether it parses. Proofread it while the script is "
+                             "being written -- at run time it saves nothing. For MILC: "
+                             "tools/milc-proofread-input.sh"))
+            break
 
     return errors, warnings, notes
 

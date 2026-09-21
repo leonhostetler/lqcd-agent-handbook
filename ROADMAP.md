@@ -75,7 +75,7 @@ it inside 4.1 rather than beside it keeps one canonical reader of MILC timing ou
 
 | # | Owed |
 |---|---|
-| 7.1 | `PreToolUse` guard running `tools/check-batch-script.py` before a batch-script write lands |
+| 7.1 | `PreToolUse` guard running `tools/check-batch-script.py` before a batch-script write lands. Also the enforcement half of the authoring-time input-proofread rule (`conventions/batch-scripts.md` step 3), which the lint can only advise |
 | 7.2 | Knowledge-capture hooks |
 | 7.3 | User-mode write guard |
 

@@ -63,6 +63,18 @@ The input keyword `warms` counts RHMC warmup trajectories. It is not the acceler
 kernel autotuning, or the generic first-occurrence exclusion used in component benchmarking.
 Record those concepts separately.
 
+### This application does NOT implement proofreading, and setting `prompt 2` runs the job
+
+Some MILC applications act on `prompt 2` to parse an input and perform no physics. **This one
+does not.** The shared input reader accepts the value `2` unconditionally, but without the
+corresponding guard the application reads the input exactly as if `prompt 0` and then
+**proceeds to run the real calculation**.
+
+Do not set `prompt 2` here expecting a syntax check. `tools/milc-proofread-input.sh` carries
+the list of applications that implement it and **refuses** this one rather than running it.
+For an application without the mode, the cheap pre-submission check is a short job in a debug
+class, not a proofread.
+
 ## Output and work-unit boundaries
 
 The application performs the declared warmup trajectories, emits `WARMUPS COMPLETED`, then runs

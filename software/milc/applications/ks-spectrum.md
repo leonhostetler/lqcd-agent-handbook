@@ -86,6 +86,39 @@ instead enters a block inversion over all source colors. Confirm the executed pa
 emitted solver records, including mass and right-hand-side cardinality; the requested set type
 alone is not sufficient evidence.
 
+### Proofread the input before submitting, not at run time
+
+This application acts on `prompt 2`, which MILC's own source calls **proofreading**: it
+parses the complete input set and performs no physics. `setup()` returns before
+`setup_layout()`, so no lattice is allocated, no gauge file is opened — the starting-lattice
+reader takes the filename as a string and never touches it — and no accelerator is
+initialised. One rank is enough; the input's `node_geometry` is read but never acted on.
+
+Run it with `tools/milc-proofread-input.sh`, **when the input and batch script are written**.
+Running it inside the job saves nothing: this application already parses its whole input
+before computing, so a bad input fails the run seconds in, after the queue wait and the
+submission have been spent.
+
+**Judge by the log, never by the exit code.** On an input error MILC sets a stop flag, the
+work loop is never entered, and it reaches `normal_exit(0)` — a rejected input and a clean
+run both exit `0`. A clean proofread ends with `EOF on input`, which is the parser reaching
+the end of the file; require that positively rather than only checking for errors.
+
+Errors are printed in several shapes and **inconsistent case** — a lowercase
+`error in input:` from the application's own setup, an uppercase `ERROR IN INPUT:` and a
+trailing `INPUT ERROR.` from the shared reader. Matching only one shape misses the others.
+
+**What it covers:** the whole input grammar — keyword order, malformed or missing fields,
+unknown keyword values, and every position where a comment is illegal. MILC strips `#`
+comments in exactly one reader, `get_next_tag`; keywords read by a bare `scanf` do not
+tolerate a preceding comment line, and a comment placed above one is consumed **as** that
+keyword's value. There are ten such positions in `ks_spectrum`'s parameter reader alone,
+plus the starting-lattice filename.
+
+**What it does not cover:** semantics. A wrong tadpole factor, a wrong `node_geometry`, a
+gauge file that does not exist, an unsubstituted template placeholder, a wrong mass — none
+are caught. It complements a launcher's assertions; it does not replace them.
+
 ## Output and work-unit boundaries
 
 One normally exiting process emits one `start: <date/time>` and `exit: <date/time>` pair

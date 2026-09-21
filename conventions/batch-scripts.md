@@ -350,15 +350,23 @@ In this order, because the irreversible items come first:
 
 1. Confirm the ceiling exists and the balance covers the reservation; debit at submit.
 2. Confirm the account came from the operator, not from inference.
-3. Read the complete script, including every directive.
-4. List every command that creates, modifies, moves, or deletes, and every program or script
+3. Proofread the input the job will consume, using the application's own parser, **now**.
+   An application that validates its input before computing will reject a bad one at run
+   time anyway — seconds in, having already spent the queue wait and the submission. The
+   only moment this is worth anything is while the script and input are being written.
+   MILC ships this as `prompt 2`, but **ten of its forty applications act on it and the
+   rest run the real calculation instead**, so go through
+   `tools/milc-proofread-input.sh`, which carries the list and refuses otherwise. Judge by
+   the log, never by the exit code.
+4. Read the complete script, including every directive.
+5. List every command that creates, modifies, moves, or deletes, and every program or script
    it invokes.
-5. Verify each write lands under a named, approved root.
-6. Check for unsafe expansion, indirect execution, and nested submission.
-7. Show the operator anything that could touch pre-existing data, and wait.
-8. Run the script with every external effect stubbed, and prove each guard fires.
+6. Verify each write lands under a named, approved root.
+7. Check for unsafe expansion, indirect execution, and nested submission.
+8. Show the operator anything that could touch pre-existing data, and wait.
+9. Run the script with every external effect stubbed, and prove each guard fires.
 
-`tools/run-batch-script-check` mechanises the parts of steps 3 to 6 that a machine can
+`tools/run-batch-script-check` mechanises the parts of steps 4 to 7 that a machine can
 decide — nested submission, destructive operations, hardening, indirect execution, and the
 directives whose defaults are unsafe. Pass `--machine` to enable the directive checks, which
 need the profile. It is advisory: it reports what it examined and states plainly that
@@ -368,9 +376,9 @@ discharge this review; failing to run it is not an excuse for skipping one.
 When uncertain whether an operation could affect shared or pre-existing data, leave it out and
 ask. A non-destructive alternative that costs disk space is always the better trade.
 
-### Step 8: a guard that never fires looks exactly like one that passes
+### Step 9: a guard that never fires looks exactly like one that passes
 
-Steps 3 to 7 and the checker are **static**. They can tell you a guard is present and
+Steps 4 to 8 and the checker are **static**. They can tell you a guard is present and
 plausible; **none of them can tell you it fires.** A guard with an inverted test, a variable
 that is empty at the moment it is read, or a condition that silently exits zero reads as
 correct on every inspection and protects nothing on the night. Submissions have been lost
