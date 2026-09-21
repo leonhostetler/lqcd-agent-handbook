@@ -81,6 +81,13 @@ is narrower than it sounds — and the failure imitates a scheduler outage. See
 [`agent-sandbox.md`](agent-sandbox.md) before concluding the scheduler is unavailable, and
 before writing a tool that fetches the record itself.
 
+**And the job's own copy of that record is not the final one.** A script that writes its per-step
+accounting at teardown does so while the job is still running, so the sampled per-step maxima are
+not yet finalised and the columns can come back blank — a file that passes a presence check and
+carries nothing. Re-query once the job has left the queue, prefer that record where the two
+disagree, and keep the in-job copy for the requested-resource half, which is final when it is
+written ([`batch-scripts.md`](batch-scripts.md)).
+
 **Prefer a marker the job writes itself.** A lifecycle record the job appends in its own teardown
 means the job reached teardown; nothing else needs consulting, and its absence is informative in a
 way a failed query is not. Give the watch a wall-clock backstop somewhat longer than the requested

@@ -390,14 +390,23 @@ against the tool actually installed. AMD monitoring is unimplemented in both hal
 pair, which is recorded rather than guessed at.
 ### Record what the scheduler already measured, before the job exits
 
-**Every batch script ends by writing its own per-step accounting into the run root.** The
-scheduler measured host memory per step whether or not anyone asked; the only question is
-whether that record outlives the job. Query it at teardown for this job's own id, using the
-accounting command and the per-step fields the surface record names, and keep the output
-beside the run's other raw evidence.
+**Every batch script ends by writing two scheduler records into the run root**, for this job's
+own id, using the commands the surface record names: the **controller's job record** and the
+**accounting record**. The last two lines of the script are enough.
 
-It is queryable afterwards, so the reason to do it in the script is not access — it is that
-"afterwards" depends on somebody remembering, while a job that records itself does not.
+They are not one query written twice. They differ in what they hold and, decisively, in **how
+long they survive**:
+
+| Record | Holds | Lifetime |
+|---|---|---|
+| controller job record | the allocation as requested and granted — nodes, tasks, CPUs and memory per node, limits, placement | **purged a site-configured interval after the job leaves the queue**; typically minutes |
+| accounting record | per-step sampled maxima and final state | persists, and can be re-queried later |
+
+**The first is the reason this belongs in the script at all.** It is the half nobody can
+reconstruct afterwards, and it is the half the per-node memory comparison needs. A job that does
+not capture it has lost it.
+
+The second is a cheap snapshot rather than the measurement, for the reason below.
 **The comparison this feeds cannot be reconstructed from memory either.** Attributing a
 failure to host memory requires the job's *own* requested memory per node, divided by its
 node count and then by ranks per node; a site-wide node capacity and a job-wide mean both
@@ -412,9 +421,17 @@ Four properties, and the first two decide how the number may be used:
 - **It is a maximum over the step's tasks, reported against the node that set it** — not a
   job-wide mean and not a per-node table. Record that node: the ceiling is per node, and the
   kill lands on the busiest one.
-- **The step must have finished** for its figures to be complete, which is why this belongs in
-  teardown rather than mid-run. A still-running step is a different query, and the surface
-  record names that one separately.
+- **The step must have finished for its figures to be complete, and at teardown the job has
+  not.** This is where an earlier form of this rule contradicted itself: it demanded the
+  accounting record in the script and justified it with a reason that holds only for the
+  controller's record. A teardown block runs while the job is still running, so the sampled
+  maxima are not finalised, and the observed result is not an error but **a row with every
+  memory column blank** — a file that exists, is non-empty, passes a presence check and carries
+  nothing, which is the confidently-wrong record this leaf warns about elsewhere.
+
+  **So capture both, and re-query the accounting record once the job has left the queue**,
+  preferring that copy where the two disagree ([`running.md`](running.md)). A still-running step
+  is a different query again, and the surface record names that one separately.
 - **It must not fail the job.** The accounting database can be unreachable, and this runs in
   the teardown path where a failing command substitution costs the terminal records — the trap
   described under *Variables and paths* below. Guard it, record the failure, and carry on.

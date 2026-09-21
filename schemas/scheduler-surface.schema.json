@@ -160,6 +160,14 @@
           "tasks_per_node_option": {
             "type": "string",
             "minLength": 1
+          },
+          "control_command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "job_record_option": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }

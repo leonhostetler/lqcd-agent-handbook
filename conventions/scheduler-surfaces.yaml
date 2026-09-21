@@ -37,6 +37,12 @@ surfaces:
     tasks_per_node_option: "--ntasks-per-node"
     parallel_launcher: srun
     task_label_option: "--label"
+    # The controller's own record of the job as requested and granted. It is
+    # purged a site-configured interval after the job leaves the queue, so a
+    # job that does not capture it loses it -- unlike the accounting record,
+    # which persists and can be re-queried.
+    control_command: scontrol
+    job_record_option: "show job"
     accounting_command: sacct
     live_step_command: sstat
     accounting_job_option: "--jobs"
