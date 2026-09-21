@@ -138,6 +138,85 @@ The question that decides every case nobody enumerated: **name the approved writ
 this write lands under, or do not write it.** Do not add cleanup logic for tidiness. Leaving
 temporary files behind is always preferable to risking data that cannot be recreated.
 
+## Bind the ranks, and check the arithmetic against the allocation
+
+**Binding is part of a validated stack, not a tuning option.** The stack records in this
+handbook carry `cpu_binding` and `gpu_binding` under `runtime:` precisely because a run that
+reproduces a stack's commits, toolchain and environment but launches with no binding has **not**
+reproduced that stack. Nothing catches the omission: the lint has no notion of binding, no
+validator compares a launcher against a stack's `runtime:` block, and the job does not fail. It
+simply runs slower, or unevenly, indefinitely. Treat a stack's `runtime:` block as a
+reproduction contract and diff the launcher against it before submitting.
+
+The failure mode is quiet in the way that costs most. With several ranks per node, many threads
+each, and a thread-placement policy that spreads, dropping the binding wrapper lets every rank's
+threads spread across all cores and all memory domains and overlap. There is no warning, and the
+first symptom is a performance number nobody can explain — on a machine where the run that
+produced it cost tens of node-hours.
+
+### CPU and accelerator binding take opposite advice, and conflating them breaks the job
+
+"Bind everything" is wrong, and the two halves must be stated separately:
+
+- **CPU cores, host memory and the network interface: bind them**, per local rank, with an
+  explicit mapping. This is what the validated stacks record.
+- **Accelerators: do not restrict visibility.** Where the application library derives its device
+  from a rank index counted across the node, making one device visible per rank aborts every
+  local rank above the first. QUDA does exactly this, and the apparent workaround is worse than
+  the problem — see
+  [`../software/quda/internals/rank-placement.md`](../software/quda/internals/rank-placement.md),
+  which owns the mechanism and the reason accelerator binding is recorded as *disabled* rather
+  than merely unused.
+
+A consequence worth stating on its own: because visibility must stay open, every rank's
+pre-initialisation accelerator activity lands on the first device. Binding cannot fix that from
+the launch environment; it has to be fixed inside the process.
+
+### The wrapper's CPU indices must fit the cpuset the job actually holds
+
+**When a binding wrapper names explicit CPU indices, the job must request at least as many CPUs
+per node as the highest index it names, plus one.** Both sides are derivable — the wrapper's
+ranges on one side, the surface record's per-task CPU count times its tasks-per-node option on
+the other — so this is a check, not a judgement.
+
+Getting it wrong kills every rank before the application is executed, with a complaint from the
+binding tool that the CPU argument is out of range. **The discriminating signature is that only
+the upper portion of each range is ever objected to**, the low half of every range going
+unmentioned. That asymmetry identifies the cause uniquely: the cpuset is smaller than the
+wrapper assumes, and **the fix is the allocation, not the wrapper.**
+
+Four properties make this nastier than an ordinary mistake, and they are why it belongs in a
+convention rather than a machine note:
+
+1. **The wrapper is correct and unmodified.** It can be byte-identical to one that works at
+   other node counts, so there is nothing in it to debug.
+2. **The two halves live in different files.** The indices are inside the wrapper; the CPU count
+   is a scheduler directive in the launcher. Neither is wrong alone and no diff shows the
+   mismatch.
+3. **It is invisible to static review.** A linter sees a plausible directive and a plausible
+   wrapper, and nothing connects them.
+4. **The per-task CPU count looks like a threading knob and is an addressing one.** On a machine
+   with simultaneous multithreading the OpenMP thread count counts *cores* per rank while the
+   scheduler's per-task CPU count claims *hardware threads* of those cores, so the two differ by
+   the thread multiplier. **Setting them equal is the natural and wrong move**, and it produces
+   a cpuset exactly half the size the wrapper addresses.
+
+So resolve the node's **logical** CPU count from the machine profile rather than its physical
+core count, and never infer one from the other without the profile's thread multiplier.
+
+`tools/perlmutter-quda-bind.sh` is a worked example of both halves: it binds cores, memory and
+the network interface per local rank, binds nothing about the accelerator, and its header states
+the per-node CPU count its indices require.
+
+**Its name carries two scopes because the script is two rules with different reach**, and that
+is the general point rather than a detail of one machine. The CPU, memory and interface half is
+machine knowledge and travels to any application at the same rank layout; the decision *not* to
+bind the accelerator is application knowledge and travels nowhere. A binding wrapper adopted for
+a new application therefore needs its accelerator half decided again from that application's own
+device selection, even when the rest of it fits unchanged. A wrapper that silently assumes a
+rank count is a trap rather than a default, and one that silently assumes an application is the
+same trap a level up.
+
 ## Instrument the run before you need the number
 
 **In every work mode except production, a job on accelerated nodes runs the accelerator

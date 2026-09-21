@@ -15,11 +15,21 @@
   ],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": {
+      "const": 1
+    },
     "surfaces": {
       "type": "object",
       "minProperties": 1,
-      "propertyNames": { "enum": ["slurm", "pbs", "lsf", "flux", "other"] },
+      "propertyNames": {
+        "enum": [
+          "slurm",
+          "pbs",
+          "lsf",
+          "flux",
+          "other"
+        ]
+      },
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
@@ -40,53 +50,153 @@
           "submit_dir_variable"
         ],
         "properties": {
-          "submit_command": { "type": "string" },
-          "interactive_command": { "type": "string" },
-          "query_command": { "type": "string" },
-          "queues_command": { "type": "string" },
-          "directive_prefix": { "type": "string" },
-          "account_option": { "type": "string" },
-          "chdir_option": { "type": "string" },
-          "output_option": { "type": "string" },
-          "error_option": { "type": "string" },
-          "account_option_short": { "type": "string" },
-          "chdir_option_short": { "type": "string" },
-          "output_option_short": { "type": "string" },
-          "error_option_short": { "type": "string" },
-          "append_output_option": { "type": "string" },
-          "exclude_nodes_option": { "type": "string" },
-          "exclude_nodes_option_short": { "type": "string" },
-          "nodelist_option": { "type": "string" },
-          "nodelist_option_short": { "type": "string" },
-          "constraint_option": { "type": "string" },
-          "constraint_option_short": { "type": "string" },
-          "job_id_variable": { "type": "string" },
-          "array_job_id_variable": { "type": "string" },
-          "array_task_id_variable": { "type": "string" },
-          "submit_dir_variable": { "type": "string" },
-          "parallel_launcher": { "type": "string" },
-          "task_label_option": { "type": "string" },
-          "accounting_command": { "type": "string" },
-          "live_step_command": { "type": "string" },
-          "accounting_job_option": { "type": "string" },
-          "accounting_job_option_short": { "type": "string" },
-          "accounting_format_option": { "type": "string" },
-          "accounting_units_option": { "type": "string" },
-          "step_accounting_fields": { "type": "string" }
+          "submit_command": {
+            "type": "string"
+          },
+          "interactive_command": {
+            "type": "string"
+          },
+          "query_command": {
+            "type": "string"
+          },
+          "queues_command": {
+            "type": "string"
+          },
+          "directive_prefix": {
+            "type": "string"
+          },
+          "account_option": {
+            "type": "string"
+          },
+          "chdir_option": {
+            "type": "string"
+          },
+          "output_option": {
+            "type": "string"
+          },
+          "error_option": {
+            "type": "string"
+          },
+          "account_option_short": {
+            "type": "string"
+          },
+          "chdir_option_short": {
+            "type": "string"
+          },
+          "output_option_short": {
+            "type": "string"
+          },
+          "error_option_short": {
+            "type": "string"
+          },
+          "append_output_option": {
+            "type": "string"
+          },
+          "exclude_nodes_option": {
+            "type": "string"
+          },
+          "exclude_nodes_option_short": {
+            "type": "string"
+          },
+          "nodelist_option": {
+            "type": "string"
+          },
+          "nodelist_option_short": {
+            "type": "string"
+          },
+          "constraint_option": {
+            "type": "string"
+          },
+          "constraint_option_short": {
+            "type": "string"
+          },
+          "job_id_variable": {
+            "type": "string"
+          },
+          "array_job_id_variable": {
+            "type": "string"
+          },
+          "array_task_id_variable": {
+            "type": "string"
+          },
+          "submit_dir_variable": {
+            "type": "string"
+          },
+          "parallel_launcher": {
+            "type": "string"
+          },
+          "task_label_option": {
+            "type": "string"
+          },
+          "accounting_command": {
+            "type": "string"
+          },
+          "live_step_command": {
+            "type": "string"
+          },
+          "accounting_job_option": {
+            "type": "string"
+          },
+          "accounting_job_option_short": {
+            "type": "string"
+          },
+          "accounting_format_option": {
+            "type": "string"
+          },
+          "accounting_units_option": {
+            "type": "string"
+          },
+          "step_accounting_fields": {
+            "type": "string"
+          },
+          "cpus_per_task_option": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cpus_per_task_option_short": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tasks_per_node_option": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
     "evidence": {
-      "enum": ["source", "docs", "observed", "reproduced", "experiment", "operator", "inferred"]
+      "enum": [
+        "source",
+        "docs",
+        "observed",
+        "reproduced",
+        "experiment",
+        "operator",
+        "inferred"
+      ]
     },
-    "observations": { "type": "integer", "minimum": 1 },
-    "observed": { "type": "string", "format": "date" },
-    "observed_on": { "type": "object", "minProperties": 1 },
-    "review_by": { "type": "string", "format": "date" },
+    "observations": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "observed": {
+      "type": "string",
+      "format": "date"
+    },
+    "observed_on": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "review_by": {
+      "type": "string",
+      "format": "date"
+    },
     "sources": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     }
   }
 }

@@ -5,15 +5,15 @@ scope: [software:quda]
 load_when: Choosing a rank grid or rank ordering, comparing decompositions of equal volume, or explaining why two decompositions with identical total halo differ in speed.
 evidence: source
 sources:
-  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/include/communicator_quda.h
-  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/include/comm_quda.h
-  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/communicator_stack.cpp
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/communicator_quda.h
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/comm_quda.h
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/communicator_stack.cpp
   - operator's screened decomposition records
-observed: "2026-09-17"
+observed: "2026-09-21"
 observed_on:
   software:
     quda:
-      commit: f2df42ac4caa0cd51b96b01006a1c25c8d753425
+      commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
 ---
 
@@ -41,6 +41,48 @@ if (!strncmp(hostname, &hostname_recv_buf[QUDA_MAX_HOSTNAME_STRING * neighbor_ra
 
 So each of a rank's eight neighbours is independently on the peer-to-peer path or the fabric path,
 and the decision is a property of **where that neighbour's rank was placed**.
+
+### Restricting device visibility breaks this test, and the MPS flag makes it worse
+
+QUDA derives `gpuid` itself, by counting how many earlier ranks report the same hostname, and
+then refuses to run if that index reaches the visible device count:
+
+```cpp
+gpuid = 0;
+for (int i = 0; i < comm_rank(); i++) {
+  if (!strncmp(comm_hostname(), &hostname_recv_buf[...], ...)) { gpuid++; }
+}
+if (gpuid >= device_count) { ... errorQuda("Too few GPUs available on %s", comm_hostname()); }
+```
+
+So the obvious way to tie a rank to its accelerator — making exactly one device visible per
+rank, whether through the visibility environment variable, a per-task binding option, or one
+accelerator per task — **aborts every local rank above the first, at initialisation**. This is
+why the validated stacks on every machine in this handbook record accelerator binding as
+*disabled*: it is forced, not preferred.
+
+**`QUDA_ENABLE_MPS=1` appears to rescue it, and must not be used for that.** It has exactly one
+occurrence in the source, immediately above the error: it clamps the index with
+`gpuid = gpuid % device_count`. With one visible device every rank then reports `gpuid = 0`,
+which is that rank's own physical device, so initialisation succeeds and the mapping looks
+right.
+
+The damage is to the condition quoted above. `gpuid == neighbor_gpuid` means *the peer is
+myself*, which is true under genuine MPS, where several ranks really do share one device. Under
+the visibility trick it is false: every rank reports `0` while each neighbour is a **different
+physical device the process cannot see**. The clause fires anyway, so QUDA takes a same-device
+path for distinct devices — on every on-node neighbour, in every dimension. A single occurrence
+of a flag, which reads as inert on inspection, silently inverts the decision this whole leaf is
+about.
+
+**So the flag means several ranks genuinely sharing one device, and nothing else.** Where a rank
+must be tied to an accelerator while `gpuid` counting and the peer-to-peer decision stay
+correct, select the device **inside the process, before communicator initialisation**, with
+every device left visible. It cannot be done from the launch environment.
+
+**Evidence:** source at the observed revision, where `QUDA_ENABLE_MPS` occurs once in the whole
+tree. One operator observation of *worse* performance under the flag is consistent with this
+mechanism and is not independent confirmation of it.
 
 **Sharing a node is necessary and not sufficient.** The accessibility check can still fail, the
 access rank must be within `enable_p2p_max_access_rank`, and the whole mechanism is off when

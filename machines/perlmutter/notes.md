@@ -46,3 +46,22 @@ nodes. Keep login-node builds within the limits and parallelism recorded in the 
 profile. Move a long, CPU-intensive, or memory-intensive build to a compute allocation. A
 compute-node build is a scheduler job and therefore requires an explicit campaign budget
 before submission.
+
+## Rank binding
+
+`tools/perlmutter-quda-bind.sh` is the tested four-rank binding wrapper for GPU nodes **running
+QUDA**: NIC policy and mapping, CPU cores and memory domain per local rank, and deliberately no
+accelerator binding. The name carries both scopes on purpose — the CPU, memory and interface
+binding is a property of this machine and reusable by any application at four ranks per node,
+while the absence of accelerator binding is a property of QUDA and must be re-decided for any
+other application.
+The stack records name this arrangement under `runtime: cpu_binding`, so a launcher that omits it
+has not reproduced the stack.
+
+Two constraints travel with it and neither is enforced by the script. Its CPU indices reach 127,
+so the job must hold all **128** logical CPUs of the node — with four tasks per node, 32 CPUs per
+task. And `lrank` is taken modulo four, so any other rank layout silently gives two ranks the same
+binding. See [`../../conventions/batch-scripts.md`](../../conventions/batch-scripts.md) for the
+general rule and
+[`../../software/quda/internals/rank-placement.md`](../../software/quda/internals/rank-placement.md)
+for why accelerator visibility must stay open.

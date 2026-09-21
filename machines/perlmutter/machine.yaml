@@ -96,6 +96,12 @@ node_types:
     sizing:
       installed_nodes: 1536
       physical_cpu_cores: 64
+      # Logical CPUs, not cores: this is the number a per-task CPU request and any
+      # binding wrapper's CPU indices are counted in. The scheduler presents the
+      # package as 4:16:2 (sockets:cores:threads) where the cpu: block above
+      # describes one physical 64-core package; both describe the same hardware.
+      hardware_threads_per_core: 2
+      logical_cpus_per_node: 128
       host_memory_gb: 256
       network: HPE Slingshot 11
       network_interfaces_per_node: 4
@@ -123,6 +129,8 @@ node_types:
     sizing:
       installed_nodes: 256
       physical_cpu_cores: 64
+      hardware_threads_per_core: 2
+      logical_cpus_per_node: 128
       host_memory_gb: 256
       network: HPE Slingshot 11
       network_interfaces_per_node: 4

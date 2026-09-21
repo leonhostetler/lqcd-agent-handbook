@@ -300,8 +300,11 @@ lqcd-agent-handbook/
 │   ├── analyze-profile.md
 │   └── capture-learning.md
 │
-├── tools/                     # tested executable helpers; software-specific tools carry
-│   │                          #   the software name; installers are offer-only
+├── tools/                     # tested executable helpers; software- and machine-specific
+│   │                          #   tools carry the software or machine name, or BOTH where a
+│   │                          #   tool is an interaction term (P3a) rather than portable to
+│   │                          #   either axis alone; the knowledge stays in software/ or
+│   │                          #   machines/; installers are offer-only
 │   ├── lqcd-claude, lqcd-codex # frontend launchers preserving the caller's cwd
 │   ├── install-codex-skills   # optional, conflict-safe user skill symlink
 │   ├── sync-agent-entrypoints.py # regenerates CLAUDE.md from canonical AGENTS.md

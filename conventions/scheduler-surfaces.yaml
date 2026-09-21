@@ -32,6 +32,9 @@ surfaces:
     array_job_id_variable: SLURM_ARRAY_JOB_ID
     array_task_id_variable: SLURM_ARRAY_TASK_ID
     submit_dir_variable: SLURM_SUBMIT_DIR
+    cpus_per_task_option: "--cpus-per-task"
+    cpus_per_task_option_short: "-c"
+    tasks_per_node_option: "--ntasks-per-node"
     parallel_launcher: srun
     task_label_option: "--label"
     accounting_command: sacct
