@@ -242,11 +242,19 @@ Additional hard constraints include:
 - optimized KD requires unit geometric block volume and fine-color `Nvec`;
 - coarse KD requires block size two in all four dimensions and `Nvec = 24`;
 - an aggregation coarse space may not exceed the degrees of freedom in its aggregate;
-- the aggregate itself is capped: `block_orthogonalize.in.cu` requires the **product of the
-  requested block extents** to be at most `1024`. **The cap is on the block, not on the local
-  extent**, so it does not move with rank geometry: it places a hard floor of
-  `fine global volume / 1024` under the coarsest volume of any single aggregation, at every
-  placement;
+- the aggregate itself is capped, by three predicates rather than one: block
+  orthogonalization requires the block's **product** to be **not `1`**, **even**, and **at
+  most `1024`**. All three act on the **executed** block, after QUDA's halving, and on
+  **every** aggregation transfer rather than only the first. They never act on a KD transfer
+  at all, because `Transfer::reset` returns early for the three KD types — which is why
+  "optimized KD requires unit geometric block volume" and "an aggregate may not be `1`" are
+  not in conflict. **A requested product above `1024` is therefore not by itself illegal.**
+  `4 6 6 8`, product `1152`, aborts where the local `t` extent is `48` and passes where it is
+  `24`, because there the `t` block halves to `4` and the executed product is `576`. Screen
+  the executed block — `effective_block` and `block_volume` in the decomposition tool — never
+  the requested one. The cap is on the block rather than the local extent, so whatever
+  survives halving places a hard floor of `fine global volume / 1024` under the coarsest
+  volume of any single aggregation;
 - the current top-level MG constructor accepts only `QUDA_DIRECT_SOLVE` for the outer
   system;
 - each smoother solve type must be direct or direct-preconditioned; and
@@ -269,6 +277,22 @@ Additional hard constraints include:
 Decomposition choice therefore changes both legality and the executed hierarchy. Check
 it before allocating a long setup job; do not infer validity from global lattice
 divisibility alone.
+
+**Two different quantities are called "aggregate size" in QUDA, and both appear in errors that
+say so.** Block orthogonalization's is the bare geometric product of the executed block, and it
+is what the `1024` cap binds. The transfer constructor's is that product multiplied by the fine
+colour and the spin factor, and it bounds `nvec` — `Requested coarse space %d larger than
+aggregate size %d`. The decomposition tool names them apart, per level, as `block_volume` and
+`aggregate_space_capacity`.
+
+Reading the wrong one is not hypothetical. A four-level candidate was recorded as
+`∏block1 = 256 <= 1024` when its first-aggregation block volume was `1024`, exactly at the cap;
+the `256` was the *second* aggregation's space capacity, read off the wrong level. The candidate
+was still legal, so nothing failed — only the stated margin, from an apparent 75 percent
+headroom to none, and every later claim that rested on it. **The quantity the cap binds is
+`block_volume`, at the level in question.** The tool reports `block_volume_cap` and
+`block_volume_headroom` beside it, so there is one number to read rather than four to choose
+between; a headroom of zero means no extent of that block may be widened, only traded.
 
 **A block extent that is not a power of two restricts which rank counts are legal, not
 merely which are efficient.** The local extent in that direction must stay divisible by the

@@ -2438,3 +2438,44 @@ to model, and the KD rule is cited by name in both.
 
 **No behaviour changed.** The predicates, their messages, and every exit status are identical;
 this commit is comments and tests.
+
+## 2026-09-21 — The 1024 aggregate cap: three corrections and a margin field
+
+The overview's statement of QUDA's aggregate cap was wrong in three ways at once, and the
+combination is what let a candidate's margin be misread.
+
+1. **One predicate, where source has three.** Block orthogonalization requires the block
+   product to be not `1`, even, and at most `1024`. Only the last was documented.
+2. **The requested block, where source uses the executed one.** The page said the cap binds
+   "the product of the requested block extents", three lines after saying that the requested
+   `geo_block_size` is not necessarily the executed one. A requested product above `1024` is
+   not by itself illegal: `4 6 6 8`, product `1152`, aborts where the local `t` extent is `48`
+   and passes where it is `24`, because the `t` block halves to `4` and the executed product
+   is `576`. Screening the requested block rejects candidates QUDA would run.
+3. **The first aggregation, where source binds every one.** `Transfer::reset` calls block
+   orthogonalization for each aggregation transfer, and returns early for the three KD types —
+   which is also why "optimized KD requires unit geometric block volume" and "an aggregate may
+   not be `1`" are not in conflict, a pairing the page stated without reconciling.
+
+**The mechanism behind the original misreading is a name collision in QUDA.** Two different
+quantities are called `aggregate_size`, in errors that both say "aggregate size": block
+orthogonalization's bare geometric product, which the cap binds, and the transfer
+constructor's product times the fine colour and spin factors, which bounds `nvec`. The
+decomposition tool already named them apart, as `block_volume` and `aggregate_space_capacity`,
+but reported both at every level and said which the cap binds nowhere. A four-level candidate
+was recorded as `∏block1 = 256 <= 1024` when its first-aggregation block volume was `1024`,
+exactly at the cap; the `256` was the second aggregation's space capacity. It stayed legal, so
+nothing failed — only the margin, from an apparent 75 percent headroom to none.
+
+**The fix is a field, not a sentence.** Each level now reports `block_volume_cap` and
+`block_volume_headroom` next to `block_volume`, and nothing comparable next to
+`aggregate_space_capacity`, so the substitution that produced the error has no shape to take.
+On that candidate the first aggregation now reads `block_volume_headroom: 0`. The cap also
+moved into a named constant beside its permalink rather than appearing as a bare `1024` in a
+comparison.
+
+**Method note.** The perturbation checks that this handbook requires of a modified tool were
+briefly fooled by stale bytecode: a `sed` edit of `1024` to `2048` is byte-for-byte the same
+length, and the `__pycache__` entry outlived the restore, so a suite run reported failures
+against a file that was already correct. Clear `__pycache__` between perturbations, or the
+procedure that exists to catch vacuous tests can manufacture spurious ones.

@@ -44,6 +44,14 @@ MMA_COARSE_GAUGE_COLORS = (12, 48, 64, 128, 192)
 # staggered operator, not of any fitted population.
 FINE_COLOURS = 3
 
+# The cap on an aggregation block's geometric product. It binds `block_volume`, never
+# `aggregate_space_capacity` -- two different quantities that QUDA both calls "aggregate
+# size", in errors that both say so. The tool reports the cap and the margin next to the
+# quantity they belong to precisely so that the two cannot be swapped by a reader.
+# https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/block_orthogonalize.in.cu#L92-L94
+# Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc, same lines.
+BLOCK_VOLUME_CAP = 1024
+
 CORPUS_V3_MIN = 10_000
 CORPUS_ASPECT_MAX = 1.5
 # Every corpus band in this module was fitted on four-level hierarchies. This constant is the
@@ -146,8 +154,10 @@ def source_checks(
         errors.append(f"level {level}: invalid MG aggregate size 1")
     if block_volume % 2:
         errors.append(f"level {level}: MG aggregate size {block_volume} must be even")
-    if block_volume > 1024:
-        errors.append(f"level {level}: MG aggregate size {block_volume} must be <= 1024")
+    if block_volume > BLOCK_VOLUME_CAP:
+        errors.append(
+            f"level {level}: MG aggregate size {block_volume} must be <= {BLOCK_VOLUME_CAP}"
+        )
     if level == 1:
         # Coarsening a Kahler-Dirac operator requires an even aggregation extent in EVERY
         # direction, which is strictly stronger than the even-product rule above. The check
@@ -202,6 +212,10 @@ def source_checks(
         "fine_local": dims,
         "coarse_local": coarse,
         "block_volume": block_volume,
+        # The cap and its margin travel WITH block_volume, never with
+        # aggregate_space_capacity below, which a reader has confused for it before.
+        "block_volume_cap": BLOCK_VOLUME_CAP,
+        "block_volume_headroom": BLOCK_VOLUME_CAP - block_volume,
         "fine_color_for_transfer": fine_color,
         "spin_block": spin_block,
         "aggregate_space_capacity": aggregate_size,
