@@ -21,11 +21,56 @@ site_policy:
   scheduling:
     model: single_queue_with_qos
     default_qos: debug
+    default_qos_note: >-
+      The site default, which is not necessarily the right one for a given study. debug
+      admits at most 8 nodes for at most half an hour, so anything larger or longer must
+      name a different QOS explicitly. Decide the QOS before sizing a study, because it
+      decides whether walltime or queue wait is the binding cost.
     common_qos:
       - regular
       - debug
       - interactive
       - shared
+    qos_limits:
+      # Per-QOS ceilings from NERSC's job policy table. These four entries are identical in
+      # the Perlmutter CPU and GPU tables, so they are recorded once here rather than per
+      # node type; other QOS values do differ between those tables, so read the table for
+      # the partition in question before extending this block.
+      #
+      # max_nodes: null means the QOS imposes no node ceiling of its own. The partition,
+      # the machine and the allocation still bind, and gpu-a100-80 carries its own
+      # constraint-specific ceiling under node_types.
+      #
+      # max_nodes for a shared QOS is fractional because the job takes part of one node.
+      #
+      # charge_factor is omitted where it is 1. premium is the only entry here that is not,
+      # and its factor is not a constant: see the note on that entry.
+      regular:
+        max_nodes: null
+        max_walltime_hours: 48
+      debug:
+        max_nodes: 8
+        max_walltime_hours: 0.5
+        max_submitted_jobs: 5
+        max_running_jobs: 2
+      interactive:
+        max_nodes: 4
+        max_walltime_hours: 4
+        max_submitted_jobs: 2
+        max_running_jobs: 2
+      shared:
+        max_nodes: 0.5
+        max_walltime_hours: 48
+      premium:
+        max_nodes: null
+        max_walltime_hours: 48
+        max_submitted_jobs: 5
+        charge_factor: 2
+        charge_factor_note: >-
+          Not a constant. Premium charges 2x until a project has spent 20 percent of its
+          allocation on premium jobs, and 4x after that, so the cost of a premium study
+          depends on how much premium the project has already run. Check the project's
+          premium usage before costing one, rather than multiplying by 2.
   accounting:
     unit: node-hour
     separate_cpu_and_gpu_pools: true
@@ -135,7 +180,7 @@ node_types:
       network: HPE Slingshot 11
       network_interfaces_per_node: 4
 evidence: docs
-observed: "2026-08-15"
+observed: "2026-09-21"
 observed_on:
   machine: perlmutter
 review_by: "2027-02-15"
