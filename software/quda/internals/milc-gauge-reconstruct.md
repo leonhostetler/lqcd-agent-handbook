@@ -70,6 +70,27 @@ kernels* while every other entry still hits. A run seeded from a cache built at 
 reconstruct is therefore neither cold nor warm, and **any timing from it must say so** — see
 [`autotuning.md`](autotuning.md), which owns cache warmth.
 
+## It also forces an extra gauge copy in the KD build
+
+Building the Kahler-Dirac inverse begins by deciding whether it can use the gauge field it was
+handed or must materialise its own copy:
+
+```cpp
+bool need_new_U = true;
+if (location == QUDA_CUDA_FIELD_LOCATION && gauge.Reconstruct() == QUDA_RECONSTRUCT_NO
+    && gauge.Precision() == QUDA_SINGLE_PRECISION)
+  need_new_U = false;
+```
+
+The test requires **both** conditions. At `13` or `9` the first fails outright, so a full
+unreconstructed single-precision copy of the fine gauge field is allocated for the duration of
+the build. At `18` the copy is avoided only if the field is also single precision.
+
+This does not change the recommendation -- `13`/`9` remains what every validated stack and
+every upstream MILC sample script uses -- but it is a real, reconstruct-dependent allocation
+that a setup-phase memory estimate has to carry, and it is invisible in any input file for the
+reasons this page already gives.
+
 ## What to do
 
 **Set `QUDA_MILC_HISQ_RECONSTRUCT=13` and `QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY=9` unless there is

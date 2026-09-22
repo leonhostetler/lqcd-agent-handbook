@@ -275,6 +275,27 @@ requested eigenspace of several thousand vectors can contribute nothing to the e
 `LOUD WARNING` whenever a positive coarsest deflation count does not reach the total. Never rank an
 eigenspace-blind candidate's headroom against a responsive one's.
 
+**The published error has been tested against runs it was not fitted to, and it did not
+hold.** Across 16 candidates of one independent 0.09 fm campaign -- a different lattice
+from the calibration corpus, at the model's own source-anchor revision -- the device estimate
+missed in opposite directions depending on level count: it **under**-predicted every
+four-level candidate, and **over**-predicted the three-level ones, with the worst
+three-level cases at `nvec_1` values outside the fitted `nvec_1 = 64`. Neither set lay inside
+the published error, and the sign of the error is not predictable from the tier label.
+
+Two consequences, and the second is the operational one:
+
+- **The tier reports envelope membership, not accuracy.** A result labelled
+  `calibrated-envelope-current-code` means every checked dimension was inside the fitted
+  ranges; it is not evidence that the published error applies to that candidate.
+- **Do not take a capacity decision at a margin smaller than the model's own miss**, and
+  treat an MG device estimate as neither an upper nor a lower bound until a matched-phase
+  measurement exists on the target. Where the margin matters, measure the winner.
+
+The direction is level-count dependent, so a three-level result and a four-level result carry
+opposite risk: the three-level estimate tends to overstate the requirement and the four-level
+estimate to understate it.
+
 **A measured peak can also fall outside every modelled phase.** The phases above are setup
 phases, treated as alternatives; a run whose high-water occurs in the steady solve, with the
 complete hierarchy and a resident eigenspace co-allocated, has no term here. The resulting

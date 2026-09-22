@@ -2325,3 +2325,69 @@ more than the remaining ~20 s is worth, and neither is blocked if that judgement
 step also reports only `unittest`'s internal timing, which is why a fourfold environmental swing
 read as a constant seven minutes and cost a long investigation to see through; giving it a
 wall-clock line is a cheap thing a later session should do.
+
+## 2026-09-21 — Staggered-MG device memory model: investigation, five refuted repairs, no fix
+
+**Trigger.** A campaign measured `endQuda Device` 19.4% above `mg-fit` at 0.06 fm on a
+four-level hierarchy the tool rated inside its envelope. The operator rejected a refit and
+asked for a cause.
+
+**What was established.** The model under-predicts four-level runs and over-predicts
+three-level ones, reproducibly, on an independent 0.09 fm campaign at the model's own anchor
+revision: 16 candidates, 54 trials. Neither direction lies inside the published
+`rms 3.9%, maximum 10.7%`. The three-level error is worst at `nvec_1` outside the fitted 64.
+Six source-exact allocation facts came out of it and are recorded in
+`software/quda/internals/staggered-mg-setup-allocation.md`; a seventh, reconstruct forcing a
+gauge copy in the KD build, is in `milc-gauge-reconstruct.md`.
+
+**Five repairs were proposed, implemented and refuted by test.** Recorded so they are not
+re-attempted:
+
+1. *KD-build transients.* The KD inverse build co-allocates four KD-sized fields where the
+   model counts one. Fits the four-level shortfall at 0.09 fm almost exactly, but the model is
+   constant across those candidates, so the agreement does not discriminate it from any
+   other constant of similar size. Unresolved rather than wrong.
+2. *A complete-hierarchy resident phase.* Implemented. It is the **smallest** phase, never
+   wins, and changes no prediction.
+3. *Union of construction cohorts instead of `max`.* Improves three-level, makes four-level
+   worse (rms 8.9% to 11.5%).
+4. *Setup workspace scaling with `n_vec_batch`.* Refuted directly: the `nvec_1 = 24` (batch 1)
+   against `nvec_1 = 32` (batch 16) pair differs by 906 MiB where the hypothesis needs ~12,500.
+5. *Block-orthogonalisation workspace.* Refuted from source — it allocates nothing.
+
+**What was not established, and matters most.** Three fitted constants — `setup_ws`,
+`copy_factor`, `cg_equiv` — each exceed the field inventory that can be counted from source,
+by 5.8x, 2.8x, and an amount the leaf already flags as a lower bound. A mechanism was
+proposed (QUDA's pooled `device_free_` never decrements the device counter, so the counter
+reports retained blocks rather than co-residency) but **never tested**, and it should not be
+repeated as a conclusion. The discriminating experiment is one short run with
+`QUDA_ENABLE_DEVICE_MEMORY_POOL=0`, where frees reach the driver and the counter becomes the
+instantaneous high-water the model actually predicts. Prediction on record: at 0.09 fm,
+`nvec_1 = 64`, `b1 = 4 4 4 6`, the figure should fall from about 24 GiB to about 16.
+
+**The one change that improved the model was tried, and it breaks the calibrated regime.**
+Replacing `setup_ws` with its source-counted value (ten fields per right-hand side,
+batch-scaled, `3,072 B` per site against the fitted `17,787 B`) takes three-level mean from
++11.02% to +0.22% and rms from 15.25% to 10.81%, and is inert across the independent
+four-level set. On that evidence it looked safe. It is not: in both of the memory leaf's own
+published worked examples -- four levels, `nvec_1 = 64`, MMA, on the two largest documented
+lattices -- the counted value is small enough that **the winning phase changes from A to B**,
+and the device estimate falls by `12.7%` and `11.2%`. Both moves are downward, the
+under-prediction direction for a capacity decision, and they land in the regime the published
+error was fitted on. Worse, phase A ceasing to win contradicts the standing section that names
+phase A the floor at a fixed placement and derives its invariance to level count, aggregation
+blocks, coarse near-null counts and MMA -- invariances that are properties of phase A, not of
+phase B.
+
+So the `5.8x` gap is not slack in an under-determined parameter. The fitted coefficient is
+load-bearing exactly where the fit was validated, and the independent set that looked
+indifferent to the change is indifferent only because phase A rarely wins there. A source
+count that is right about what the workspace contains and wrong about its size by `5.8x` is
+evidence that something else is inside phase A, not a licence to shrink it. Revisit with the
+pool experiment, which bears directly on whether a phase total is a co-residency figure at
+all; do not ship the counted value as a substitution.
+
+**Method note.** Four structural hypotheses were proposed before the cheapest discriminating
+measurement was run, and two claimed results were later found to rest on vacuous tests — a
+lint that exited early, and a model that was constant across the candidates being used to
+validate a correction. Test the discriminator first.
