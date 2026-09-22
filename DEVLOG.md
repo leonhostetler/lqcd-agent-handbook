@@ -2391,3 +2391,50 @@ all; do not ship the counted value as a substitution.
 measurement was run, and two claimed results were later found to rest on vacuous tests — a
 lint that exited early, and a model that was constant across the candidates being used to
 validate a correction. Test the discriminator first.
+
+## 2026-09-21 — A real rule, uncited, was twice reported as spurious; citations are now permalinks
+
+`quda_staggered_geometry.py` and `quda-staggered-memory.py` both reject a first-aggregation
+block with an odd extent in any direction. Neither carried a citation. The rule is real:
+
+```cpp
+// check if we can safely coarsen the KD op
+if (dirac == QUDA_STAGGEREDKD_DIRAC || dirac == QUDA_ASQTADKD_DIRAC)
+  for (int d = 0; d < 4; d++)
+    if (geo_bs[d] % 2 != 0)
+      errorQuda("Invalid aggregation size geo_bs[%d] = %d for KD operator, "
+                "aggregation size must be even", d, geo_bs[d]);
+```
+
+It is gated on the KD-family diracs, which is precisely why it binds at level 1, where
+`ASQTADKD` is the operator `block1` coarsens, and never below it. The tools were right, and
+their error wording already mirrored QUDA's.
+
+**It has now been searched for, missed, and reported as having no source twice.** Once on
+2026-08-29, caught within the same session. Again on 2026-09-21, caught only because the
+operator remembered the rule had been added deliberately and the earlier session's log still
+existed. Both searches had `coarse_op.cuh` open — at the long-link rule, which sits about
+180 lines below the rule being looked for, in the same file. The second search also reported
+three separate greps as exhaustive when each had been truncated by `head` or run against a
+glob that omitted `*.cuh`.
+
+**A supporting run was misread as confirming the dismissal.** `staggered_invert_test` with a
+first-aggregation block of `3 3 3 6` printed `Transfer: using block size 3 x 3 x 3 x 6` and
+`Transfer operator done`, and that was taken as proof QUDA accepts the block. It is not: the
+KD check runs in the coarse-operator build, downstream of transfer construction, so the log
+lines that were grepped could not have shown it either way. An observation that cannot
+distinguish the hypotheses is not evidence for one of them.
+
+**What changed.** Every source-derived predicate in both tools now carries a github blob URL
+pinned to the full 40-character hash of the revision the tools model, with a line range, plus
+a dated re-verification against the revision the campaigns actually build. Bare `file:line`
+citations are the defect being fixed, not the format being extended: between those two
+revisions the two `coarse_op.cuh` rules moved by 50 and 56 lines, and a drifted citation
+reads exactly like a missing one. The existing `coarse_op.cuh:1217-1220` citation for the
+long-link rule was correct at the modelled revision and wrong against the build, which is the
+failure mode in miniature. `tests/test_source_citations.py` pins the convention: every QUDA
+link resolves to a full commit rather than a branch, both tools cite the revision they claim
+to model, and the KD rule is cited by name in both.
+
+**No behaviour changed.** The predicates, their messages, and every exit status are identical;
+this commit is comments and tests.

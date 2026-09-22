@@ -332,6 +332,15 @@ def deflated_fit(dims: list[int], vectors: int) -> Fit:
 def validate_effective_block(
     dims: list[int], block: list[int], level: int, nvec: int, fine_color: int, spin_block: int
 ) -> list[int]:
+    """Refuse to size a hierarchy QUDA would reject, and say which rule rejects it.
+
+    These predicates duplicate quda_staggered_geometry.py's source_checks on purpose: a
+    caller may supply effective blocks directly, without having run the decomposition tool.
+    Every one carries a permanent link pinned to the modelled revision's full hash rather
+    than a bare file:line, because line numbers drift and a drifted citation reads as no
+    citation -- see that module's header for the two occasions an uncited rule here was
+    searched for in QUDA, missed, and wrongly reported as spurious.
+    """
     if len(block) != 4 or any(value <= 0 for value in block):
         raise ModelError(f"effective block {level} must contain four positive integers")
     for axis, (extent, size) in enumerate(zip(dims, block)):
@@ -340,20 +349,39 @@ def validate_effective_block(
                 f"effective block {level}[{axis}]={size} does not divide local extent {extent}; "
                 "run quda-staggered-decomposition.py on requested blocks first"
             )
+        # An odd coarse extent is not indexable, so QUDA halves the block rather than use
+        # it. A caller handing us effective blocks has already passed that point, so an odd
+        # coarse extent here means the blocks were never adjusted.
+        # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/transfer.cpp#L45-L46
+        # Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc, same lines.
         if extent // size % 2:
             raise ModelError(
                 f"effective block {level}[{axis}]={size} leaves unsupported odd coarse extent "
                 f"{extent // size}"
             )
     block_volume = product(block)
+    # Three predicates on the block PRODUCT, checked in block orthogonalization.
+    # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/block_orthogonalize.in.cu#L92-L94
+    # Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc, same lines.
     if block_volume == 1 or block_volume % 2 or block_volume > 1024:
         raise ModelError(
             f"effective block {level} product must be even, greater than 1, and at most 1024"
         )
+    # Coarsening a Kahler-Dirac operator requires an even extent in EVERY direction, which
+    # is strictly stronger than the even-product rule above. Gated on the KD-family diracs,
+    # which is why it binds at level 1 -- where ASQTADKD is the operator block1 coarsens --
+    # and never below it.
+    # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/coarse_op.cuh#L1022-L1026
+    # Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc, coarse_op.cuh:1072-1077.
     if level == 1 and any(value % 2 for value in block):
         raise ModelError("the first aggregate block must be even per dimension for a KD operator")
     aggregate_size = block_volume * fine_color
     aggregate_size = aggregate_size // 2 if spin_block == 0 else aggregate_size * spin_block
+    # QUDA calls this quantity `aggregate_size` as well, though it differs from the bare
+    # geometric product above by the fine colour and spin factors. Both appear in errors
+    # that say "aggregate size", so name the rule, never just the number.
+    # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/transfer.cpp#L77-L83
+    # Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc, same lines.
     if nvec > aggregate_size:
         raise ModelError(
             f"nvec_{level}={nvec} exceeds aggregate coarse-space capacity {aggregate_size}"

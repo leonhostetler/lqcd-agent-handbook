@@ -14,9 +14,31 @@ from dataclasses import dataclass
 
 
 SOURCE_REVISION = "quda-b6998853f"
-# coarse_op_preconditioned_mma_launch.h:156 -- QUDA instantiates MMA coarse-operator
-# kernels only for these coarse gauge colors.  The coarse gauge field combines spin and
-# color as N = 2 * nvec_(L-1), so the restriction acts on a DERIVED quantity.
+# The full hash behind SOURCE_REVISION. Every source citation in this module is a permanent
+# link pinned to it, so a claim can still be checked after the lines have moved.
+SOURCE_COMMIT = "b6998853f6b605e22d67ea2ddfa3cab0d752679a"
+
+# HOW SOURCE CLAIMS ARE CITED HERE, AND WHY IT IS NOT BOOKKEEPING
+#
+# Every predicate below that can set `source_status` carries a github blob URL pinned to
+# SOURCE_COMMIT with the line range it reproduces -- not a bare `file.cuh:1217`, which goes
+# stale silently. Between the modelled revision and the build this handbook's campaigns
+# currently run, the two rules in coarse_op.cuh moved by 50 and 56 lines; a citation that has
+# drifted reads exactly like a citation to nothing.
+#
+# The cost is on record. The KD per-axis even rule in `source_checks` shipped uncited, and
+# has twice been searched for in QUDA, not found, and reported as having no source: once on
+# 2026-08-29, caught within the same session, and again on 2026-09-21, caught only because
+# the operator remembered otherwise and the earlier session's log still existed. Both
+# searches had coarse_op.cuh open at the long-link rule, which sits about 180 lines BELOW the
+# rule being looked for in the same file. A permalink would have ended either search in one
+# click. Do not add a predicate here without one.
+
+# QUDA instantiates MMA coarse-operator kernels only for these coarse gauge colors. The
+# coarse gauge field combines spin and color as N = 2 * nvec_(L-1), so the restriction acts
+# on a DERIVED quantity.
+# https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/coarse_op_preconditioned_mma_launch.h#L156
+# Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc, same line.
 MMA_COARSE_GAUGE_COLORS = (12, 48, 64, 128, 192)
 # Fine staggered colour. Enters coarse_fine_work as N_c^2 and is a property of the
 # staggered operator, not of any fitted population.
@@ -107,10 +129,19 @@ def source_checks(
     errors: list[str] = []
     block = adjusted.effective
     if any(value == 0 for value in block):
+        # The halving loop divides by two until the block is valid or reaches zero, and zero
+        # is a hard error rather than a fallback.
+        # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/transfer.cpp#L41-L53
+        # Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc, same lines.
         errors.append(f"level {level}: Transfer would error: unable to block a dimension")
         return None, errors, {}
     coarse = [extent // size for extent, size in zip(dims, block)]
     block_volume = product(block)
+    # Three predicates on the block PRODUCT -- not on any single extent. They are checked in
+    # block orthogonalization, which runs for every aggregation transfer and, because
+    # Transfer::reset() returns early for the three KD transfer types, never for a KD one.
+    # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/block_orthogonalize.in.cu#L92-L94
+    # Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc, same lines.
     if block_volume == 1:
         errors.append(f"level {level}: invalid MG aggregate size 1")
     if block_volume % 2:
@@ -118,16 +149,30 @@ def source_checks(
     if block_volume > 1024:
         errors.append(f"level {level}: MG aggregate size {block_volume} must be <= 1024")
     if level == 1:
+        # Coarsening a Kahler-Dirac operator requires an even aggregation extent in EVERY
+        # direction, which is strictly stronger than the even-product rule above. The check
+        # is gated on the KD-family diracs, which is exactly why it binds on this FIRST
+        # aggregation -- where ASQTADKD is the operator that block1 coarsens -- and never on
+        # a coarse-to-coarse stage. QUDA's own message is mirrored below.
+        # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/coarse_op.cuh#L1022-L1026
+        # Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc,
+        # coarse_op.cuh:1072-1077. THIS RULE IS REAL; see the module note above for the two
+        # occasions it was searched for, missed, and wrongly reported as spurious.
         for axis, size in enumerate(block):
             if size % 2:
                 errors.append(f"level 1 axis {axis}: KD aggregation size {size} must be even")
-        # coarse_op.cuh:1217-1220 -- an asqtad-family operator refuses to coarsen long
-        # links when an aggregation extent is below three, because the long links span
-        # three sites.  The branch is gated on the asqtad diracs, so it binds on this
-        # FIRST aggregation, where the improved operator still carries long links, and
-        # never on a coarse-to-coarse stage.  allow_truncation defaults to false in QUDA
-        # (check_params.h:1080); without it the rejection is a hard errorQuda, not the
-        # silent halving that transfer_adjust models.
+        # An asqtad-family operator refuses to coarsen long links when an aggregation extent
+        # is below three, because the long links span three sites.  The branch is gated on
+        # the asqtad diracs, so it binds on this FIRST aggregation, where the improved
+        # operator still carries long links, and never on a coarse-to-coarse stage.
+        # allow_truncation defaults to false in QUDA; without it the rejection is a hard
+        # errorQuda, not the silent halving that transfer_adjust models.
+        # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/coarse_op.cuh#L1196-L1220
+        # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/check_params.h#L1080
+        # Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc,
+        # coarse_op.cuh:1252 and :1276; check_params.h:1080 unchanged. Combined with the KD
+        # rule above, a first-aggregation extent must be even and at least three, hence at
+        # least four and even.
         if not allow_truncation:
             for axis, size in enumerate(block):
                 if size < 3:
@@ -138,6 +183,12 @@ def source_checks(
                     )
     aggregate_size = block_volume * fine_color
     aggregate_size = aggregate_size // 2 if spin_block == 0 else aggregate_size * spin_block
+    # The coarse space cannot exceed the degrees of freedom in an aggregate. Note that QUDA
+    # calls THIS quantity `aggregate_size` too, while block orthogonalization gives the same
+    # name to the bare geometric product; the two differ by the fine colour and spin factors
+    # and both appear in errors that say "aggregate size".
+    # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/transfer.cpp#L77-L83
+    # Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc, same lines.
     if nvec > aggregate_size:
         errors.append(
             f"level {level}: requested coarse space {nvec} exceeds aggregate size "
