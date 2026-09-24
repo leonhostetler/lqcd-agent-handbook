@@ -42,6 +42,16 @@ start; open it by name only when you need the evidence behind a decision.
 - Keep each commit to one fact class so a faulty import can be reverted cleanly.
 - Record an episode in `DEVLOG.md`, never in `ARCHITECTURE.md` or `ROADMAP.md`. When a
   decision changes, rewrite the rule in place rather than appending a dated amendment.
+- **An edit made against an incident must reconcile with what the leaf already says.** Before
+  writing, list every existing statement in that leaf — and in any other leaf the domain index
+  routes to for the same task — about the object the incident concerns: the variable, option,
+  directive, file, or step. In the `DEVLOG.md` entry, name each one and say whether it was
+  confirmed, amended, or deleted. "No other statement" is a claim to be checked, never a
+  default. Two entries that were each right about their own incident once left a recipe and a
+  rule in one leaf that contradicted each other — one resolved a job directory from the
+  submission-directory variable, the other required a directive that makes that variable never
+  the job directory — and a launcher that followed the recipe died after a two-day queue wait.
+  Neither entry had mentioned the other.
 - Do not read `session_*.log` unless the operator explicitly requests it.
   Authorized review still follows mined-material classification, privacy, and publishability gates.
 - Run `tools/run-change-proposal` before every commit. It performs the whole sequence a

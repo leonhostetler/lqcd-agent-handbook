@@ -1885,6 +1885,18 @@ instructions.
    `ARCHITECTURE.md` if a design choice was made or reopened; record what was rejected and
    why, not only what was admitted. The rejection list is what stops the next session from
    re-litigating the same import.
+11. **An incident-driven edit reconciles with the leaf it lands in.** P2 forbids two places
+   that could disagree with no rule about which wins, and a single leaf is not exempt: a
+   recipe written against one incident and a rule written against another contradicted each
+   other in the batch-script leaf for a month, and a launcher that followed the recipe died
+   after a two-day queue wait ([§batch-scripts](#batch-scripts)). So an edit made against an
+   incident first lists every existing statement about the same object — variable, option,
+   directive, file, or step — in that leaf and in the leaves its domain index routes to for
+   the same task, and the `DEVLOG.md` entry names each and says whether it was confirmed,
+   amended, or deleted. "No other statement" is asserted only after the search. The
+   obligation is procedural because the failure is semantic: no validator reads a recipe
+   against a rule, so the reviewer has to, and an entry that names what it checked can be
+   audited where one that is silent cannot.
 
 <a id="admission-test"></a>
 #### 7.5b. The admission test

@@ -2538,3 +2538,36 @@ was **not** exercised is a live Codex event in a handbook session, so the guard 
 rather than `enabled` for Codex because trust is the operator's act and is not inferred from
 configuration. The operator's campaign-level notification directive (mail on end or failure) was
 deliberately *not* admitted: it is a campaign preference, not a durable rule.
+
+## 2026-09-24 — Incident-driven edits must reconcile with the leaf they land in
+
+The launch failure recorded above had a developer-mode cause underneath its handbook cause. The
+batch-script leaf's job-directory recipe and its working-directory rule were each written against
+a real incident — a spool-copy failure and an inherited-cwd failure — by sessions that each read
+the leaf, and neither session's entry mentions the other statement. The contradiction was not
+subtle once the two sentences were put side by side; it survived because nobody put them side by
+side, and nothing required anyone to.
+
+**Decision.** `modes/developer.md` "While editing" and [§7.5a](ARCHITECTURE.md#developer-obligations)
+gain an obligation: an edit made against an incident first lists every existing statement about
+the same object in that leaf and the leaves the domain index routes to for the same task, and the
+`DEVLOG.md` entry names each and says whether it was confirmed, amended, or deleted. "No other
+statement" becomes a claim made after a search, never a default.
+
+**What was considered and not built**, so the next session does not re-derive it:
+
+- *Executed recipes* — every fenced recipe in a leaf marked and run through the checker and
+  harness by a validator step. Strongest mechanical guarantee for this failure class; set aside
+  for now as a larger tool with its own fixtures.
+- *A reconciliation surface in `run-change-proposal`* — print every line in the touched leaf
+  and its domain that names an identifier the diff names, for the reviewer to judge, like the
+  privacy surface. Set aside with the above; the procedural obligation is what it would feed.
+- *Rule identities* — each enforceable rule carrying an ID cited by the checker and verified in
+  both directions by the validator. Structural; touches every convention leaf; held for a
+  separate decision.
+
+**Applied to itself.** The statements in the handbook about developer-mode editing that this
+obligation touches are: P2 (one canonical home; confirmed and cited), `modes/developer.md`'s
+"one canonical home per value; other documents should point to it" (confirmed — this is its
+within-a-leaf form), and §7.5a obligation 1 on amending `ARCHITECTURE.md` first (confirmed;
+followed here). No statement was amended or deleted.
