@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Run the submission guard under an interpreter that has its dependencies. The guard
+# reads the scheduler surface (PyYAML) and imports the checker (`X | None` syntax).
+set -eu
+
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+here="$(cd -- "$here" && pwd)"
+
+exec "${BASH:-bash}" "$here/select-python" \
+    --label "the submission guard" \
+    --allow-module-load \
+    --require yaml \
+    -- "$here/submission-guard.py" "$@"

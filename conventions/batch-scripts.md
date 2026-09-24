@@ -602,6 +602,16 @@ decide from the script text and the scheduler surface, the checker decides at st
 could decide from the environment, the harness decides at step 9 by presenting that environment.
 A script whose correctness rests on a launch-time guard alone is not ready.
 
+**Where the frontend can intercept the submit command, it does.** `tools/install-submission-guard.py`
+installs a pre-tool hook that refuses the surface's submit command unless the checker reports no
+error and a current dry-run receipt shows the positive control passed and a negative test fired
+(`tools/submission-guard.py`; `tools/check-submission-guard.py` reports at startup whether it is
+installed). It acts only in a session launched through the handbook, fails closed when it cannot
+run, and has no override: an operator who must submit an unchecked script does so from their own
+shell. Both frontends speak the same command-hook protocol, so one shim serves both; Codex runs
+a non-managed hook only after the operator reviews and trusts it in `/hooks`, and until then the
+checker reports it as `configured`, not enforcing.
+
 ### Step 9: a guard that never fires looks exactly like one that passes
 
 Steps 4 to 8 and the checker are **static**. They can tell you a guard is present and
@@ -612,7 +622,7 @@ this way, to defects catchable on a login node for no allocation at all.
 
 So execute the script before submitting it, with everything that reaches outside replaced by
 a stub. **`tools/dry-run-batch-script.py`, run through `tools/run-dry-run-batch-script`, is that
-execution**: it does everything below and writes a receipt keyed on the script's hash. If it
+execution**: it does everything below and writes the receipt the submission guard reads. If it
 cannot run your script, fix it and bump its version. Do not substitute a private harness — one
 written by the session that wrote the script shares the script's assumptions and cannot surprise
 it, which is how a launcher and its private harness came to agree on the assumption that killed

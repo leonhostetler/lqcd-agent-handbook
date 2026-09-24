@@ -23,7 +23,7 @@ belongs in `ARCHITECTURE.md`; this document never restates a decision, only its 
 | 4 | modes, benchmarking, the prediction loop | **in progress** |
 | 5 | software-local solvers and ensembles | partly landed; acceptance pending |
 | 6 | performance analysis | accepted 2026-09-15, three checks |
-| 7 | automation and enforcement | not started |
+| 7 | automation and enforcement | partly landed — submission guard 2026-09-24 |
 
 `handbook.yaml` owns `phase`, which stays `bootstrap` until Slice 5 is accepted. Machines
 after Frontier are onboarded as needed rather than as slices; the order and its reasoning are
@@ -75,7 +75,7 @@ it inside 4.1 rather than beside it keeps one canonical reader of MILC timing ou
 
 | # | Owed |
 |---|---|
-| 7.1 | `PreToolUse` guard running `tools/check-batch-script.py` before a batch-script write lands. Also the enforcement half of the authoring-time input-proofread rule (`conventions/batch-scripts.md` step 3), which the lint can only advise |
+| 7.1 | **Landed at submit time, 2026-09-24:** `tools/submission-guard.py` intercepts the surface's submit command and refuses it without a clean checker run and a current receipt from `tools/dry-run-batch-script.py` (offer-only installer for Claude Code and Codex; Codex enforces once the operator trusts the handler in `/hooks`). **Still owed:** the guard before a batch-script *write* lands, and the enforcement half of the authoring-time input-proofread rule (`conventions/batch-scripts.md` step 3), which the lint can only advise |
 | 7.2 | Knowledge-capture hooks |
 | 7.3 | User-mode write guard |
 
@@ -272,10 +272,13 @@ and the post-acceptance defect record are in [`DEVLOG.md`](DEVLOG.md).
 
 ### Slice 7 — automation and enforcement
 
-The loggers, installer and startup check landed early in Slice 0c. What remains is enforcement
-rather than instruction, itemised in [§open-obligations](#open-obligations). Until the
-`PreToolUse` guard exists, `tools/check-batch-script.py` is advisory and agent-invoked — the
-same interim posture the budget rule takes, because only intercepting the call enforces.
+The loggers, installer and startup check landed early in Slice 0c. The first enforcement landed
+2026-09-24: a `PreToolUse` guard on the scheduler submit command, with a shipped dry-run harness
+that writes the receipt the guard demands (7.1, submit-time half). It was built the day after a
+launcher that had followed the handbook's own recipe died ten seconds into a two-day queue wait —
+the episode is in `DEVLOG.md`. What remains is itemised in [§open-obligations](#open-obligations):
+the write-time guard, knowledge-capture hooks, and the user-mode write guard. Invoked by hand,
+`tools/check-batch-script.py` stays advisory; at the submit command it now enforces.
 
 <a id="open-questions"></a>
 ## 4. Open questions for the operator
@@ -292,7 +295,7 @@ column is the test.
 
 | Decision | Interim behaviour | Un-park when |
 |---|---|---|
-| **Enforcement of the job-submission budget** — agent instruction, a `lqcd-submit` wrapper, or a hook | [§budget-rule](ARCHITECTURE.md#budget-rule)'s default: no budget stated ⇒ the agent prepares the job and hands over the submit command. Zero machinery, cannot overspend | **Operator-initiated only** (ruled 2026-09-15). The operator declares up front what an unattended submission loop would do — ceiling, ledger discipline, and the stop that fires at the ceiling — before any of it is built. Not un-parked by an agent finding a loop convenient, nor by a workflow reaching the point where submission is the only manual step |
+| **Enforcement of the job-submission budget** — agent instruction, a `lqcd-submit` wrapper, or a hook | [§budget-rule](ARCHITECTURE.md#budget-rule)'s default: no budget stated ⇒ the agent prepares the job and hands over the submit command. Zero machinery, cannot overspend. Since 2026-09-24 `tools/submission-guard.py` intercepts the submit command for *readiness* (checker and dry-run receipt), so the vehicle for a budget check exists; it deliberately reads no ledger | **Operator-initiated only** (ruled 2026-09-15). The operator declares up front what an unattended submission loop would do — ceiling, ledger discipline, and the stop that fires at the ceiling — before any of it is built. Not un-parked by an agent finding a loop convenient, nor by a workflow reaching the point where submission is the only manual step |
 | **Enforcement of user-mode write protection** | The P6 instruction of [§handbook-modes](ARCHITECTURE.md#handbook-modes), plus startup reporting an unclean handbook tree so a stray edit surfaces the same day | The repo stops changing daily. Read-only permissions fight developer mode, which is *most* sessions during bootstrap. Rides with slice 7, which needs an installer regardless |
 | **Sub-file provenance** — claim IDs versus file-level frontmatter | File-level frontmatter ([§knowledge-atom](ARCHITECTURE.md#knowledge-atom)), with knowledge files kept small and atomic so it stays adequate | A file accumulates claims from materially different dates, versions or evidence kinds |
 | **Whether any part of the handbook should be served over MCP** | **None.** Knowledge stays markdown and YAML; procedures stay skills plus `tools/` scripts. Works on every machine with no runtime | Any of three: the handbook must reach data too large to commit; something genuinely remote becomes necessary, such as live cross-machine job status; or a capability arrives already service-shaped |

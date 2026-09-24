@@ -72,6 +72,20 @@ Record the reported state for the final orientation summary. When it is `missing
 second mandatory startup question. On explicit acceptance, follow
 `playbooks/session-logging.md`.
 
+In the same step run `"$LQCD_HANDBOOK/tools/run-session-logging-python"
+"$LQCD_HANDBOOK/tools/check-submission-guard.py" --frontend "$LQCD_HANDBOOK_FRONTEND"` and
+record its state too. It is the pre-tool interception of the scheduler submit command described
+in `conventions/batch-scripts.md`; a session without it relies on the agent's diligence to run
+the checker and the dry-run harness, which is the diligence that has failed. When the state is
+`missing`, `stale`, or `broken`, add the same kind of non-blocking offer — "The submission guard
+is <state>. Say \"enable the submission guard\" to install it" — and on explicit acceptance run
+`"$LQCD_HANDBOOK/tools/run-session-logging-python"
+"$LQCD_HANDBOOK/tools/install-submission-guard.py" --frontend "$LQCD_HANDBOOK_FRONTEND"`.
+Under Codex the state after installation is `configured`, not `enabled`: the handler is in
+place but Codex runs it only once the operator has reviewed and trusted it in `/hooks`. Report
+that plainly — "the submission guard is configured but not yet trusted; open `/hooks` and trust
+the PreToolUse guard" — and never treat a configured-but-untrusted guard as enforcing.
+
 ## 4. Detect machine and software
 
 Report rather than ask. Run the handbook detector exactly once:

@@ -34,6 +34,21 @@ session_logging:
       logger: tools/log-session-claude.sh
     codex:
       logger: tools/log-session-codex.py
+submission_guard:
+  # PreToolUse interception of the scheduler submit command: refuses a script that has not
+  # passed the checker and the dry-run harness. Offer-only installer; the shim it installs
+  # carries no handbook path and acts only when LQCD_HANDBOOK names a live clone.
+  guard: tools/submission-guard.py
+  runner: tools/run-submission-guard
+  harness: tools/dry-run-batch-script.py
+  harness_runner: tools/run-dry-run-batch-script
+  checker: tools/check-submission-guard.py
+  installer: tools/install-submission-guard.py
+  frontends:
+    claude:
+      hook: tools/submission-guard-hook.sh
+    codex:
+      hook: tools/submission-guard-hook.sh
 launcher:
   handbook_env: LQCD_HANDBOOK
   launched_env: LQCD_HANDBOOK_LAUNCHED

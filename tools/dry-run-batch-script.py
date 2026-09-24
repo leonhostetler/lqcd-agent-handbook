@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Execute a batch script on a login node with every external effect stubbed, under the
-environment the scheduler will actually present, and write a receipt keyed on the script's
-hash.
+environment the scheduler will actually present, and write a receipt the submission guard
+reads.
 
 This is step 9 of `conventions/batch-scripts.md`, shipped rather than described. Every
 workspace that submits often had rebuilt it privately, and a private harness written by the
@@ -45,7 +45,8 @@ Three run kinds, one receipt:
 
 The receipt `<script>.dry-run-receipt.json` records the script's sha256, the harness version,
 the latest positive control and every negative run against that exact script text. A changed
-script starts a fresh receipt, so a dry run never certifies a script it did not run.
+script starts a fresh receipt. `tools/submission-guard.py` refuses to submit a script whose
+receipt is missing, stale, failed, or carries no fired negative test.
 """
 from __future__ import annotations
 

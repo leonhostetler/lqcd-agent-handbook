@@ -2514,8 +2514,10 @@ line) and warns on `$0`. `tools/dry-run-batch-script.py` ships step 9 with the s
 environment modelled — working directory from the directive, submission-directory variable
 pointing elsewhere, spool copy for `$0`, job-id variable only, empty environment — and writes a
 receipt keyed on the script's hash; run on the real launcher it reproduces the fatal line
-verbatim, and the fixture in its test suite does the same. Tier 0 says "never submit one its
-checker and dry-run harness have not passed".
+verbatim, and the fixture in its test suite does the same. `tools/submission-guard.py` intercepts
+the submit command as a `PreToolUse` hook and refuses without a clean checker run and a current
+receipt carrying a fired negative; it fails closed, has no override, and acts only in handbook
+sessions. Tier 0 says "never submit one its checker and dry-run harness have not passed".
 
 **Two harness lessons rode along.** Stand-ins are confined to the sandbox after an earlier
 harness, given a declaration through an unexpanded shell variable, created 375 GB of apparent,
@@ -2523,5 +2525,16 @@ zero-block files under a literal `$`-named directory in a workspace root. And a 
 the stream the real command uses, since a launcher that captures only stderr saw an empty modules
 list and reported drift that did not exist.
 
-**Method note.** The operator's campaign-level notification directive (mail on end or failure)
-was deliberately *not* admitted: it is a campaign preference, not a durable rule.
+**Method note.** The submit-time guard is Slice 7's 7.1 landing at a different point than the
+roadmap named: the roadmap wrote "before a batch-script write lands", and the incident argued for
+the submit command, which is where the queue wait is committed. The write-time guard stays owed.
+Codex was first refused rather than guessed at, then admitted the same day once its pre-tool
+surface was verified from fact: the Codex hooks documentation (`developers.openai.com/codex/hooks`)
+records a `PreToolUse` event configured in `~/.codex/hooks.json` or inline `config.toml`, JSON on
+stdin with `tool_name`, `tool_input.command` and `cwd`, exit status 2 with stderr to block, and
+per-hash trust granted in `/hooks`; the installed CLI's binary carries the same vocabulary. What
+was **not** exercised is a live Codex event in a handbook session, so the guard keys on
+`tool_input.command` rather than on the tool's canonical name, and the checker reports `configured`
+rather than `enabled` for Codex because trust is the operator's act and is not inferred from
+configuration. The operator's campaign-level notification directive (mail on end or failure) was
+deliberately *not* admitted: it is a campaign preference, not a durable rule.

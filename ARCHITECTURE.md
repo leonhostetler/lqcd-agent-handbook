@@ -94,7 +94,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Handbook change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
 | **Project Git authority** | Authorization to change project code does not authorize commits or publication; canonical `AGENTS.md` owns the standing rule. **The index is the operator's as much as the history is**, so staging is covered too: it is not a neutral preparatory step, because a staged change leaves `git diff` empty and the operator's own review command then reports nothing for a tree full of edits. The default handoff is an **unstaged**, uncommitted working tree, a validation summary, and a suggested commit message. No handbook tool requires staging — `propose-change.py` reads untracked files directly, for the separate reason that a new file is the likeliest place for unpublishable material | The operator explicitly delegates a named class of Git actions |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | The operator specifies an unattended submission loop up front — see [§deferred-decisions](ROADMAP.md#deferred-decisions). Reaching the point where submission is the only manual step is not itself the trigger |
-| **Batch submission scripts** | One universal Tier-2 convention leaf, loaded before writing, modifying or reviewing a batch script or preparing a submit command. Reached from a Tier-0 pointer **and from every task-time routing surface that can reach script work**, because the pointer alone was observed not to fire. Mechanically decidable rules move to `tools/check-batch-script.py`, which is **advisory lint, never a sandbox**; what is decidable only from the environment belongs to the shipped dry-run harness, which presents the scheduler's environment rather than the shell's. **Launch-time assertions are the last line of defence, never the first** ([§batch-scripts](#batch-scripts)) | Slice 7 lands a `PreToolUse` guard that enforces rather than advises |
+| **Batch submission scripts** | One universal Tier-2 convention leaf, loaded before writing, modifying or reviewing a batch script or preparing a submit command. Reached from a Tier-0 pointer **and from every task-time routing surface that can reach script work**, because the pointer alone was observed not to fire. Mechanically decidable rules move to `tools/check-batch-script.py`, which is **advisory lint, never a sandbox** — so the submit command is **intercepted**: a `PreToolUse` guard refuses it without a clean checker run and a current receipt from the shipped dry-run harness, which presents the scheduler's environment rather than the shell's. **Launch-time assertions are the last line of defence, never the first** ([§batch-scripts](#batch-scripts)) | A frontend without a pre-tool hook surface; the write-time guard landing |
 | **Run instrumentation** | In every work mode but production, a batch script on accelerated nodes starts a background accelerator-memory sampler covering the whole run; production is **exempt, not forbidden**. The rule lives in the batch-script leaf because that is where it binds. Its *presence* half is mechanically decidable and joins `tools/check-batch-script.py` as a note, raised to a warning when a non-production work mode is supplied; period and coverage stay with the reviewer. Motivated by teardown-printed counters: an aborted run yields no memory figure at all, and that is exactly the run that needed one. **Host memory is the same argument with no sampler**: the scheduler already measured per-step resident memory, so every script records its own step accounting at teardown, in every mode and with no production exemption, as a sampled lower bound rather than a peak ([§batch-scripts](#batch-scripts)) | A sampler's own overhead is shown to distort the measurement it serves, or a scheduler supplies equivalent per-device high-water accounting |
 | **Chargeable account** | **Never inferred** — not from a scheduler or environment default, an accounting query, another script in the working directory, or an archived campaign script. Enumerating available accounts is expected; selecting one is not ([§account-rule](#account-rule)) | The operator declares a standing per-campaign default account |
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
@@ -316,6 +316,9 @@ lqcd-agent-handbook/
 │   ├── check-session-logging.py   # startup diagnostic; never installs (§session-logging)
 │   ├── install-session-logging.py # shared offer-only installer and frontend dispatcher
 │   ├── dry-run-batch-script.py    # step-9 harness: scheduler environment modelled, receipt written
+│   ├── submission-guard.py        # PreToolUse guard on the submit command (§batch-scripts)
+│   ├── submission-guard-hook.sh   # Claude shim copied into user config; carries no handbook path
+│   ├── install-submission-guard.py, check-submission-guard.py  # offer-only installer, startup check
 │   ├── session_logging.py         # shared configuration/merge helpers
 │   ├── log-session-claude.sh      # Claude Stop-hook logger copied into user config
 │   ├── log-session-codex.py       # Codex Stop-hook logger copied into user config
@@ -2150,11 +2153,21 @@ and writes `<script>.dry-run-receipt.json` recording the script's hash, the posi
 each fired negative. A changed script starts a fresh receipt. If the harness cannot run a script,
 the harness is fixed and versioned; it is never substituted.
 
-**`tools/check-batch-script.py` is advisory lint, never a sandbox.** It cannot stop a script
-being written unchecked; only interception can, which is Slice 7's `PreToolUse` guard and the
-same conclusion [§deferred-decisions](ROADMAP.md#deferred-decisions) already reached about
-enforcing the budget. It is calibrated against scripts already trusted in the working project,
-because a lint that fires on known-good input trains the operator to ignore it —
+**`tools/check-batch-script.py` is advisory lint, never a sandbox — so the submit command is
+intercepted.** Slice 7's `PreToolUse` guard now exists for submission: `tools/submission-guard.py`
+refuses the surface's submit command unless the checker reports no error and the receipt is
+current, passed, and carries a fired negative. It is installed offer-only into user configuration
+(`install-submission-guard.py`; `[verified]` against both frontends' hook documentation, which
+share one command-hook protocol — a `PreToolUse` event, `tool_input.command` and `cwd` on stdin,
+exit status 2 to block — with Codex enforcing only after the operator trusts the handler in
+`/hooks`, the same trust boundary as [§session-logging](#session-logging)), carries no handbook
+path, acts only when `LQCD_HANDBOOK` names a live clone,
+fails closed when it cannot run, and has no override — an operator who must submit an unchecked
+script does so from their own shell. The budget rule stays deferred
+([§deferred-decisions](ROADMAP.md#deferred-decisions)): the guard is the vehicle an enforcement
+would ride, but the ledger's numbers live in the working directory and the decision to enforce
+them remains the operator's. The lint stays calibrated against scripts already trusted in the
+working project, because a lint that fires on known-good input trains the operator to ignore it —
 [§tolerances](#tolerances) applied to a checker.
 
 <a id="profile-analysis"></a>
