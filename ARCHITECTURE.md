@@ -94,7 +94,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Handbook change and commit approval** | Developer mode permits analysis and proposals, not unreviewed changes. Every edit must be shown and explicitly approved before application. Commits are operator-owned: the agent never commits unless explicitly requested to create that specific commit ([§developer-obligations](#developer-obligations)) | The operator explicitly delegates a named class of changes or adopts a different review workflow |
 | **Project Git authority** | Authorization to change project code does not authorize commits or publication; canonical `AGENTS.md` owns the standing rule. **The index is the operator's as much as the history is**, so staging is covered too: it is not a neutral preparatory step, because a staged change leaves `git diff` empty and the operator's own review command then reports nothing for a tree full of edits. The default handoff is an **unstaged**, uncommitted working tree, a validation summary, and a suggested commit message. No handbook tool requires staging — `propose-change.py` reads untracked files directly, for the separate reason that a new file is the likeliest place for unpublishable material | The operator explicitly delegates a named class of Git actions |
 | **Job submission** | No budget stated ⇒ the agent prepares the job and hands over the submit command ([§budget-rule](#budget-rule)) | The operator specifies an unattended submission loop up front — see [§deferred-decisions](ROADMAP.md#deferred-decisions). Reaching the point where submission is the only manual step is not itself the trigger |
-| **Batch submission scripts** | One universal Tier-2 convention leaf, loaded before writing, modifying or reviewing a batch script or preparing a submit command. Reached from a Tier-0 pointer **and from every task-time routing surface that can reach script work**, because the pointer alone was observed not to fire. Mechanically decidable rules move to `tools/check-batch-script.py`, which is **advisory lint, never a sandbox** ([§batch-scripts](#batch-scripts)) | Slice 7 lands a `PreToolUse` guard that enforces rather than advises |
+| **Batch submission scripts** | One universal Tier-2 convention leaf, loaded before writing, modifying or reviewing a batch script or preparing a submit command. Reached from a Tier-0 pointer **and from every task-time routing surface that can reach script work**, because the pointer alone was observed not to fire. Mechanically decidable rules move to `tools/check-batch-script.py`, which is **advisory lint, never a sandbox**; what is decidable only from the environment belongs to the shipped dry-run harness, which presents the scheduler's environment rather than the shell's. **Launch-time assertions are the last line of defence, never the first** ([§batch-scripts](#batch-scripts)) | Slice 7 lands a `PreToolUse` guard that enforces rather than advises |
 | **Run instrumentation** | In every work mode but production, a batch script on accelerated nodes starts a background accelerator-memory sampler covering the whole run; production is **exempt, not forbidden**. The rule lives in the batch-script leaf because that is where it binds. Its *presence* half is mechanically decidable and joins `tools/check-batch-script.py` as a note, raised to a warning when a non-production work mode is supplied; period and coverage stay with the reviewer. Motivated by teardown-printed counters: an aborted run yields no memory figure at all, and that is exactly the run that needed one. **Host memory is the same argument with no sampler**: the scheduler already measured per-step resident memory, so every script records its own step accounting at teardown, in every mode and with no production exemption, as a sampled lower bound rather than a peak ([§batch-scripts](#batch-scripts)) | A sampler's own overhead is shown to distort the measurement it serves, or a scheduler supplies equivalent per-device high-water accounting |
 | **Chargeable account** | **Never inferred** — not from a scheduler or environment default, an accounting query, another script in the working directory, or an archived campaign script. Enumerating available accounts is expected; selecting one is not ([§account-rule](#account-rule)) | The operator declares a standing per-campaign default account |
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
@@ -315,6 +315,7 @@ lqcd-agent-handbook/
 │   │                          #   or the full merge-base branch diff
 │   ├── check-session-logging.py   # startup diagnostic; never installs (§session-logging)
 │   ├── install-session-logging.py # shared offer-only installer and frontend dispatcher
+│   ├── dry-run-batch-script.py    # step-9 harness: scheduler environment modelled, receipt written
 │   ├── session_logging.py         # shared configuration/merge helpers
 │   ├── log-session-claude.sh      # Claude Stop-hook logger copied into user config
 │   ├── log-session-codex.py       # Codex Stop-hook logger copied into user config
@@ -2127,6 +2128,27 @@ directory and output targets are pinned rather than inherited, and whether a ref
 variable is one the profile declares are all decidable — and several are decidable only
 against `machine.yaml`. Whether a writable root is genuinely approved, whether an invoked
 program is safe, and intent are not, and the leaf says so rather than implying coverage.
+
+**Launch-time assertions are the last line of defence, never the first.** A guard that fires at
+launch has already spent the queue wait, and at a long queue and a short job the wait is the
+cost: one launcher lost two days to a ten-second failure in its own first assertion. It had
+followed the leaf's earlier recipe, which resolved the job directory from the scheduler's
+submission-directory variable while the same leaf required a directive that makes that variable
+never the job directory — two sections written against two incidents and never reconciled. The
+leaf now states the invariant (`$PWD` under a pinned working directory; the variable is
+diagnostic; `$0` is the spool copy), and every layer below it decides what it can *before*
+submission: what is decidable from the script text and the scheduler surface belongs to the
+checker, and what is decidable from the environment belongs to a dry run that presents the
+scheduler's environment rather than the shell's.
+
+**The dry run is a shipped tool with a receipt, not a description.** Every workspace that
+submitted often had rebuilt step 9 privately, and a private harness written by the session that
+wrote the launcher shares its assumptions — the pair above agreed on the one that killed the job.
+`tools/dry-run-batch-script.py` runs the script under the modelled environment with every
+external effect stubbed, confines its stand-ins to its sandbox, refuses a vacuous perturbation,
+and writes `<script>.dry-run-receipt.json` recording the script's hash, the positive control and
+each fired negative. A changed script starts a fresh receipt. If the harness cannot run a script,
+the harness is fixed and versioned; it is never substituted.
 
 **`tools/check-batch-script.py` is advisory lint, never a sandbox.** It cannot stop a script
 being written unchecked; only interception can, which is Slice 7's `PreToolUse` guard and the

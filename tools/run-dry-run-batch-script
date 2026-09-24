@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Run the batch-script dry-run harness under an interpreter that has its dependencies.
+# The harness reads the scheduler surface and the machine profile through the checker,
+# which needs PyYAML, and both use syntax a system python3 predating 3.10 cannot parse.
+set -eu
+
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+here="$(cd -- "$here" && pwd)"
+
+exec "${BASH:-bash}" "$here/select-python" \
+    --label "the batch-script dry-run harness" \
+    --allow-module-load \
+    --require yaml \
+    -- "$here/dry-run-batch-script.py" "$@"

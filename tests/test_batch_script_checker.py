@@ -110,6 +110,48 @@ class BatchScriptCheckerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn("no --machine given", result.stdout)
 
+    # -- job-directory resolution --------------------------------------------
+    # A launcher that resolved its job directory from the submission-directory
+    # variable under a pinned working directory died ten seconds into a two-day
+    # queue wait. The recipe it followed had passed this lint with zero errors.
+
+    def test_submit_dir_under_pinned_chdir_is_an_error(self):
+        body = CLEAN + 'here=$(cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}" && pwd -P)\n'
+        result = self.run_checker(body, "--machine", "perlmutter")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("resolves a location from $SLURM_SUBMIT_DIR while --chdir", result.stdout)
+
+    def test_submit_dir_as_path_prefix_is_an_error(self):
+        body = CLEAN + '[ -r "$SLURM_SUBMIT_DIR/inputs/job.in" ] || exit 1\n'
+        result = self.run_checker(body, "--machine", "perlmutter")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("resolves a location from $SLURM_SUBMIT_DIR", result.stdout)
+
+    def test_submit_dir_without_chdir_warns(self):
+        body = CLEAN.replace("#SBATCH --chdir=/declared/run/root\n", "") + 'cd "$SLURM_SUBMIT_DIR"\n'
+        result = self.run_checker(body, "--machine", "perlmutter")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("only if submitted from that exact directory", result.stdout)
+
+    def test_recording_the_submit_dir_is_not_flagged(self):
+        """The leaf recommends logging the variable; only using it as a location is wrong."""
+        body = CLEAN + 'echo "submitted from ${SLURM_SUBMIT_DIR}" > job.env\n'
+        result = self.run_checker(body, "--machine", "perlmutter")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn("resolves a location from $SLURM_SUBMIT_DIR", result.stdout)
+
+    def test_script_own_path_warns(self):
+        body = CLEAN + 'cd "$(dirname "$0")"\n'
+        result = self.run_checker(body, "--machine", "perlmutter")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("spool copy", result.stdout)
+
+    def test_pwd_first_resolution_is_clean(self):
+        body = CLEAN + 'here=$(pwd -P); [ -r "$here/inputs/job.in" ] || exit 1\n'
+        result = self.run_checker(body, "--machine", "perlmutter")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("0 errors", result.stdout)
+
 
 class BatchScriptRunnerTests(unittest.TestCase):
     def test_runner_selects_a_usable_interpreter(self):

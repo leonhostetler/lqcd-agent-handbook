@@ -2,9 +2,9 @@
 title: Batch submission script safety and structure
 summary: Invariants and required resolutions for writing, modifying, or reviewing a batch submission script on a shared system.
 scope: [universal]
-load_when: Writing, modifying, or reviewing a batch submission script, or preparing a submit command to hand to the operator.
+load_when: Writing, modifying, reviewing, or submitting a batch submission script, or preparing a submit command to hand to the operator.
 evidence: operator
-observed: "2026-08-28"
+observed: "2026-09-24"
 observed_on:
   requirements: batch-script-safety
 review_by: "2027-08-28"
@@ -495,18 +495,32 @@ not to the directory holding the job's inputs. One rig resolved itself this way 
 inputs, no auxiliary files and nowhere writable: **zero of sixteen legs, on a full-scale allocation,
 in thirteen seconds.**
 
-Use the scheduler surface's submission-directory variable instead — but note that it is the
-*submission* directory, not the script's, so submitting from a parent directory breaks it again, and
-a directory-changing directive separates the two deliberately. What makes it safe is not the
-variable but an **explicit assertion, before anything else runs**, that the resolved directory
-contains the files this job needs:
+**The submission-directory variable is not the job directory either.** It names wherever the
+submit command was *typed*, and under the working-directory directive this leaf requires (see
+"Directives and submission") the scheduler starts the job somewhere else: the directory the
+directive pins. Submitting by absolute path from a campaign root — the normal procedure — makes
+the two differ on every submission. A launcher that resolved its job directory from that
+variable followed an earlier version of this recipe exactly, passed a dry run that had not
+modelled the variable, and died in its own first assertion ten seconds into a two-day queue
+wait. The assertion did precisely what it was written to do. It was the last line of defence,
+and the only one.
+
+**Resolve from `$PWD`, which the directive set, and assert.** Under a pinned working directory
+`$PWD` is the one location the scheduler guarantees; the submission-directory variable is
+diagnostic — record it, never `cd` to it — and `$0` is the spool copy:
 
 ```bash
-here=$(cd "${<submit-dir-variable>:-$(dirname "$0")}" && pwd -P)
+here=$(pwd -P)   # what the working-directory directive pinned; nothing else is authoritative
 for f in <the files this job cannot run without>; do
   [ -r "$here/$f" ] || { echo "FATAL: $here is not the job directory ($f missing)"; exit 1; }
 done
 ```
+
+Keep the assertion — it is still right as the last line. But it fires at launch, after the queue
+wait, so it must never be the first: `tools/check-batch-script.py` reports a location resolved
+from the submission-directory variable under a pinned working directory as an **error** and one
+resolved from `$0` as a warning, and `tools/dry-run-batch-script.py` runs the script with that
+variable pointing away from the job directory, so the assertion fires on a login node instead.
 
 **Modules resolve to whatever the site default is when the job starts.** A script that resets the
 module environment or loads an unversioned module binds to the defaults in force at start time.
@@ -580,6 +594,14 @@ discharge this review; failing to run it is not an excuse for skipping one.
 When uncertain whether an operation could affect shared or pre-existing data, leave it out and
 ask. A non-destructive alternative that costs disk space is always the better trade.
 
+**Anything decidable before submission is decided before submission.** A guard in the script that
+fires at launch has already spent the queue wait, and at a long queue and a short job the wait
+*is* the cost: one launcher lost two days to a ten-second failure in its own first assertion. A
+launch-time assertion is therefore the last line of defence, never the first. Whatever it could
+decide from the script text and the scheduler surface, the checker decides at step 4; whatever it
+could decide from the environment, the harness decides at step 9 by presenting that environment.
+A script whose correctness rests on a launch-time guard alone is not ready.
+
 ### Step 9: a guard that never fires looks exactly like one that passes
 
 Steps 4 to 8 and the checker are **static**. They can tell you a guard is present and
@@ -589,19 +611,37 @@ correct on every inspection and protects nothing on the night. Submissions have 
 this way, to defects catchable on a login node for no allocation at all.
 
 So execute the script before submitting it, with everything that reaches outside replaced by
-a stub:
+a stub. **`tools/dry-run-batch-script.py`, run through `tools/run-dry-run-batch-script`, is that
+execution**: it does everything below and writes a receipt keyed on the script's hash. If it
+cannot run your script, fix it and bump its version. Do not substitute a private harness — one
+written by the session that wrote the script shares the script's assumptions and cannot surprise
+it, which is how a launcher and its private harness came to agree on the assumption that killed
+the job.
 
 - **Run a copy, never the real job directory.** The point is to reach *past* the preflight,
   which means the script will create and write things.
+- **Present the scheduler's environment, not your shell's.** The working directory is what the
+  directive pins; the submission-directory variable names a directory that is *not* the job
+  directory; `$0` is a spool copy; the job-id variable is set and nothing else the scheduler
+  exports is, so an undeclared variable aborts here rather than on the machine. A harness that
+  inherits the shell's environment tests a case the machine never presents — and every harness
+  before this one did.
 - **Stub every external effect**: the parallel launcher, the modules system, scheduler
   queries, compiler or version probes, and any sleep. Stub the submission command itself so
   that it **refuses** — a batch script must never submit another job, and the refusal turns
-  that mistake into a visible failure.
+  that mistake into a visible failure. A stub answers on the stream the real command uses: a
+  modules listing that arrives on stdout where the real one arrives on stderr certifies
+  nothing about a guard that reads stderr.
 - **Make sure the stubs win.** A shell startup file or an exported shell function can put the
-  real command back ahead of them; clear both, or the run silently tests nothing.
+  real command back ahead of them; run with an empty environment, or the run silently tests
+  nothing.
 - **Do not fake anything verified by checksum.** No stand-in satisfies a hash, and those
   inputs are read-only, so leave them at their real paths. A guard that checks only a *size*
-  can be satisfied by a sparse file, so even a very large input costs no space.
+  can be satisfied by a sparse file, so even a very large input costs no space — but **confine
+  every stand-in to the harness's own sandbox**, refusing a declaration that is relative,
+  unexpanded, or outside it rather than creating it. A harness that created stand-ins wherever
+  declarations pointed left hundreds of gigabytes of apparent, zero-block files in a workspace
+  root.
 - **Positive control:** on correct inputs the script must run to completion. If it does not,
   that is a defect in the script, not in the harness — do not submit. New rig machinery is the
   part most likely to be wrong, and a second recorded loss was introduced **by the fix for the
@@ -613,7 +653,10 @@ a stub:
   actually differs before believing the result, because an expression that matched nothing
   produces the same clean output as a guard that works.
 
-A workspace that submits often should script this rather than repeat it by hand. If it does,
-the harness itself is subject to the same rule it enforces: it must be made to fail on
-purpose before it is trusted, since a harness that cannot fail is the same defect as a guard
-that cannot fire.
+The harness is subject to the same rule it enforces: `tests/test_dry_run_batch_script.py` makes
+it fail on purpose — a refused stand-in, a refused no-op perturbation, and the submission-directory
+recipe above dying under the modelled environment — because a harness that cannot fail is the
+same defect as a guard that cannot fire. The receipt it writes, `<script>.dry-run-receipt.json`,
+records the script's hash, the latest positive control and every fired negative against that
+exact text; editing the script starts a fresh receipt, so a dry run never certifies a script it
+did not run.

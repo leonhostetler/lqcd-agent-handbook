@@ -8,10 +8,12 @@ Those stay with the reviewer, and `conventions/batch-scripts.md` owns the rules.
 
 What it does decide is mechanical: whether the script submits another job, whether
 it names a destructive operation, whether it hardens itself, whether a binding
-wrapper's CPU indices fit the cpuset the directives request, and -- given a machine
-profile -- whether it pins the directives whose defaults are unsafe. Scheduler
-directive and option names come from conventions/scheduler-surfaces.yaml, keyed by
-the profile's scheduler type, so this tool carries no scheduler knowledge of its own.
+wrapper's CPU indices fit the cpuset the directives request, whether it resolves its
+job directory from something the scheduler will set differently at launch, and --
+given a machine profile -- whether it pins the directives whose defaults are unsafe.
+Scheduler directive and option names come from conventions/scheduler-surfaces.yaml,
+keyed by the profile's scheduler type, so this tool carries no scheduler knowledge of
+its own.
 
 It never prints the value of an account option. Allocation codes are deny-listed,
 and a lint that echoed one into a log that later gets committed would breach the
@@ -318,6 +320,51 @@ def check(path: pathlib.Path, machine: str | None,
     elif machine is None:
         notes.append((0, "no --machine given: directive, nested-submission, and "
                          "accelerator-telemetry checks were skipped"))
+
+    # -- job-directory resolution ----------------------------------------------
+    # conventions/batch-scripts.md: under a pinned working directory the scheduler starts
+    # the job THERE, and the submission-directory variable names wherever the submit
+    # command was typed -- under submission by absolute path, never the job directory.
+    # A script that `cd`s to that variable, or builds a path on it, dies in its own
+    # first assertion at launch, after the queue wait. One did, ten seconds into a
+    # two-day wait, following a recipe that read exactly like this. `$0` is the
+    # scheduler's spool copy for the same reason. Only USE as a location is flagged:
+    # recording the variable in a log is what the leaf recommends instead.
+    if surface and directives:
+        submit_dir = surface.get("submit_dir_variable")
+        chdir_pinned = option_present(directives, surface["chdir_option"],
+                                      surface.get("chdir_option_short"))
+        location_use = None
+        if submit_dir:
+            var = re.escape(submit_dir)
+            as_location = re.compile(
+                rf"\bcd\b[^\n;&|]*\$\{{?{var}\b"      # cd "$VAR" / cd "${VAR:-...}"
+                rf"|\$\{{?{var}\b[^\n\s\"']*\}}?/"    # "$VAR/inputs" as a path prefix
+            )
+            for number, code in code_lines:
+                if as_location.search(code):
+                    location_use = number
+                    break
+        if location_use is not None:
+            if chdir_pinned:
+                errors.append((location_use,
+                               f"resolves a location from ${submit_dir} while "
+                               f"{surface['chdir_option']} pins the working directory. Under "
+                               "submission by absolute path they are different directories, "
+                               "and the job will die in its first assertion after the queue "
+                               "wait; resolve from $PWD, which the directive set"))
+            else:
+                warnings.append((location_use,
+                                 f"resolves a location from ${submit_dir}, so the job runs "
+                                 "only if submitted from that exact directory; pin "
+                                 f"{surface['chdir_option']} and resolve from $PWD"))
+        script_dir = re.compile(r"\bdirname\s+\"?\$0\b|\$\{0%/\*\}|\$\{BASH_SOURCE")
+        for number, code in code_lines:
+            if script_dir.search(code):
+                warnings.append((number, "resolves a location from the script's own path; "
+                                         "schedulers execute a spool copy, so $0 does not "
+                                         "point at the job directory"))
+                break
 
     # -- binding wrapper against the job's cpuset ------------------------------
     # conventions/batch-scripts.md: when a binding wrapper names explicit CPU

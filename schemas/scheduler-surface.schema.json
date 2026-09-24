@@ -125,6 +125,9 @@
           "parallel_launcher": {
             "type": "string"
           },
+          "launcher_overlap_option": {
+            "type": "string"
+          },
           "task_label_option": {
             "type": "string"
           },

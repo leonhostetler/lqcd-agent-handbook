@@ -36,6 +36,9 @@ surfaces:
     cpus_per_task_option_short: "-c"
     tasks_per_node_option: "--ntasks-per-node"
     parallel_launcher: srun
+    # A step passing this option shares the allocation with steps already running;
+    # one that does not claims it exclusively and is refused while any step holds it.
+    launcher_overlap_option: "--overlap"
     task_label_option: "--label"
     # The controller's own record of the job as requested and granted. It is
     # purged a site-configured interval after the job leaves the queue, so a

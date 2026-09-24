@@ -2479,3 +2479,49 @@ briefly fooled by stale bytecode: a `sed` edit of `1024` to `2048` is byte-for-b
 length, and the `__pycache__` entry outlived the restore, so a suite run reported failures
 against a file that was already correct. Clear `__pycache__` between perturbations, or the
 procedure that exists to catch vacuous tests can manufacture spurious ones.
+
+## 2026-09-24 — A launcher that followed the handbook's own recipe died at launch
+
+A campaign launcher, written fresh against `conventions/batch-scripts.md`, resolved its job
+directory with the leaf's recipe of the day: the scheduler's submission-directory variable,
+falling back to `dirname "$0"`. The same leaf required the working-directory directive, and the
+campaign's procedure submits by absolute path from its root, so the variable named the root and
+the directive named the trial. The launcher's own first assertion fired — exactly as written —
+ten seconds into a queue wait of about two days. Nothing after it ran.
+
+**The handbook was the root cause, in three layers that each inherited the gap above it.**
+
+1. The leaf's §"The script's own directory is not `$0`" was written against a spool-copy
+   incident and gave the submission-directory recipe; its §"Directives and submission" was
+   written against an inherited-cwd incident and mandated the directive. The prose between them
+   even said the variable "is the submission directory, not the script's". The two were never
+   reconciled, and the recipe was the one a fresh launcher copied.
+2. `tools/check-batch-script.py` checked that the directive was *present* and never that the
+   script honoured it. The launcher passed with zero errors.
+3. Step 9 said "stub every external effect" and nothing about the *environment* the scheduler
+   establishes. No harness set the submission-directory variable, so the launcher fell through
+   to `dirname "$0"` — the harness's own copy — and passed on a code path the machine never
+   takes. The campaign harness could not even run this launcher (its modules stub answered on
+   stdout where Lmod answers on stderr), so the session built a private one, which shared the
+   launcher's assumptions and passed it too.
+
+**What landed.** The leaf now states the invariant — `$PWD` under a pinned working directory,
+the variable diagnostic, `$0` the spool copy — and the principle that a launch-time assertion is
+the last line of defence, never the first: whatever is decidable before submission is decided
+before submission. The checker errors on a location resolved from the submission-directory
+variable under a pinned directive (the real launcher now produces that error at its resolution
+line) and warns on `$0`. `tools/dry-run-batch-script.py` ships step 9 with the scheduler's
+environment modelled — working directory from the directive, submission-directory variable
+pointing elsewhere, spool copy for `$0`, job-id variable only, empty environment — and writes a
+receipt keyed on the script's hash; run on the real launcher it reproduces the fatal line
+verbatim, and the fixture in its test suite does the same. Tier 0 says "never submit one its
+checker and dry-run harness have not passed".
+
+**Two harness lessons rode along.** Stand-ins are confined to the sandbox after an earlier
+harness, given a declaration through an unexpanded shell variable, created 375 GB of apparent,
+zero-block files under a literal `$`-named directory in a workspace root. And a stub answers on
+the stream the real command uses, since a launcher that captures only stderr saw an empty modules
+list and reported drift that did not exist.
+
+**Method note.** The operator's campaign-level notification directive (mail on end or failure)
+was deliberately *not* admitted: it is a campaign preference, not a durable rule.

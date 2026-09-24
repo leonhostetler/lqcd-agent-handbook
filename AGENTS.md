@@ -42,9 +42,10 @@ Exactly one handbook mode is current:
   query can fail on the shape of the command alone. Before reporting a service
   unavailable, see `conventions/agent-sandbox.md`.
 - Never submit a scheduler job without an explicit campaign-scoped node-hour or GPU-hour
-  ceiling. Without one, prepare the job and hand the submit command to the operator.
-  Never infer the chargeable account. Before writing, modifying, or reviewing a batch
-  script, or preparing a submit command, read `conventions/batch-scripts.md`.
+  ceiling; without one, prepare the job and hand the submit command to the operator. Never
+  infer the chargeable account. Before writing, reviewing, or submitting a batch script,
+  read `conventions/batch-scripts.md`; never submit one its checker and dry-run harness
+  have not passed.
 - Authorization to change project code does not authorize commits or publication. Unless
   the operator explicitly requests the specific action, do not stage, commit, push, or open
   or update a pull or merge request. After implementing and validating changes, leave the
