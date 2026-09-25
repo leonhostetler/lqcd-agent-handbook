@@ -65,3 +65,9 @@ binding. See [`../../conventions/batch-scripts.md`](../../conventions/batch-scri
 general rule and
 [`../../software/quda/internals/rank-placement.md`](../../software/quda/internals/rank-placement.md)
 for why accelerator visibility must stay open.
+
+Open visibility has a price on this machine that the wrapper cannot pay: in a multi-node job,
+GPU-aware Cray MPICH leaves one context per sibling rank on ordinal `0` of every node, about
+`416` MiB each. [`gpu-aware-mpi-device-context.md`](gpu-aware-mpi-device-context.md) has the
+measurement and the budget rule, which is the recommended response; the in-process remedy it
+also records is measured at two nodes only and is not yet recommended.

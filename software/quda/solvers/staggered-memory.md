@@ -579,6 +579,18 @@ and fragmentation.
 That 4-GiB number is a **Perlmutter A100 corpus advisory**, not a QUDA requirement or a
 portable GPU default. Use it explicitly when that evidence is applicable:
 
+**One device per node carries a term the band was not designed for.** In a multi-node job with
+GPU-aware MPI and open visibility, ordinal `0` of every node holds one transport context per
+sibling rank — about `416` MiB each on Perlmutter, three of them at four ranks per node — from
+before any lattice work
+([`../../../machines/perlmutter/gpu-aware-mpi-device-context.md`](../../../machines/perlmutter/gpu-aware-mpi-device-context.md)).
+The whole-device gap above was sampled on one node, so on that node's ordinal `0` it plausibly
+already contained this term `[inferred]`; on the other ordinals it did not. Budget ordinal `0`
+separately, at capacity less that constant, rather than reading the band as covering it. The
+calculator's Perlmutter capacity profile does **not** subtract it, deliberately: the profile is
+per device, the term is per node, and folding a per-node term into a per-device capacity would
+misprice the three devices that do not carry it.
+
 ```bash
 python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" mg-fit \
   --global 144 144 144 288 --ranks 6 3 6 8 \

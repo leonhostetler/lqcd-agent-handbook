@@ -101,6 +101,11 @@ Below [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s threshold, recorded so 
 occurrence trips the rule rather than starting the count again.
 
 - **MPI collective-size breakdown** separating fabric latency from rank skew — at two hand uses.
+- **A per-node ordinal-0 term in the Perlmutter capacity profile** of `tools/quda-staggered-memory.py`
+  — the GPU-aware MPI transport context recorded in
+  `machines/perlmutter/gpu-aware-mpi-device-context.md`. Deliberately prose for now: the profile is
+  per device and the term is per node, so folding it in needs a per-ordinal verdict, which is a
+  small schema change to the capacity output rather than a constant.
 - **Kernel template-argument resolution** against the revision that built the binary —
   deliberately manual, because it needs the decomposition cross-check and therefore judgement
   at each step.

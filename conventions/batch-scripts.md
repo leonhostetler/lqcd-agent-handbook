@@ -177,7 +177,12 @@ produced it cost tens of node-hours.
 
 A consequence worth stating on its own: because visibility must stay open, every rank's
 pre-initialisation accelerator activity lands on the first device. Binding cannot fix that from
-the launch environment; it has to be fixed inside the process.
+the launch environment; it has to be fixed inside the process. On Perlmutter that activity is
+not hypothetical: GPU-aware MPI itself leaves one context per sibling rank on ordinal `0` of
+every node of a multi-node job. The recommended response is to budget ordinal `0` for it; the
+in-process fix, a preloaded constructor attached inside the per-task wrapper rather than on the
+launcher, is measured at two nodes and untested at scale — see
+[`../machines/perlmutter/gpu-aware-mpi-device-context.md`](../machines/perlmutter/gpu-aware-mpi-device-context.md).
 
 ### The wrapper's CPU indices must fit the cpuset the job actually holds
 

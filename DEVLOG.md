@@ -2631,3 +2631,67 @@ production effect. No campaign identifier, node count or allocation figure trave
 Nothing was deleted. No statement in the handbook had said what QUDA's announcement line means,
 so the dead-code finding contradicts none; it corrects the campaign's own staged note, which had
 assumed the line prints.
+
+## 2026-09-25 — GPU-aware MPI's context on ordinal 0, measured, budgeted, and removable in-process
+
+A multi-node multigrid trial failed a level-0 allocation on device `0` of every node only. The
+other three devices per node sat over a gigabyte lower and did not fail. The first telemetry
+sample, before any lattice work, already showed the asymmetry. The campaign's first inference —
+three sibling-rank CUDA contexts — was **refuted** by a one-node rig (one process per device in
+every leg), then **reproduced and attributed** by the same rig on two nodes: GPU-aware Cray MPICH
+creates a context on the current device at `MPI_Init`, only when a fabric endpoint exists, and
+the linked MILC/QUDA executable adds nothing beyond the probe's surplus. A third rig measured the
+remedy: a constructor preloaded into each rank, selecting the device before `MPI_Init`, removes
+the sibling contexts at no cost resolvable against a `1.5` percent repeat spread, under GDR, at
+two nodes. **At review the operator directed that budgeting be the recommended response and the
+remedy be recorded as untested at scale**; the leaf, its summary and every pointer say so.
+
+**What landed.** `machines/perlmutter/gpu-aware-mpi-device-context.md` (evidence `experiment`,
+scope `machine:perlmutter`, anchored on the Cray MPICH, CUDA and driver versions): the four
+contrasts, the one-node null and why a one-node rig cannot see the term, the per-node budget
+rule with the first telemetry sample as its check, the preload recipe inline with its build
+shape and `ldd` check, the attachment pitfall (a preload prefixed on the launcher gives the
+launcher process a bystander context on ordinal `0`), and the two verification signals. Pointers
+from the Perlmutter notes, the rank-placement leaf (whose "cannot be done from the launch
+environment" is sharpened to say what cannot and what can), the batch-script leaf's
+pre-initialisation sentence, the memory leaf's advisory-band section, and the
+`MPICH_GPU_SUPPORT_ENABLED` row of the runtime leaf. A watch item on folding the term into the
+calculator's Perlmutter capacity profile.
+
+**Considered and not done.** Subtracting the term inside `quda-staggered-memory.py`'s
+`perlmutter-a100-40` profile. The profile is per device and the term is per node, so the honest
+form is a per-ordinal verdict, which changes the capacity output's shape; it is a watch item
+rather than a silent constant. Shipping the constructor under `tools/` was also considered: it
+needs the target's CUDA toolkit to build and cannot be exercised by the suite, so it is inlined
+in the leaf, which records the exercise it did receive.
+
+**Publishability.** The operator cleared the machine measurements (about `416` MiB per context,
+`1248` MiB per node at four ranks). No node name, job identifier, pid, or campaign figure travels.
+
+**Reconciliation under §7.5a obligation 11.** Existing statements about the same objects:
+
+- `conventions/batch-scripts.md`, "every rank's pre-initialisation accelerator activity lands on
+  the first device ... has to be fixed inside the process" — **confirmed**, and **amended** with
+  the Perlmutter mechanism and the pointer.
+- `conventions/batch-scripts.md`, the monitor "reports every device on the node" so per-device
+  asymmetry is readable — **confirmed**; the new leaf makes the expected asymmetry a check.
+- `software/quda/internals/rank-placement.md`, "select the device inside the process, before
+  communicator initialisation ... It cannot be done from the launch environment" — **confirmed**
+  in substance and **amended**: visibility restriction from the environment cannot, a preloaded
+  constructor can, and QUDA's later selection agrees with it.
+- `software/quda/internals/rank-placement.md`, "the effect on device memory is unmodelled" for
+  peer-to-peer ghost buffers — **confirmed** and untouched; a different term.
+- `software/quda/solvers/staggered-memory.md`, the `1.8`-`2.8` GiB whole-device gap and the
+  `4` GiB advisory band — **confirmed**, and **amended** to say ordinal `0` carries a per-node
+  term the band was not fitted for, and that the calculator does not subtract it.
+- `software/quda/runtime-environment.md`, the `MPICH_GPU_SUPPORT_ENABLED` row — **amended** with
+  the pointer; the default stands.
+- `machines/perlmutter/notes.md`, the rank-binding section — **amended** with the pointer; the
+  wrapper's no-accelerator-binding rule stands.
+- `machines/perlmutter/communication-defects.md`, the cray-mpich `MPI_Init` node-map failure —
+  **confirmed** and untouched; a different `MPI_Init` defect (a size limit on the encoded
+  process mapping), not a memory term.
+- The validated stack records' `gpu_binding: disabled` rows — **confirmed**; nothing here changes
+  what those runs did.
+
+Nothing was deleted.

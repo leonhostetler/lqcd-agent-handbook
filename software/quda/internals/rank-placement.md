@@ -78,7 +78,15 @@ about.
 **So the flag means several ranks genuinely sharing one device, and nothing else.** Where a rank
 must be tied to an accelerator while `gpuid` counting and the peer-to-peer decision stay
 correct, select the device **inside the process, before communicator initialisation**, with
-every device left visible. It cannot be done from the launch environment.
+every device left visible. Restricting visibility from the launch environment cannot do it; a
+constructor preloaded into the process can, because it runs inside the process before any
+communicator exists, and QUDA's own later selection derives the same per-host ordinal and
+agrees with it. There is a concrete reason to want this beyond tidiness: on Perlmutter, GPU-aware
+MPI initialising before the application has selected a device leaves one context per sibling rank
+on ordinal `0` of every node of a multi-node job. The measurement, the budget rule that is the
+recommended response, and the recipe — measured at two nodes, untested at scale, and therefore
+not yet the recommendation — with its one attachment pitfall are in
+[`../../../machines/perlmutter/gpu-aware-mpi-device-context.md`](../../../machines/perlmutter/gpu-aware-mpi-device-context.md).
 
 **Evidence:** source at the observed revision, where `QUDA_ENABLE_MPS` occurs once in the whole
 tree. One operator observation of *worse* performance under the flag is consistent with this
