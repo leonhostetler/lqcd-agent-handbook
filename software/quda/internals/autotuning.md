@@ -82,7 +82,9 @@ complete schema. Representative keys encode local field dimensions, operation or
 precision, field order, spin and color, vector layout, right-hand-side count and tiling, dslash
 subtype, dagger and xpay state, and selected compile-time policies. Multi-GPU dslash policy keys
 also append partition topology, visible-device ordering, P2P/GDR/NVSHMEM state, and the enabled
-policy set.
+policy set. That `p2p=`/`gdr=` suffix is also the only reliable witness of the GDR setting under
+the QMP communicator backend, where QUDA's announcement line cannot print — see
+[`../runtime-environment.md`](../runtime-environment.md).
 
 These are strong distinctions, but they are not a proof that every performance-relevant input is
 encoded. For example, `QUDA_ENABLE_TUNING_SHARED` can change generic shared-memory candidate

@@ -60,6 +60,12 @@ capacity predictor.
 Use [`../../playbooks/tune-solver.md`](../../playbooks/tune-solver.md) to execute the
 cross-solver selection and tuning procedure for a declared production workload.
 
+Use [`runtime-environment.md`](runtime-environment.md) for the environment variables a
+MILC-driven QUDA job sets by default, the machine exceptions, the rule that a run records each
+one set or deliberately unset, and why GDR is verified from the tunecache keys rather than the
+log; [`internals/milc-gauge-reconstruct.md`](internals/milc-gauge-reconstruct.md) owns the
+reconstruct pair it points at.
+
 Use [`solvers/eigensolver.md`](solvers/eigensolver.md) for native eigensolver invariants
 and [`internals/milc-deflation-space.md`](internals/milc-deflation-space.md) for the parity
 spaces, mass-shifted eigenvalue cache, invalidation rules, and exact-current preconditions

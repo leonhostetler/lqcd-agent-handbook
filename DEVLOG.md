@@ -2571,3 +2571,63 @@ obligation touches are: P2 (one canonical home; confirmed and cited), `modes/dev
 "one canonical home per value; other documents should point to it" (confirmed — this is its
 within-a-leaf form), and §7.5a obligation 1 on amending `ARCHITECTURE.md` first (confirmed;
 followed here). No statement was amended or deleted.
+
+## 2026-09-25 — The runtime environment a MILC/QUDA job carries by default, and why GDR cannot be read from the log
+
+A tuning campaign ran several large multi-node trials with GPU-Direct RDMA off. No check could
+notice: QUDA's default is off, the nearest stack record carried no `QUDA_ENABLE_GDR` row for the
+launcher to diff against, and the only stack-record rule in the batch-script leaf — diff the
+launcher against the stack's `runtime:` block — fires on nothing when the block is silent. Every
+sibling stack on the same machine records the variable set to `1`. The operator's direction was
+to state the standing runtime settings once, with the reason for each, rather than let the stack
+records imply them piecemeal.
+
+**What landed.** `software/quda/runtime-environment.md` (evidence `operator`, with `[source]`
+and `[experiment]` clauses inline): the default table — GDR on, GPU-aware MPI exported
+explicitly, the reconstruct pair, P2P deliberately unset, sixteen OpenMP threads only when more
+than sixteen CPUs are requested per rank, deterministic reduce unset, and, added at review as
+operator logging practice for MPICH environments, `MPICH_ENV_DISPLAY=1` and
+`MPICH_OFI_NIC_VERBOSE=2` — with the machine exceptions and the rule that a run records every
+entry set or deliberately unset. Its second half is the
+verification fact found while the campaign tried to confirm the setting: in `comm_peer2peer_init`
+every rank-0-gated announcement tests the `Communicator::rank` member, initialised to `-1`, which
+the QMP backend never assigns, so under `QUDA_QMP=ON` the `Enabling GPU-Direct RDMA access` line
+is dead code at any verbosity; the tune-key config string is built from the same flag and carries
+`gdr=1` and, through the GDR-only `+4`, `p2p=7`. A two-node rig with GDR off and on, twice each,
+confirmed both halves. The linked-MILC MG stack record gains two `unrecorded` runtime rows and a
+scope limit, on the operator's statement that the validation run was intended to set both
+variables but its environment was not captured. Pointers from the batch-script leaf and the
+autotuning leaf; a routing line in the QUDA README; `ROADMAP.md` X.6 owes the checker note.
+
+**Publishability.** The operator cleared the two-node GDR measurement (order ten percent at a
+small local volume) as a machine figure; it is stated as a lower-bound-class datum and not as the
+production effect. No campaign identifier, node count or allocation figure travels.
+
+**Reconciliation under §7.5a obligation 11.** Existing statements about these objects:
+
+- `conventions/batch-scripts.md`, "diff the launcher against the stack's `runtime:` block" —
+  **confirmed**, and **amended** with the silent-record case and the pointer.
+- `conventions/batch-scripts.md`, the thread-count-versus-CPU-count arithmetic (item 4 of the
+  wrapper section) — **confirmed** as a distinct rule; the leaf says both bind.
+- `software/quda/internals/autotuning.md`, policy keys append P2P/GDR/NVSHMEM state —
+  **confirmed**, and **amended** to say the suffix is the verification of the setting.
+- `software/quda/internals/milc-gauge-reconstruct.md`, the reconstruct pair and its defaults —
+  **confirmed**; the leaf points at it and restates no value.
+- `machines/frontier/stacks/*/notes.md` and `stack.yaml`, `QUDA_ENABLE_P2P=0` as part of the
+  validated environment — **confirmed**, and carried into the leaf as the machine exception to
+  "leave unset".
+- `machines/perlmutter/stacks/milc-cuda13-quda-wilson-flow-2026q3`, `OMP_NUM_THREADS: 32` at 32
+  CPUs per rank — **confirmed as recorded**; the leaf names it as the equal case the thread rule
+  warns against and says the correctness validation stands.
+- `machines/deltaai/notes.md` and `machines/frontier/notes.md`, GPU-aware Cray MPICH requires
+  `MPICH_GPU_SUPPORT_ENABLED=1` — **confirmed**; the leaf adds only "export it explicitly".
+- The Perlmutter and DeltaAI stack notes' `export QUDA_ENABLE_GDR=1` lines — **confirmed**; each
+  stack remains canonical for what its own run set.
+- `conventions/profile-metrics.md`, the traced-A/B arms with GDR disabled — **confirmed**; a
+  tracer-inflation fact, not a statement of the default, and untouched.
+- `software/quda/internals/rank-placement.md`, `QUDA_ENABLE_MPS` — **confirmed** and untouched; a
+  different variable.
+
+Nothing was deleted. No statement in the handbook had said what QUDA's announcement line means,
+so the dead-code finding contradicts none; it corrects the campaign's own staged note, which had
+assumed the line prints.

@@ -98,6 +98,14 @@ validation:
     hierarchy_levels: 3
     near_null_and_terminal_eigenspace: loaded from previously saved single-file vector sets, not regenerated in this run
     quda_resource_path: Pre-warmed tunecache carried in from the study baseline.
+    QUDA_ENABLE_GDR: >-
+      unrecorded. The validation run was intended to set 1, matching every sibling stack, but its
+      environment was not captured and the operator cannot confirm it. If it was unset, QUDA's own
+      default applied and GPU-Direct RDMA was off. A launcher diffed against this record must supply
+      the value from software/quda/runtime-environment.md rather than treat this row as silent.
+    MPICH_GPU_SUPPORT_ENABLED: >-
+      unrecorded. Intended 1; if unset, whatever the site's GPU module exported at the time applied.
+      Same consequence as the row above.
     application_payload_exit_code: 0
   tests:
     - name: mg_execution_path
@@ -123,6 +131,7 @@ validation:
       outcome: Monotone across four rungs and inside the bound at the tightest rung.
       result: pass
   scope_limits:
+    - The run's communication environment is unrecorded. Whether QUDA_ENABLE_GDR and MPICH_GPU_SUPPORT_ENABLED were set is not known, so this record validates the linked MG path and not any particular halo transport; a reproduction states its own values explicitly.
     - This is the first stack to validate a linked MILC multigrid executable. It supersedes nothing; the native QUDA mg-staggered stack remains the only validation of QUDA's own staggered GCR-MG test path.
     - The composed QUDA installation was configured with QUDA_BUILD_ALL_TESTS and QUDA_INSTALL_ALL_TESTS OFF, which the mg-staggered profile now sets ON. The library is otherwise option-identical to that profile. No QUDA native test executable is installed alongside this build.
     - Validation exercised one hierarchy at one placement on one gauge configuration. No other level count, aggregation block, near-null count, coarse solver, rank decomposition, or node count is validated.

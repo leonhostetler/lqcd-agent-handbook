@@ -148,6 +148,13 @@ validator compares a launcher against a stack's `runtime:` block, and the job do
 simply runs slower, or unevenly, indefinitely. Treat a stack's `runtime:` block as a
 reproduction contract and diff the launcher against it before submitting.
 
+**A stack record can be silent on a variable the run still needs, and a diff against silence
+fires on nothing.** So diff the launcher's environment block against the defaults in
+[`../software/quda/runtime-environment.md`](../software/quda/runtime-environment.md) as well,
+export every row explicitly rather than inheriting one from a site module, and record each
+value in force — set or deliberately unset — in the run's own manifest. That leaf also owns why
+GPU-Direct RDMA is verified from the tunecache keys and never from the application log.
+
 The failure mode is quiet in the way that costs most. With several ranks per node, many threads
 each, and a thread-placement policy that spreads, dropping the binding wrapper lets every rank's
 threads spread across all cores and all memory domains and overlap. There is no warning, and the
