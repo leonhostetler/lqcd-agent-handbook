@@ -89,7 +89,10 @@ the build. At `18` the copy is avoided only if the field is also single precisio
 This does not change the recommendation -- `13`/`9` remains what every validated stack and
 every upstream MILC sample script uses -- but it is a real, reconstruct-dependent allocation
 that a setup-phase memory estimate has to carry, and it is invisible in any input file for the
-reasons this page already gives.
+reasons this page already gives. **It is paid again on every full multigrid update**, because
+that update rebuilds the KD inverse; a thin update pays nothing. Which of the two a MILC run
+performs is decided by its set type — see
+[`../solvers/staggered-multigrid.md`](../solvers/staggered-multigrid.md).
 
 ## What to do
 

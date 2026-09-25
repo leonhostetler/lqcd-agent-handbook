@@ -2695,3 +2695,58 @@ in the leaf, which records the exercise it did receive.
   what those runs did.
 
 Nothing was deleted.
+
+## 2026-09-25 — Full versus thin multigrid updates, and the MILC set type that decides which one you get
+
+A multigrid trial completed its setup, banked its near-null vectors, and then failed a level-0
+gauge allocation on the first solve. The log said `Performing a full MG solver update`; the
+handbook's overview had described a thin update as the ordinary post-setup case and said
+nothing about what either update allocates or how MILC chooses between them. Reading the
+source for this entry found more than the staged note claimed. MILC's fresh-link signal is
+sent on the first solve after creation, so an update always happens there. The thin path swaps
+fields and mass on the fine and KD operators and rebuilds nothing; the full path rebuilds the
+KD inverse while the old one is still held. And the input's `rebuild_type` reaches the solver
+**only from a `multimass` set**: for `multisource` and `multicolorsource` sets it is parsed
+into a per-set array that nothing copies into the inverter control block. A successor trial had
+been prepared on the multisource form and was cancelled unrun once this was known.
+
+**What landed.** The overview's "Reuse, updates, and cleanup" now states the trigger, what each
+update does and does not do, the memory consequence, and the set-type rule, with permalinks at
+QUDA `00c7ef33d` and MILC `6b9b8a06` added to its sources; its runtime-confirmation item 3 says
+the first solve always reports an update line and what a `full` line means when `THIN` was
+requested. The inverter-types leaf gains the section on the copy defect and the multimass
+recipe, with the `fn_QUDA_MG` timer consequence, and its fallback-default sentence is
+completed rather than corrected: it was true for a build without the MG path, and the MG-build
+default is `FULL`. The memory leaf prices the full update's KD rebuild as a source-exact
+post-setup transient beside its "peak outside every modelled phase" warning. The reconstruct
+leaf notes its KD gauge copy recurs on every full update.
+
+**Publishability.** The operator cleared the ensemble memory figures; the entry quotes an order
+of magnitude for the transient and the fact of one observed failure, and no campaign figure.
+
+**Reconciliation under §7.5a obligation 11.** Existing statements about the same objects:
+
+- `staggered-multigrid.md`, thin update "changes fields and mass in place where supported and
+  resets the staggered KD fields without regenerating all hierarchy state" — **confirmed in
+  substance** (it calls `resetStaggeredKD`) and **amended**: it does not rebuild the KD inverse.
+- `staggered-multigrid.md`, full update "rebuilds the fine operators and resets or refreshes
+  hierarchy state" — **confirmed** and **amended**: the refresh branch is dead in the MILC
+  interface, and the KD rebuild's transient is named.
+- `staggered-multigrid.md`, "The requested rebuild mode is consulted only when an update is
+  required" — **confirmed**, with the addition that the first solve always requires one.
+- `staggered-multigrid.md`, runtime confirmation item 3 — **confirmed** and **amended**.
+- `staggered-inverter-types.md`, the rebuild-modes table (`FULL`, `THIN`, `CG`) — **confirmed**.
+- `staggered-inverter-types.md`, "Without the compiled multigrid path, `ks_spectrum` initializes
+  the rebuild choice to this fallback" — **confirmed** as scoped, and **completed** with the
+  MG-build default.
+- `staggered-inverter-types.md`, the set-dispatch table row for `multimass` (separate single-mass
+  inverters at most two masses) — **confirmed**; the recipe rests on it.
+- `staggered-memory.md`, "A measured peak can also fall outside every modelled phase" —
+  **confirmed** and **amended** with the one post-setup allocation that is source-exact.
+- `milc-gauge-reconstruct.md`, the KD build's unreconstructed gauge copy — **confirmed** and
+  **amended**: it recurs on every full update.
+- `ks-spectrum.md`, the set-type dispatch note ("`multimass` enters ... at most two masses") —
+  **confirmed** and untouched; the inverter-types leaf owns the rebuild consequence.
+- `runtime-environment.md`, the reconstruct pair — **confirmed** and untouched.
+
+Nothing was deleted.

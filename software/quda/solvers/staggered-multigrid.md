@@ -20,6 +20,16 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface_internal.cpp
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/CMakeLists.txt
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2405-L2434
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/interface_quda.cpp#L2957-L3058
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L72-L197
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L199-L232
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L340-L365
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L436-L470
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L315
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c#L619-L653
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L583-L601
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L809-L827
 observed: "2026-08-20"
 observed_on:
   software:
@@ -146,12 +156,43 @@ mean multiple sources, and a batch-width setting does not by itself enable MMA.
 
 MILC stores the MG object in one static process-global `mg_preconditioner` pointer.
 It creates the hierarchy when notified that fermion links are fresh and the pointer is
-null. Later link or mass changes cause `qudaInvertMsrcMG` to reload gauge fields and call
-`updateMultigridQuda`:
+null. An update is issued by `qudaInvertMG` / `qudaInvertMsrcMG` whenever the gauge field is
+invalid, the mass changed, or MILC's fresh-link signal arrived — and **that signal is sent on
+the very first solve after `qudaMultigridCreate`**, by the same code path that created the
+hierarchy, so the first solve after setup always performs an update at unchanged links and
+mass. `[source]` at QUDA `00c7ef33d` / MILC `6b9b8a06`. Which kind is decided by the
+`mg_rebuild_type` argument MILC passes, and the two are not a "cheap" and "thorough" version of
+one thing:
 
-- a **full** update rebuilds the fine operators and resets or refreshes hierarchy state;
-- a **thin** update changes fields and mass in place where supported and resets the
-  staggered KD fields without regenerating all hierarchy state.
+- a **thin** update swaps the fine operators' gauge-field pointers and calls `setMass` on them,
+  and, for an optimized-KD transfer, does the same on the level-0 KD operators through
+  `resetStaggeredKD`. It allocates nothing and touches no coarse level. It does **not** rebuild
+  the KD inverse — a source to-do at the observed revision — so after a mass change the KD
+  inverse and every level below the fine one describe the **old** mass, while the outer solve
+  stays exact. At unchanged links and mass, which is the first-solve case, thin is exact and
+  free;
+- a **full** update deletes and recreates the fine Dirac objects and then resets every level:
+  re-orthonormalises the existing near-null vectors, re-coarsens each level, rebuilds the KD
+  inverse **while the old one and its sloppy copy are still held**, recreates the smoothers and
+  coarse solvers, and re-runs `MG::verify` if enabled. It never regenerates near-null vectors:
+  the MILC interface hard-codes `setup_maxiter_refresh` to zero, so the refresh branch is dead.
+  What a full update does with a resident coarsest eigenspace is not characterised here.
+
+**The full update's KD rebuild is a memory transient in the steady-solve phase**, sized in
+[`staggered-memory.md`](staggered-memory.md); it has been observed to be the allocation that fails
+in a run whose setup completed.
+
+**Which update MILC asks for is decided by a field the input can only set for one set type.**
+`ks_spectrum` reads `rebuild_type` for `multisource` and `multicolorsource` sets into a per-set
+array that **nothing copies** into the inverter control block the solver reads, and reads it for
+`multimass` sets into that control block directly; `single` sets never read it. Under a
+multigrid build the control block's default is `FULL` (the enum's zero value in a zero-initialised
+global), so **every `single`, `multisource` and `multicolorsource` set takes a full update on the
+first solve whatever the input says, and only a `multimass` set can request `THIN`**. A `multimass`
+set of one mass takes the single-source MG path, so the recipe for a thin first-solve update at
+this MILC revision is `set_type multimass` sets of one mass each. The set-type dispatch and the
+timer-line consequence are in
+[`../../milc/internals/staggered-inverter-types.md`](../../milc/internals/staggered-inverter-types.md).
 
 The requested rebuild mode is consulted only when an update is required. It does not
 force work on every solve.
@@ -491,7 +532,9 @@ Confirm all of the following from output or returned state:
 2. QUDA reports the configured level count, effective transfer block sizes, near-null
    generation/load, coarse construction, and any coarsest eigensolve.
 3. An invalidation reports `Performing a full MG solver update` or `Performing a thin MG
-   solver update` as intended.
+   solver update` as intended — and the first solve after creation always reports one of
+   them. A `full` line where `THIN` was requested means the request never reached the
+   interface, which is the set-type rule above, not a QUDA decision.
 4. The outer path identifies GCR with an MG preconditioner, and MILC timing identifies
    `fn_QUDA_MG` rather than the CG/UML fallback.
 5. The parameter file, build cache, local lattice, rank/GPU geometry, effective

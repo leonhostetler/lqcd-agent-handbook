@@ -17,6 +17,10 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/targets/cuda/malloc.cpp
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L340-L365
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L436-L470
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/staggered_kd_build_xinv.cu#L150-L192
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/gauge_field.cpp#L1221-L1228
   - operator's screened tuning records
 observed: "2026-08-20"
 observed_on:
@@ -301,6 +305,22 @@ phases, treated as alternatives; a run whose high-water occurs in the steady sol
 complete hierarchy and a resident eigenspace co-allocated, has no term here. The resulting
 error is one-sided — the model under-predicts — and it is not detected by any tier label.
 Measure the winner on the target stack.
+
+**One post-setup allocation is source-exact and worth pricing on its own: the full multigrid
+update's Kähler-Dirac rebuild.** `[source]` at QUDA `00c7ef33d`. A full update deletes the
+level-0 coarse operators and rebuilds the KD inverse while the previous inverse and its sloppy
+copy are still held, and the build allocates, at fine local volume and KD geometry: a
+MILC-order inverse temporary (created zeroed, so a failure surfaces as a memset), an
+unreconstructed single-precision copy of the fine gauge field whenever the run's reconstruct is
+not `18` ([`../internals/milc-gauge-reconstruct.md`](../internals/milc-gauge-reconstruct.md)),
+a native-order temporary, and the new inverse. Compute each with the object layer above
+(`gauge` with the KD `site_dim` of `16`, and `vector` geometry for the gauge copy); at a fine
+local volume of order a million sites the transient is of order several gigabytes, against
+**nothing** for a thin update. `[experiment]` One run at the calibration ensemble completed setup
+and then failed exactly the first of those allocations on the first solve, on the device that
+also carried the per-node transport term above. Whether a run pays it is decided by the MILC
+set type, not by a solver parameter — see
+[`staggered-multigrid.md`](staggered-multigrid.md), "Reuse, updates, and cleanup".
 
 Most terms are enumerated from source. The model also uses `setup_ws = 17,787 B` per
 fine local site for setup workspace and `copy_factor = 1.718` on coarse Y-sets. Those

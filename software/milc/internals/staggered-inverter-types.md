@@ -13,6 +13,14 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/ks_multicg.c#L763-L823
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L530-L835
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/make_prop.c#L72-L341
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L583-L601
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L770
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L809-L827
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/params.h#L113
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/include/generic_quark_types.h#L182-L187
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c#L650-L653
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c#L1081-L1084
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/ks_multicg.c#L784-L787
 observed: "2026-08-19"
 observed_on:
   software:
@@ -101,7 +109,34 @@ For `MG`, the accepted rebuild strings are:
 
 The `CG` rebuild label should not be confused with `inv_type CG`: the current
 fallback implementation is UML. Without the compiled multigrid path,
-`ks_spectrum` initializes the rebuild choice to this fallback.
+`ks_spectrum` initializes the rebuild choice to this fallback. **With** the
+multigrid path compiled the default is `FULL`: the choice lives in a
+zero-initialised global and `FULLREBUILD` is the enum's first value.
+
+### Only a multimass set's `rebuild_type` reaches the solver
+
+`[source]` The keyword is read in two places and stored in two different fields.
+For `multisource` and `multicolorsource` sets it is parsed into a **per-set
+array** (`param.mg_rebuild_type[k]`); for `multimass` sets it is parsed, per
+propagator, into the inverter control block (`param.qic[nprop].mg_rebuild_type`).
+`single` sets never read it. The solver reads only the control block. **Nothing
+copies the per-set array into it** — the neighbouring `inv_type[k]` is copied,
+the rebuild choice was left out when the feature was added — so a `multisource`
+or `multicolorsource` set's `rebuild_type THIN` is accepted, echoed, and
+ignored, and the set takes a full update like a `single` set.
+
+The consequence is a recipe: **to obtain a thin update, use `set_type multimass`
+sets of one mass.** A multimass set with at most two masses and no eigenvectors
+dispatches to the single-source inverter for each mass, which reads the control
+block's rebuild choice, takes the single-source MG path, and prints the
+`fn_QUDA_MG` timer label; `block_solver_batch_size` does not apply on that path.
+The multisource restructure that looks equivalent is not, and its failure is
+silent: MILC's own proofreading mode accepts the input, and the only evidence is
+the `full` update line at the first solve. Upstream, the fix is one assignment
+copying the per-set value into the control block.
+
+Why the thin update matters for memory and when it is exact is owned by
+[`../../quda/solvers/staggered-multigrid.md`](../../quda/solvers/staggered-multigrid.md).
 
 ## Deflation interaction
 
