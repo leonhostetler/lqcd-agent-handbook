@@ -27,6 +27,9 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L340-L365
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L436-L470
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L315
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L495
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L185
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L745-L780
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c#L619-L653
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L583-L601
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L809-L827
@@ -462,6 +465,34 @@ The interface flips the mass sign on entry to match the full-parity convention a
 the solution sign on return. These are current compatibility workarounds, not user
 tunables.
 
+### `verify_results` is a correctness gate on the transfer, and it costs memory and time
+
+MILC's `verify_results` sets QUDA's `run_verify`. `[source]` at QUDA `00c7ef33d`. When it is
+true, `MG::verify` runs at every level except the coarsest, **after** that level's sub-hierarchy
+exists — so the level-1 pass runs **last** in setup — and again on every full update. It checks
+that restriction then prolongation reproduces the near-null vectors, that a random coarse vector
+survives prolongation then restriction, that the native coarse operator matches the emulated
+`P^dagger D P`, and that the even and odd halves of the preconditioned operator agree, and it
+**aborts the run** on any deviation above a precision-dependent tolerance. It changes nothing
+about the solve: it is a gate on the transfer and coarse operators, and a passing gate is what a
+hierarchy built by the same code will pass again.
+
+**What it costs.** `Nvec` fine temporaries at the sloppy precision and `Nvec` coarse temporaries,
+allocated for the duration of the level's checks and returned to the pool as `Nvec` separate
+blocks. At the level above the fine grid that is the same size as the level-1 near-null set
+itself, and because that pass runs last in setup it can set the run's pre-solve peak while
+leaving the pool full of near-null-sized blocks that a later larger request cannot use
+([`../internals/device-memory-pool.md`](../internals/device-memory-pool.md)). The time is the
+checks themselves, on every level, on every setup and full update. Neither appears in a
+production run, which never allocates the temporaries.
+
+**Actionable consequence.** Treat `verify_results true` as a debugging setting: turn it on for a
+new hierarchy, a new build or a new placement, and **off** for any run whose device margin or
+setup timing matters. Setup figures taken with it on are a different population from figures
+taken with it off — the same warm-state discipline as a tunecache change — so hold it fixed
+across any pair being compared. Pricing is in
+[`staggered-memory.md`](staggered-memory.md).
+
 ### A CA coarse solver's `maxiter` and basis size jointly select its execution mode
 
 `coarse_solver_maxiter` and `coarse_solver_ca_basis_size` are not independent knobs. For a
@@ -505,7 +536,9 @@ MG residency combines several classes of device allocation:
 - coarse link fields whose storage grows with coarse color squared and coarse volume;
 - smoother and coarse-solver workspaces at every active level;
 - residual, correction, restriction, and prolongation temporaries;
-- optional coarsest-level eigenvectors and eigensolver search space; and
+- optional coarsest-level eigenvectors and eigensolver search space;
+- with `verify_results true`, `Nvec` fine temporaries at the sloppy precision plus `Nvec`
+  coarse temporaries per verified level, held for the duration of that level's checks; and
 - multi-source batches and communication/halo buffers.
 
 Setup peak can exceed steady-state solve memory because null-vector generation,

@@ -21,6 +21,8 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L436-L470
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/staggered_kd_build_xinv.cu#L150-L192
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/gauge_field.cpp#L1221-L1228
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L185
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L745-L780
   - operator's screened tuning records
 observed: "2026-08-20"
 observed_on:
@@ -321,6 +323,20 @@ and then failed exactly the first of those allocations on the first solve, on th
 also carried the per-node transport term above. Whether a run pays it is decided by the MILC
 set type, not by a solver parameter — see
 [`staggered-multigrid.md`](staggered-multigrid.md), "Reuse, updates, and cleanup".
+
+**A second setup-tail term the model does not carry: `verify_results`.** `[source]` at QUDA
+`00c7ef33d`. With MILC's `verify_results true`, every level except the coarsest allocates `Nvec`
+fine temporaries at the sloppy precision plus `Nvec` coarse temporaries for the duration of its
+checks, and the level-1 pass runs last in setup, after the whole hierarchy is resident. Size the
+fine term with the object layer: `Nvec` full fine fields at the sloppy precision — with `64`
+vectors on a fine local volume of order a million sites, about two gigabytes. The phases above
+are alternatives that end before this pass, so a run whose peak is the verify pass is a run whose
+peak the model does not see, in the under-predicting direction. `[experiment]` In one run at the
+calibration ensemble the computed level-1 term matched the telemetry step at that moment to
+within a few percent and set the run's pre-solve peak; the temporaries returned to the pool as
+`Nvec` separate blocks, and the next request, larger than any one of them, could not be served
+from them ([`../internals/device-memory-pool.md`](../internals/device-memory-pool.md)). Turn the
+gate off for any run whose margin matters; a production run never allocates it.
 
 Most terms are enumerated from source. The model also uses `setup_ws = 17,787 B` per
 fine local site for setup workspace and `copy_factor = 1.718` on coarse Y-sets. Those

@@ -2750,3 +2750,48 @@ of magnitude for the transient and the fact of one observed failure, and no camp
 - `runtime-environment.md`, the reconstruct pair — **confirmed** and untouched.
 
 Nothing was deleted.
+
+## 2026-09-25 — `verify_results`: a correctness gate the handbook never mentioned, priced
+
+The handbook did not mention `verify_results`. A campaign's inherited parameter file carried it
+`true` in every row, annotated by the operator as a debugging setting, and a run at the
+calibration ensemble whose setup completed showed its level-1 pass as the last step before the
+first solve: `Nvec` fine temporaries at the sloppy precision, computed to within a few percent of
+the telemetry step, setting the pre-solve peak, and leaving the pool full of near-null-sized
+blocks that the next, larger request could not use. The operator had already directed that it be
+off before any final-result run; the handbook now says why.
+
+**What landed.** In the MG overview: a tunables subsection stating what `MG::verify` checks, that
+it runs at every level but the coarsest after the sub-hierarchy exists and again on every full
+update, that it aborts on a deviation above tolerance, what it allocates, and the actionable
+rule — on for a new hierarchy, build or placement, off where margin or setup timing matters,
+fixed across any compared pair; and a bullet in the memory-model list. In the memory leaf: the
+term priced with the object layer beside the full-update transient, as a second setup-tail term
+the phase model does not carry, with the one observed instance. Sources at QUDA `00c7ef33d`:
+the `run_verify` mapping, the call site in `MG::reset`, and the temporaries in `MG::verify`.
+
+**Publishability.** The operator cleared the ensemble memory figures; the entry quotes the
+computed order of magnitude at a stated vector count and local volume, and the fact of one
+observed instance, with no campaign identifier or figure.
+
+**Reconciliation under §7.5a obligation 11.** Existing statements about the same objects:
+
+- `staggered-multigrid.md`, memory model, "Setup peak can exceed steady-state solve memory
+  because null-vector generation, orthogonalization, coarse construction, and optional
+  eigensolver work coexist with the partially built hierarchy" — **confirmed** and **amended** by
+  the new bullet: verify's temporaries are a further setup-phase coexistence.
+- `staggered-multigrid.md`, "Reuse, updates, and cleanup" (class C): a full update "re-runs
+  `MG::verify` if enabled" — **confirmed**; the new subsection is what "if enabled" means.
+- `staggered-multigrid.md`, "Tunables and hard invariants": the list of major hierarchy controls
+  — **confirmed**; `verify_results` was absent from it and is now a subsection beneath it.
+- `staggered-memory.md`, "A measured peak can also fall outside every modelled phase" —
+  **confirmed** and **amended** with this second term.
+- `staggered-memory.md`, the four-level phase table (A, B, C as alternatives) — **confirmed**;
+  the new paragraph says the verify pass ends after all three.
+- `device-memory-pool.md`, "serves a device request from the smallest cached block that fits"
+  and "a free never returns memory to the driver" — **confirmed** and untouched; the fragmentation
+  consequence stated here rests on them and points at them.
+- `conventions/measurement.md`, the warm-state contract — **confirmed**; the "different
+  population" rule for verify on versus off is that contract applied, stated in the overview.
+
+Nothing was deleted.
