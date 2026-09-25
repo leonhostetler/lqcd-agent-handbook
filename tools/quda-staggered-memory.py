@@ -6,6 +6,12 @@ b6998853f.  The plain-CG MRHS command derives a production-width increment from 
 same source and carries a separately named matched-width validation.  Fit commands use
 the Perlmutter A100 retrospective calibration documented in
 software/quda/solvers/staggered-memory.md.
+
+CHANGES
+  2026-09-25  mg-fit reports `detail.post_setup_phase_D` -- the resident four-level hierarchy at
+              steady-state counts plus the width-1 solver workspace -- BESIDE the fitted setup
+              phases A-C, and warns when it exceeds the winning phase.  It is never folded into
+              `device_gib`: see the comment in mg_corpus_fit.  No predicted value changed.
 """
 
 from __future__ import annotations
@@ -534,6 +540,92 @@ def mg_corpus_fit(
 
     totals = {name: sum(terms.values()) for name, terms in phases.items()}
     peak = max(totals, key=totals.get)
+
+    # Post-setup phase D: the complete hierarchy resident at steady-state counts plus the
+    # width-1 solver workspace.  A run at the calibration ensemble peaked HERE, after the
+    # coarsest eigensolve, several GB above its phase-A plateau, and the fitted phases could
+    # not see it (staggered-memory.md, "Phase D").  D is REPORTED BESIDE the phases and is
+    # deliberately NOT a candidate for `peak`: the setup phases are corpus-fitted and the
+    # locked calibration decision forbids revising a fit while the corpus that validates it
+    # lives outside this repository.  FOLDING D INTO THE MAXIMUM IS THE INTENDED FUTURE
+    # CHANGE, to be made in a session that can re-validate the four-phase model against the
+    # retrospective counters (ROADMAP.md, Slice 5 obligations).  Until then the tool keeps
+    # every published number unchanged and says, loudly, when D is the larger.
+    #
+    # The resident terms reuse the model's own objects at steady-state counts (Y and X sets
+    # after their build temporaries are gone, as Y_l2 already drops from phase B to phase C);
+    # the solver workspace is the width-1 instance of the source-derived inventory that
+    # staggered-memory.md's MRHS-MG section validated to 0.42% for one four-level topology.
+    # Coarse solver fields are counted at colour nvec_(L-1) with spin 2, which reproduces the
+    # documented 1475.1875 MiB per-RHS figure exactly; the fitted phases count some coarse
+    # objects differently, and that convention is left as fitted.
+    post_setup: dict[str, object]
+    if levels == 4:
+        assert x2 is not None and x3 is not None
+        phase_c = phases["C"]
+        resident_after_setup = dict(resident)
+        resident_after_setup.update(
+            {
+                "V_l1": phase_c["V_l1"],
+                "geomap": phase_c["geomap"],
+                "B_l2": phase_c["B_l2"],
+                "V_l2": phase_c["V_l2"],
+                "Y_l2": phase_c["Y_l2"],
+                "X_l2": phase_c["X_l2"],
+                "Y_l3": y_set(x3, nc3, 2 + n_aos, n_aos),
+                "X_l3": x_set(x3, nc3, 2 + n_aos, 0),
+                "B_l3": phase_c["B_l3"],
+            }
+        )
+        single = PRECISION["single"]
+        solve_ws = {
+            "solve_ws_fine_kd_width1": (
+                model_spinor_bytes(dims, 3, 1, PRECISION["double"], 3)
+                + model_spinor_bytes(dims, 3, 1, single, 54)
+                + model_spinor_bytes(dims, 3, 1, prec_null, 18)
+            ),
+            "solve_ws_l2_width1": (
+                color_spinor_bytes(x2, nvec1, 2, single, "full", 2)
+                + color_spinor_bytes(x2, nvec1, 2, single, "parity", 27)
+            ),
+            "solve_ws_l3_width1": (
+                color_spinor_bytes(x3, nvec2, 2, single, "full", 2)
+                + color_spinor_bytes(x3, nvec2, 2, single, "parity", 32)
+            ),
+        }
+        d_terms = dict(resident_after_setup, **solve_ws)
+        d_total = sum(d_terms.values())
+        post_setup = {
+            "status": "reported-not-folded",
+            "total_gib": d_total / GIB,
+            "resident_after_setup_gib": sum(resident_after_setup.values()) / GIB,
+            "solve_workspace_width1_gib": sum(solve_ws.values()) / GIB,
+            "terms_gib": {name: value / GIB for name, value in d_terms.items()},
+            "exceeds_setup_peak": d_total > totals[peak],
+            "excess_over_setup_peak_gib": max(0.0, d_total - totals[peak]) / GIB,
+            "reading": (
+                "one-way signal: true means device_gib under-predicts by at least the excess; "
+                "false is NOT reassurance. D is a lower bound on the post-setup footprint: the "
+                "pool never returns memory, so the whole-device footprint after setup is at "
+                "least the setup peak plus every later request the cached free blocks cannot "
+                "serve, which this inventory does not carry"
+            ),
+            "solve_workspace_topology": (
+                "outer GCR(15), post CA-GCR(8), intermediate GCR(8), bottom Chebyshev "
+                "CA-GCR(16), double outer, single sloppy/coarse, preconditioner at the null "
+                "precision, active width 1; another topology needs its own count"
+            ),
+            "evidence": (
+                "source-derived resident inventory at steady-state counts plus the "
+                "width-1 instance of the validated MRHS-MG field inventory; never fitted, "
+                "never folded into device_gib"
+            ),
+        }
+    else:
+        post_setup = {
+            "status": "not-modelled-below-four-levels",
+            "evidence": "the resident and solver inventories are enumerated for four levels only",
+        }
     # Does the requested coarsest eigenspace actually reach the reported total?  The
     # deflation term lives in exactly one phase per level count, and the four-level term
     # is sized by max(nvec2, nvec3), so a winning phase without it -- or an nvec3 at or
@@ -557,6 +649,14 @@ def mg_corpus_fit(
             )
             + ". Reported headroom is NOT eigenspace-aware here, so do not rank this "
             "candidate against one whose total does respond to nvec_3."
+        )
+    if post_setup.get("exceeds_setup_peak"):
+        extrapolations.append(
+            "LOUD WARNING: post-setup phase D (resident hierarchy plus width-1 solve workspace) "
+            f"is {post_setup['excess_over_setup_peak_gib']:.2f} GiB ABOVE the winning setup "
+            f"phase {peak}. device_gib is the setup-phase maximum and does NOT include it; a run "
+            "whose peak falls after setup is under-predicted by at least that amount. See "
+            "staggered-memory.md, 'Phase D'."
         )
     if levels != 4:
         extrapolations.append(
@@ -598,6 +698,7 @@ def mg_corpus_fit(
             "deflation_enters_total": deflation_enters_total,
             "phase_gib": {name: value / GIB for name, value in totals.items()},
             "winning_terms_gib": {name: value / GIB for name, value in phases[peak].items()},
+            "post_setup_phase_D": post_setup,
             "model_controls": {
                 "null_precision": precision_names[prec_null],
                 "setup_precision": precision_names[prec_setup],

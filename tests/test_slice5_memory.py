@@ -727,3 +727,54 @@ class StaggeredMemoryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PostSetupPhaseDTests(unittest.TestCase):
+    """Phase D is reported beside the fitted phases and never changes a predicted value."""
+
+    HIERARCHY = [
+        "mg-fit", "--local", "48", "48", "24", "16", "--block1", "6", "6", "6", "4",
+        "--block2", "2", "2", "2", "2", "--nvec1", "64", "--nvec2", "96", "--nvec3", "0",
+        "--mma", "--partitioned", "1", "1", "1", "1",
+    ]
+
+    def test_phase_d_is_reported_and_not_folded(self):
+        _, payload = run_json(MEMORY, *self.HIERARCHY)
+        detail = payload["detail"]
+        d = detail["post_setup_phase_D"]
+        self.assertEqual(d["status"], "reported-not-folded")
+        self.assertIn(detail["winning_phase"], ("A", "B", "C"))
+        # The published number is still the setup-phase maximum, whatever D says.
+        self.assertAlmostEqual(payload["device_gib"], detail["phase_gib"][detail["winning_phase"]])
+        self.assertNotIn("D", detail["phase_gib"])
+        self.assertGreater(d["total_gib"], 0)
+        self.assertAlmostEqual(
+            d["total_gib"], d["resident_after_setup_gib"] + d["solve_workspace_width1_gib"]
+        )
+        self.assertEqual(
+            d["exceeds_setup_peak"], d["total_gib"] > detail["phase_gib"][detail["winning_phase"]]
+        )
+
+    def test_width1_solve_workspace_reproduces_the_documented_mrhs_inventory(self):
+        """staggered-memory.md: 1475.1875 MiB per additional RHS for this exact hierarchy."""
+        _, payload = run_json(MEMORY, *self.HIERARCHY)
+        d = payload["detail"]["post_setup_phase_D"]
+        mib = d["solve_workspace_width1_gib"] * 1024
+        # The payload rounds floats; the raw value is exact to the byte.
+        self.assertAlmostEqual(mib, 1475.1875, delta=0.5)
+
+    def test_phase_d_warns_only_when_it_exceeds_the_setup_peak(self):
+        _, payload = run_json(MEMORY, *self.HIERARCHY)
+        d = payload["detail"]["post_setup_phase_D"]
+        fired = any("post-setup phase D" in w for w in payload["warnings"])
+        self.assertEqual(fired, d["exceeds_setup_peak"])
+
+    def test_phase_d_is_not_modelled_below_four_levels(self):
+        _, payload = run_json(
+            MEMORY, "mg-fit", "--local", "16", "16", "16", "32", "--levels", "3",
+            "--block1", "4", "4", "4", "4", "--nvec1", "64", "--nvec2", "32", "--nvec3", "0",
+            "--no-mma", "--partitioned", "1", "1", "1", "1",
+        )
+        self.assertEqual(
+            payload["detail"]["post_setup_phase_D"]["status"], "not-modelled-below-four-levels"
+        )

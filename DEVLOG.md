@@ -2795,3 +2795,79 @@ observed instance, with no campaign identifier or figure.
   population" rule for verify on versus off is that contract applied, stated in the overview.
 
 Nothing was deleted.
+
+## 2026-09-25 — Phase D, reported beside the fitted phases and not folded in
+
+A four-level run at the calibration ensemble, at a placement outside the fitted envelope, did
+not peak where the memory model said. The model named phase A; the telemetry showed the phase-A
+plateau over-predicted by at least twelve percent and the device still climbing through the
+level-2 generation, the level-3 build and the eigensolve to a peak with the whole hierarchy
+resident, some `7.7` GB above phase A, from which the first solve's full update then failed.
+The same run let the fitted setup-workspace constant be compared with the source-exact
+workspace for the first time: about five times larger. Both are exactly the open case the
+deferred-decision register already named — whether phase A genuinely peaks before the
+coarsest eigensolve, or the fitted constant absorbs a near-constant eigenspace term — and
+neither can be settled from inside this repository.
+
+**Decision.** The operator directed: report a source-derived post-setup phase D beside phases
+A-C, do not fold it into the maximum, comment in the tool that folding is the intended future
+change, and put that change on the roadmap for a session with corpus access. This keeps the
+locked calibration decision intact — a reported field and a warning alter no predicted value —
+while making the failure mode visible to every capacity screen from now on.
+
+**What landed.** `tools/quda-staggered-memory.py`: `mg-fit` emits `detail.post_setup_phase_D`
+for four-level hierarchies — the resident set at steady-state counts (the model's own objects,
+with the level-3 Y and X sets dropped to their post-build counts as level 2's already are)
+plus the width-1 solver workspace, built as the width-1 instance of the MRHS-MG inventory the
+leaf had validated to `0.42%` for one topology; coarse solver fields counted at colour
+`nvec_(L-1)` and spin 2 reproduce the documented `1475.1875` MiB per-RHS figure exactly, and a
+test pins that. A loud warning fires when D exceeds the winning setup phase; `device_gib` is
+unchanged in every case, and a test asserts it. Below four levels the field says
+`not-modelled-below-four-levels`. Four tests added. The memory leaf gains a "Phase D" section,
+the setup-workspace observation as a scoped accuracy note beside the fitted constants, the
+loading-run saving bound, and a line in the phase table's discussion. `ROADMAP.md`: obligation
+5.5 and the deferred-decision row's interim state.
+
+**What the draft found and had to say.** Run on the calibration ensemble's own placement, the
+reported D comes out well **below** the model's phase A, so the inventory alone would not have
+flagged the run that motivated it. The measured climb was the pool's retained footprint — the
+freed setup workspace, the verify temporaries, each level's build temporaries, and requests too
+large for any freed block — which an inventory of live objects does not hold. The field is
+therefore documented as a **one-way signal** and a lower bound, in the payload and in the leaf,
+and obligation 5.5 names the pool-retention term as part of the fold. A draft that had presented
+D as "the phase that run peaked in" would have been the confident wrong answer this handbook
+exists to prevent.
+
+**Publishability.** The operator cleared the ensemble memory figures; the leaf quotes the
+phase-A miss as a bound, the `7.7` GB climb, the order-of-magnitude workspace comparison and
+the `12` GB plateau-to-plateau growth, with no campaign identifier, node count or ledger figure.
+
+**Reconciliation under §7.5a obligation 11.** Existing statements about the same objects:
+
+- `staggered-memory.md`, the four-level phase table and "the model is a maximum over
+  allocation phases rather than a sum" — **confirmed** and **amended**: a fourth candidate is
+  reported beside the three.
+- `staggered-memory.md`, "A measured peak can also fall outside every modelled phase ... the
+  model under-predicts" — **confirmed**; phase D is that case made computable, with its limit.
+- `staggered-memory.md`, "`setup_ws = 17,787 B` per fine local site ... fitted" — **confirmed**
+  as the fitted value, and **amended** with the scoped observation that it far exceeds the
+  source-exact workspace; the constant is not changed.
+- `staggered-memory.md`, "The floor at a fixed placement is phase A" — **confirmed** as a
+  floor; the observation shows phase A is not always the peak, which the section never claimed.
+- `staggered-memory.md`, "A loading run and a generating run are not the same capacity
+  problem" — **confirmed** and **amended** with the upper bound on the saving.
+- `staggered-memory.md`, "MRHS-MG: marginal slope only" and its `1475.1875` MiB figure —
+  **confirmed**; the width-1 workspace is its instance and the test pins the agreement.
+- `staggered-memory.md`, "The device counter carries two systematic corrections" and the pool
+  leaf's smallest-cached-block and no-return rules — **confirmed**; the one-way reading rests on
+  them.
+- `staggered-mg-setup-allocation.md`, ten fields per right-hand side at batch width 16 —
+  **confirmed**; the observation rests on it.
+- `ARCHITECTURE.md`, the "Calibration accuracy versus refits" decision — **confirmed**: a
+  reported field and a warning are the exempt class, and no fitted constant moved.
+- `ROADMAP.md`, the deferred decision on a retained validation set — **confirmed** and its
+  interim state **amended**.
+- `staggered-multigrid/tuning.md` gate 3, "screen legality and capacity as two questions" —
+  **confirmed** and untouched.
+
+Nothing was deleted.

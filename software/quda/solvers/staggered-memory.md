@@ -269,6 +269,9 @@ all. If B wins, block size, level-2 volume, coarse color, and MMA copies are dir
 the capacity path. A field inventory added without lifetimes overstates phases that never
 coexist and can still miss the real peak phase.
 
+**A fourth candidate exists and is reported beside these three, not folded into the maximum:
+phase D, the resident hierarchy plus the width-1 solve workspace.** See "Phase D" below.
+
 **The winning phase decides whether the coarsest deflation count is visible at all.** The
 coarsest eigenspace
 is carried in exactly one phase — A at two levels, B at three, C at four — and the
@@ -338,6 +341,57 @@ within a few percent and set the run's pre-solve peak; the temporaries returned 
 from them ([`../internals/device-memory-pool.md`](../internals/device-memory-pool.md)). Turn the
 gate off for any run whose margin matters; a production run never allocates it.
 
+### Phase D: the resident hierarchy plus the width-1 solve workspace, reported and not folded
+
+`[source]` After setup the device holds a **resident** set — the gauge fields at every
+precision, the Kähler-Dirac inverse and its sloppy copy, every level's near-null vectors,
+transfer fields and coarse links with their MMA copies, and the coarsest eigenspace — plus
+**solver workspaces** allocated once at first use: the outer GCR's search and operator-image
+fields at the sloppy precision, each CA-GCR smoother's basis at the preconditioner precision,
+each coarse solver's basis, and the cycle temporaries. None of it depends on the number of
+solves; it scales with the active right-hand-side width, `gcrNkrylov` and the smoother basis
+sizes. The MRHS-MG section below already enumerates the per-right-hand-side slope for one
+topology; phase D is the width-1 instance of that inventory on top of the resident set.
+
+**Why it is a maximum candidate and not an additive term.** QUDA's pool never returns a freed
+block to the driver and serves a request from the smallest cached block that fits
+([`../internals/device-memory-pool.md`](../internals/device-memory-pool.md)), so post-setup
+requests that fit blocks setup freed cost no new device memory. The footprint is therefore
+`max(A, B, C, D)`, with two corrections: a request larger than every cached free block grows
+the footprint even when the cached total would suffice, and a full multigrid update adds the
+transient priced above inside D.
+
+**`mg-fit` reports it as `detail.post_setup_phase_D`** — total, resident and workspace parts,
+per-term breakdown, and whether it exceeds the winning setup phase, with a loud warning when it
+does — and **deliberately does not fold it into `device_gib`**, which stays the setup-phase
+maximum with its published error. The setup phases are corpus-fitted, and no fit is revised
+while the corpus that validates it lives outside this repository; folding D in is the intended
+change for a session that can re-validate the four-phase model against the retrospective
+counters, recorded as an obligation in the roadmap.
+
+**Read the field as a one-way signal.** A candidate whose D exceeds its setup phases is one
+whose published `device_gib` under-predicts by at least the excess, and one that the loading-run
+saving below will not rescue, because loading removes setup workspace and D contains none. A D
+**below** the setup peak is not reassurance: D is a **lower bound** on the post-setup footprint.
+The pool never returns memory, so the whole-device footprint after setup is at least the setup
+peak plus every later request the cached free blocks cannot serve — and that is the term this
+inventory does not carry.
+
+`[experiment]` **The observation that motivates it, at the calibration ensemble, and what the
+field does and does not reproduce.** One four-level run at a placement outside the fitted
+envelope, with `verify_results` on and one node sampled, showed a phase-A plateau
+**over**-predicted by at least twelve percent, and then kept climbing: through level-2
+generation, through the level-3 build and eigensolve, to a peak with the whole hierarchy
+resident some `7.7` GB above its phase-A plateau, before the first solve's full update failed a
+further allocation. The model had named phase A the winner. **At that placement the reported D
+sits well below the model's phase A**, so the inventory alone would not have flagged the run:
+what climbed was the pool's retained footprint, fed by allocations the inventory does not hold
+— the freed setup workspace, the verify temporaries, the build temporaries of each level — and
+by requests too large for any freed block. That is a scoped accuracy observation, not a
+correction: it says the peak phase was wrong for that run and that D as an inventory is a
+floor, not by how much the fitted constants are wrong. Folding D into the maximum properly
+therefore needs a pool-retention term as well as re-validation, which is why it waits.
+
 Most terms are enumerated from source. The model also uses `setup_ws = 17,787 B` per
 fine local site for setup workspace and `copy_factor = 1.718` on coarse Y-sets. Those
 constants were fitted to four-level, half-precision, `nvec_1 = 64` runs in the named
@@ -345,6 +399,20 @@ Perlmutter A100 corpus; detailed population, error, and identifiability caveats 
 the companion script. Another `nvec_1` is an explicit extrapolation. The model reports
 the communication pool separately as `Pinned device memory used` and also predicts the
 QUDA page-locked host counter.
+
+**The fitted setup-workspace constant is far larger than the source-exact workspace, and the
+gap is now measured at one point.** `[source]` The near-null setup solver holds ten fields per
+right-hand side at a batch width of `16` when `nvec` divides by `16`
+([`../internals/staggered-mg-setup-allocation.md`](../internals/staggered-mg-setup-allocation.md)):
+at a fine local volume of order a million sites that is about `4.4` GB at level 1 and a fraction
+of a gigabyte at level 2, against a fitted `setup_ws` term of order five times that for the same
+candidate. `[experiment]` In the run above, the device grew about `12` GB from the post-link
+plateau to the level-1 plateau, of which the level-1 near-null set, the setup solver, the KD
+inverse and its copy account for roughly three quarters before pool rounding. **Recorded as a
+scoped observation, not a refit**, under the same rule as phase D. Two consequences travel: the
+source-exact workspace bounds what the fitted term can legitimately absorb, and **a loading
+run saves at most that workspace and probably less**, because the blocks it frees are the sizes
+the outer GCR and any verify pass later take from the pool.
 
 Coarse gauge color is `2*nvec`, so its link storage scales quadratically. Raising
 `nvec` from 64 to 96 multiplies that object by 2.25, not 1.5. Here MMA means the
@@ -366,8 +434,8 @@ python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" mg-fit \
 ```
 
 The output includes requested and effective blocks, local and coarse geometry, phase
-totals, the winning term breakdown, device and page-locked-host counters, prediction
-tier, and every extrapolation. The nested
+totals, the winning term breakdown, the reported post-setup phase D beside them, device and
+page-locked-host counters, prediction tier, and every extrapolation. The nested
 `geometry.build_capability.QUDA_MULTIGRID_NVEC_LIST.status` is `pass` or `fail` only
 when `--compiled-nvecs` is supplied and otherwise says `unchecked`; source-valid geometry
 does not prove build capability. If only local dimensions are available, `--local`
@@ -568,7 +636,10 @@ never allocates at all, so a loading run's device high-water sits materially bel
 otherwise identical generating run's. The gap is structural — it is the presence or
 absence of an allocation, not a fitted difference — so **size the two separately and never
 quote one as a bound on the other.** A capacity plan built from a loading run will
-under-provision the run that has to create the vectors in the first place.
+under-provision the run that has to create the vectors in the first place. **The saving is
+bounded above by the source-exact setup workspace** — ten fields per right-hand side at the
+setup batch width — not by the fitted `setup_ws` term, and it does not lower a peak that falls
+in phase D, which contains no setup workspace at all.
 
 Two consequences follow for planning:
 
