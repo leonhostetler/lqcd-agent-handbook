@@ -1,0 +1,148 @@
+schema_version: 1
+machine: vista
+software: quda
+profile: milc-cg
+validated_on:
+  - gpu-gh200
+tested_software:
+  quda:
+    commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+    branch: develop
+reference_sources:
+  milc_vista_compile_script:
+    commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+  eigen:
+    version: 3.4.0
+    requested_revision: 3.4.0
+  cccl:
+    commit: 413d2efd811ebb2ca0333a281d04a2de838ecad6
+    requested_revision: v3.3.4
+    branch_context: Tag selected by QUDA; no branch asserted.
+tested_toolchain:
+  modules: [gcc/14.2.0, cuda/12.8, openmpi/5.0.5]
+  host_compiler:
+    module: gcc/14.2.0
+    version: 14.2.0
+    wrappers:
+      c: mpicc
+      cxx: mpicxx
+  cuda:
+    module: cuda/12.8
+    compiler_version: 12.8.93
+    runtime_version: 12.8
+  driver: 590.48.01
+  mpi:
+    module: openmpi/5.0.5
+    transport: UCX; libmpi resolves libucp and libucs from UCX 1.17.0 although the module environment lists ucx/1.20.0
+  cmake: 4.1.1
+build:
+  type: RELEASE
+  target: CUDA
+  gpu_arch: sm_90
+  generator: Unix Makefiles
+  install_layout: <build-dir>/usqcd
+  profile_options_from: software/quda/build-profiles.yaml#milc-cg
+  machine_options:
+    CMAKE_C_COMPILER: mpicc
+    CMAKE_CXX_COMPILER: mpicxx
+    QUDA_TARGET_TYPE: CUDA
+    QUDA_GPU_ARCH: sm_90
+    CMAKE_INSTALL_LIBDIR: lib
+  dependency_acquisition:
+    mode: QUDA CMake downloads
+    network_required_at_configure: true
+  cost:
+    where: interactive
+    command: cmake --build <build-dir> --target install --parallel 32
+    parallelism: 32
+    wallclock: 5m05.55s
+    timing_scope: Clean build and install after a successful fresh configure, complete test suite included, on one gpu-gh200 node in an idev session. The later CMAKE_INSTALL_LIBDIR=lib reinstall is not included.
+    maximum_reported_rss_kib: 1687296
+    memory_scope: Maximum RSS of any single process in the build, from getrusage(RUSAGE_CHILDREN), not aggregate build-process memory.
+validation:
+  date: "2026-09-28"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 1
+    mpi_ranks: 1
+    gpus_per_rank: 1
+    visible_gpu_devices: 1
+    accelerator: NVIDIA GH200 120GB
+    accelerator_memory_mib: 97871
+    compute_capability: 9.0
+    partition: gh-dev
+    placement: interactive idev session
+    launcher: mpirun -np 1 --bind-to none
+    rank_grid: [1, 1, 1, 1]
+  runtime:
+    communication: QMP over Open MPI 5.0.5 (single rank, no inter-rank exchange)
+    QUDA_ENABLE_GDR: unset (QUDA default off)
+    OMP_NUM_THREADS: 72
+    OMP_PROC_BIND: spread
+    resource_path: Fresh writable directory for gpu-gh200.
+    test_executables: Build-tree tests first; installed usqcd/bin tests re-run after the CMAKE_INSTALL_LIBDIR=lib fix with identical results.
+  tests:
+    - name: staggered_dslash_test
+      filter: StaggeredDslashTest.verify
+      operator: asqtad MatPC
+      precision: single
+      lattice: [4, 4, 4, 8]
+      l2_relative_deviation: 3.650151e-9
+      maximum_deviation: 6.965717e-6
+      failures_at_1e-6: 0
+      result: pass
+    - name: staggered_invert_test
+      filter: EvenOdd/StaggeredInvertTest.verify/cg_mat_pc_direct_pc_double_l2
+      operator: asqtad
+      solver: cg
+      precision: double
+      lattice: [6, 6, 6, 8]
+      iterations: 180
+      requested_l2_relative_residual: 1.0e-6
+      true_l2_relative_residual: 9.370663e-7
+      result: pass
+    - name: io_test
+      filter: Gauge/GaugeIOTest.*
+      lattice: [4, 4, 4, 8]
+      precisions: [double, single]
+      qio_write_status: 0
+      qio_read_status: 0
+      result: pass
+  scope_limits:
+    - Validated on one rank and one GPU only. No halo exchange between ranks or nodes was exercised by a passing test.
+    - Multi-node QUDA native tests FAIL with QUDA_ENABLE_GDR=1. On 2 and 4 nodes, staggered_dslash_test and staggered_invert_test abort after UCX logs ibv_reg_dmabuf_mr ... Invalid argument on memory it classifies as cuda. Restricting QUDA_ENABLE_DSLASH_POLICY to the GDR device-buffer policies 2,3,4,5 reproduces the failure. Policies 0,1 and 10,11 pass with GDR on, and QUDA_ENABLE_GDR=0 passes; each passing leg's tunecache policy keys confirm the inter-node exchange ran. Cause not established; policies 2/3 were not separated from 4/5.
+    - Multi-node io_test FAILS with a QIO checksum mismatch on read-back (status -14), with GDR on or off, and from both the $HOME and $SCRATCH filesystems (both VAST). Cause not established. The single-rank io_test passes.
+    - The MILC interface was compiled here; the composed MILC executable is validated separately by milc-cuda12-quda-ks-spectrum-2026q3.
+    - The profile compiled eigensolver support, but no eigensolve or deflated solve was exercised.
+    - The selected inverter case checked the L2 residual; its heavy-quark tolerance was inactive.
+    - The run populated a fresh tunecache and is not benchmark evidence.
+evidence: experiment
+observed: "2026-09-28"
+observed_on:
+  machine: vista
+  node_type: gpu-gh200
+  software:
+    quda:
+      commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+      branch: develop
+  toolchain:
+    cuda: 12.8.93
+    host_compiler: GNU 14.2.0 through Open MPI 5.0.5 wrappers
+sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Vista/compile_quda.sh
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt#L529-L532
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/CMakeLists.txt#L22
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/dslash_policy.hpp#L1655-L1676
+  - operator-submitted validation and debugging runs reviewed in the working directory; raw scheduler output is not committed

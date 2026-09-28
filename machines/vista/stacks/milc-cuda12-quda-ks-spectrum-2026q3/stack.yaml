@@ -1,0 +1,193 @@
+schema_version: 1
+machine: vista
+software: milc
+profile: ks-spectrum-hisq-quda
+validated_on:
+  - gpu-gh200
+tested_software:
+  milc:
+    commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    branch: develop
+  quda:
+    commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+    branch: develop
+reference_sources:
+  milc_vista_compile_script:
+    commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    branch: develop
+  milc_vista_submission_script:
+    commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    branch: develop
+  milc_vista_sample_input:
+    commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+tested_toolchain:
+  modules: [gcc/14.2.0, cuda/12.8, openmpi/5.0.5]
+  host_compiler:
+    module: gcc/14.2.0
+    version: 14.2.0
+    wrappers:
+      c: mpicc
+      cxx: mpicxx
+  cuda:
+    module: cuda/12.8
+    compiler_version: 12.8.93
+    runtime_version: 12.8
+  driver: 590.48.01
+  mpi:
+    module: openmpi/5.0.5
+    transport: UCX; libmpi resolves libucp and libucs from UCX 1.17.0
+build:
+  type: optimized double precision with debug information
+  target: CUDA
+  gpu_arch: sm_90
+  generator: GNU Make
+  install_layout: <install-prefix>/bin/ks_spectrum_hisq
+  profile_options_from: software/milc/build-profiles.yaml#ks-spectrum-hisq-quda
+  portable_recipe: software/milc/applications/ks-spectrum.md
+  machine_options:
+    OFFLOAD: CUDA
+    MY_CC: mpicc
+    MY_CXX: mpicxx
+    COMPILER: gnu
+    ARCH: ""
+    GPU_ARCH: nvidia
+    OPT: -O3 -Ofast -g
+    LDFLAGS: -g -fopenmp
+    CUDA_HOME: <cuda-toolkit-prefix>
+    CUDA_MATH: <cuda-math-libs-prefix>
+    CUDA_COMP: <cuda-toolkit-prefix>
+    CUDA_NVML: <cuda-toolkit-prefix>
+    QUDA_HOME: <quda-install-prefix>
+    QMPPAR: <quda-install-prefix>
+    QIOPAR: <quda-install-prefix>
+  dependency_acquisition:
+    mode: existing validated QUDA stack installation
+    composed_profile: software/quda/build-profiles.yaml#milc-cg
+    validated_stack: machines/vista/stacks/quda-cuda12-milc-cg-2026q3/stack.yaml
+    network_required: false
+  cost:
+    where: interactive
+    command: make -j1 ks_spectrum_hisq
+    parallelism: 1
+    wallclock: 34.19s
+    timing_scope: Existing checkout; application objects, dependent MILC libraries, and final link. Sum of the compile pass (33.58 s, whose link failed before LDFLAGS carried -fopenmp) and the relink (0.61 s).
+    maximum_reported_rss_kib: 138240
+    memory_scope: Maximum RSS of any single process in the make command, from getrusage(RUSAGE_CHILDREN), not aggregate build-process memory.
+validation:
+  date: "2026-09-28"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 4
+    mpi_ranks: 4
+    cpus_per_rank: 72
+    gpus_per_rank: 1
+    visible_gpu_devices_per_rank: 1
+    accelerator: NVIDIA GH200 120GB
+    accelerator_memory_mib: 97871
+    compute_capability: 9.0
+    partition: gh
+    exclusive: true
+    requested_walltime: 15m
+    scheduler_elapsed: 29s
+    launcher: ibrun (Open MPI mpirun, --bind-to none at one task per node)
+    global_lattice: [16, 16, 16, 32]
+    rank_grid: [1, 1, 2, 2]
+    local_lattice_per_rank: [16, 16, 8, 16]
+    also_run: The same input with node_geometry 1 1 1 1 on one rank and one GPU, in an idev session, passed the same checks.
+  runtime:
+    communication: QMP over Open MPI 5.0.5 with UCX
+    QUDA_ENABLE_GDR: 1
+    gdr_confirmed_by: tunecache dslash policy keys carry commDim=0011,p2p=0,gdr=1
+    QUDA_ENABLE_P2P: unset (deliberately)
+    QUDA_DETERMINISTIC_REDUCE: unset (deliberately)
+    QUDA_MILC_HISQ_RECONSTRUCT: 13
+    QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY: 9
+    OMP_NUM_THREADS: 16
+    OMP_PROC_BIND: spread
+    OMP_PLACES: cores
+    cpu_binding: None by the launcher; each rank's affinity was all 72 cores.
+    gpu_binding: None; CUDA_VISIBLE_DEVICES unset and one device per node.
+    quda_resource_path: Fresh writable tunecache directory for gpu-gh200.
+    application_payload_exit_code: 0
+    milc_reported_time_seconds: 8.664
+    quda_reported_total_time_seconds: 8.243
+    batch_node_gpu_memory_peak_mib: 907
+    gpu_memory_scope: Sampled at 1 s on the batch node only; a floor for the allocation.
+  tests:
+    - name: accelerator_telemetry_and_visibility
+      devices_per_node: 1
+      accelerator: NVIDIA GH200 120GB
+      compute_capability: 9.0
+      result: pass
+    - name: application_completion
+      input: upstream systems/Vista/sample.in, unchanged
+      input_proofread: tools/milc-proofread-input.sh reached EOF on input with no errors
+      terminal_marker: RUNNING COMPLETED
+      payload_exit_code: 0
+      result: pass
+    - name: hisq_fermion_link_construction
+      implementation_marker: "FLTIME: time = ... (HISQ QUDA D)"
+      result: pass
+    - name: quda_cg_convergence
+      solves: 24
+      requested_true_residual: 1.0e-8
+      maximum_true_residual: 9.990874e-9
+      minimum_iterations: 73
+      maximum_iterations: 4270
+      result: pass
+    - name: correlator_output_structure
+      correlator_records: 12
+      time_slices_per_record: 32
+      data_rows: 384
+      result: pass
+    - name: correlator_reference_comparison
+      reference: Two earlier Vista runs of the same upstream sample input, built with a different toolchain and older QUDA and MILC revisions
+      keys_matched: 12
+      maximum_difference_relative_to_record_scale: 1.67e-7
+      maximum_single_slice_relative_difference: 8.2e-7
+      output_precision: "%.6e (7 significant digits)"
+      reference_runs_mutual_difference: 1.41e-7
+      negative_control: A 1e-4 relative perturbation of one value was detected.
+      result: pass
+  scope_limits:
+    - Plain CG only. The profile compiled native-CG deflation support, but no eigensolve, deflation-space lifecycle, or deflated solve was exercised.
+    - QIO was linked, but the warm-start sample did not exercise QIO file read or write through the application. The composed QUDA stack's multi-rank QIO read-back fails its checksum, so treat multi-rank QIO through this stack as unvalidated.
+    - Gaussian smearing, gauge-force, and fermion-force paths were compiled but not exercised by this sample.
+    - The gauge-fixing path executed, but acceptance did not assert that its final reported delta met the configured tolerance.
+    - GDR device-buffer halos worked in this application run, while QUDA's native multi-node tests fail on the GDR device-buffer policies (see the QUDA stack). The reason MILC escapes is not established, so a larger lattice, different decomposition, or other message sizes may not be covered.
+    - Validation covers four nodes at one rank per node and one decomposition. No intra-node multi-rank or P2P path exists on this node type.
+    - The run populated a fresh tunecache and is not benchmark evidence.
+    - CPU placement was recorded but not tuned; NUMA placement was not captured.
+evidence: experiment
+observed: "2026-09-28"
+observed_on:
+  machine: vista
+  node_type: gpu-gh200
+  software:
+    milc:
+      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      branch: develop
+    quda:
+      commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+      branch: develop
+  toolchain:
+    cuda: 12.8.93
+    host_compiler: GNU 14.2.0 through Open MPI 5.0.5 wrappers
+sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Vista/compile_ks_spectrum_hisq.sh
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Vista/submit.sbatch
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Vista/sample.in
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
+  - operator-submitted validation run reviewed in the working directory; raw scheduler output is not committed

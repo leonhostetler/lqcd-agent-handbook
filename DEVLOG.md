@@ -2994,3 +2994,59 @@ The promoted inbox proposal was removed (§freshness-model rule 5). Separately, 
 guard refused an unrelated command whose heredoc *text* named the submit command. It is a
 false positive on command content, not a submission, and was worked around by writing the text
 from a file.
+
+## 2026-09-28 — First Vista stacks: QUDA milc-cg and MILC ks_spectrum_hisq
+
+Two stacks were built and validated on one `gpu-gh200` idev node, with GNU 14.2.0, CUDA
+12.8.93, and Open MPI 5.0.5. QUDA `00c7ef33` descends from the DeltaAI stack commit; MILC
+`6b9b8a06` is that commit.
+
+**QUDA `milc-cg`.**
+- The complete test suite was built.
+- The single-rank dslash, CG, and QIO tests passed, both from the build tree and from the
+  install.
+- Installed tests failed at first. `GNUInstallDirs` chose `lib64`, while QUDA hard-codes the
+  installed run path to `${prefix}/lib`. `CMAKE_INSTALL_LIBDIR=lib` fixed it, and an
+  incremental reinstall left every library byte-identical.
+
+**MILC `ks_spectrum_hisq`.**
+- The first link failed on OpenMP symbols. The machine option `LDFLAGS=-g`, copied from the
+  DeltaAI pattern, replaces the Makefile's `-fopenmp`; `LDFLAGS=-g -fopenmp` fixed it.
+- A four-node run of the upstream Vista sample passed. GDR was confirmed from the tunecache
+  keys.
+- Its correlators match two earlier Vista runs of the same input to the file's printed
+  precision. The two references differ from each other by the same amount, and a 1e-4
+  negative control was detected.
+
+**QUDA's native multi-node tests failed.** Two 2-node debugging jobs, each with in-job
+controls and one variable per leg, established the following:
+- The dslash and CG failure (UCX `ibv_reg_dmabuf_mr` on `(cuda)` memory) needs
+  `QUDA_ENABLE_GDR=1`.
+- It is reproduced by the GDR device-buffer policies 2-5.
+- It is absent under policies 0,1 and 10,11.
+- Reachability was required from tunecache policy keys. A `--verify false` leg without keys
+  was ruled inconclusive, and a prior lean toward the zero-copy policies was falsified.
+- Multi-rank `io_test` fails a QIO checksum with GDR on or off, and on `$HOME` and `$SCRATCH`.
+
+Neither failure has a cause. Why MILC escapes the GDR failure is open. Both stacks carry these
+results as scope limits instead of omitting them. The runtime UCX was checked with `ldd`: it
+is 1.17.0, as built, so the module list's 1.20.0 was not a cause.
+
+Reconciliation (§developer-obligations item 11):
+- `software/milc/quda-linkage.md` says the tag is decided by the linker default and must be
+  confirmed. **Confirmed.** Vista's GNU link produced `RUNPATH`, the redirectable form that
+  leaf anticipates. The MILC stack notes state this and point to the leaf.
+- `software/quda/build.md`, "build and install the complete test suite" — **confirmed**,
+  untouched. It does not mention the install-libdir interaction, which remains a candidate
+  software-level addition. The stack notes carry it with source citations.
+- `software/milc/build.md`, machine options come from the current-machine stack — **confirmed**.
+  The `-fopenmp` requirement is recorded as a Vista machine option, not as a profile option.
+- `machines/vista/notes.md`, "Launch MPI deliberately" (the harness models only `srun`) —
+  **confirmed**. The `ibrun` scripts were dry-run with `ibrun` stubbed, which says nothing
+  about the launch. ROADMAP X.7 is unchanged.
+- The DeltaAI stacks' `LDFLAGS: -g` — **confirmed** as correct there (Cray wrappers). Not
+  amended.
+
+The checker and dry-run harness passed every script before submission. The harness needed
+`--exclude .claude --exclude .mcp.json` once the shell's working directory was a job
+directory, because the sandbox's placeholder files there broke its copy.

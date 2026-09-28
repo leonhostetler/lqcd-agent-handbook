@@ -41,4 +41,6 @@ Entries are grouped by scoped machine.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
+| [MILC ks_spectrum_hisq stack with QUDA on Vista](vista/stacks/milc-cuda12-quda-ks-spectrum-2026q3/notes.md) | Vista build options, the OpenMP link fix, placement, and the four-node validation of MILC ks_spectrum_hisq composed with the Vista QUDA milc-cg stack. | Rebuilding, validating, or launching the milc-cuda12-quda-ks-spectrum-2026q3 stack on Vista. |
+| [QUDA CUDA 12 milc-cg stack on Vista](vista/stacks/quda-cuda12-milc-cg-2026q3/notes.md) | Reproduction commands, the installed-test library-directory fix, and the unresolved multi-node GDR and QIO test failures for the Vista gpu-gh200 QUDA stack. | Rebuilding, validating, or running multi-rank tests of the quda-cuda12-milc-cg-2026q3 stack on Vista. |
 | [Working on Vista](vista/notes.md) | Node-target declaration, agent placement, the operator submission hand-off, whole-node charging, launcher, and storage rules for TACC Vista. | Building software or preparing a job on Vista. |

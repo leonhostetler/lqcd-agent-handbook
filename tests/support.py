@@ -28,7 +28,7 @@ SELECT_PYTHON = ROOT / "tools" / "select-python"
 # instance bound to one of them in `validate_schemas`. Adding a stack, machine, project
 # or build-profile file changes this number, and the assertion is a deliberate tripwire
 # that makes the addition visible rather than silent. Update it in this one place.
-EXPECTED_SCHEMA_OBJECTS = 31
+EXPECTED_SCHEMA_OBJECTS = 33
 
 TOOLING_FILES = (".mcp.json",)
 TOOLING_DIRECTORIES = (".claude", ".agents")
