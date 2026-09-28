@@ -101,6 +101,18 @@ class GuardDecisionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertIn("different version of the script", result.stderr)
 
+    def test_receipt_from_a_harness_that_ignored_step_refusals_is_refused(self):
+        # Before 1.2.0 a refused launcher step could pass behind a script that exits 0.
+        self.assertEqual(self.dry_run().returncode, 0)
+        self.assertEqual(self.dry_run("--negative", "inputs/job.in", "s/^mass 0.1$/mass 0.2/").returncode, 0)
+        path = self.script.with_name(self.script.name + ".dry-run-receipt.json")
+        receipt = json.loads(path.read_text())
+        receipt["harness_version"] = "1.1.0"
+        path.write_text(json.dumps(receipt))
+        result = self.guard(f"sbatch {self.script}")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("predates 1.2.0", result.stderr)
+
     def test_checker_error_is_refused_even_with_a_receipt(self):
         self.assertEqual(self.dry_run().returncode, 0)
         self.assertEqual(self.dry_run("--negative", "inputs/job.in", "s/^mass 0.1$/mass 0.2/").returncode, 0)

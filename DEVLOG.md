@@ -3329,3 +3329,43 @@ Reconciliation (§developer-obligations item 11) of every statement about `ibrun
 - **Not rewritten:** the earlier DEVLOG entries on `ibrun` ("The launcher was not overridden"
   and "dry-run with `ibrun` stubbed"), which are episodes. This entry supersedes their open
   question.
+
+## 2026-09-28 — Dry-run harness: a refused launcher step fails the run (1.2.0)
+
+A working-project control job was dry-run without `--allow-sequential-steps`. The site
+launcher stub refused four of its five `ibrun` calls, and the harness reported POSITIVE
+CONTROL PASSED anyway. The script was written the way diagnostic rigs are: independent legs, a
+failed launch recorded, and on to the next leg. So it exited 0, and the verdict read only the
+exit code. On the machine the same script would have waited on step creation until its
+walltime ended, the failure the step model exists to catch.
+
+**The defect predates X.7.** The `srun` stub had the same verdict logic. X.7's tests missed
+it because their fixture runs under `set -e` and so stopped at the first refusal. Every
+earlier fixture was likewise fail-fast.
+
+**The fix.**
+- The launcher stubs record every refusal.
+- The positive control fails when any refusal happened, whatever the exit code.
+- A negative run that hit a refusal is not counted as fired: its non-zero exit came from a
+  script whose launch never ran as submitted.
+- Receipts record `step_refusals`.
+- The submission guard's minimum harness version is raised to 1.2.0, so a receipt from a
+  harness that could false-pass a refusal must be regenerated before its script is submitted.
+- Tests:
+  - three with a leg-tolerant fixture, each made to fail by a harness mutation (the positive
+    verdict ignoring refusals, the negative verdict ignoring them, and the stub not recording
+    them);
+  - one guard test refusing a 1.1.0 receipt.
+
+The control job that exposed this was unaffected: it launches its legs in turn and was
+dry-run with `--allow-sequential-steps`.
+
+Reconciliation of every statement about the positive control and step refusal:
+- **Amended:**
+  - `conventions/batch-scripts.md` step 9, "Positive control": a refused step now fails it.
+  - The harness docstring's stub paragraph.
+- **Confirmed:**
+  - The same leaf's step-contention account under "Run it as a plain background process":
+    step creation retries rather than failing, which is why a refusal must fail the dry run.
+  - `machines/vista/notes.md` "Launch MPI deliberately", which describes the refusal and
+    `--allow-sequential-steps` and remains accurate.

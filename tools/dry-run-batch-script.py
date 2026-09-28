@@ -27,7 +27,9 @@ logs the step and, where the surface records an overlap option, models step-allo
 contention), a site launcher the machine profile records under `scheduler.site_launcher`
 (logged and modelled from that record, never from the parallel launcher's), scheduler
 queries, the modules system, the accelerator query tool the machine profile's vendor implies,
-and `sleep`. A launcher stub runs nothing; `--launcher-output TEXT` makes every launcher stub
+and `sleep`. A refused launcher step fails the positive control even when the script
+tolerates the failed leg and exits 0, because on the machine that step waits for the
+allocation until the walltime runs out. A launcher stub runs nothing; `--launcher-output TEXT` makes every launcher stub
 print TEXT after its log line, for guards that read launched output. Anything else the script
 needs can be stubbed with `--stub NAME=TEXT`, which replaces any stub of that name.
 
@@ -67,7 +69,7 @@ import subprocess
 import sys
 import tempfile
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 # Frontend tooling paths an agent sandbox materialises as unreadable placeholders in whatever
 # directory the session's shell stands in -- including a job directory. They are never job
@@ -175,6 +177,7 @@ echo "[stub {name}] $*"
 held=0; [ -s "$steps" ] && held=$(wc -l < "$steps")
 if [ "{modelled}" = yes ] && [ "$overlap" = no ] && [ "$held" -gt 0 ] && [ "${{DRYRUN_ALLOW_SEQUENTIAL_STEPS:-0}}" != 1 ]; then
   echo "[stub {name}] STEP CREATION REFUSED: $held step(s) already hold this allocation and this step {refusal}" >&2
+  printf '%s\\n' "{name} $*" >> "${{DRYRUN_REFUSED:?}}"
   exit 1
 fi
 printf '%s\\toverlap=%s\\n' "{name} $*" "$overlap" >> "$steps"
@@ -436,6 +439,7 @@ def main(argv=None) -> int:
             "LANG": "C",
             "USER": os.environ.get("USER", "dryrun"),
             "DRYRUN_STEPS": str(sandbox / "steps"),
+            "DRYRUN_REFUSED": str(sandbox / "refused"),
             "DRYRUN_MODULES": str(sandbox / "modules"),
             "DRYRUN_ALLOW_SEQUENTIAL_STEPS": "1" if args.allow_sequential_steps else "0",
             surface["job_id_variable"]: "999999",
@@ -447,6 +451,7 @@ def main(argv=None) -> int:
                 raise Refusal(f"--env needs KEY=VALUE, got {spec!r}")
             env[key] = value
         (sandbox / "steps").write_text("")
+        (sandbox / "refused").write_text("")
 
         before_files = snapshot(job)
         print(f"=== dry run {VERSION}: {script.name}  [{kind}{': ' + detail if detail else ''}]")
@@ -471,28 +476,46 @@ def main(argv=None) -> int:
         print(f"launcher steps created: {len(steps)}")
         for i, step in enumerate(steps, 1):
             print(f"  {i}. {step}")
+        # A script that tolerates a failed leg exits 0 past a refusal, so the exit code alone
+        # cannot show it; on the machine that step waits for the allocation until walltime.
+        refused = (sandbox / "refused").read_text().splitlines()
+        print(f"launcher steps refused: {len(refused)}")
+        for i, step in enumerate(refused, 1):
+            print(f"  {i}. {step}")
         print("-" * 70)
         print(f"exit code: {rc}")
 
         if kind == "positive":
-            passed = rc == 0
-            verdict = ("POSITIVE CONTROL PASSED: ran to completion under the scheduler's environment"
-                       if passed else
-                       "POSITIVE CONTROL FAILED: the script does not run to completion on correct "
-                       "inputs. This is a defect in the script, not the harness. Do not submit.")
+            passed = rc == 0 and not refused
+            if refused:
+                verdict = (f"POSITIVE CONTROL FAILED: {len(refused)} launcher step(s) were refused "
+                           f"although the script exited {rc}. On the machine a refused step waits "
+                           "for the allocation until the walltime ends. Launch legs one at a time "
+                           "and pass --allow-sequential-steps, or give each concurrent step the "
+                           "overlap option. Do not submit.")
+            else:
+                verdict = ("POSITIVE CONTROL PASSED: ran to completion under the scheduler's environment"
+                           if passed else
+                           "POSITIVE CONTROL FAILED: the script does not run to completion on correct "
+                           "inputs. This is a defect in the script, not the harness. Do not submit.")
         else:
-            passed = rc != 0
-            verdict = (f"NEGATIVE TEST PASSED: the guard fired (non-zero) on [{kind}: {detail}]"
-                       if passed else
-                       f"NEGATIVE TEST FAILED: the run completed although [{kind}: {detail}] should "
-                       "have stopped it. A guard that never fires is not a guard.")
+            passed = rc != 0 and not refused
+            if refused:
+                verdict = (f"NEGATIVE TEST FAILED: {len(refused)} launcher step(s) were refused, so "
+                           f"[{kind}: {detail}] was not tested on the path it guards. Fix the "
+                           "launch first.")
+            else:
+                verdict = (f"NEGATIVE TEST PASSED: the guard fired (non-zero) on [{kind}: {detail}]"
+                           if passed else
+                           f"NEGATIVE TEST FAILED: the run completed although [{kind}: {detail}] should "
+                           "have stopped it. A guard that never fires is not a guard.")
         print(verdict)
 
         if not args.no_receipt:
             digest = sha256(script)
             receipt = load_receipt(script, digest)
             entry = {"utc": utc_now(), "kind": kind, "detail": detail, "rc": rc,
-                     "machine": args.machine}
+                     "machine": args.machine, "step_refusals": len(refused)}
             if kind == "positive":
                 entry["passed"] = passed
                 receipt["positive"] = entry

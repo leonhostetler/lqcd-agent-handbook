@@ -280,5 +280,73 @@ class SiteLauncherTests(unittest.TestCase):
                                {"command": "srun", "overlap_option": None})
 
 
+# Legs independent, as diagnostic rigs are written: a failed launch is recorded and the script
+# carries on, so it exits 0 past a refused step. The exit code alone cannot show the refusal.
+TOLERANT_LAUNCH = """set +e
+here=$(pwd -P)
+[ -r "$here/inputs/job.in" ] || {{ echo "FATAL: $here is not the job directory"; exit 1; }}
+grep -q "^mass 0.1$" inputs/job.in || {{ echo "FATAL: input changed"; exit 1; }}
+for leg in a b; do
+  ibrun ./app "$leg" || echo "leg $leg failed; continuing"
+done
+echo "job ${{SLURM_JOB_ID}} done"
+"""
+
+
+class StepRefusalTests(unittest.TestCase):
+    """A refused launcher step fails the run even when the script exits 0."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        base = Path(self.temp.name)
+        self.jobdir = base / "trial"
+        (self.jobdir / "inputs").mkdir(parents=True)
+        (self.jobdir / "inputs" / "job.in").write_text("mass 0.1\n")
+        self.env = dict(os.environ, TMPDIR=str(base / "tmp"))
+        (base / "tmp").mkdir()
+        self.script = self.jobdir / "job.sbatch"
+        self.script.write_text((HEAD + TOLERANT_LAUNCH).format(jobdir=self.jobdir))
+
+    def run_vista(self, *extra: str):
+        argv = [interpreter_for("yaml"), str(HARNESS), str(self.script), "--machine", "vista",
+                *extra]
+        return subprocess.run(argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              check=False, env=self.env, cwd=self.temp.name)
+
+    def receipt(self) -> dict:
+        return json.loads(self.script.with_name(self.script.name + ".dry-run-receipt.json").read_text())
+
+    def test_refused_step_fails_the_positive_control_although_the_script_exits_zero(self):
+        result = self.run_vista()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("exit code: 0", result.stdout)
+        self.assertIn("launcher steps refused: 1", result.stdout)
+        self.assertIn("POSITIVE CONTROL FAILED: 1 launcher step(s) were refused", result.stdout)
+        positive = self.receipt()["positive"]
+        self.assertFalse(positive["passed"])
+        self.assertEqual(positive["step_refusals"], 1)
+
+    def test_sequential_steps_pass_when_declared(self):
+        result = self.run_vista("--allow-sequential-steps")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("launcher steps refused: 0", result.stdout)
+        self.assertIn("POSITIVE CONTROL PASSED", result.stdout)
+        self.assertEqual(self.receipt()["positive"]["step_refusals"], 0)
+
+    def test_negative_run_with_a_refused_step_is_not_counted_as_fired(self):
+        # The input guard fires, but the launch path was never exercised as submitted.
+        result = self.run_vista("--negative", "inputs/job.in", "s/^mass 0.1$/mass 0.2/")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("NEGATIVE TEST PASSED", result.stdout)  # guard fired before any launch
+        # Here the run exits non-zero AFTER a refused step: the old verdict counted that as the
+        # guard firing, though the exit came from a script whose launch never ran as submitted.
+        result = self.run_vista("--negative", "job.sbatch", 's/^echo "job .* done"$/exit 3/')
+        self.assertIn("exit code: 3", result.stdout)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("NEGATIVE TEST FAILED: 1 launcher step(s) were refused", result.stdout)
+        self.assertFalse(self.receipt()["negatives"][-1]["fired"])
+
+
 if __name__ == "__main__":
     unittest.main()

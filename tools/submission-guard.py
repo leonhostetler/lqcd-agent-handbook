@@ -48,7 +48,8 @@ import subprocess
 import sys
 
 HANDBOOK = pathlib.Path(__file__).resolve().parents[1]
-MIN_HARNESS_VERSION = (1, 0, 0)
+# 1.2.0: a refused launcher step fails the run; an older receipt may be a false pass.
+MIN_HARNESS_VERSION = (1, 2, 0)
 
 _spec = importlib.util.spec_from_file_location("check_batch_script",
                                                HANDBOOK / "tools" / "check-batch-script.py")

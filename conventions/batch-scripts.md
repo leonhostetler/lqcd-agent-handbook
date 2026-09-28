@@ -666,12 +666,15 @@ the job.
   unexpanded, or outside it rather than creating it. A harness that created stand-ins wherever
   declarations pointed left hundreds of gigabytes of apparent, zero-block files in a workspace
   root.
-- **Positive control:** on correct inputs the script must run to completion. If it does not,
-  that is a defect in the script, not in the harness — do not submit. New rig machinery is the
-  part most likely to be wrong, and a second recorded loss was introduced **by the fix for the
-  first**. A rig's preamble — directory resolution, input assertions, module pinning, placement
-  checks — is independent of node count, so it can be exercised in full on one node in a debug
-  class before the machinery goes to scale. Do that for any preamble that changed.
+- **Positive control:** on correct inputs the script must run to completion, and no launcher
+  step may be refused along the way. A script that tolerates a failed leg exits 0 past a refused
+  step, while on the machine that step waits for the allocation until the walltime ends. If
+  either fails, that is a defect in the script, not in the harness — do not submit. New rig
+  machinery is the part most likely to be wrong, and a second recorded loss was introduced **by
+  the fix for the first**. A rig's preamble — directory resolution, input assertions, module
+  pinning, placement checks — is independent of node count, so it can be exercised in full on
+  one node in a debug class before the machinery goes to scale. Do that for any preamble that
+  changed.
 - **Negative test, one guard at a time:** perturb the input that guard protects and require
   the run to fail. **A perturbation that changed nothing is not a test** — confirm the file
   actually differs before believing the result, because an expression that matched nothing
