@@ -3050,3 +3050,79 @@ Reconciliation (§developer-obligations item 11):
 The checker and dry-run harness passed every script before submission. The harness needed
 `--exclude .claude --exclude .mcp.json` once the shell's working directory was a job
 directory, because the sandbox's placeholder files there broke its copy.
+
+## 2026-09-28 — QUDA install library directory, promoted from the Vista stack
+
+The Vista stack notes carried a software-level fact: QUDA installs `libquda_test.so` to
+`${CMAKE_INSTALL_LIBDIR}` but hard-codes the installed run path to `${prefix}/lib`, so a
+`lib64` libdir breaks every installed test. The source was read at both `b6998853` (the
+`build.md` observation commit) and `00c7ef33`, and holds at each. It was added to
+`software/quda/build.md` under the complete-test-suite section, with the Vista stack as the
+observation.
+
+Reconciliation (§developer-obligations item 11):
+- `software/quda/build.md`'s configure recipe sets `CMAKE_INSTALL_PREFIX="$build_dir/usqcd"` —
+  **confirmed**. The new paragraph adds the libdir option beside it rather than altering the
+  recipe block.
+- `software/milc/quda-linkage.md` on the default-prefix install and the duplicate
+  `libquda.so` — **confirmed**. It concerns `libquda.so`, which always installs to `lib`;
+  unaffected.
+- The Vista QUDA stack notes — **confirmed**. They keep the observation and the byte-identical
+  reinstall check.
+
+## 2026-09-28 — Submission guard: look-ups exempt, text refusals explained
+
+On Vista the guard refused two commands that could not submit. One was a look-up of the
+submit command's name. The other wrote a note whose heredoc text contained the name. Its
+reason, "no existing file named on the command line resolves to the script", pointed
+nowhere near the cause. The guard treats any token equal to the submit command as a
+submission.
+
+**Fix.**
+- Exempt only readings that cannot submit: the name as the argument of `type`, `which`,
+  `whereis`, `man`, or `command -v`/`-V` (flags before the name are skipped), and the command
+  invoked with nothing but help or version flags.
+- Check the first *non-exempt* occurrence, so a real submission after a look-up is still
+  caught. Before this, the first occurrence was used even when it was the looked-up word.
+
+**Deliberately not exempted.** Heredoc and echoed text stay refused. A heredoc fed to a
+shell does submit, and a tokeniser cannot tell the two apart. The refusal now says the line
+was treated as a submission because it contains the word, and that text should be written
+from a file.
+
+**Tests.** Three tests were added. Both directions were checked on a copy:
+- with `is_lookup` forced `False`, the look-up tests fail;
+- with it forced `True`, the post-look-up submission test and the text test fail, along with
+  every existing refusal test.
+
+The first draft missed `type -a`, and its own new test caught that.
+
+Reconciliation (§developer-obligations item 11):
+- `conventions/batch-scripts.md` and `ARCHITECTURE.md` §batch-scripts: "refuses the surface's
+  submit command unless ..." — **confirmed**. Every submission is still checked.
+- "No override" — **confirmed**. The exemption is not an override: nothing a caller sets
+  changes it, and it admits no submission.
+
+## 2026-09-28 — Dry-run harness never copies frontend tooling placeholders
+
+On Vista the harness died in `shutil.copytree` with `Permission denied` on `.claude/*` and
+`.mcp.json` inside a job directory. The agent's shell had been standing in that directory,
+and the sandbox had materialised its placeholders there. The session worked around it with
+`--exclude .claude --exclude .mcp.json`. The harness now always skips `.claude`, `.agents`,
+and `.mcp.json`. Version 1.0.1; the guard's minimum stays 1.0.0, because earlier receipts
+are no less valid.
+
+**Test.** A new test puts an unreadable `.mcp.json` and an unreadable `.claude/hooks` in the
+job directory. It requires a passing positive control and requires that neither is copied.
+With the fix removed on a copy, the test fails.
+
+Reconciliation (§developer-obligations item 11):
+- `ARCHITECTURE.md` §freshness-model rule 3a, "Extend the ignore list when a frontend adds a
+  tooling path" — **amended** to name the two further declarations, the test suite's filter
+  and the harness's `TOOLING_NAMES`. Three copies of one list is a P2 cost. A tool cannot
+  import the test suite, and a parse of `.gitignore` would couple the harness to Git syntax.
+  So the rule instead names every place to extend.
+- `conventions/agent-sandbox.md`, "Copy routines need an ignore list ... test suite carries
+  one" — **amended** to include the harness and why.
+- `conventions/batch-scripts.md` step 9 on the harness — **confirmed**. It does not describe
+  copy filtering.

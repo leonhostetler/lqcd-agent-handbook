@@ -123,6 +123,33 @@ class GuardDecisionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertIn("submit by absolute path", result.stderr)
 
+    def test_lookups_and_help_do_not_count_as_submissions(self):
+        for command in ("type -a sbatch", "which sbatch", "command -v sbatch", "man sbatch",
+                        "whereis sbatch", "sbatch --help", "sbatch --version", "sbatch -V"):
+            with self.subTest(command=command):
+                result = self.guard(command)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr, "")
+
+    def test_a_submission_after_a_lookup_is_still_checked(self):
+        """The exemption covers the looked-up word only, never a later real submission."""
+        for command in (f"which sbatch && sbatch {self.script}",
+                        f"type sbatch; sbatch {self.script}",
+                        f"command sbatch {self.script}",
+                        f"command -p sbatch {self.script}",
+                        f"sbatch --help {self.script}"):
+            with self.subTest(command=command):
+                result = self.guard(command)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("no dry-run receipt", result.stderr)
+
+    def test_the_word_in_text_is_refused_with_an_explanation(self):
+        """Text cannot be told from a heredoc a shell will run, so it stays refused, and says why."""
+        command = "cat > note.txt <<'EOF'\nsbatch not available on compute nodes\nEOF"
+        result = self.guard(command)
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("write that text from a file", result.stderr)
+
     def test_hook_shim_has_no_opinion_outside_a_handbook_session(self):
         event = json.dumps({"tool_name": "Bash", "tool_input": {"command": f"sbatch {self.script}"}})
         env = {k: v for k, v in os.environ.items() if k != "LQCD_HANDBOOK"}

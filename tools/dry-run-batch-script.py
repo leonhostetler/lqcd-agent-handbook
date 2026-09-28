@@ -64,7 +64,13 @@ import subprocess
 import sys
 import tempfile
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
+
+# Frontend tooling paths an agent sandbox materialises as unreadable placeholders in whatever
+# directory the session's shell stands in -- including a job directory. They are never job
+# files, and copying one kills the copy with a permission error, so they are never copied. The
+# same names are declared non-content in the repository's .gitignore; extend both together.
+TOOLING_NAMES = (".claude", ".agents", ".mcp.json")
 HANDBOOK = pathlib.Path(__file__).resolve().parents[1]
 RECEIPT_SUFFIX = ".dry-run-receipt.json"
 
@@ -110,7 +116,8 @@ def parse_args(argv=None):
     ap.add_argument("--stand-in", action="append", default=[], metavar="PATH:BYTES",
                     help="sparse file of exactly BYTES at PATH (after rewriting); repeatable")
     ap.add_argument("--exclude", action="append", default=[], metavar="NAME",
-                    help="directory or file name not to copy from the job directory")
+                    help="directory or file name not to copy from the job directory, in addition "
+                         "to the frontend tooling paths, which are never copied")
     ap.add_argument("--module", action="append", default=[], metavar="NAME",
                     help="module the stub reports as loaded, besides those the script loads")
     ap.add_argument("--stub", action="append", default=[], metavar="NAME=TEXT",
@@ -320,7 +327,7 @@ def main(argv=None) -> int:
     try:
         # -- copy the job directory, never run the real one --------------------
         real_dir = script.parent
-        ignore = shutil.ignore_patterns(*args.exclude) if args.exclude else None
+        ignore = shutil.ignore_patterns(*TOOLING_NAMES, *args.exclude)
         shutil.copytree(real_dir, job, symlinks=True, ignore=ignore)
 
         rewrites = [(str(real_dir), str(job))]

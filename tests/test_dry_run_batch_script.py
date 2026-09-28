@@ -4,6 +4,7 @@ refuse vacuous perturbations, and write a receipt the guard can read."""
 from __future__ import annotations
 
 import json
+import shutil
 import os
 import subprocess
 import sys
@@ -159,6 +160,29 @@ class DryRunHarnessTests(unittest.TestCase):
         self.run_harness(script, "--no-receipt")
         after = sorted(p.relative_to(self.jobdir) for p in self.jobdir.rglob("*"))
         self.assertEqual(before, after)
+
+    def test_sandbox_placeholders_in_the_job_directory_are_not_copied(self):
+        """An agent sandbox leaves unreadable tooling placeholders where its shell stands."""
+        script = self.write_script(PWD_RECIPE)
+        placeholder_file = self.jobdir / ".mcp.json"
+        placeholder_dir = self.jobdir / ".claude"
+        placeholder_file.write_text("")
+        (placeholder_dir / "hooks").mkdir(parents=True)
+        placeholder_file.chmod(0)
+        (placeholder_dir / "hooks").chmod(0)
+        self.addCleanup(placeholder_file.chmod, 0o600)
+        self.addCleanup((placeholder_dir / "hooks").chmod, 0o700)
+        result = self.run_harness(script, "--no-receipt", "--keep")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("POSITIVE CONTROL PASSED", result.stdout)
+        kept = [line.split(":", 1)[1].strip() for line in result.stdout.splitlines()
+                if line.startswith("sandbox kept:")]
+        self.assertEqual(len(kept), 1, result.stdout)
+        copied = Path(kept[0]) / "job"
+        self.addCleanup(shutil.rmtree, kept[0], True)
+        self.assertTrue((copied / "job.sbatch").is_file())
+        self.assertFalse((copied / ".mcp.json").exists())
+        self.assertFalse((copied / ".claude").exists())
 
     def test_runner_selects_a_usable_interpreter(self):
         script = self.write_script(PWD_RECIPE)

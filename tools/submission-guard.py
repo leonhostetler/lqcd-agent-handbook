@@ -27,6 +27,14 @@ pressure. This tool does not erode.
 Deliberately NOT here: budget and account checks (they live in the working-directory ledger,
 whose format the handbook ships but whose numbers it never holds), and any override switch.
 An operator who must submit an unchecked script does so from their own shell.
+
+What counts as a submission is decided on tokens and errs towards refusing. Two readings are
+exempt because they cannot submit: the submit command's name as the argument of a look-up
+(`type`, `which`, `whereis`, `command -v`/`-V`, `man`), and the submit command invoked with
+nothing but a help or version flag. Everything else that tokenises to the submit command is
+treated as a submission -- including the word appearing in heredoc or echoed text, because a
+heredoc fed to a shell does submit and a tokeniser cannot tell the two apart. The refusal says
+so, and the remedy for text is to write it from a file rather than from the command line.
 """
 from __future__ import annotations
 
@@ -67,6 +75,29 @@ def detect_machine(explicit: str | None) -> str | None:
         return None
     name = proc.stdout.strip()
     return None if (proc.returncode != 0 or not name or name == "unknown") else name
+
+
+LOOKUP_COMMANDS = {"type", "which", "whereis", "man"}
+HELP_FLAGS = {"--help", "-h", "--usage", "--version", "-V"}
+SEPARATORS = {"&&", "||", ";", "|"}
+
+
+def is_lookup(tokens: list[str], i: int) -> bool:
+    """True when tokens[i], the submit command's name, cannot be submitting anything."""
+    j, flags = i - 1, set()
+    while j >= 0 and tokens[j].startswith("-"):  # step back over the look-up's own flags
+        flags.add(tokens[j])
+        j -= 1
+    if j >= 0 and tokens[j] in LOOKUP_COMMANDS:
+        return True
+    if j >= 0 and tokens[j] == "command" and flags & {"-v", "-V"}:
+        return True
+    rest = []
+    for t in tokens[i + 1:]:
+        if t in SEPARATORS:
+            break
+        rest.append(t)
+    return bool(rest) and all(t in HELP_FLAGS for t in rest)
 
 
 def find_script(tokens: list[str], submit: str, cwd: pathlib.Path) -> tuple[pathlib.Path | None, str]:
@@ -153,13 +184,17 @@ def decide(event: dict, machine_arg: str | None) -> tuple[int, str]:
     except ValueError:
         tokens = command.split()
     submits = submit_commands()
-    hit = next((t for t in tokens if t in submits), None)
-    if hit is None:
+    at = next((i for i, t in enumerate(tokens) if t in submits and not is_lookup(tokens, i)), None)
+    if at is None:
         return 0, ""
+    hit = tokens[at]
     cwd = pathlib.Path(event.get("cwd") or os.getcwd())
-    script, reason = find_script(tokens, hit, cwd)
+    script, reason = find_script(tokens[at:], hit, cwd)
     if script is None:
-        return 2, f"submission refused: {reason}"
+        return 2, (f"submission refused: {reason}\n"
+                   f"  (the command line contains '{hit}' as a word and is treated as a submission; "
+                   f"if it only mentions the word, for example in heredoc or echoed text, write that "
+                   f"text from a file instead)")
 
     problems = []
     machine = detect_machine(machine_arg)

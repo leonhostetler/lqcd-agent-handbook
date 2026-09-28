@@ -1044,9 +1044,12 @@ Seven rules:
    ownership, size, mode and file type all moved. Declaration is stable where inspection is
    not, so `.mcp.json`, `.claude/*`, and `.agents/*` are ignored, with the handbook-owned
    `skills/` directories re-included — a new or modified file under `.claude/skills/` is
-   still reported, because that part *is* handbook content. Extend the ignore list when a
-   frontend adds a tooling path; outside those declared paths, a `??` entry is real and
-   rule 3 applies unchanged.
+   still reported, because that part *is* handbook content. The same names are declared
+   twice more, where a copy would otherwise die on a placeholder: the test suite's copy
+   filter in `tests/support.py`, and the dry-run harness's `TOOLING_NAMES`, since a session
+   standing in a job directory litters it too. Extend all three when a frontend adds a
+   tooling path; outside those declared paths, a `??` entry is real and rule 3 applies
+   unchanged.
 4. **A committed inbox entry is pending intake too, and it is the ordinary
    cross-machine case.** An untracked proposal cannot leave the clone that wrote it, so the
    only way to put one in front of the machine that will review it is to commit it.

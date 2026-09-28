@@ -7,6 +7,8 @@ evidence: source
 sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/README.md
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt#L527-L530
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/CMakeLists.txt#L22
 observed: "2026-08-20"
 observed_on:
   software:
@@ -65,6 +67,15 @@ requests a reduced test build:
 With those options, the install build above compiles and installs all tests enabled by the
 configured features. A focused runtime validation may execute only the subset required by the
 profile's validation contract; it must not narrow what is compiled.
+
+Pin the install library directory with `-DCMAKE_INSTALL_LIBDIR=lib`. QUDA installs its own
+libraries to a literal `lib` and sets the installed run path to `${CMAKE_INSTALL_PREFIX}/lib`,
+but installs the test support library `libquda_test.so` to `${CMAKE_INSTALL_LIBDIR}`. Where
+CMake's `GNUInstallDirs` resolves that to `lib64` — observed on Vista, see
+[`quda-cuda12-milc-cg-2026q3`](../../machines/vista/stacks/quda-cuda12-milc-cg-2026q3/notes.md) — every
+installed test fails at start-up with `libquda_test.so: cannot open shared object file`, while
+the build-tree tests in `<build>/tests` still run. Adding the option to an existing build and
+reinstalling is enough; it does not require a fresh configure.
 
 For `milc-cg`, retain `QUDA_INTERFACE_QDP=ON`: the native staggered dslash and inverter
 tests construct QDP-ordered host gauge fields even though the intended consumer interface

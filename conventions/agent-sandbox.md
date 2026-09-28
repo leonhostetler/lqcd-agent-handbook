@@ -108,7 +108,9 @@ existence check. Two consequences seen in practice:
 
 - **A recursive copy of a repository dies** with a permission error on the placeholder, not on
   anything the copy was about. Copy routines need an ignore list covering the tooling paths,
-  which is why this handbook's test suite carries one.
+  which is why this handbook's test suite and its batch-script dry-run harness each carry one.
+  The harness needs it because a session whose shell stands in a job directory leaves
+  placeholders there as well.
 - **Version-control operations fail obscurely.** A placeholder where a lock file would go
   produces an error about being unable to take a lock, which reads as a stale lock rather than
   as a denied write. `playbooks/start-session.md` carries the specific retry this handbook
