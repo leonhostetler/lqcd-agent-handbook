@@ -1,6 +1,6 @@
 ---
 title: Runtime environment a MILC-driven QUDA job carries by default
-summary: The environment variables a MILC/QUDA job sets unless the operator says otherwise, why each one, the machine exceptions, the rule that a run records every entry set or deliberately unset, and why GDR is verified from the tunecache keys rather than from QUDA's announcement line.
+summary: The environment variables a MILC/QUDA job sets unless the operator says otherwise, why each one, the machine exceptions, the rule that a run records every entry set or deliberately unset, why GDR is verified from the tunecache keys rather than from QUDA's announcement line, and why the transport's protocol tables are needed to show GPU-to-GPU transfer.
 scope: [software:quda, software:milc]
 load_when: Writing or reviewing the environment block of a MILC/QUDA launcher, diffing a launcher against a stack record, verifying that GPU-Direct RDMA or peer-to-peer was actually in force, or comparing two runs whose environment may differ.
 evidence: operator
@@ -14,6 +14,7 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/communicator_mpi.cpp#L115
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/dslash_policy.hpp#L2038-L2041
   - operator's screened runtime and launcher records
+  - operator's screened diagnostic-rig records (UCX protocol tables, Vista)
 observed: "2026-09-25"
 observed_on:
   software:
@@ -107,6 +108,24 @@ rig labelled six valid legs indeterminate on exactly that gate. Verify `QUDA_ENA
 `QUDA_ENABLE_P2P` from the `gdr=` and `p2p=` fields of the tunecache keys, and state the backend
 when reporting, so a reader on an MPI-backend build understands why their log does carry the line.
 Upstream, the gates should call `comm_rank()`.
+
+**The keys record QUDA's choice; the transport makes its own.** `gdr=1` means QUDA handed
+device buffers to MPI. Whether the network adapter then read and wrote GPU memory directly is
+decided underneath, per message size, by the MPI transport — which may stage the data through
+host memory instead, or fail to register the buffer at all. `[experiment]` Where MPI runs over
+UCX, `UCX_PROTO_INFO=y` prints the protocol chosen for each memory type and size band, and a
+receive that fetched GPU to GPU logs `rendezvous data fetch into cuda/GPU0 from cuda`; `from
+host` means the sender's data was staged. On one machine a test with `gdr=1` on every policy key
+moved its halos only through host-sourced fetches, while a rebuilt stack with a newer MPI and
+transport fetched GPU to GPU at the same volume ([`../../machines/vista/gpu-aware-mpi.md`](../../machines/vista/gpu-aware-mpi.md)).
+So a validation that must show GPUDirect RDMA working, rather than requested:
+
+- records the protocol tables, and the transport version the run actually loaded
+  (`UCX_LOG_LEVEL=info` prints it), not the version the module list names;
+- includes a halo large enough to reach the transport's rendezvous band — QUDA's small test
+  lattices stay in the eager band, which exercises a different protocol; and
+- treats a passing run without either as evidence that QUDA's GDR path is correct, not that
+  GPU-to-GPU transfer occurred.
 
 ## What GDR is worth, as far as it has been measured here
 

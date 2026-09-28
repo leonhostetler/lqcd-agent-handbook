@@ -113,6 +113,13 @@ dry-run harness models `srun`'s step semantics only. A script that launches with
 therefore goes through a launcher whose step behaviour the harness has not modelled. State
 which launcher a script uses, and do not treat a dry-run receipt as evidence about `ibrun`.
 
+**Choose the MPI module from a validated stack, not from the module list.** Each TACC Open MPI
+build is linked to one UCX version, which need not be the one the loaded `ucx` module names,
+and the one behind the GNU 14 / CUDA 12 `openmpi/5.0.5` breaks GPUDirect RDMA; see
+[`gpu-aware-mpi.md`](gpu-aware-mpi.md). For multi-rank GPU work use the CUDA 13 stacks,
+[`quda-cuda13-milc-cg-2026q3`](stacks/quda-cuda13-milc-cg-2026q3/notes.md) and
+[`milc-cuda13-quda-ks-spectrum-2026q3`](stacks/milc-cuda13-quda-ks-spectrum-2026q3/notes.md).
+
 ## Place builds deliberately
 
 Compiling on a login node is permitted at low parallelism. TACC names `make -j 12` as an

@@ -1,6 +1,6 @@
 ---
 title: Working under an agent sandbox
-summary: How sandbox restrictions present as machine, scheduler, or permission faults, the invocation shapes that decide whether a site query succeeds, and what that means for tool design.
+summary: How sandbox restrictions present as machine, scheduler, device, or permission faults, the invocation shapes that decide whether a site query succeeds, and what that means for tool design.
 scope: [universal]
 load_when: A command fails, hangs, or leaves a half-written file in a way that suggests a machine, scheduler, or permission fault while the session runs under an agent sandbox; or before writing a tool that shells out to a site service.
 evidence: reproduced
@@ -115,6 +115,18 @@ existence check. Two consequences seen in practice:
   produces an error about being unable to take a lock, which reads as a stale lock rather than
   as a denied write. `playbooks/start-session.md` carries the specific retry this handbook
   uses for its own freshness check.
+
+## A device the sandbox hides looks like a node without one
+
+A sandbox can hide device files as well as paths. On one machine the GPU and network-adapter
+device nodes were invisible inside it: a CUDA program reported no device, and the
+communication library's device listing showed only host and shared-memory domains — no
+network adapter, no GPU memory. Nothing about the node was wrong; the same commands on the same
+node, from the operator's own shell, found both. `[reproduced ×2]`
+
+So a GPU run, a fabric or GPU-memory probe, or anything that must open an accelerator is run
+from a shell outside the sandbox, and the record says where it ran. Building, reading
+binaries, and checking linkage still work inside it.
 
 ## Where the neighbouring rules already live
 

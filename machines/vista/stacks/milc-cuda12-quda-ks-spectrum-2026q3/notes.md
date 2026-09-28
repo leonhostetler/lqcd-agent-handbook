@@ -1,6 +1,6 @@
 ---
 title: MILC ks_spectrum_hisq stack with QUDA on Vista
-summary: Vista build options, the OpenMP link fix, placement, and the four-node validation of MILC ks_spectrum_hisq composed with the Vista QUDA milc-cg stack.
+summary: Superseded for multi-rank GPU work by milc-cuda13-quda-ks-spectrum-2026q3, because its UCX 1.17 transport breaks GPUDirect RDMA. Vista build options, the OpenMP link fix, placement, and the four-node validation of MILC ks_spectrum_hisq composed with the Vista GNU 14 / CUDA 12 QUDA milc-cg stack, whose GPU-to-GPU transfer was not shown.
 scope: [machine:vista, software:milc]
 load_when: Rebuilding, validating, or launching the milc-cuda12-quda-ks-spectrum-2026q3 stack on Vista.
 evidence: experiment
@@ -21,6 +21,12 @@ observed_on:
 ---
 
 # MILC `ks_spectrum_hisq` with QUDA on Vista
+
+> **Superseded for multi-rank GPU work — use
+> [`milc-cuda13-quda-ks-spectrum-2026q3`](../milc-cuda13-quda-ks-spectrum-2026q3/notes.md).**
+> This stack's Open MPI is pinned to UCX 1.17.0, so its multi-node runs do not get working
+> GPUDirect RDMA ([`../../gpu-aware-mpi.md`](../../gpu-aware-mpi.md)). Use it only for
+> single-GPU work or to reproduce its own recorded results.
 
 Declare `gpu-gh200` first. Build against the QUDA install of
 [`quda-cuda12-milc-cg-2026q3`](../quda-cuda12-milc-cg-2026q3/notes.md), whose notes own the
@@ -62,8 +68,9 @@ OpenMP threads. At one task per node, TACC's `ibrun` launches Open MPI's `mpirun
 Environment exported for the run: `QUDA_ENABLE_GDR=1`, `QUDA_MILC_HISQ_RECONSTRUCT=13`,
 `QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY=9`, `OMP_NUM_THREADS=16`, `OMP_PROC_BIND=spread`,
 `OMP_PLACES=cores`, a fresh `QUDA_RESOURCE_PATH`; `QUDA_ENABLE_P2P` and
-`QUDA_DETERMINISTIC_REDUCE` deliberately unset. GDR was confirmed from the tunecache policy
-keys (`commDim=0011`, `gdr=1`), not from the log.
+`QUDA_DETERMINISTIC_REDUCE` deliberately unset. The tunecache policy keys (`commDim=0011`,
+`gdr=1`) confirm that QUDA handed device buffers to MPI; they do not show that the HCA moved
+data GPU to GPU, and this run did not record UCX's protocol tables.
 
 Batch submission from a compute node is refused on Vista; see
 [`../../notes.md`](../../notes.md).
@@ -76,6 +83,11 @@ the same sample input — built with a different toolchain and older revisions �
 printed precision, and those two references differ from each other by the same amount.
 
 QUDA's own multi-node tests fail with GDR on for the device-buffer policies, and its
-multi-rank QIO read-back fails a checksum (see the QUDA stack notes). This application run
-did not trip either, but the reason is not established. Treat other lattice sizes,
-decompositions, and any QIO gauge I/O through this stack as unvalidated.
+multi-rank QIO read-back fails a checksum (see the QUDA stack notes). The GDR failure comes
+from this stack's UCX 1.17.0 and its `gdr_copy` transport
+([`../../gpu-aware-mpi.md`](../../gpu-aware-mpi.md)). This run's halos are large enough to
+take a protocol that avoids it, and at this local volume a two-node QUDA test recorded only
+host-sourced transfers, so this run most likely did not move data GPU to GPU either. **For
+GDR, use [`milc-cuda13-quda-ks-spectrum-2026q3`](../milc-cuda13-quda-ks-spectrum-2026q3/notes.md).**
+Treat other lattice sizes, decompositions, and any QIO gauge I/O through this stack as
+unvalidated.

@@ -1,6 +1,6 @@
 ---
 title: QUDA CUDA 12 milc-cg stack on Vista
-summary: Reproduction commands, the installed-test library-directory fix, and the unresolved multi-node GDR and QIO test failures for the Vista gpu-gh200 QUDA stack.
+summary: Superseded for multi-rank GPU work by quda-cuda13-milc-cg-2026q3, because its UCX 1.17 transport breaks GPUDirect RDMA. Reproduction commands, the installed-test library-directory fix, the multi-node GDR test failure traced to its UCX 1.17 transport, and the unresolved multi-rank QIO failure for the Vista gpu-gh200 QUDA stack built with GNU 14 and CUDA 12.
 scope: [machine:vista, software:quda]
 load_when: Rebuilding, validating, or running multi-rank tests of the quda-cuda12-milc-cg-2026q3 stack on Vista.
 evidence: experiment
@@ -22,6 +22,13 @@ observed_on:
 ---
 
 # QUDA CUDA 12 `milc-cg` on Vista
+
+> **Superseded for multi-rank GPU work — use
+> [`quda-cuda13-milc-cg-2026q3`](../quda-cuda13-milc-cg-2026q3/notes.md).** This stack's
+> `openmpi/5.0.5` is pinned to UCX 1.17.0, which cannot register GPU memory with UCX's default
+> `gdr_copy` transport present, so GPUDirect RDMA fails for small halos and is not in use for
+> large ones ([`../../gpu-aware-mpi.md`](../../gpu-aware-mpi.md)). Use this stack only for
+> single-GPU work or to reproduce its own recorded results.
 
 Declare `gpu-gh200` before using these notes; Vista has two node types. `stack.yaml` is
 canonical for tested versions, build cost, validation results, and scope limits.
@@ -87,42 +94,50 @@ mpirun -np 1 --bind-to none "$QUDA_BUILD_DIR/usqcd/bin/io_test" \
   --dim 4 4 4 8 --gridsize 1 1 1 1 '--gtest_filter=Gauge/GaugeIOTest.*'
 ```
 
-## Multi-node tests fail: not yet explained
+## Multi-node tests fail: UCX 1.17 with `gdr_copy`
+
+**Use [`quda-cuda13-milc-cg-2026q3`](../quda-cuda13-milc-cg-2026q3/notes.md) for multi-rank
+GPU work instead.** This stack's `openmpi/5.0.5` is pinned to UCX 1.17.0, whose GPU-memory
+registration fails whenever UCX's `gdr_copy` transport is present — which it is by default.
+[`../../gpu-aware-mpi.md`](../../gpu-aware-mpi.md) owns the mechanism, the evidence, and the
+workarounds; this section records what it did to this stack's tests.
 
 Multi-rank runs used one rank per node through `ibrun`, which with one task per node passes
 `--bind-to none` to `mpirun`, `--gridsize 1 1 1 N`, and fresh per-leg tunecaches.
 
-**GDR device-buffer policies fail in QUDA's own tests.** With `QUDA_ENABLE_GDR=1`, the
-dslash and inverter tests abort on 2 and 4 nodes after UCX reports
-`ibv_reg_dmabuf_mr(...) failed: Invalid argument` and cannot register memory it classifies
-as `(cuda)`. Restricting `QUDA_ENABLE_DSLASH_POLICY` isolates it
+**GDR device-buffer send fails in QUDA's own tests.** With `QUDA_ENABLE_GDR=1`, the dslash
+and inverter tests abort on 2 and 4 nodes with UCX's
+`ibv_reg_dmabuf_mr(...) failed: Invalid argument` on memory it classifies as `(cuda)`.
+Restricting `QUDA_ENABLE_DSLASH_POLICY` separates the policies
 ([policy enum](https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/dslash_policy.hpp#L1655-L1676)):
 
 | GDR | Policies allowed | Result |
 |---|---|---|
 | 0 | default | pass |
 | 1 | `0,1` (host-staged) | pass |
-| 1 | `2,3,4,5` (device buffers to MPI) | fail |
+| 1 | `2,3` (GDR send and receive) | fail |
+| 1 | `4,5` (host-staged send, GDR receive) | pass |
 | 1 | `10,11` (zero-copy pack, GDR receive) | pass |
 
 Each pass is backed by dslash policy keys in its tunecache showing the inter-node dimension
-partitioned; a pass without them is not evidence. Since the passing `10,11` policies receive
-through GDR, the failing operation is probably a GDR *send* from a device buffer — an
-inference, because policies `2,3` were not separated from `4,5`. The composed MILC
-`ks_spectrum_hisq` ran on 4 nodes with GDR on and the same enabled policy set without this
-error; why it escapes is not established.
+partitioned. The tests' halos are a few kilobytes, inside UCX 1.17's eager zero-copy band,
+which registers the send buffer. With a 16x16x8x16 local volume the same policies passed, but
+the protocol tables showed only host-sourced rendezvous fetches. MILC's 4-node run on this
+stack, at that local volume, therefore most likely completed without GPU-to-GPU transfers as
+well — an inference, since that run did not record protocol tables.
 
-Until resolved: run QUDA's native multi-rank tests with `QUDA_ENABLE_GDR=0`, or with GDR on
-and `QUDA_ENABLE_DSLASH_POLICY=0,1,10,11`. These are candidate workarounds, validated only for
-the dslash and inverter tests above, not as fixes.
+With this stack's toolchain, `UCX_TLS=^gdr_copy` removed the failure in a one-node,
+two-rank check over the HCA while keeping registered zero-copy; it has not been run across
+nodes. `QUDA_ENABLE_GDR=0` and the policy restrictions above also avoid it, without GDR.
 
 **QIO read-back corruption.** Multi-rank `io_test` writes the gauge field with status 0 and
 then fails the read with `QIO_compare_checksum: Checksum mismatch` (status -14). It fails
-with GDR on and off, and from both `$HOME` and `$SCRATCH` (both VAST); the single-rank test
-passes. Treat multi-rank QIO gauge I/O through this stack as unvalidated.
+with GDR on and off, from both `$HOME` and `$SCRATCH` (both VAST), and identically on the
+cuda13 stack, so it is neither a GDR nor a toolchain effect. The single-rank test passes.
+Treat multi-rank QIO gauge I/O through this stack as unvalidated.
 
 ## Transport facts recorded with this stack
 
-`libmpi.so` from `openmpi/5.0.5` resolves `libucp` and `libucs` from UCX 1.17.0, the version
-Open MPI was built against, even though the module environment lists `ucx/1.20.0`; check
-`ldd` on `libmpi.so` rather than the module list when recording the UCX in use.
+`libmpi.so` from `openmpi/5.0.5` resolves `libucp` and `libucs` from UCX 1.17.0 through
+`DT_RPATH`, even though the module environment lists `ucx/1.20.0`; `LD_LIBRARY_PATH` cannot
+redirect it. That version is the cause of the GDR failure above.

@@ -3126,3 +3126,93 @@ Reconciliation (§developer-obligations item 11):
   one" — **amended** to include the harness and why.
 - `conventions/batch-scripts.md` step 9 on the harness — **confirmed**. It does not describe
   copy filtering.
+
+## 2026-09-28 — Vista GDR failure traced to UCX 1.17 + gdr_copy; CUDA 13 stacks validate GDR
+
+The first Vista stacks left QUDA's multi-node GDR test failure unexplained. A day of
+zero-allocation diagnosis on one idev node, plus three small jobs, traced it and replaced the
+stack.
+
+**The cause.** The GNU 14 / CUDA 12 `openmpi/5.0.5` module carries `DT_RPATH` to UCX 1.17.0.
+With the `gdr_copy` transport present, which UCX's default list includes, 1.17 fails to
+register GPU memory with the HCA (`ibv_reg_dmabuf_mr ... Invalid argument`). Established one
+variable at a time with two ranks over the HCA on one node:
+- `ucx_perftest`: 1.17 with `gdr_copy` fails, and without it passes.
+- QUDA's dslash with GDR send policies `2,3`: fails with `gdr_copy`, passes without it,
+  passes with `UCX_CUDA_COPY_DMABUF=no`, and passes with UCX 1.18 preloaded under the same
+  build. Each leg logged the UCX version it loaded.
+
+Matches NVIDIA HPC-X 2.19 known issue for the same error.
+
+**Ruled out along the way, each by a direct probe:**
+- missing driver support: `nvidia_peermem` and `gdrdrv` are loaded, and a standalone program
+  registered `cudaMalloc` memory with `mlx5_0` through both dmabuf and peermem;
+- sub-granule (interior) allocation offsets: six packed buffers all registered;
+- CUDA's PCIe dmabuf mapping flag: it is not supported on this platform at all.
+
+**A correction to the first diagnosis.** The earlier debugging notes placed the dslash failure
+in the CPU reference implementation. The log reads `Calculating reference
+implementation...Tuning...` because the message has no newline; the abort was in the first GPU
+dslash.
+
+**Why MILC escaped.** Small test halos fall in UCX 1.17's eager zero-copy band, which
+registers the send buffer. MILC-sized halos did not fail, but protocol tables at that volume
+showed only host-sourced rendezvous fetches. `gdr=1` in the tunecache keys had shown QUDA's
+choice, not the transport's.
+
+**The replacement.** QUDA `00c7ef33` and MILC `6b9b8a06` were rebuilt unchanged with
+`nvidia/26.1 cuda/13.1 openmpi/5.0.9`, whose Open MPI links UCX 1.20.0. Validation ran in
+three stages:
+- one GPU;
+- two ranks over the HCA with `gdr_copy` on;
+- four nodes with UCX defaults.
+
+Everything passed, and the protocol tables show inter-node GPU-to-GPU rendezvous fetches in
+the large dslash, CG, and MILC. MILC's correlators match the earlier runs at print
+precision. Multi-rank QIO read-back still fails identically, so that failure is independent of
+GDR and toolchain.
+
+**Rig defects found, each by an INDETERMINATE rather than a false verdict:**
+- no wireup transport with `rc_mlx5` alone;
+- UCX 1.20's perftest needing a CUDA 13 runtime;
+- `mpirun -np 2` refused in a one-slot idev allocation;
+- QUDA refusing two ranks per GPU without `QUDA_ENABLE_MPS=1`;
+- a scorer that counted a start-up abort as FAIL.
+
+Reconciliation (§developer-obligations item 11), by object:
+- **The GDR test failure**
+  - `machines/vista/stacks/quda-cuda12-milc-cg-2026q3/notes.md`, "Multi-node tests fail: not
+    yet explained" — **amended**: cause stated; the policy table gains the `2,3` / `4,5` split;
+    `^gdr_copy` recorded as a one-node workaround only.
+  - That leaf's transport paragraph — **amended** to name `DT_RPATH` and the causal role.
+  - Its `stack.yaml` GDR scope limit — **amended**; `tested_toolchain.mpi.transport`
+    **confirmed**.
+- **GDR confirmation on the old MILC stack**
+  - `milc-cuda12-quda-ks-spectrum-2026q3/notes.md`, "GDR was confirmed from the tunecache
+    policy keys" — **amended**: the keys show QUDA handed over device buffers, not that the
+    HCA moved data GPU to GPU.
+  - Its "reason is not established" paragraph — **amended**, with the escape labelled as an
+    inference because that run recorded no protocol tables.
+  - `stack.yaml` `gdr_confirmed_by` and its GDR scope limit — **amended**.
+- **The UCX version.** The 2026-09-28 "First Vista stacks" entry's "the module list's 1.20.0
+  was not a cause" — **confirmed as worded**: the mismatch was not the cause, but the 1.17.0
+  library it hid is. Episodes are not rewritten; this entry supersedes the open question.
+- **Verifying GDR**
+  - `software/quda/runtime-environment.md`, "Verify GDR from the tunecache keys" —
+    **confirmed**.
+  - The same leaf — a transport-level paragraph **added**, with the validation consequences.
+  - That leaf's `QUDA_ENABLE_GDR=1` row, "a machine may be the exception" — **confirmed**; the
+    Vista verdict lives in its stacks.
+  - `conventions/batch-scripts.md`, GDR "verified from the tunecache keys" — **confirmed**; it
+    points to the leaf that now carries both layers.
+- **`QUDA_ENABLE_MPS`.** `software/quda/internals/rank-placement.md`, "the flag means several
+  ranks genuinely sharing one device, and nothing else" — **confirmed**. The one-node rig used
+  it for exactly that.
+- **`machines/vista/notes.md`, "Launch MPI deliberately"** — **confirmed**; a pointer to the
+  new `machines/vista/gpu-aware-mpi.md` was added.
+- **`conventions/agent-sandbox.md`** — **amended** with hidden device files. The existing
+  hang and site-query rules were confirmed; the `squeue` hang this session hit is the case
+  they already describe.
+- **Checked and unrelated, untouched:** the DeltaAI MILC notes ("did not demonstrate
+  multi-node GPUDirect RDMA"), Perlmutter's CXI DMABUF defect (a different provider), and
+  `conventions/profile-metrics.md`'s GDR-off arm.
