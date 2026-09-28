@@ -648,12 +648,14 @@ the job.
   exports is, so an undeclared variable aborts here rather than on the machine. A harness that
   inherits the shell's environment tests a case the machine never presents — and every harness
   before this one did.
-- **Stub every external effect**: the parallel launcher, the modules system, scheduler
-  queries, compiler or version probes, and any sleep. Stub the submission command itself so
-  that it **refuses** — a batch script must never submit another job, and the refusal turns
-  that mistake into a visible failure. A stub answers on the stream the real command uses: a
-  modules listing that arrives on stdout where the real one arrives on stderr certifies
-  nothing about a guard that reads stderr.
+- **Stub every external effect**: the parallel launcher and any site launcher the machine
+  profile records, the modules system, scheduler queries, compiler or version probes, and any
+  sleep. A launcher stub runs nothing, so a guard that reads launched output needs that output
+  supplied (`--launcher-output`), and the receipt says nothing about the launch itself. Stub
+  the submission command itself so that it **refuses** — a batch script must never submit
+  another job, and the refusal turns that mistake into a visible failure. A stub answers on
+  the stream the real command uses: a modules listing that arrives on stdout where the real
+  one arrives on stderr certifies nothing about a guard that reads stderr.
 - **Make sure the stubs win.** A shell startup file or an exported shell function can put the
   real command back ahead of them; run with an empty environment, or the run silently tests
   nothing.

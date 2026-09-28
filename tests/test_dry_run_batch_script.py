@@ -3,6 +3,7 @@
 refuse vacuous perturbations, and write a receipt the guard can read."""
 from __future__ import annotations
 
+import importlib.util
 import json
 import shutil
 import os
@@ -193,6 +194,90 @@ class DryRunHarnessTests(unittest.TestCase):
             text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
             env=self.env, cwd=self.temp.name)
         self.assertEqual(result.returncode, 0, result.stdout)
+
+
+# Vista-style launch: two legs through the site launcher and a placement guard that reads
+# the launched program's output, as validation rigs on that machine do.
+SITE_LAUNCH = """here=$(pwd -P)
+[ -r "$here/inputs/job.in" ] || {{ echo "FATAL: $here is not the job directory"; exit 1; }}
+hosts=$(ibrun ./rank-info | grep -c '^host=') || hosts=0
+[ "$hosts" = 2 ] || {{ echo "FATAL: placement is not 2 hosts ($hosts)"; exit 1; }}
+ibrun ./app inputs/job.in
+echo "job ${{SLURM_JOB_ID}} done"
+"""
+PLACEMENT = "host=node-a\nhost=node-b\n"
+
+
+class SiteLauncherTests(unittest.TestCase):
+    """A machine profile's `scheduler.site_launcher` is stubbed on its own terms."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        base = Path(self.temp.name)
+        self.jobdir = base / "trial"
+        (self.jobdir / "inputs").mkdir(parents=True)
+        (self.jobdir / "inputs" / "job.in").write_text("mass 0.1\n")
+        self.env = dict(os.environ, TMPDIR=str(base / "tmp"))
+        (base / "tmp").mkdir()
+
+    def write_site_script(self) -> Path:
+        script = self.jobdir / "job.sbatch"
+        script.write_text((HEAD + SITE_LAUNCH).format(jobdir=self.jobdir))
+        return script
+
+    def run_vista(self, script: Path, *extra: str):
+        argv = [interpreter_for("yaml"), str(HARNESS), str(script), "--machine", "vista", *extra]
+        return subprocess.run(argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              check=False, env=self.env, cwd=self.temp.name)
+
+    def test_second_site_launcher_step_is_refused_without_sequential_steps(self):
+        # overlap_option is null: a call can never share the allocation with an earlier step.
+        result = self.run_vista(self.write_site_script(), "--no-receipt",
+                                "--launcher-output", PLACEMENT)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("[stub ibrun] STEP CREATION REFUSED: 1 step(s)", result.stdout)
+        self.assertIn("cannot share it", result.stdout)
+
+    def test_sequential_site_launcher_steps_pass_and_are_logged(self):
+        result = self.run_vista(self.write_site_script(), "--no-receipt",
+                                "--launcher-output", PLACEMENT, "--allow-sequential-steps")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("POSITIVE CONTROL PASSED", result.stdout)
+        self.assertIn("launcher steps created: 2", result.stdout)
+        self.assertIn("1. ibrun ./rank-info", result.stdout)
+
+    def test_placement_guard_fires_on_one_host(self):
+        # The passing legs above need both lines to arrive as two lines; an inline shell
+        # literal once delivered them as one. Here one host must make the guard fire.
+        result = self.run_vista(self.write_site_script(), "--no-receipt",
+                                "--launcher-output", "host=node-a host=node-b\n",
+                                "--allow-sequential-steps")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("placement is not 2 hosts (1)", result.stdout)
+
+    def test_site_launcher_is_not_stubbed_where_the_profile_records_none(self):
+        # The harness PATH is its stub directory plus /usr/bin:/bin, so a site's real
+        # launcher elsewhere cannot be reached from here.
+        script = self.write_site_script()
+        argv = [interpreter_for("yaml"), str(HARNESS), str(script), "--machine", "perlmutter",
+                "--no-receipt", "--launcher-output", PLACEMENT, "--allow-sequential-steps"]
+        result = subprocess.run(argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                check=False, env=self.env, cwd=self.temp.name)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertNotIn("[stub ibrun]", result.stdout)
+        self.assertIn("placement is not 2 hosts (0)", result.stdout)
+
+    def test_site_launcher_may_not_replace_the_parallel_launcher_stub(self):
+        spec = importlib.util.spec_from_file_location("dry_run_site", HARNESS)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        args = module.parse_args([str(self.jobdir / "x.sbatch"), "--machine", "vista"])
+        bin_dir = Path(self.temp.name) / "bin"
+        bin_dir.mkdir()
+        with self.assertRaises(module.Refusal):
+            module.write_stubs(bin_dir, {"parallel_launcher": "srun"}, set(), args,
+                               {"command": "srun", "overlap_option": None})
 
 
 if __name__ == "__main__":

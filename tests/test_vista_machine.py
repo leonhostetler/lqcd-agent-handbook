@@ -62,6 +62,16 @@ class VistaMachineTests(unittest.TestCase):
         profile = yaml.safe_load(PROFILE.read_text())
         self.assertNotIn("parallel_launcher", profile["scheduler"])
 
+    def test_ibrun_is_the_recorded_site_launcher_and_can_never_overlap(self):
+        # The harness stubs it from this record; a null overlap option is what makes a
+        # second concurrent call refusable, so it must stay an explicit null.
+        profile = yaml.safe_load(PROFILE.read_text())
+        launcher = profile["scheduler"]["site_launcher"]
+        self.assertEqual(launcher["command"], "ibrun")
+        self.assertIn("overlap_option", launcher)
+        self.assertIsNone(launcher["overlap_option"])
+        self.assertNotIn("parallel_launch", profile["site_policy"])
+
     def run_detector(self, hostname: str) -> str:
         env = os.environ.copy()
         env.pop("NERSC_HOST", None)

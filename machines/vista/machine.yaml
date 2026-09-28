@@ -6,6 +6,14 @@ public_login_hosts:
   - login2.vista.tacc.utexas.edu
 scheduler:
   type: slurm
+  # TACC's MPI wrapper; machines/vista/notes.md owns how it launches. It is not the
+  # surface's parallel_launcher: srun stays stubbed as srun, and the dry-run harness stubs
+  # this one from the fields below.
+  site_launcher:
+    command: ibrun
+    # Each call on a multi-node job creates one scheduler step. It passes no step-sharing
+    # option and clears the variable that would add one.
+    overlap_option: null
 filesystems:
   home:
     purpose: Small permanent storage; not for parallel or high-intensity file operations.
@@ -70,9 +78,6 @@ site_policy:
       gh: 1.0
       gh-dev: 1.0
       gg: 0.33
-  parallel_launch:
-    site_launcher: ibrun
-    note: TACC documents ibrun as its Vista-aware replacement for generic MPI launchers.
 build_environment:
   login:
     node_type: cpu-gg

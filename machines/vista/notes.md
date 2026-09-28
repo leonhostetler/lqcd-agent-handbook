@@ -9,6 +9,8 @@ sources:
   - https://docs.tacc.utexas.edu/basics/conduct/
   - Vista Lmod module metadata (module spider python3; module show TACC)
   - direct observation of batch submission from a compute node, in an operator's working-project session
+  - the site's installed ibrun script and the Open MPI 5.0.9 runtime's Slurm launch options, read 2026-09-28
+  - job-step accounting of six operator multi-node jobs on 2 and 4 nodes, one prted step per ibrun call
 observed: "2026-09-28"
 observed_on:
   machine: vista
@@ -108,10 +110,30 @@ that environment with Slurm's export option, so load modules in the script inste
 ## Launch MPI deliberately
 
 TACC documents `ibrun` as its Vista-aware MPI launcher, taking rank and node counts from the
-job's directives. The handbook's scheduler surface records `srun`, and the batch-script
-dry-run harness models `srun`'s step semantics only. A script that launches with `ibrun`
-therefore goes through a launcher whose step behaviour the harness has not modelled. State
-which launcher a script uses, and do not treat a dry-run receipt as evidence about `ibrun`.
+job's directives. With the Open MPI stacks it runs `mpirun` over a hostfile it builds from
+the allocation. It forwards the environment with `-x` and passes `--bind-to none` at one task
+per node. It writes those hostfiles under `$HOME/.slurm` and removes them on exit, so it
+writes outside a job's run root on every call. `[source]`: the site's installed script.
+
+**Each `ibrun` call on a multi-node job creates one Slurm job step**, named `prted` (Open
+MPI's remote daemons). The step spans every node except the batch node, where rank 0's
+daemon runs inside `mpirun` outside any step. `[reproduced ×6]`: the jobs' own step
+accounting, on 2 and 4 nodes. The step claims its nodes: `mpirun` passes no
+`--overlap` option, and `ibrun` clears `PRTE_MCA_plm_slurm_args`, the one variable that could
+add it. So a second `ibrun` cannot share those nodes while an earlier one is still running.
+`[inferred]` from those launch options and Slurm's step rules; no concurrent `ibrun` has been
+run. Until it has, **never background an `ibrun`**, a sampler for instance, while later legs
+launch. Run legs one after another, and keep a node sampler a plain background process on
+the batch node (`conventions/batch-scripts.md`). A single-node job needs no remote daemons,
+so it presumably creates no step; that case has not been observed.
+
+The machine profile records `ibrun` as `scheduler.site_launcher`, and the batch-script dry-run
+harness stubs it from that record. Each call is logged as a step, and a second step is
+refused unless the run passes `--allow-sequential-steps`, which a script that launches its
+legs in turn needs. The stub runs nothing, so a guard that reads a launched program's output,
+such as a placement check, needs that output supplied with `--launcher-output`. The harness
+still does not model the launch itself: rank placement, environment forwarding, and binding
+are what `ibrun` does on the machine, and a receipt says nothing about them.
 
 **Choose the MPI module from a validated stack, not from the module list.** Each TACC Open MPI
 build is linked to one UCX version, which need not be the one the loaded `ucx` module names,

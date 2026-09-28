@@ -24,9 +24,12 @@ So the environment model is the point, and it is deliberately unlike the shell i
 
 Stubs replace the submit and interactive commands (they refuse), the parallel launcher (it
 logs the step and, where the surface records an overlap option, models step-allocation
-contention), scheduler queries, the modules system, the accelerator query tool the machine
-profile's vendor implies, and `sleep`. Anything else the script needs can be stubbed with
-`--stub NAME=TEXT`.
+contention), a site launcher the machine profile records under `scheduler.site_launcher`
+(logged and modelled from that record, never from the parallel launcher's), scheduler
+queries, the modules system, the accelerator query tool the machine profile's vendor implies,
+and `sleep`. A launcher stub runs nothing; `--launcher-output TEXT` makes every launcher stub
+print TEXT after its log line, for guards that read launched output. Anything else the script
+needs can be stubbed with `--stub NAME=TEXT`, which replaces any stub of that name.
 
 Sparse stand-ins satisfy byte-count guards for inputs that are not checksummed. They are
 CONFINED to the sandbox: a declaration that is relative, contains an unexpanded shell
@@ -64,7 +67,7 @@ import subprocess
 import sys
 import tempfile
 
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 
 # Frontend tooling paths an agent sandbox materialises as unreadable placeholders in whatever
 # directory the session's shell stands in -- including a job directory. They are never job
@@ -127,6 +130,9 @@ def parse_args(argv=None):
     ap.add_argument("--gpu-model", default="STUB-ACCELERATOR", help="model the accelerator stub reports")
     ap.add_argument("--gpu-count", type=int, default=4)
     ap.add_argument("--gpu-memory-mib", type=int, default=40960)
+    ap.add_argument("--launcher-output", default=None, metavar="TEXT",
+                    help="text every launcher stub prints after its log line, for guards that "
+                         "read the launched program's output")
     ap.add_argument("--allow-sequential-steps", action="store_true",
                     help="let a non-overlapping launcher step proceed after earlier steps")
     kind = ap.add_mutually_exclusive_group()
@@ -147,7 +153,38 @@ def make_stub(bin_dir: pathlib.Path, name: str, body: str) -> None:
     path.chmod(0o755)
 
 
-def write_stubs(bin_dir: pathlib.Path, surface: dict, vendors: set[str], args) -> None:
+def launcher_stub(bin_dir: pathlib.Path, name: str, overlap: str, never_overlaps: bool,
+                  output: str | None) -> None:
+    """Log each call as a step and model step-allocation contention.
+
+    `overlap` is the option that lets a step share the allocation. With none recorded the
+    parallel launcher is not modelled (no refusal); a site launcher recorded with a null
+    overlap option can never pass one, so it is refused whenever an earlier step exists.
+    """
+    modelled = "yes" if (overlap or never_overlaps) else "no"
+    refusal = "cannot share it" if never_overlaps else f"did not pass {overlap}"
+    echo = ""
+    if output is not None:
+        # A file, not an inline literal: the text reaches the script byte for byte.
+        (bin_dir / f".{name}.output").write_text(output if output.endswith("\n") else output + "\n")
+        echo = f'cat "{bin_dir / f".{name}.output"}"\n'
+    make_stub(bin_dir, name, f'''steps="${{DRYRUN_STEPS:?}}"
+overlap=no
+for a in "$@"; do [ -n "{overlap}" ] && [ "$a" = "{overlap}" ] && overlap=yes; done
+echo "[stub {name}] $*"
+held=0; [ -s "$steps" ] && held=$(wc -l < "$steps")
+if [ "{modelled}" = yes ] && [ "$overlap" = no ] && [ "$held" -gt 0 ] && [ "${{DRYRUN_ALLOW_SEQUENTIAL_STEPS:-0}}" != 1 ]; then
+  echo "[stub {name}] STEP CREATION REFUSED: $held step(s) already hold this allocation and this step {refusal}" >&2
+  exit 1
+fi
+printf '%s\\toverlap=%s\\n' "{name} $*" "$overlap" >> "$steps"
+for a in "$@"; do case "$a" in *.out) : > "$a" 2>/dev/null || true;; esac; done
+{echo}exit 0
+''')
+
+
+def write_stubs(bin_dir: pathlib.Path, surface: dict, vendors: set[str], args,
+                site_launcher: dict | None = None) -> None:
     refuse = ('echo "[stub {name}] REFUSED: a batch script must not submit or allocate another '
               'job" >&2\nexit 99\n')
     for key in ("submit_command", "interactive_command"):
@@ -157,20 +194,14 @@ def write_stubs(bin_dir: pathlib.Path, surface: dict, vendors: set[str], args) -
 
     launcher = surface.get("parallel_launcher")
     if launcher:
-        overlap = surface.get("launcher_overlap_option") or ""
-        make_stub(bin_dir, launcher, f'''steps="${{DRYRUN_STEPS:?}}"
-overlap=no
-for a in "$@"; do [ -n "{overlap}" ] && [ "$a" = "{overlap}" ] && overlap=yes; done
-echo "[stub {launcher}] $*"
-held=0; [ -s "$steps" ] && held=$(wc -l < "$steps")
-if [ -n "{overlap}" ] && [ "$overlap" = no ] && [ "$held" -gt 0 ] && [ "${{DRYRUN_ALLOW_SEQUENTIAL_STEPS:-0}}" != 1 ]; then
-  echo "[stub {launcher}] STEP CREATION REFUSED: $held step(s) already hold this allocation and this step did not pass {overlap}" >&2
-  exit 1
-fi
-printf '%s\\toverlap=%s\\n' "$*" "$overlap" >> "$steps"
-for a in "$@"; do case "$a" in *.out) : > "$a" 2>/dev/null || true;; esac; done
-exit 0
-''')
+        launcher_stub(bin_dir, launcher, surface.get("launcher_overlap_option") or "", False,
+                      args.launcher_output)
+    if site_launcher:
+        name = site_launcher["command"]
+        if name == launcher:
+            raise Refusal(f"site launcher {name!r} would replace the parallel launcher's stub")
+        launcher_stub(bin_dir, name, site_launcher.get("overlap_option") or "",
+                      site_launcher.get("overlap_option") is None, args.launcher_output)
 
     for key in ("query_command", "queues_command", "control_command",
                 "accounting_command", "live_step_command"):
@@ -308,7 +339,8 @@ def main(argv=None) -> int:
     script = args.script.resolve()
     if not script.is_file():
         raise Refusal(f"no such script: {script}")
-    surface, _ = _CBS.load_surface(args.machine)
+    surface, profile_scheduler = _CBS.load_surface(args.machine)
+    site_launcher = (profile_scheduler or {}).get("site_launcher")
     vendors = _CBS.accelerator_vendors(args.machine) or set()
     text = script.read_text()
     prefix = surface["directive_prefix"]
@@ -394,7 +426,7 @@ def main(argv=None) -> int:
         spool_copy = spool / script.name
         shutil.copy2(job / script.name, spool_copy)
 
-        write_stubs(bin_dir, surface, vendors, args)
+        write_stubs(bin_dir, surface, vendors, args, site_launcher)
         (sandbox / "modules").write_text("")
 
         env = {

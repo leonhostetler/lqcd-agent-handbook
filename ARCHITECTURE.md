@@ -54,7 +54,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Branch policy** | **There is none, deliberately.** QUDA and MILC are built from `develop`, a feature branch, or a fork, per episode; tagged releases are not used. So the branch is session state too, and the environment-vs-stack check reports **ancestry — including `diverged` — never a commit distance** ([§version-lifetimes](#version-lifetimes)) | Either project adopts a real release cadence |
 | **Node types** | One `machines/<name>/` per machine with `node_types:` inside, for CPU/GPU partitions and heterogeneous accelerators alike — never `machine-gpu/` beside `machine-cpu/`. Build-determining fields are carried separately from sizing-determining ones, shared-architecture compatibility is **reported as an inference, never as validation**, and a login host alone never selects a type ([§node-types](#node-types)) | — |
 | **Machine order** | Frontier → DeltaAI → Aurora, onboarded as needed rather than as slices. Scheduler and accelerator fields are **discriminated on type from slice 2** so PBS and non-NVIDIA arrive as values, not restructures ([§build-order](ROADMAP.md#build-order)) | — |
-| **Scheduler submission surface** | Recorded **once per scheduler type** in `conventions/scheduler-surfaces.yaml`, so submission guidance stays scheduler-agnostic. A machine profile names its `type` and overrides only what its site genuinely changes; a site facility that does not exist is an explicit `null`, never omitted ([§scheduler-surface](#scheduler-surface)) | A scheduler arrives whose submission surface cannot be expressed as named options and variables |
+| **Scheduler submission surface** | Recorded **once per scheduler type** in `conventions/scheduler-surfaces.yaml`, so submission guidance stays scheduler-agnostic. A machine profile names its `type` and overrides only what its site genuinely changes; a site facility that does not exist is an explicit `null`, never omitted. A site's own MPI launcher is such a facility, recorded as `scheduler.site_launcher` and stubbed beside the parallel launcher, never in its place ([§scheduler-surface](#scheduler-surface)) | A scheduler arrives whose submission surface cannot be expressed as named options and variables |
 | **The plan itself** | Ships in the repo as `ARCHITECTURE.md` (durable design), `ROADMAP.md` (mutable state) and `DEVLOG.md` (the episode record, never loaded at session start), developer-mode only ([§plan-ships-with-handbook](#plan-ships-with-handbook)) | — |
 | **Cross-references** | Stable `<a id="slug">` anchors, not section numbers; numbers stay in headings and may change freely. Validator-enforced. **Long documents only** — knowledge files are already addressed by path ([§stable-anchors](#stable-anchors)) | — |
 | **Predictions** | The loop is mandatory in benchmarking and tuning, but records live in the **working directory**; only `prediction.schema.json` ships ([§records-in-working-directory](#records-in-working-directory)) | — |
@@ -927,6 +927,16 @@ carries interact badly there: under `set -u` the reference aborts the job, and w
 from one nobody recorded. The same rule governs which filesystem variables a script may
 name: only those a profile declares, which is why the guidance never writes `$SCRATCH`,
 `$PROJECT`, or `$CFS` into its own text.
+
+**A site's own MPI launcher is a site facility, not a surface override.** TACC's `ibrun`
+wraps a different launch path from `srun`'s. It goes through the MPI library's own starter,
+and on Open MPI that creates one scheduler step per call and can pass no step-sharing option.
+Overriding `parallel_launcher` with it would stub `ibrun` with `srun`'s rules and stop stubbing
+`srun`. So a profile records it as `scheduler.site_launcher`: the command, and the option that
+lets its step share the allocation, where a `null` states there is none. The dry-run harness
+stubs it beside the parallel launcher with exactly that model, and refuses a record that
+would replace the parallel launcher's stub. The mechanism belongs in the machine's notes,
+because it is site knowledge; the record holds only what a tool consumes.
 
 **Populate from fact, not from anticipation.** The Slurm values are recorded because they
 are verified. PBS values arrive with Aurora; inventing them now would be the overclaim

@@ -3264,3 +3264,68 @@ Reconciliation (§developer-obligations item 11) of every statement about the su
   It records what that build used, which supersession does not change.
 - The Perlmutter MILC MG stack's scope limit "It supersedes nothing" — **confirmed**. It uses
   the word in prose about a different relation and needs no field.
+
+## 2026-09-28 — Site MPI launcher modelled in the dry-run harness (obligation X.7)
+
+X.7 asked for `ibrun`'s step behaviour to be established on Vista before the harness modelled
+it. It was established at zero allocation, from three sources.
+
+- **The site's installed `ibrun` (source).**
+  - In its default `openmpi_ssh` mode it runs `mpirun -np N -hostfile <file> -x ...` with
+    `--bind-to none` at one task per node.
+  - It writes its hostfiles under `$HOME/.slurm` and removes them on exit.
+  - It unsets `PRTE_MCA_plm_slurm_args` and `OMPI_MCA_plm_slurm_args`.
+- **Open MPI 5.0.9's runtime library.** Its Slurm daemon-launch strings carry
+  `--ntasks-per-node=1`, `--kill-on-bad-exit`, `--cpu-bind=none`, `--mpi=none`, `--nodes=`,
+  `--nodelist=` and `--ntasks=`, and no `--overlap`. That is absence in a string search, so it
+  is recorded as supporting evidence only.
+- **Step accounting of six operator multi-node jobs, captured at teardown by their own
+  scripts.**
+  - Every `ibrun` call created exactly one step, named `prted`, on every node except the batch
+    node: 1 node in 2-node jobs, 3 in 4-node jobs.
+  - Steps were numbered in order, one per launched leg.
+
+What remains **inferred**: that a second `ibrun` cannot share nodes with a running one. It
+follows from the step claiming its nodes without `--overlap` and from the caller having no way
+to add the option, but no concurrent `ibrun` has been run. Also unobserved: a single-node
+job, which needs no remote daemons and so presumably creates no step.
+
+**What landed.**
+- The Vista profile records `scheduler.site_launcher` (`command: ibrun`,
+  `overlap_option: null`), bound by `schemas/machine.schema.json`. It replaces
+  `site_policy.parallel_launch`, a free-text note no tool read.
+- The harness (1.1.0) stubs a recorded site launcher beside the parallel launcher. The stub
+  logs each call as a step and refuses a second step unless `--allow-sequential-steps` is
+  passed, because a null overlap option means the step can never share. The harness refuses a
+  site launcher that would replace the parallel launcher's stub.
+- `--launcher-output TEXT` gives every launcher stub output for guards that read it. It is
+  delivered through a file, because the inline literal `--stub` uses turns a newline into the
+  two characters `\n`. A placement guard in the working project had passed on that only because
+  `grep -o` found both hosts on one line.
+- Tests: five in `tests/test_dry_run_batch_script.py` and one in
+  `tests/test_vista_machine.py`. Each new harness test was made to fail by mutating the
+  harness: no refusal for a null overlap option, the inline literal, and no site-launcher stub.
+
+No stack or schema version changed: the profile field is optional and additive, as in X.8.
+
+Reconciliation (§developer-obligations item 11) of every statement about `ibrun`:
+- **Amended:**
+  - `machines/vista/notes.md`, "Launch MPI deliberately", which said the harness models
+    `srun` only, with nothing established about `ibrun`. It is rewritten with the three
+    sources above, inline evidence tags and the inferred case labelled.
+  - `machines/vista/machine.yaml`, `site_policy.parallel_launch`: moved to
+    `scheduler.site_launcher`, and its "Vista-aware replacement" phrasing kept in the notes.
+  - `conventions/batch-scripts.md` step 9, "Stub every external effect": now names a recorded
+    site launcher and `--launcher-output`.
+- **Confirmed:**
+  - `tests/test_vista_machine.py`, `test_launcher_is_not_overridden_without_a_modelled_harness`:
+    `parallel_launcher` is still not overridden; the new test is added beside it.
+  - The three Vista stack records' `launcher: ibrun (Open MPI mpirun, --bind-to none at one
+    task per node)` agrees with the source reading.
+  - `milc-cuda12-quda-ks-spectrum-2026q3/notes.md` ("At one task per node, TACC's `ibrun`
+    launches Open MPI's `mpirun` with `--bind-to none`").
+  - `quda-cuda12-milc-cg-2026q3/notes.md` ("passes `--bind-to none` to `mpirun`").
+  - `milc-cuda13-quda-ks-spectrum-2026q3/notes.md` ("one rank per node through `ibrun`").
+- **Not rewritten:** the earlier DEVLOG entries on `ibrun` ("The launcher was not overridden"
+  and "dry-run with `ibrun` stubbed"), which are episodes. This entry supersedes their open
+  question.
