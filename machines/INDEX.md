@@ -41,4 +41,4 @@ Entries are grouped by scoped machine.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
-| [Working on Vista](vista/notes.md) | Node-target declaration, agent placement, whole-node charging, launcher, and storage rules for TACC Vista. | Building software or preparing a job on Vista. |
+| [Working on Vista](vista/notes.md) | Node-target declaration, agent placement, the operator submission hand-off, whole-node charging, launcher, and storage rules for TACC Vista. | Building software or preparing a job on Vista. |

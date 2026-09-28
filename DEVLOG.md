@@ -2952,3 +2952,45 @@ Reconciliation (§developer-obligations item 11), `machines/vista/notes.md`:
 - `machine.yaml` `build_environment` — **confirmed**, untouched. It names module families,
   not a launch prerequisite.
 Nothing was deleted.
+
+## 2026-09-28 — Vista refuses batch submission from compute nodes
+
+**Observations.** An agent session inside an `idev` session on a `gpu-gh200` node ran the
+submit command bare, with an absolute script path. The script had a current checker pass and
+dry-run receipt. The command printed only a site notification that it is unavailable on
+compute nodes. The operator then ran the same command in their own shell in the same session,
+through a `!`-prefixed command. Earlier in that session such a command had seen the GPU that
+the agent sandbox hides, which places it outside the sandbox. It was refused identically. The
+operator's submissions from a login node were accepted. Queue queries worked from the compute
+node.
+
+**Filing.** A user-mode inbox proposal filed it first. After the second observation, the
+operator directed that it be admitted as a reproduced rule rather than an incident. It went
+into `machines/vista/notes.md` as a section with an inline `[reproduced ×2]` tag, following
+that leaf's Python-prerequisite precedent. `machine.yaml` was not used: its record is
+`evidence: docs`, and the fact is observed, not documented. Both observations come from one
+node in one `idev` session, and the tag says so. TACC's Vista guide shows submission from a
+login node but does not state the restriction.
+
+Reconciliation (§developer-obligations item 11):
+- `machines/vista/notes.md`, "Run agent sessions on compute nodes" — **confirmed**,
+  untouched. The new section follows it and states the consequence.
+- The same leaf, "A compute-node build is a scheduler job, and therefore requires an
+  explicit campaign budget before submission" — **confirmed**. It remains necessary, and the
+  new section adds that on Vista the operator submits even when a budget exists.
+- The same leaf's summary — **amended** to name the submission hand-off. The generated
+  `machines/INDEX.md` row follows.
+- The same leaf says TACC *requires* AI-assisted workloads on compute nodes, and
+  `machine.yaml` `ai_agent_workloads` says "Must". The Vista guide, re-read 2026-09-28, says
+  "strongly recommend". The conduct page was not re-read. **Not amended here**; flagged for a
+  separate check.
+- `conventions/agent-sandbox.md`, "Retry bare before concluding anything" and "Submission
+  usually still works" — **confirmed**. The first observation was a bare retry, and the second
+  ran outside the sandbox.
+- `conventions/batch-scripts.md`, the ceiling and no-nested-submission rules —
+  **confirmed**, untouched.
+
+The promoted inbox proposal was removed (§freshness-model rule 5). Separately, the submission
+guard refused an unrelated command whose heredoc *text* named the submit command. It is a
+false positive on command content, not a submission, and was worked around by writing the text
+from a file.

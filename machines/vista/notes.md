@@ -1,6 +1,6 @@
 ---
 title: Working on Vista
-summary: Node-target declaration, agent placement, whole-node charging, launcher, and storage rules for TACC Vista.
+summary: Node-target declaration, agent placement, the operator submission hand-off, whole-node charging, launcher, and storage rules for TACC Vista.
 scope: [machine:vista]
 load_when: Building software or preparing a job on Vista.
 evidence: docs
@@ -8,6 +8,7 @@ sources:
   - https://docs.tacc.utexas.edu/hpc/vista/
   - https://docs.tacc.utexas.edu/basics/conduct/
   - Vista Lmod module metadata (module spider python3; module show TACC)
+  - direct observation of batch submission from a compute node, in an operator's working-project session
 observed: "2026-09-28"
 observed_on:
   machine: vista
@@ -38,6 +39,35 @@ TACC requires every AI-assisted workload to run on compute nodes, never on login
 suggested workflow is to start an `idev` session and run the agent there. That session is a
 job, and it consumes allocation for as long as it holds the node. That includes time the
 agent spends reading or waiting.
+
+## Hand every batch submission to the operator
+
+The batch submit command does not run on a compute node. Inside an `idev` session it prints
+a site notification and submits nothing:
+
+```text
+NOTIFICATION: sbatch not available on compute nodes. Use a login node.
+```
+
+An agent session runs on a compute node, so it cannot submit. This holds even when a campaign
+ceiling and a declared account would otherwise let it. Plan every submission as an operator
+hand-off:
+- prepare the script;
+- pass the batch-script checker and the dry-run harness;
+- record the reservation;
+- give the operator the absolute-path submit command to run in a shell on a login node.
+
+A command the operator runs through the agent session's own shell, for example a `!`-prefixed
+command, also runs on the compute node and is refused the same way. Debit the ledger when the
+operator reports the job was submitted. Do not try to reach a login node from the compute node
+to get around the refusal.
+
+This is the site's refusal, not the agent sandbox: it also occurred in the operator's shell,
+outside the sandbox. Read-only scheduler queries still work from the same session.
+[reproduced ×2 on 2026-09-28: a bare submit from the agent session, and the same command in
+the operator's own shell, both on one `gpu-gh200` node in one `idev` session. Not yet
+observed on `cpu-gg` nodes, or inside a batch job. TACC's Vista guide shows submission from a
+login node but does not state the restriction.]
 
 ## Load a new enough Python before launching the agent
 
