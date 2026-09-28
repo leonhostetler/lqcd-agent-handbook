@@ -12,6 +12,8 @@ sources:
   - https://github.com/usqcd-software/qio/blob/273841537392f9465d229c957228755e923408eb/lib/dml/DML_utils.c#L282-L291
   - https://github.com/usqcd-software/qio/blob/273841537392f9465d229c957228755e923408eb/lib/dml/DML_utils.c#L511-L595
   - operator's screened tuning records
+  - https://github.com/usqcd-software/qio/issues/19
+  - https://github.com/lattice/quda/issues/1655
 observed: "2026-08-25"
 observed_on:
   software:
@@ -76,6 +78,13 @@ A single-file record holds the whole field in one file rather than one file per 
 so no per-partition sitelist exists for a reader to reject, and no layout comparison runs.
 Single-file fields are therefore readable under a different rank decomposition.
 
+**On NFS, a multi-rank single-file write is not safe at all.** QUDA writes single-file
+fields in QIO's parallel mode, which loses data on NFS: an open upstream defect, qio#19 and
+quda#1655, described in
+[`../../qio/parallel-singlefile-writes.md`](../../qio/parallel-singlefile-writes.md). Choose
+single-file for portability only where the writing job's filesystem is a coherent parallel
+filesystem, such as Lustre.
+
 **The cost is I/O time that grows with rank count.** That direction is operator-supplied
 practitioner knowledge and is deliberately unquantified here: no threshold, coefficient, or
 crossover rank count is established, and none should be inferred. Measure it on the target
@@ -97,7 +106,9 @@ stack and workload if the tradeoff is close.
 - **When a study must vary rank decomposition over stored fields there are three options**,
   with different costs: match the writing placement, regenerate the fields under the new
   placement, or hold the fields in single-file format and pay the I/O time. Price the option
-  against the study rather than assuming regeneration is the only route.
+  against the study rather than assuming regeneration is the only route. Single-file is an
+  option only on a filesystem that survives QUDA's parallel single-file write; see the NFS
+  warning above.
 
 ## Screening this offline
 

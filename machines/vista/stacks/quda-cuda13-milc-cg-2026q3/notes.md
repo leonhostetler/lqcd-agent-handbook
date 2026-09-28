@@ -75,5 +75,8 @@ library on the first attempt.
   GDR validation needs a halo above the rendezvous threshold as well;
   [`../../../../software/quda/runtime-environment.md`](../../../../software/quda/runtime-environment.md)
   owns how to read these tables.
-- **Multi-rank QIO still fails**, identically to the cuda12 stack. That failure is not a GDR
-  or toolchain effect, and its cause is open.
+- **Multi-rank QIO still fails**, identically to the cuda12 stack. The cause is the open
+  upstream defect in
+  [`../../../../software/qio/parallel-singlefile-writes.md`](../../../../software/qio/parallel-singlefile-writes.md)
+  (qio#19, quda#1655), not this stack: QUDA's parallel single-file write loses data on NFS. Do
+  not write multi-rank QIO files on `$HOME` or `$SCRATCH` with this stack.

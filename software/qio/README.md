@@ -17,6 +17,14 @@ observed_on:
 
 # QIO
 
+> **WARNING — open upstream defect
+> ([qio#19](https://github.com/usqcd-software/qio/issues/19),
+> [quda#1655](https://github.com/lattice/quda/issues/1655)).** Multi-rank `QIO_SINGLEFILE` +
+> `QIO_PARALLEL` writes lose data on NFS, and QUDA uses that mode for every gauge-field save.
+> See [`parallel-singlefile-writes.md`](parallel-singlefile-writes.md) before writing a QIO
+> file from more than one node. Keep this warning until that issue is fixed upstream and
+> validated.
+
 QIO supplies portable USQCD lattice-data file I/O and can be built for scalar or
 QMP-enabled parallel use. Its CMake build includes a bundled C-LIME implementation unless
 an external one is selected.

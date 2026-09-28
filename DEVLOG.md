@@ -3369,3 +3369,67 @@ Reconciliation of every statement about the positive control and step refusal:
     step creation retries rather than failing, which is why a refusal must fail the dry run.
   - `machines/vista/notes.md` "Launch MPI deliberately", which describes the refusal and
     `--allow-sequential-steps` and remains accurate.
+
+## 2026-09-28 — QIO parallel single-file writes lose data on NFS (open upstream defect)
+
+The Vista stacks' "multi-rank QIO read-back fails a checksum, cause not established" was
+traced in a working-project campaign: two 2-node jobs plus analysis of files earlier runs had
+left on disk.
+- **Where the damage happens.** The checksum recomputed from each damaged file equals the
+  reader's "Found" value, so the damage happens at write time.
+- **Its shape.** Every damaged range is all zero, starts exactly on a 64 KiB page and ends
+  exactly at another writer's first byte.
+- **Why there are several writers.** QUDA writes single-file fields with `QIO_PARALLEL` and
+  no I/O-node function, so every rank writes its own range of one file on VAST NFS.
+- **The standalone reproducer**, with no QIO, QUDA or GPU:
+  - NFS: 184/200 and 350/400 files damaged in QIO's order;
+  - a stale-handle write: 200/200 and 400/400;
+  - writers taking turns with a reopen: 0/200;
+  - page-aligned ranges: 0/200;
+  - Lustre (`$WORK`): 0/400 in both modes.
+- **QUDA `io_test`:** failed 2/2 as built, and passed 5/5 with `QMP_io_node` overridden to the
+  master.
+
+The operator filed usqcd-software/qio#19 and lattice/quda#1655, and asked for prominent
+warnings that stay until the defect is fixed.
+
+**What landed.**
+- `software/qio/parallel-singlefile-writes.md`, the canonical leaf: the warning, what is
+  affected, where, what to do, the mechanism (the zero-fill step labelled inferred), the
+  evidence, and what is not claimed.
+- Warning callouts before the first section of `software/qio/README.md` and
+  `machines/vista/notes.md`, and a storage-section line in the Vista notes.
+- An NFS caveat in `software/quda/internals/vector-io-layout.md`, whose portability advice
+  recommended single-file.
+- **Persistence:**
+  - `tests/test_open_upstream_defects.py` fails if the leaf's warning or issue links, any
+    pointer, or the prominence of the two callouts is removed. It was shown to fail under
+    three mutations: README warning deleted, a stack pointer removed, the Vista warning moved
+    below its first section.
+  - A ROADMAP deferred-decision row records the removal trigger per issue: closed as fixed
+    upstream **and** validated by a multi-node NFS write on Vista.
+
+Reconciliation (§developer-obligations item 11) of every statement about multi-rank QIO:
+- **Amended:**
+  - `quda-cuda12-milc-cg-2026q3/notes.md`, "QIO read-back corruption": the cause is stated
+    and linked, and "unvalidated" is narrowed to "unsafe on NFS, unvalidated elsewhere".
+  - `quda-cuda13-milc-cg-2026q3/notes.md`, "Multi-rank QIO still fails ... cause is open":
+    cause stated.
+  - Both QUDA `stack.yaml` scope limits ("Cause not established"): cause stated.
+  - `milc-cuda12-quda-ks-spectrum-2026q3/notes.md` ("see the QUDA stack notes") and
+    `milc-cuda13-quda-ks-spectrum-2026q3/notes.md` ("read-back failure ... persists"): now
+    point to the leaf and name `save_parallel_*`.
+  - Both MILC `stack.yaml` scope limits: likewise.
+  - `software/quda/internals/vector-io-layout.md`: single-file portability advice
+    conditioned on the filesystem.
+  - `machines/vista/notes.md`, "Choose storage by workload": shared-file writes need `$WORK`.
+- **Confirmed:**
+  - The QUDA `stack.yaml` `io_test` records (`qio_read_status: -14`, the checksum-mismatch
+    `failure` text): they are observations and stay as recorded.
+  - `software/milc/internals/gauge-read-dispatch.md` (restore paths) and
+    `software/milc/internals/gauge-io-cost.md` (`save_parallel` timing unmeasured; its MPI-IO
+    path is not QIO): unrelated.
+  - The DeltaAI, Frontier and Perlmutter `io_test` passes: other filesystems, not affected by
+    this entry.
+- **Not rewritten:** the earlier DEVLOG entries recording the failure as open, which are
+  episodes. This entry supersedes their open question.

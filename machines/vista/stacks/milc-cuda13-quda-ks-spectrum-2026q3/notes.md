@@ -61,4 +61,6 @@ transport level, not only in QUDA's policy keys: UCX's protocol tables record in
 GPU-to-GPU rendezvous fetches.
 
 Other lattice sizes, decompositions, and any QIO gauge I/O through this stack remain
-unvalidated; the multi-rank QIO read-back failure of the composed QUDA stack persists.
+unvalidated. Multi-rank QIO writes, including MILC's `save_parallel_*`, are unsafe on `$HOME`
+and `$SCRATCH` because of the open upstream defect in
+[`../../../../software/qio/parallel-singlefile-writes.md`](../../../../software/qio/parallel-singlefile-writes.md).

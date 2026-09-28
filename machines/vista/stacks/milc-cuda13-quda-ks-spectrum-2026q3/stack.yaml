@@ -151,7 +151,7 @@ validation:
       result: pass
   scope_limits:
     - Plain CG only. The profile compiled native-CG deflation support, but no eigensolve, deflation-space lifecycle, or deflated solve was exercised.
-    - QIO was linked, but the sample did not exercise QIO file read or write through the application. The composed QUDA stack's multi-rank QIO read-back fails its checksum, so treat multi-rank QIO through this stack as unvalidated.
+    - QIO was linked, but the sample did not exercise QIO file read or write through the application. Multi-rank QIO writes, including save_parallel_scidac and save_parallel_ildg, are unsafe on $HOME and $SCRATCH because of the open upstream defect in software/qio/parallel-singlefile-writes.md (qio#19, quda#1655). Treat multi-rank QIO through this stack as unvalidated.
     - Gaussian smearing, gauge-force, and fermion-force paths were compiled but not exercised by this sample.
     - Validation covers four nodes at one rank per node and one decomposition. No intra-node multi-rank or P2P path exists on this node type.
     - The run populated a fresh tunecache and is not benchmark evidence.

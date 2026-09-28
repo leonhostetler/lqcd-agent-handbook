@@ -159,7 +159,7 @@ validation:
       failure: QIO_compare_checksum reports a checksum mismatch on read-back
       result: fail
   scope_limits:
-    - Multi-rank QIO gauge I/O FAILS a checksum on read-back (status -14), exactly as on quda-cuda12-milc-cg-2026q3, with GDR on here and with GDR on or off there. Cause not established; it is independent of GDR and of the toolchain. The single-rank io_test passes. Treat multi-rank QIO through this stack as unvalidated.
+    - Multi-rank QIO gauge I/O FAILS a checksum on read-back (status -14), exactly as on quda-cuda12-milc-cg-2026q3, with GDR on here and with GDR on or off there. The single-rank io_test passes. The cause is the open upstream defect in software/qio/parallel-singlefile-writes.md (qio#19, quda#1655); QUDA's parallel single-file QIO write loses data on NFS, independent of GDR and toolchain. Multi-rank QIO writes through this stack are unsafe on $HOME and $SCRATCH and unvalidated elsewhere.
     - GDR was exercised with one rank per node on four nodes, and with two ranks sharing one GPU over the HCA on one node. No run placed two ranks on one node with separate GPUs; this node type has one GPU per node.
     - The MILC interface was compiled here; the composed MILC executable is validated separately by milc-cuda13-quda-ks-spectrum-2026q3.
     - The profile compiled eigensolver support, but no eigensolve or deflated solve was exercised.

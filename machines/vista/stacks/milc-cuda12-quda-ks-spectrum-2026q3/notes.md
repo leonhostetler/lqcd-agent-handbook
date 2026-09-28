@@ -83,7 +83,9 @@ the same sample input â€” built with a different toolchain and older revisions â
 printed precision, and those two references differ from each other by the same amount.
 
 QUDA's own multi-node tests fail with GDR on for the device-buffer policies, and its
-multi-rank QIO read-back fails a checksum (see the QUDA stack notes). The GDR failure comes
+multi-rank QIO read-back fails a checksum: the open upstream defect in
+[`../../../../software/qio/parallel-singlefile-writes.md`](../../../../software/qio/parallel-singlefile-writes.md),
+which also makes MILC's `save_parallel_*` unsafe on `$HOME` and `$SCRATCH`. The GDR failure comes
 from this stack's UCX 1.17.0 and its `gdr_copy` transport
 ([`../../gpu-aware-mpi.md`](../../gpu-aware-mpi.md)). This run's halos are large enough to
 take a protocol that avoids it, and at this local volume a two-node QUDA test recorded only

@@ -133,9 +133,12 @@ nodes. `QUDA_ENABLE_GDR=0` and the policy restrictions above also avoid it, with
 
 **QIO read-back corruption.** Multi-rank `io_test` writes the gauge field with status 0 and
 then fails the read with `QIO_compare_checksum: Checksum mismatch` (status -14). It fails
-with GDR on and off, from both `$HOME` and `$SCRATCH` (both VAST), and identically on the
-cuda13 stack, so it is neither a GDR nor a toolchain effect. The single-rank test passes.
-Treat multi-rank QIO gauge I/O through this stack as unvalidated.
+with GDR on and off, from both `$HOME` and `$SCRATCH` (both VAST NFS), and identically on the
+cuda13 stack. The single-rank test passes. The cause is the open upstream defect in
+[`../../../../software/qio/parallel-singlefile-writes.md`](../../../../software/qio/parallel-singlefile-writes.md)
+(qio#19, quda#1655): QUDA's parallel single-file write loses data on NFS. It is not caused by
+this stack. Multi-rank QIO writes through this stack are unsafe on `$HOME` and `$SCRATCH`, and
+remain unvalidated elsewhere.
 
 ## Transport facts recorded with this stack
 

@@ -1,6 +1,6 @@
 ---
 title: Working on Vista
-summary: Node-target declaration, agent placement, the operator submission hand-off, whole-node charging, launcher, and storage rules for TACC Vista.
+summary: Node-target declaration, agent placement, the operator submission hand-off, whole-node charging, launcher, and storage rules for TACC Vista, including the open defect that makes multi-node QIO single-file writes on $HOME and $SCRATCH unsafe.
 scope: [machine:vista]
 load_when: Building software or preparing a job on Vista.
 evidence: docs
@@ -11,6 +11,8 @@ sources:
   - direct observation of batch submission from a compute node, in an operator's working-project session
   - the site's installed ibrun script and the Open MPI 5.0.9 runtime's Slurm launch options, read 2026-09-28
   - job-step accounting of six operator multi-node jobs on 2 and 4 nodes, one prted step per ibrun call
+  - https://github.com/usqcd-software/qio/issues/19
+  - https://github.com/lattice/quda/issues/1655
 observed: "2026-09-28"
 observed_on:
   machine: vista
@@ -20,6 +22,15 @@ review_by: "2027-03-28"
 # Working on Vista
 
 The machine profile is canonical for hardware, scheduler, filesystem, and policy values.
+
+> **WARNING — open upstream defect
+> ([qio#19](https://github.com/usqcd-software/qio/issues/19),
+> [quda#1655](https://github.com/lattice/quda/issues/1655)).** `$HOME` and `$SCRATCH` are NFS,
+> and a multi-node QIO single-file write there silently corrupts the file. That covers every
+> QUDA gauge-field save, QUDA single-file vector saves, and MILC `save_parallel_*`. Write such
+> files on `$WORK` (Lustre), or through one writer; see
+> [`../../software/qio/parallel-singlefile-writes.md`](../../software/qio/parallel-singlefile-writes.md).
+> Keep this warning until the upstream issue is fixed and validated on Vista.
 
 ## Declare the compute target
 
@@ -159,6 +170,10 @@ other TACC systems. `$HOME` and `$SCRATCH` are VAST filesystems and do not accep
 striping commands. `$SCRATCH` purges files whose access time is more than ten days old, and
 deliberately altering access times to evade the purge is prohibited. Node-local `/tmp` is
 cleared when the job ends; copy out anything needed afterwards.
+
+**Multi-node shared-file writes need `$WORK`.** On the VAST NFS filesystems, several nodes
+writing one file concurrently can lose data. Parallel QIO output is the recorded case (the
+warning at the top of these notes), and any other shared-file writer is exposed the same way.
 
 Follow the universal
 [bounded filesystem-discovery convention](../../conventions/filesystem-discovery.md).
