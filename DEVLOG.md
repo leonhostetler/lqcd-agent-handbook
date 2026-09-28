@@ -2925,3 +2925,30 @@ existing statements were checked. `ARCHITECTURE.md`'s directory tree already lis
 among machine names — **confirmed**. `test_slice1.py`'s node-type resolution check covers
 DeltaAI and Frontier as single-type machines and Perlmutter as multi-type — **confirmed**.
 Vista is multi-type and carries its own explicit-declaration test. Nothing was deleted.
+
+## 2026-09-28 — Vista needs a module-provided Python before the agent starts
+
+Earlier the same day, the operator found that on Vista neither session logging nor the
+submission guard could be installed until `gcc/15.1.0 cuda/12.9 python3` was loaded before
+the agent session started.
+Module metadata supplied the mechanism. `python3/3.11.8` is available only under the `gcc`
+branch of the Lmod hierarchy. TACC's default modules load `nvidia` and only try to load
+`python3`, so that attempt fails without an error and leaves the system Python 3.9.25, below
+the handbook's minimum. The guard's runner may discover module interpreters, but discovery
+cannot see a module that the loaded compiler hides. This was tested rather than assumed: a
+subshell with `module purge; module load TACC` (loaded `nvidia/24.7`) ran `tools/select-python
+--allow-module-load --require yaml`, which probed and rejected only `/usr/bin/python3`.
+The Claude session logger itself is bash and `jq`, so Python is needed for the checker, the
+installer and the guard, not for logging.
+
+Reconciliation (§developer-obligations item 11), `machines/vista/notes.md`:
+- "TACC recommends the most recent NVIDIA compiler and OpenMPI modules" — **confirmed**. The
+  new section says that loading `gcc` for Python displaces `nvidia` in the inherited shell,
+  and that a build loads its own compiler.
+- "Exact module versions belong in a validated stack, not in the profile" — **confirmed**.
+  The pinned `gcc/15.1.0` is the tested launch prerequisite for the handbook's tooling, not
+  a build toolchain. `gcc/15.1.0` alone exposes `python3`, but the operator's tested line is
+  what is recorded.
+- `machine.yaml` `build_environment` — **confirmed**, untouched. It names module families,
+  not a launch prerequisite.
+Nothing was deleted.

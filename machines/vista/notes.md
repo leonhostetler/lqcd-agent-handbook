@@ -7,6 +7,7 @@ evidence: docs
 sources:
   - https://docs.tacc.utexas.edu/hpc/vista/
   - https://docs.tacc.utexas.edu/basics/conduct/
+  - Vista Lmod module metadata (module spider python3; module show TACC)
 observed: "2026-09-28"
 observed_on:
   machine: vista
@@ -37,6 +38,30 @@ TACC requires every AI-assisted workload to run on compute nodes, never on login
 suggested workflow is to start an `idev` session and run the agent there. That session is a
 job, and it consumes allocation for as long as it holds the node. That includes time the
 agent spends reading or waiting.
+
+## Load a new enough Python before launching the agent
+
+Load the modules in the shell that starts the agent session, before starting it:
+
+```bash
+module load gcc/15.1.0 cuda/12.9 python3
+```
+
+The handbook's tools need Python 3.10 or newer, and the system interpreter is older. The
+`python3` module exists only under the `gcc` branch of Vista's module hierarchy, while
+TACC's default modules load the `nvidia` compiler. The default's own attempt to load
+`python3` therefore fails without an error, and only the system interpreter remains. The
+session-logging checker and installer never load modules. The submission guard can
+discover module interpreters, but not one hidden behind a compiler the shell has not
+loaded. Without this line, session logging cannot be installed or checked, and the guard
+cannot run. The guard refuses a submission when it cannot run, so every submit is blocked.
+This is needed in every session, not only at installation, because the guard runs at each
+intercepted submit. [reproduced ×2 on 2026-09-28: an operator session, and a
+module-discovery probe under TACC's default modules that found only the system interpreter]
+
+Loading `gcc` replaces the default `nvidia` compiler in the shell the agent inherits. A
+build must therefore load its own compiler and MPI explicitly, as its validated stack
+records, rather than rely on the inherited environment.
 
 ## Size requests in whole nodes
 
