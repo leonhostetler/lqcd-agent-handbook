@@ -3433,3 +3433,78 @@ Reconciliation (§developer-obligations item 11) of every statement about multi-
     this entry.
 - **Not rewritten:** the earlier DEVLOG entries recording the failure as open, which are
   episodes. This entry supersedes their open question.
+
+## 2026-09-28 — Horizon onboarded in early access
+
+A developer-mode session on a Horizon login node found `tools/detect-machine.sh` reporting
+`unknown`. The operator asked for Horizon as a new machine and said it is in early access, so
+parts of it may change before general availability. It moves no schema axis: Slurm and NVIDIA
+again, and the CPU-plus-GPU split already exists on Perlmutter and Vista.
+
+**What the profile rests on.** Every value in `machine.yaml` is `evidence: docs`, from TACC's
+Horizon guide (last updated 2026-08-12, marked in progress), TACC's conduct guide, and NVIDIA's
+compute-capability table for `sm_100`. `review_by` is 2026-12-31 rather than the usual six
+months, because TACC is still changing the machine.
+
+**The guide and the live scheduler disagree, and the operator chose the guide for the
+profile.** The guide's GB node is half an NVL4 board: one 72-core Grace and two GPUs, about
+2,000 nodes, in `gb`, `gb-dev` and `gb-large`. Bare `sinfo` and `scontrol` queries showed
+1,008 scheduler nodes, each with 2 sockets, 144 cores and four GB200 GPUs, in `debug`
+(exclusive) and `debug-shared` partitions only. Three options were put to the operator:
+documented shape with a warning, live shape, or both as node types. They chose the documented
+shape, with the live layout as a table at the top of `notes.md`, because the profile should say
+what Horizon will be and the leaf should flag what it currently is. The Vera Vera nodes are
+documented but absent from the scheduler. The operator chose to include them, which makes
+Horizon multi-type, so a session must declare its node type.
+
+**Deliberately left out.**
+- GB host memory. The guide gives 120 GiB per Grace in prose and 240 GiB per node in its
+  table. Recording either would pick a side nobody has checked.
+- An environment variable for `$WORK`. The shell sets it, but the path does not exist during
+  early access, and declaring it would let the batch-script checker accept a script that
+  references it.
+- `logical_cpus_per_node` for Vera Vera. The checker merges that count across node types, so
+  recording it for one type only could flag GB scripts.
+- `scheduler.node_local_tmp_variable`, `profilers:`, live queue limits (`qlimits` is not
+  installed on the login node), and accelerator telemetry. No job was run.
+
+**Login host from the operator.** The guide publishes no login hostname. The operator stated
+that login hosts take the form `login1.horizon.tacc.utexas.edu`, so the profile lists that
+host, attributed to the operator. The detector matches any host under
+`horizon.tacc.utexas.edu`. Slurm lists compute nodes by short names, so the operator checked a
+compute node directly: `hostname -f` there returns the fully qualified
+`cNNN-NNN.horizon.tacc.utexas.edu` form, which the pattern matches. The test's compute-node host
+name has that form but is synthetic, since real node names are internal hostnames.
+
+**The launcher is source-read, not observed.** The installed `ibrun` takes the same Open MPI
+path as Vista's: `mpirun` over a hostfile under `$HOME/.slurm`, `-x` environment forwarding, no
+step-sharing option, and `PRTE_MCA_plm_slurm_args` unset. So `site_launcher` is `ibrun` with
+`overlap_option: null`. That Vista's one-step-per-call behaviour holds here is inferred, and
+the leaf says so.
+
+**The QIO NFS warning extends to Horizon, by inference.** `$HOME` and `$SCRATCH` are VAST NFS
+mounts, and the guide lists the future `$WORK` as VAST, so Vista's Lustre workaround does not
+exist. The defect has not been reproduced on Horizon. The warning is labelled `[inferred]` and
+its removal trigger in the deferred-decision register now needs a Horizon pass.
+
+**Sandbox and guard behaviour seen.** A compound `sinfo` command reported that it could not
+contact the controller, and a later part hung. The bare command succeeded. `sacctmgr` failed
+with the address-family signature. Both match `conventions/agent-sandbox.md`. The submission
+guard also refused two commands that submitted nothing: a `command -v` lookup that listed the
+submit command among other names, and a heredoc whose text mentioned it. The second refusal
+says the guard is doing what it states; the first is a false positive. Both are recorded here
+as evidence and were not fixed in this change.
+
+**Reconciliation (§developer-obligations item 11).** This is not incident-driven, but existing
+statements about the same objects were checked:
+- `software/qio/parallel-singlefile-writes.md` names Vista and "`$WORK` (Lustre) is clean" —
+  **confirmed**, unchanged. It is scoped to Vista, where it was observed. The Horizon leaf
+  states that the Lustre route is absent there.
+- `tests/test_open_upstream_defects.py` — **amended** to require the Horizon pointer and
+  prominent warning.
+- ROADMAP's QIO deferred-decision row — **amended** in its pointer list and removal trigger.
+- `machines/vista/notes.md` on `ibrun` steps and compute-node submission — **confirmed**. The
+  Horizon leaf cites it as a Vista observation, not as a Horizon fact.
+- `ARCHITECTURE.md`'s directory tree lists machine names ending in "…" — **confirmed**,
+  unchanged.
+Nothing was deleted. Obligation X.9 records the re-profile owed when early access ends.

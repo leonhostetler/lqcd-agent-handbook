@@ -23,6 +23,9 @@ case "$detected_hostname" in
   vista.tacc.utexas.edu|*.vista.tacc.utexas.edu)
     printf '%s\n' vista
     ;;
+  horizon.tacc.utexas.edu|*.horizon.tacc.utexas.edu)
+    printf '%s\n' horizon
+    ;;
   *)
     printf '%s\n' unknown
     ;;

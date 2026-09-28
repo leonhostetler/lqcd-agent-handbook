@@ -1,0 +1,170 @@
+schema_version: 2
+name: horizon
+summary: TACC NSF LCCF system with Grace Blackwell GPU nodes and CPU-only Vera Vera nodes; in early access, and the live scheduler does not yet match this documented layout (see notes.md).
+public_login_hosts:
+  # Named by the operator; the guide does not yet publish a login host.
+  - login1.horizon.tacc.utexas.edu
+scheduler:
+  type: slurm
+  # TACC's MPI wrapper; machines/horizon/notes.md owns how it launches. It is not the
+  # surface's parallel_launcher: srun stays stubbed as srun, and the dry-run harness stubs
+  # this one from the fields below.
+  site_launcher:
+    command: ibrun
+    # The installed script launches Open MPI through mpirun over a hostfile, passes no
+    # step-sharing option, and clears the variable that would add one.
+    overlap_option: null
+filesystems:
+  home:
+    purpose: Small permanent storage; not for parallel or high-intensity file operations.
+    environment_variable: HOME
+    type: VAST
+    quota: To be determined by TACC.
+    backup: Backed up daily.
+  work:
+    # No environment_variable while it is unavailable: the shell still sets WORK, but it
+    # names a path that does not exist, so a script must not be allowed to rely on it.
+    purpose: Shared project storage, not available to early users.
+    type: VAST
+    availability: TACC states it will be made available later in 2026.
+    backup: Not backed up.
+  scratch:
+    purpose: Temporary storage for active jobs.
+    environment_variable: SCRATCH
+    type: VAST
+    quota: None; overall capacity about 400 PB.
+    backup: Not backed up.
+    purge_policy: Files whose access time is more than 10 days old are subject to purge.
+    lustre_striping: false
+  node_local_tmp:
+    purpose: Node-local storage.
+    path: /tmp
+site_policy:
+  access_phase: early access, limited to internal users; queue limits are subject to change without notice.
+  scheduling:
+    live_limits_command: qlimits
+    ai_agent_workloads: TACC strongly recommends running them on compute nodes; every SU they consume is charged to the allocation.
+    partition_limits:
+      gb:
+        node_type: gpu-gb200
+        maximum_nodes_per_job: 128
+        maximum_walltime_hours: 48
+      gb-dev:
+        node_type: gpu-gb200
+        maximum_nodes_per_job: 16
+        maximum_walltime_hours: 2
+      gb-large:
+        node_type: gpu-gb200
+        maximum_nodes_per_job: 512
+        maximum_walltime_hours: 48
+      vv:
+        node_type: cpu-vv
+        maximum_nodes_per_job: 256
+        maximum_walltime_hours: 48
+      vv-dev:
+        node_type: cpu-vv
+        maximum_nodes_per_job: 32
+        maximum_walltime_hours: 2
+      vv-large:
+        node_type: cpu-vv
+        maximum_nodes_per_job: 1024
+        maximum_walltime_hours: 48
+  accounting:
+    unit: node-hour (SU)
+    charge_rate_per_node_hour:
+      gb: 1.0
+      gb-dev: 1.0
+      gb-large: 1.0
+      vv: 0.25
+      vv-dev: 0.25
+      vv-large: 0.25
+build_environment:
+  login:
+    # Grace Grace nodes: neither Horizon compute node type.
+    hardware: NVIDIA Grace Grace, 144 cores, 237 GB LPDDR
+    compatible_with: The NVIDIA and GNU software stacks installed for the GB and VV nodes.
+    prohibited:
+      - highly parallel builds
+      - running executables, jobs, or debugging sessions
+    accelerator_available: false
+  compute:
+    access: A batch job or an interactive idev session.
+    use_for:
+      - parallel builds
+      - executables, development, and debugging
+  module_system: Lmod
+  compilers:
+    families:
+      - gcc
+      - nvidia
+  mpi_module_family: openmpi
+  accelerator_toolchain:
+    cuda_module: cuda
+    gpu_arch: sm_100
+node_types:
+  gpu-gb200:
+    description: TACC's documented Grace Blackwell node, half of a GB200 NVL4 board. The early-access scheduler allocates a whole board instead; see notes.md.
+    cpu:
+      vendor: NVIDIA
+      model: Grace
+      sockets: 1
+      cores_per_socket: 72
+      hardware_threads_per_core: 1
+    accelerator:
+      vendor: NVIDIA
+      model: Blackwell (GB200)
+      # Compute capability 10.0 for GB200, from NVIDIA's compute-capability table.
+      arch: sm_100
+      per_node: 2
+      # TACC quotes 185 GiB of HBM3 per GPU; this is that figure in GB.
+      memory_gb: 198.6
+      interconnect: GB200 NVL4 platform, two GPUs and one Grace CPU per documented node
+    queues:
+      - name: gb
+      - name: gb-dev
+      - name: gb-large
+    build_constraints:
+      target: gpu
+      gpu_arch: sm_100
+      cpu_arch: aarch64
+    sizing:
+      installed_nodes: 2000
+      physical_cpu_cores: 72
+      # Host memory is omitted: the guide gives 120 GiB in its prose and 240 GiB in its table.
+      network: InfiniBand XDR, 800 Gb/s
+      local_storage_gib: 130
+  cpu-vv:
+    description: NVIDIA Vera Vera node, two 88-core Vera CPUs, no accelerator. Not yet in the early-access scheduler.
+    cpu:
+      vendor: NVIDIA
+      model: Vera
+      sockets: 2
+      cores_per_socket: 88
+      # TACC calls it Spatial Multi-Threading.
+      hardware_threads_per_core: 2
+    accelerator: null
+    queues:
+      - name: vv
+      - name: vv-dev
+      - name: vv-large
+    build_constraints:
+      target: cpu
+      # Inferred: the guide says the Grace login nodes run the stacks built for these nodes.
+      cpu_arch: aarch64
+    sizing:
+      installed_nodes: 4752
+      physical_cpu_cores: 176
+      host_memory_gb: 500
+      network: InfiniBand XDR400, 400 Gb/s
+      local_storage_gb: 240
+evidence: docs
+observed: "2026-09-28"
+observed_on:
+  machine: horizon
+# Early access: TACC is still changing the layout, so re-check this record against the
+# guide and the live scheduler well before the usual six months.
+review_by: "2026-12-31"
+sources:
+  - https://docs.tacc.utexas.edu/hpc/horizon/
+  - https://docs.tacc.utexas.edu/basics/conduct/
+  - https://developer.nvidia.com/cuda-gpus

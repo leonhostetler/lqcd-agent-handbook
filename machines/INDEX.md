@@ -21,6 +21,12 @@ Entries are grouped by scoped machine.
 | [QUDA ROCm 7 milc-cg stack on Frontier](frontier/stacks/quda-rocm7-milc-cg-2026q3/notes.md) | Reproduction commands and runtime safeguards for the validated Frontier HIP stack. | Rebuilding or validating the quda-rocm7-milc-cg-2026q3 stack. |
 | [Working on Frontier](frontier/notes.md) | Compute-target resolution and HIP build and run prerequisites for Frontier. | Building software or preparing a job on Frontier. |
 
+## horizon
+
+| Knowledge | Summary | Load when |
+|---|---|---|
+| [Working on Horizon](horizon/notes.md) | Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, agent placement, launcher, build, and storage rules for TACC Horizon, including the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe. | Building software or preparing a job on Horizon. |
+
 ## perlmutter
 
 | Knowledge | Summary | Load when |
