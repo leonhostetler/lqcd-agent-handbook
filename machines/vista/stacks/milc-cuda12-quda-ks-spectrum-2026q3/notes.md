@@ -30,8 +30,8 @@ observed_on:
 
 Declare `gpu-gh200` first. Build against the QUDA install of
 [`quda-cuda12-milc-cg-2026q3`](../quda-cuda12-milc-cg-2026q3/notes.md), whose notes own the
-toolchain and its scope limits. `stack.yaml` is canonical for tested versions, cost, and
-validation results. The shared invocation is in `software/milc/build.md`.
+toolchain and its scope limits. `stack.yaml` is canonical for supersession, tested versions,
+cost, and validation results. The shared invocation is in `software/milc/build.md`.
 
 ## Machine options, and two that differ from the reference scripts
 

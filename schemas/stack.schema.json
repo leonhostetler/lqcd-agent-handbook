@@ -108,6 +108,28 @@
       "items": {
         "type": "string"
       }
+    },
+    "superseded_by": {
+      "description": "Successor stacks on the same machine that displace this one for the named work. The record stays valid for other work and for reproducing its own results.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "stack",
+          "work"
+        ],
+        "properties": {
+          "stack": {
+            "$ref": "#/$defs/name"
+          },
+          "work": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "allOf": [

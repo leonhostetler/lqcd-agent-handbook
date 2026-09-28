@@ -31,7 +31,8 @@ observed_on:
 > single-GPU work or to reproduce its own recorded results.
 
 Declare `gpu-gh200` before using these notes; Vista has two node types. `stack.yaml` is
-canonical for tested versions, build cost, validation results, and scope limits.
+canonical for supersession, tested versions, build cost, validation results, and scope
+limits.
 
 ## Toolchain
 

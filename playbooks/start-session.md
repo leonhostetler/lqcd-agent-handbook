@@ -132,6 +132,13 @@ Only after the current work mode is stated:
   detected software and environment. Do not inspect stacks for any other machine, and load
   only the nearest matching `stack.yaml` when one exists. Otherwise report
   `no matching validated stack`.
+- when a candidate stack records `superseded_by`, report the supersession — successor and
+  covered work — whenever that candidate is nearest or tied for nearest. For the covered
+  work, prefer a listed successor whose `validated_on` includes the resolved node type, even
+  when the superseded stack matches the environment more closely; say that you did so, and
+  load the successor's `stack.yaml` in its place. With node type undeclared, report the
+  supersession without choosing. A superseded stack stays nearest for work outside the covered
+  work and for reproducing its own results.
 
 A login host alone cannot reveal the intended node type. An explicit operator declaration
 wins; without one, resolve the sole `node_types` entry in the matching machine profile as
@@ -145,7 +152,7 @@ loads. Naming them at orientation is deliberate: a convention whose only pointer
 standing rule has been observed not to load at the moment it applied.
 
 End with a compact orientation report: frontend, handbook identity/freshness, handbook
-mode, work mode, machine, software/commit, node type, nearest stack, any staleness warning,
-and pending intake — stating the count and tracked state, or that the inbox is empty — plus
-the session-logging state and offer when applicable. Never report the inbox as empty on the
-strength of a clean `git status`.
+mode, work mode, machine, software/commit, node type, nearest stack and any supersession of
+it, any staleness warning, and pending intake — stating the count and tracked state, or that
+the inbox is empty — plus the session-logging state and offer when applicable. Never report
+the inbox as empty on the strength of a clean `git status`.

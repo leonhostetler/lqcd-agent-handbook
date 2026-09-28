@@ -96,7 +96,6 @@ whether that is worth a per-machine install.
 | X.5 | An AMD accelerator monitor and the extractor branch to read it, plus AMD sampling in the retained `tools/gpu-memory-sampler.sh`. `tools/monitor-gpu.sh` is NVIDIA-only and says so rather than carrying a branch that reports its own absence; the sampler's `amd` branch records that it is unimplemented and exits 0. The reason is the same in both: `rocm-smi`'s memory field names and column order have moved between ROCm releases, and the handbook ships no parse it has not run against the installed tool. **Until it lands, the instrumentation rule in [`conventions/batch-scripts.md`](conventions/batch-scripts.md) cannot be met on an AMD machine**, and Frontier is profiled rather than hypothetical. Establish the layout on the target and pin the ROCm version it was established against. **Ship a monitor and its extractor branch together**: a monitor emits the vendor tool's own table, so one without a matching reader produces a file nothing can read, which is the defect the pair exists to prevent |
 | X.6 | A checker note when a batch script is QUDA-shaped — it exports any `QUDA_*` variable — and lacks an explicit export of one of the rows in `software/quda/runtime-environment.md`. A note, not a warning: the rule is operator policy with declared exceptions, and a lint that fires on a validated Frontier launcher trains the operator to ignore it. The reason it is owed: the leaf exists because a launcher diffed against a silent stack record inherited nothing, and a rule held only by prose is the class of rule this handbook records as not firing |
 | X.7 | **The dry-run harness cannot model a site MPI launcher.** TACC documents `ibrun` on Vista, and `conventions/scheduler-surfaces.yaml` lets a profile override `parallel_launcher`, but `tools/dry-run-batch-script.py` stubs that name with `srun`'s `--overlap` step semantics. Overriding it would model `ibrun` with rules nobody established and stop stubbing `srun`. So Vista records `ibrun` only as site guidance, and a receipt for an `ibrun` script says nothing about the launch. Establish `ibrun`'s step behaviour on the machine, then give the surface a site-launcher entry the harness stubs separately |
-| X.8 | **Stack supersession as data, not prose.** An optional `superseded_by` field in `schemas/stack.schema.json` naming the successor stack and the work the supersession covers (for example, multi-rank GPU work), and a rule in `playbooks/start-session.md` that reports it and prefers the successor when that stack matches the detected machine and node type. **The reason it is owed:** supersession is recorded today only in prose — the Vista cuda12 stacks' banners and leading scope limit — and nearest-stack derivation has no tie-breaker between stacks with identical tested commits, so a session can resolve to the superseded stack and read the warning only if it reaches that line. Amend `ARCHITECTURE.md` §stacks first, decide whether the optional field bumps the stack `schema_version`, and add a test in which a superseded nearest stack must be reported |
 
 ### Watch items
 
@@ -112,6 +111,11 @@ occurrence trips the rule rather than starting the count again.
 - **Kernel template-argument resolution** against the revision that built the binary —
   deliberately manual, because it needs the decomposition cross-check and therefore judgement
   at each step.
+- **A nearest-stack resolver** that lists the detected machine's stacks for the resolved node
+  type, relates each to the checkout in front of the session, and applies `superseded_by` — at
+  one use, the Vista CUDA 12/13 tie. Deliberately prose for now: `playbooks/start-session.md`
+  step 6 carries the rule, and `tests/test_stack_supersession.py` pins its text and data, not
+  what a session does with them.
 
 <a id="build-order"></a>
 ## 3. Build order

@@ -141,6 +141,9 @@ After success, a developer-mode session may propose a stack record with exact te
 commits and branch context, toolchain, node types actually exercised, build cost, validation
 results, and explicit scope limits. Record the portable application recipe, the current-machine
 dependency stack, any cross-machine application stack used to select the recipe, and which
-claims were inherited versus newly demonstrated. Follow the exact-diff approval gate before any
-handbook write. Enabling an application interface without linking and running that application
-must remain a stated limitation, not be promoted to integration validation.
+claims were inherited versus newly demonstrated. When the new stack displaces an existing
+stack on the same machine for some work, propose `superseded_by` on the displaced record,
+naming the new stack and the covered work, rather than recording the supersession only in
+prose. Follow the exact-diff approval gate before any handbook write. Enabling an application
+interface without linking and running that application must remain a stated limitation, not be
+promoted to integration validation.

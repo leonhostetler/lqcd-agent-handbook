@@ -554,6 +554,79 @@ def validate_stack_references(
             f"{nearest_application_stack}"
         )
 
+    validate_supersession(root, path, stack, errors)
+
+
+def superseding_stacks(stack: Any) -> list[str]:
+    entries = stack.get("superseded_by", []) if isinstance(stack, dict) else []
+    if not isinstance(entries, list):
+        return []
+    return [
+        entry["stack"]
+        for entry in entries
+        if isinstance(entry, dict) and isinstance(entry.get("stack"), str)
+    ]
+
+
+def validate_supersession(
+    root: Path, path: Path, stack: dict[str, Any], errors: list[str]
+) -> None:
+    # A successor is named, not pathed, so it resolves only beside this stack: supersession
+    # never crosses machines, because a session never inspects another machine's stacks.
+    rel = path.relative_to(root)
+    stacks_dir = path.parent.parent
+    own_name = path.parent.name
+    seen: set[str] = set()
+    for successor in superseding_stacks(stack):
+        if successor in seen:
+            errors.append(f"{rel}: superseded_by names {successor!r} twice")
+            continue
+        seen.add(successor)
+        if successor == own_name:
+            errors.append(f"{rel}: superseded_by names the stack itself")
+            continue
+        successor_path = stacks_dir / successor / "stack.yaml"
+        try:
+            successor_record = load_yaml(successor_path)
+        except (OSError, ValueError):
+            errors.append(
+                f"{rel}: superseded_by names {successor!r}, which has no stack.yaml "
+                f"under {stacks_dir.relative_to(root)}"
+            )
+            continue
+        if not isinstance(successor_record, dict):
+            continue
+        if successor_record.get("software") != stack.get("software"):
+            errors.append(
+                f"{rel}: superseded_by successor {successor!r} records software "
+                f"{successor_record.get('software')!r}, not {stack.get('software')!r}"
+            )
+        shared = set(stack.get("validated_on", [])) & set(
+            successor_record.get("validated_on", [])
+        )
+        if not shared:
+            errors.append(
+                f"{rel}: superseded_by successor {successor!r} shares no validated_on "
+                "node type with this stack, so it displaces it nowhere"
+            )
+
+    # A cycle would leave every member superseded and no stack to prefer.
+    frontier = superseding_stacks(stack)
+    visited: set[str] = set()
+    while frontier:
+        name = frontier.pop()
+        if name == own_name:
+            errors.append(f"{rel}: superseded_by forms a cycle back to {own_name!r}")
+            return
+        if name in visited:
+            continue
+        visited.add(name)
+        try:
+            record = load_yaml(stacks_dir / name / "stack.yaml")
+        except (OSError, ValueError):
+            continue
+        frontier.extend(superseding_stacks(record))
+
 
 def validate_generated_indices(root: Path, errors: list[str]) -> int:
     tool = root / "tools/build-index.py"

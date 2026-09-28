@@ -43,7 +43,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 
 | Decision | Choice | Reopen when |
 |---|---|---|
-| **Stacks** | Validated machine × software × toolchain × **build profile** records, filed **under the machine**. Never speculative — a stack exists only if it was built and run ([§stacks](#stacks)) | — |
+| **Stacks** | Validated machine × software × toolchain × **build profile** records, filed **under the machine**. Never speculative — a stack exists only if it was built and run. A displaced stack names its successor and the covered work in `superseded_by`, which nearest-stack resolution reads, rather than only in prose ([§stacks](#stacks)) | — |
 | **Build profiles** | Named option sets with **capabilities** in `software/<name>/build-profiles.yaml`; stacks reference a profile and record what it **cost**. Where a build may run is machine knowledge, and a compute-node build is a job under [§budget-rule](#budget-rule) ([§build-profiles](#build-profiles)) | — |
 | **Application guides** | A suite's input grammar, work units, output structure, timing-marker semantics and completion signals live in `software/<name>/applications/`, version-scoped. Work modes own the method, build profiles own compiled capabilities, stacks own what was validated ([§application-guides](#application-guides)) | Several suites expose an application schema better represented as validated structured data than as prose |
 | **Development conventions** | Software-specific code-change rules live in `software/<name>/development.md` and load whenever that software is modified or prepared for review; only software-independent rules belong in `conventions/`. An executable one keeps its helper in `tools/`, named for the software and routed only from that leaf ([§directory-layout](#directory-layout)) | — |
@@ -496,6 +496,18 @@ more reliable than a rule telling people not to.
 queue policy. `stack.yaml` holds **what this build used** — pinned versions. Module names
 will appear in both; that is a legitimate restatement, not a P2 violation, provided each
 side says which is canonical for what. Left unstated, they drift within two months.
+
+**Supersession is data, not prose.** A stack displaced for some class of work by a later one
+records `superseded_by`: the successor's name under the same machine and the work it covers,
+such as multi-rank GPU work. Nearest-stack derivation reads it as the tie-breaker it otherwise
+lacks — two stacks with identical tested commits differ only in toolchain, which the
+environment may favour either way — and prefers a successor validated on the resolved node
+type for the covered work. A banner or a scope limit is read only by a session that reaches
+that line, and resolution picks the stack before anyone reads it. The field is **optional
+and additive**, so the stack `schema_version` stays 1: every existing record keeps its
+meaning, and the schema ships with the only validator that reads it. Supersession narrows a
+stack's use; it never removes the record, which still reproduces its own results and still
+answers for work outside the covered work.
 
 **Public upstream sample scripts are reference evidence, not canonical instructions.** A
 stack may pin them under `reference_sources` and cite them, but its notes own the tested

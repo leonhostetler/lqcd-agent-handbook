@@ -3216,3 +3216,51 @@ Reconciliation (§developer-obligations item 11), by object:
 - **Checked and unrelated, untouched:** the DeltaAI MILC notes ("did not demonstrate
   multi-node GPUDirect RDMA"), Perlmutter's CXI DMABUF defect (a different provider), and
   `conventions/profile-metrics.md`'s GDR-off arm.
+
+## 2026-09-28 — Stack supersession as data (obligation X.8)
+
+The Vista CUDA 12 stacks were superseded for multi-rank GPU work by their CUDA 13 successors,
+but only in prose: a notes banner, an index summary, and a leading scope limit. Each pair has
+identical tested commits, so nearest-stack derivation had no tie-breaker, and a session whose
+loaded modules matched the CUDA 12 toolchain would resolve to the superseded stack before
+reading any of those lines.
+
+**What landed.** An optional `superseded_by` list in `schemas/stack.schema.json`, each entry
+naming a successor under the same machine and the work it covers. The validator requires the
+successor to exist beside the record, to record the same software, and to share a
+`validated_on` node type. It rejects self-reference, a duplicate successor, and a cycle.
+`playbooks/start-session.md` step 6 reports a supersession whenever the superseded candidate is
+nearest or tied, and prefers a successor validated on the resolved node type for the covered
+work. `playbooks/build-lqcd-stack.md` step 7 asks the next stack proposal to write the field.
+`tests/test_stack_supersession.py` covers the recorded Vista tie and fires each validator
+negative on a copy.
+
+**No `schema_version` bump.** The field is optional and additive: every existing record keeps
+its meaning, and no reader exists outside this tree that could see the field without its
+schema. The deferred hypothesis `bottleneck` vocabulary counts as a bump because it would
+invalidate existing free text; this does not.
+
+**Derivation remains prose.** No tool derives the nearest stack, so the test pins the rule's
+text and the data it reads, not a session's behaviour. A resolver tool would make the rule
+executable. It is not built here and is below §prefer-a-tool's threshold: this is its first use.
+
+Reconciliation (§developer-obligations item 11) of every statement about the supersession:
+- `quda-cuda12-milc-cg-2026q3/stack.yaml`:
+  - The leading "SUPERSEDED …" scope limit — **amended** to point to `superseded_by` rather
+    than name the successor; its reason is kept.
+  - The GDR-failure scope limit's "Use quda-cuda13-milc-cg-2026q3 for multi-rank GPU work" —
+    **amended** likewise.
+- `milc-cuda12-quda-ks-spectrum-2026q3/stack.yaml`:
+  - The leading scope limit — **amended** likewise.
+  - The GDR scope limit's "Use milc-cuda13-quda-ks-spectrum-2026q3 for GDR" — **amended**
+    likewise.
+- Both notes' "Superseded for multi-rank GPU work — use …" banners — **confirmed**. They are
+  pointers a reader follows, and each notes file's canonical-home sentence now names
+  `stack.yaml` as canonical for supersession.
+- Both notes' frontmatter `summary`, and the generated index lines built from it —
+  **confirmed**. They are routing text naming the successor as a reference, not a value.
+- `milc-cuda12-quda-ks-spectrum-2026q3/stack.yaml`'s
+  `dependency_acquisition.validated_stack` naming the superseded QUDA stack — **confirmed**.
+  It records what that build used, which supersession does not change.
+- The Perlmutter MILC MG stack's scope limit "It supersedes nothing" — **confirmed**. It uses
+  the word in prose about a different relation and needs no field.
