@@ -36,3 +36,9 @@ Entries are grouped by scoped machine.
 | [QUDA CUDA 13 mg-staggered stack on Perlmutter](perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/notes.md) | Reproduction commands, validated hierarchy, and runtime corrections for native staggered GCR-MG. | Rebuilding or validating the quda-cuda13-mg-staggered-2026q3 stack. |
 | [QUDA CUDA 13 milc-cg stack on Perlmutter](perlmutter/stacks/quda-cuda13-milc-cg-2026q3/notes.md) | Reproduction commands and two required runtime/build corrections for the validated stack. | Rebuilding or validating the quda-cuda13-milc-cg-2026q3 stack. |
 | [Working on Perlmutter](perlmutter/notes.md) | Node-target declaration and build-placement rules for Perlmutter. | Building software or preparing a job on Perlmutter. |
+
+## vista
+
+| Knowledge | Summary | Load when |
+|---|---|---|
+| [Working on Vista](vista/notes.md) | Node-target declaration, agent placement, whole-node charging, launcher, and storage rules for TACC Vista. | Building software or preparing a job on Vista. |

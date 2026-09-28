@@ -2871,3 +2871,57 @@ the `12` GB plateau-to-plateau growth, with no campaign identifier, node count o
   **confirmed** and untouched.
 
 Nothing was deleted.
+
+## 2026-09-28 — Vista onboarded from TACC documentation
+
+A developer-mode session started on a Vista compute node found `tools/detect-machine.sh`
+reporting `unknown`. Vista was onboarded as needed, outside the Frontier → DeltaAI → Aurora
+order, which it does not disturb. It moves no schema axis: Slurm and NVIDIA again, and the
+CPU-plus-GPU split already exists on Perlmutter.
+
+**What the profile rests on.** Every value is `evidence: docs`, from TACC's Vista user guide
+and its Good Conduct policy. Live queries informed choices but are not evidence in the
+profile. They showed the `gh`, `gh-dev`, `gg` and `gb` partitions, one 72-core socket on a GH
+node, and a memory-only NUMA node of about 95 GiB beside host memory, consistent with the
+guide's statement that CPU and GPU memory are separate NUMA nodes.
+
+**Deliberately left out.**
+- The `gb` partition. It exists in the live scheduler, but the Vista guide does not describe
+  it. The only Grace Blackwell text on the site belongs to another system. Populate from
+  fact, not anticipation.
+- Live queue limits. The guide defers to `qlimits`, which is not on a compute node's `PATH`.
+  The QOS query failed with the sandbox's address-family signature, so the profile records
+  the documented table and names `qlimits` as the live source.
+- `scheduler.node_local_tmp_variable`. `SLURM_TMPDIR` was unset inside a job, but the agent
+  sandbox rewrites `TMPDIR`, so harness environment and job environment could not be told
+  apart. The field stays absent, meaning unestablished, rather than `null`.
+- `profilers:`, never established.
+- Accelerator telemetry. The sandbox exposes no `/dev/nvidia*`, so `nvidia-smi` could not
+  reach the driver. That is the sandbox, not the node.
+
+**Two discrepancies in the source, and how each was resolved.** The guide calls the GPU an
+"H200", while the part it describes (96 GB HBM3 in a GH200 superchip) is the H100-class
+Hopper GPU. The profile records the architecture, which is what builds consume, and a comment
+records the naming. The guide also gives GH host memory as 120 GiB in prose and 116 GB in its
+specification table. The profile takes the table.
+
+**The launcher was not overridden.** TACC documents `ibrun`. A machine profile may override
+`parallel_launcher`, but the dry-run harness stubs that name with `srun`'s `--overlap` step
+semantics, so the override would model `ibrun` with unestablished rules and stop stubbing
+`srun`. The gap is recorded as obligation X.7. A test pins the absence of the override.
+
+**Detection** matches `vista.tacc.utexas.edu` and any `*.vista.tacc.utexas.edu` host, login
+and compute alike. A `TACC_SYSTEM` check was rejected: the variable is set on every Vista
+shell, and the existing detector tests neutralise only `NERSC_HOST`. They would therefore have
+reported `vista` for DeltaAI and Frontier hostnames whenever the suite ran on Vista.
+
+**Pre-existing failures found, not caused.** On this machine `test_gpu_profile_host_samples`
+and `test_gpu_profile_query_guard` fail (11 failures, 4 errors) at unmodified HEAD. The
+selected interpreter links SQLite 3.34.1, and the tool's `AS MATERIALIZED` CTE needs 3.35.
+Not addressed here.
+
+**Reconciliation (§developer-obligations item 11).** This is not incident-driven, but the
+existing statements were checked. `ARCHITECTURE.md`'s directory tree already lists `vista`
+among machine names — **confirmed**. `test_slice1.py`'s node-type resolution check covers
+DeltaAI and Frontier as single-type machines and Perlmutter as multi-type — **confirmed**.
+Vista is multi-type and carries its own explicit-declaration test. Nothing was deleted.

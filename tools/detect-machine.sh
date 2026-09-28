@@ -20,6 +20,9 @@ case "$detected_hostname" in
   frontier.olcf.ornl.gov|login[0-9][0-9].frontier.olcf.ornl.gov|frontier[0-9]*)
     printf '%s\n' frontier
     ;;
+  vista.tacc.utexas.edu|*.vista.tacc.utexas.edu)
+    printf '%s\n' vista
+    ;;
   *)
     printf '%s\n' unknown
     ;;
