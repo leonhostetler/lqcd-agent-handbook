@@ -3508,3 +3508,69 @@ statements about the same objects were checked:
 - `ARCHITECTURE.md`'s directory tree lists machine names ending in "…" — **confirmed**,
   unchanged.
 Nothing was deleted. Obligation X.9 records the re-profile owed when early access ends.
+
+## 2026-09-28 — Submission guard: look-ups scoped to their simple command; indirect submissions caught
+
+During the Horizon onboarding the guard refused `command -v qlimits idev <submit> python3;
+tools/select-python …`, which submits nothing. A probe of `decide()` then showed two
+submissions the guard **allowed**: `bash -c '<submit> job.sh'` and `/usr/bin/<submit> job.sh`.
+Those admit an unchecked script to the scheduler, the failure the guard exists to prevent, and
+they mattered more than the false refusal.
+
+**Causes.**
+- The look-up exemption asked only whether the word directly before the submit command was a
+  look-up. The lookup above had several names, so the word before it was `idev`.
+- `shlex.split` does not split operators from words, so `python3;` was one token. The script
+  search ran past the `;` and took `tools/select-python` for the batch script.
+- Only a token equal to the bare name counted, so a quoted `-c` string or a path never matched.
+  The hook shim's prefilter also required a non-slash before the name, so the path form never
+  reached the guard at all.
+
+**Fix, in `tools/submission-guard.py` and `tools/submission-guard-hook.sh`.**
+- Tokenise with `shlex.shlex(punctuation_chars=…)`, splitting `;`, `&`, `|`, parentheses,
+  backquotes and newlines even where they touch a word. Redirections such as `>&` may also read
+  as separators. That only narrows a look-up or ends a script search early, and both refuse.
+- A look-up exempts every argument of its own simple command: `type`, `which`, `whereis`,
+  `man`, `command -v`/`-V`, after any `VAR=value` assignments. A submission after an operator or
+  a newline is a new simple command and is still checked.
+- The submit command counts as a bare name anywhere, as before, and as a path in command
+  position: after assignments, `env`, `nohup`, `time`, `exec`, `nice` or `command`. A path
+  elsewhere, as in `ls -l /usr/bin/<submit>`, is not a submission.
+- The `-c` string of `sh`, `bash`, `dash`, `zsh` and `ksh`, and the arguments of `eval`, are
+  judged as command lines, to a depth of three. Arguments of `eval` are left to that pass, so
+  `eval which <submit>` stays a look-up.
+- The shim's prefilter lets a slash precede the name.
+
+**Deliberately unchanged.** Heredoc and echoed text stay refused, for the reason the earlier
+look-up entry gives. The docstring now says the guard is a strong default, not a sandbox. A
+submission through a variable, an alias, a script that calls the submit command itself, or a
+remote shell is still not seen. There is still no override.
+
+**Installed shims go stale.** The installed hook is a copy of `submission-guard-hook.sh`.
+After this change `check-submission-guard.py` reports it `stale` until the operator accepts the
+reinstall offer. A stale shim still delegates every command it passes to the handbook's guard,
+so every change except the path-form prefilter takes effect without a reinstall.
+
+**Tests.** Three tests were added and two extended in `tests/test_submission_guard.py`:
+multi-name and glued look-ups; submissions after a look-up across `;`, a newline and `&`;
+indirect submissions (path, `env`, `nohup`, `-c`, a nested `-c`, `eval`, `$(…)`, backquotes);
+nested look-ups; and the path and `-c` forms through the real shim. Each new behaviour was
+removed on a copy and the suite rerun:
+- `shlex.split` restored: the post-look-up and indirect tests fail;
+- look-up scope widened to the whole line: the post-look-up test fails;
+- look-up restricted to the adjacent word: the multi-name, nested-look-up, post-look-up and
+  original look-up tests fail;
+- nested command lines disabled, or the bare name alone matched: the indirect and shim tests
+  fail;
+- the old prefilter restored: the shim test fails.
+The first draft refused `eval which <submit>`, and its own nested-look-up test caught it.
+
+Reconciliation (§developer-obligations item 11):
+- `conventions/batch-scripts.md` and `ARCHITECTURE.md` §batch-scripts, "refuses the surface's
+  submit command unless …" — **confirmed**. More submissions are now checked, and none is
+  newly admitted except look-up arguments.
+- The 2026-09-28 look-up entry, "the name as the argument of `type`, `which`, … (flags before
+  the name are skipped)" — **amended**: the exemption now covers every argument of the look-up's
+  own simple command. Its heredoc decision is **confirmed**.
+- The guard docstring — **amended** to state the tokenisation, the scope and the limits.
+- "No override" — **confirmed**.

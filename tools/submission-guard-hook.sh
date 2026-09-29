@@ -20,11 +20,12 @@ guard="$hb/tools/run-submission-guard"
 surfaces="$hb/conventions/scheduler-surfaces.yaml"
 
 # Cheap pre-filter: only a command that names a recorded submit command costs an interpreter.
-# If the surface file cannot be read, skip the filter rather than skip the guard.
+# If the surface file cannot be read, skip the filter rather than skip the guard. A slash may
+# precede the name, so a path such as /usr/bin/<submit> still reaches the guard.
 if [[ -r "$surfaces" ]]; then
   commands=$(sed -n 's/^[[:space:]]*submit_command:[[:space:]]*//p' "$surfaces" | tr -d '"' | tr '\n' '|')
   commands=${commands%|}
-  if [[ -n "$commands" ]] && ! grep -qE "(^|[^A-Za-z0-9_./-])(${commands})([^A-Za-z0-9_-]|$)" <<< "$input"; then
+  if [[ -n "$commands" ]] && ! grep -qE "(^|[^A-Za-z0-9_.-])(${commands})([^A-Za-z0-9_-]|$)" <<< "$input"; then
     exit 0
   fi
 fi

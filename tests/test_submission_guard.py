@@ -143,10 +143,25 @@ class GuardDecisionTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stderr, "")
 
+    def test_a_lookup_of_several_names_does_not_count_wherever_the_submit_command_sits(self):
+        """A look-up names commands and runs none, so every argument is exempt, not only the
+        first; and an operator touching a word must still end the look-up."""
+        for command in ("command -v qlimits idev sbatch python3; ls",
+                        "which squeue sbatch", "type -P idev sbatch", "whereis -b srun sbatch",
+                        "command -v sbatch;ls", "FOO=1 command -v squeue sbatch",
+                        "command -v /usr/bin/sbatch", "ls -l /usr/bin/sbatch"):
+            with self.subTest(command=command):
+                result = self.guard(command)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr, "")
+
     def test_a_submission_after_a_lookup_is_still_checked(self):
-        """The exemption covers the looked-up word only, never a later real submission."""
+        """The exemption covers the look-up's own simple command, never a later real submission."""
         for command in (f"which sbatch && sbatch {self.script}",
                         f"type sbatch; sbatch {self.script}",
+                        f"which sbatch;sbatch {self.script}",
+                        f"command -v idev sbatch\nsbatch {self.script}",
+                        f"which sbatch | cat & sbatch {self.script}",
                         f"command sbatch {self.script}",
                         f"command -p sbatch {self.script}",
                         f"sbatch --help {self.script}"):
@@ -154,6 +169,29 @@ class GuardDecisionTests(unittest.TestCase):
                 result = self.guard(command)
                 self.assertEqual(result.returncode, 2, result.stderr)
                 self.assertIn("no dry-run receipt", result.stderr)
+
+    def test_indirect_submissions_are_still_checked(self):
+        """A path, a nested shell string, eval, and command substitution all submit."""
+        for command in (f"/usr/bin/sbatch {self.script}",
+                        f"FOO=1 /opt/slurm/bin/sbatch {self.script}",
+                        f"env FOO=1 /usr/bin/sbatch {self.script}",
+                        f"nohup ./sbatch {self.script}",
+                        f"bash -c 'sbatch {self.script}'",
+                        f"sh -lc \"cd /tmp && sbatch {self.script}\"",
+                        f"bash -c \"bash -c 'sbatch {self.script}'\"",
+                        f"eval sbatch {self.script}",
+                        f"jobid=$(sbatch {self.script})",
+                        f"echo `sbatch {self.script}`"):
+            with self.subTest(command=command):
+                result = self.guard(command)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("no dry-run receipt", result.stderr)
+
+    def test_a_nested_lookup_is_still_exempt(self):
+        for command in ("bash -c 'command -v sbatch'", "eval which sbatch"):
+            with self.subTest(command=command):
+                result = self.guard(command)
+                self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_the_word_in_text_is_refused_with_an_explanation(self):
         """Text cannot be told from a heredoc a shell will run, so it stays refused, and says why."""
@@ -193,13 +231,18 @@ class GuardDecisionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stderr)
 
     def test_hook_shim_blocks_through_the_real_guard(self):
-        event = json.dumps({"tool_name": "Bash", "tool_input": {"command": f"sbatch {self.script}"},
-                            "cwd": self.temp.name})
-        env = dict(os.environ, LQCD_HANDBOOK=str(ROOT), LQCD_MACHINE="perlmutter")
-        result = subprocess.run(["/bin/bash", str(HOOK)], input=event, text=True,
-                                capture_output=True, env=env, check=False)
-        self.assertEqual(result.returncode, 2, result.stderr)
-        self.assertIn("no dry-run receipt", result.stderr)
+        # The path form is here because the prefilter once required a non-slash before the
+        # name, so /usr/bin/<submit> never reached the guard at all.
+        for command in (f"sbatch {self.script}", f"/usr/bin/sbatch {self.script}",
+                        f"bash -c 'sbatch {self.script}'"):
+            with self.subTest(command=command):
+                event = json.dumps({"tool_name": "Bash", "tool_input": {"command": command},
+                                    "cwd": self.temp.name})
+                env = dict(os.environ, LQCD_HANDBOOK=str(ROOT), LQCD_MACHINE="perlmutter")
+                result = subprocess.run(["/bin/bash", str(HOOK)], input=event, text=True,
+                                        capture_output=True, env=env, check=False)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("no dry-run receipt", result.stderr)
 
     def test_hook_shim_prefilter_skips_non_submissions_cheaply(self):
         """With the surface file present but no guard, a non-submission must still pass:

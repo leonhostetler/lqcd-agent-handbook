@@ -28,13 +28,23 @@ Deliberately NOT here: budget and account checks (they live in the working-direc
 whose format the handbook ships but whose numbers it never holds), and any override switch.
 An operator who must submit an unchecked script does so from their own shell.
 
-What counts as a submission is decided on tokens and errs towards refusing. Two readings are
-exempt because they cannot submit: the submit command's name as the argument of a look-up
-(`type`, `which`, `whereis`, `command -v`/`-V`, `man`), and the submit command invoked with
-nothing but a help or version flag. Everything else that tokenises to the submit command is
-treated as a submission -- including the word appearing in heredoc or echoed text, because a
-heredoc fed to a shell does submit and a tokeniser cannot tell the two apart. The refusal says
-so, and the remedy for text is to write it from a file rather than from the command line.
+What counts as a submission is decided on tokens and errs towards refusing. The command line
+is split at shell operators (`;`, `&`, `|`, parentheses, backquotes and newlines) even when
+they touch a word, so each simple command is judged on its own. The submit command counts
+wherever its bare name appears, and as a path (`/usr/bin/<submit>`) in command position. A
+string run by `sh -c`, `bash -c` and similar shells, or by `eval`, is judged the same way.
+
+Two readings are exempt because they cannot submit: any argument of a look-up (`type`,
+`which`, `whereis`, `man`, `command -v`/`-V`), because a look-up names commands and runs none,
+and the submit command invoked with nothing but a help or version flag. The exemption is
+scoped to the look-up's own simple command, so a submission after an operator or a newline is
+still checked. Everything else that tokenises to the submit command is treated as a submission
+-- including the word appearing in heredoc or echoed text, because a heredoc fed to a shell
+does submit and a tokeniser cannot tell the two apart. The refusal says so, and the remedy for
+text is to write it from a file rather than from the command line.
+
+This is a strong default, not a sandbox. A submission reached through a variable, an alias, a
+script that calls the submit command itself, or a remote shell is not seen.
 """
 from __future__ import annotations
 
@@ -43,6 +53,8 @@ import importlib.util
 import json
 import os
 import pathlib
+import posixpath
+import re
 import shlex
 import subprocess
 import sys
@@ -80,25 +92,131 @@ def detect_machine(explicit: str | None) -> str | None:
 
 LOOKUP_COMMANDS = {"type", "which", "whereis", "man"}
 HELP_FLAGS = {"--help", "-h", "--usage", "--version", "-V"}
-SEPARATORS = {"&&", "||", ";", "|"}
+# Words that run the command after them, so a path-form submit command after one is still in
+# command position. `command` without -v/-V runs its argument too.
+PREFIX_COMMANDS = {"env", "nohup", "time", "exec", "nice", "command"}
+# Shells whose -c argument, and `eval`, whose arguments, are themselves command lines.
+SHELLS = {"sh", "bash", "dash", "zsh", "ksh"}
+PUNCTUATION = "();<>|&\n`"
+SEPARATOR_CHARS = set(";&|()\n`")
+ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+MAX_NESTING = 3
+
+
+def tokenise(command: str) -> list[str]:
+    """Shell words, with operators split out even where they touch a word.
+
+    `shlex.split` leaves `python3;` as one token, which hides where a simple command ends. A
+    redirection such as `>&` may also read as a separator here; that only narrows a look-up's
+    scope or ends a script search early, and both of those refuse rather than allow.
+    """
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=PUNCTUATION)
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        return list(lexer)
+    except ValueError:
+        return command.split()
+
+
+def is_separator(token: str) -> bool:
+    return bool(token) and all(c in PUNCTUATION for c in token) and any(c in SEPARATOR_CHARS for c in token)
+
+
+def command_start(tokens: list[str], i: int) -> int:
+    """Index of the first token of the simple command containing tokens[i]."""
+    j = i
+    while j > 0 and not is_separator(tokens[j - 1]):
+        j -= 1
+    return j
+
+
+def command_word(tokens: list[str], start: int) -> int:
+    """Index of the command word of the simple command starting at `start`, skipping assignments."""
+    j = start
+    while j < len(tokens) and ASSIGNMENT.match(tokens[j]) and not is_separator(tokens[j]):
+        j += 1
+    return j
+
+
+def names_submit(tokens: list[str], i: int, submits: set[str]) -> bool:
+    """True when tokens[i] is the submit command: its bare name anywhere, or a path in command position."""
+    token = tokens[i]
+    if token in submits:
+        return True
+    if "/" not in token or posixpath.basename(token) not in submits:
+        return False
+    j = command_word(tokens, command_start(tokens, i))
+    while j < i and (tokens[j] in PREFIX_COMMANDS or tokens[j].startswith("-")
+                     or ASSIGNMENT.match(tokens[j])):
+        j += 1
+    return j == i
 
 
 def is_lookup(tokens: list[str], i: int) -> bool:
     """True when tokens[i], the submit command's name, cannot be submitting anything."""
-    j, flags = i - 1, set()
-    while j >= 0 and tokens[j].startswith("-"):  # step back over the look-up's own flags
-        flags.add(tokens[j])
-        j -= 1
-    if j >= 0 and tokens[j] in LOOKUP_COMMANDS:
-        return True
-    if j >= 0 and tokens[j] == "command" and flags & {"-v", "-V"}:
-        return True
+    start = command_word(tokens, command_start(tokens, i))
+    if start < i:
+        word = tokens[start]
+        if word in LOOKUP_COMMANDS:
+            return True
+        flags = {t for t in tokens[start + 1:i] if t.startswith("-")}
+        if word == "command" and flags & {"-v", "-V"}:
+            return True
     rest = []
     for t in tokens[i + 1:]:
-        if t in SEPARATORS:
+        if is_separator(t):
             break
         rest.append(t)
     return bool(rest) and all(t in HELP_FLAGS for t in rest)
+
+
+def is_eval_argument(tokens: list[str], i: int) -> bool:
+    """True when tokens[i] is an argument of `eval`, which the nested pass judges as a command line."""
+    word = command_word(tokens, command_start(tokens, i))
+    return word < i and tokens[word] == "eval"
+
+
+def nested_commands(tokens: list[str]) -> list[str]:
+    """Command lines that a shell's -c option or `eval` will run."""
+    found = []
+    for i, token in enumerate(tokens):
+        if is_separator(token):
+            continue
+        if token == "eval" and command_word(tokens, command_start(tokens, i)) == i:
+            words = []
+            for t in tokens[i + 1:]:
+                if is_separator(t):
+                    break
+                words.append(t)
+            if words:
+                found.append(" ".join(words))
+        elif posixpath.basename(token) in SHELLS:
+            for j in range(i + 1, len(tokens) - 1):
+                flag = tokens[j]
+                if is_separator(flag) or not flag.startswith("-") or flag.startswith("--"):
+                    break
+                if "c" in flag[1:]:
+                    found.append(tokens[j + 1])
+                    break
+    return found
+
+
+def find_submission(command: str, submits: set[str], depth: int = 0) -> tuple[list[str], int] | None:
+    """The tokens of the command line that submits, and the submit command's index in them."""
+    tokens = tokenise(command)
+    at = next((i for i in range(len(tokens))
+               if names_submit(tokens, i, submits) and not is_lookup(tokens, i)
+               and not is_eval_argument(tokens, i)), None)
+    if at is not None:
+        return tokens, at
+    if depth < MAX_NESTING:
+        for inner in nested_commands(tokens):
+            found = find_submission(inner, submits, depth + 1)
+            if found is not None:
+                return found
+    return None
 
 
 def find_script(tokens: list[str], submit: str, cwd: pathlib.Path) -> tuple[pathlib.Path | None, str]:
@@ -107,10 +225,11 @@ def find_script(tokens: list[str], submit: str, cwd: pathlib.Path) -> tuple[path
         at = tokens.index(submit)
     except ValueError:
         return None, "submit command not found in the tokenised command"
-    rest = tokens[at + 1:]
-    for stop in ("&&", "||", ";", "|"):
-        if stop in rest:
-            rest = rest[:rest.index(stop)]
+    rest = []
+    for token in tokens[at + 1:]:
+        if is_separator(token):
+            break
+        rest.append(token)
     if any(t == "--wrap" or t.startswith("--wrap=") for t in rest):
         return None, "a --wrap submission has no script to check; write the script"
     found = []
@@ -180,14 +299,10 @@ def decide(event: dict, machine_arg: str | None) -> tuple[int, str]:
     command = tool_input.get("command") if isinstance(tool_input, dict) else None
     if not isinstance(command, str) or not command.strip():
         return 0, ""
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        tokens = command.split()
-    submits = submit_commands()
-    at = next((i for i, t in enumerate(tokens) if t in submits and not is_lookup(tokens, i)), None)
-    if at is None:
+    found = find_submission(command, submit_commands())
+    if found is None:
         return 0, ""
+    tokens, at = found
     hit = tokens[at]
     cwd = pathlib.Path(event.get("cwd") or os.getcwd())
     script, reason = find_script(tokens[at:], hit, cwd)
