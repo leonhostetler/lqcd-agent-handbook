@@ -3,6 +3,12 @@
 
 Entries are grouped by scoped machine.
 
+## aurora
+
+| Knowledge | Summary | Load when |
+|---|---|---|
+| [Working on Aurora](aurora/notes.md) | What the handbook's batch-script tools cannot yet do on a PBS machine, node-target resolution, submission requirements (filesystems resource, place, project directory), where live queues differ from ALCF's table, PALS mpiexec rank and GPU-tile placement, build placement, and storage and network rules for ALCF Aurora. | Building software or preparing a job on Aurora. |
+
 ## deltaai
 
 | Knowledge | Summary | Load when |

@@ -3972,3 +3972,54 @@ header — **amended**; `tests/support.py`'s list of tools carrying third-party 
 **amended** to a count-free phrase; `playbooks/start-session.md` step 3 — **amended** for the
 developer-mode-only offer. `conventions/scheduler-surfaces.yaml` as the canonical surface
 (§scheduler-surface) — **confirmed**; the hook shim still reads it with `sed`.
+
+## 2026-09-30 — Aurora onboarded without a PBS surface
+
+A developer-mode session on an Aurora login node found `tools/detect-machine.sh` reporting
+`unknown`, and the operator asked for an Aurora machine profile. Aurora is the machine the
+build order flagged as moving two axes at once: PBS and an Intel GPU.
+
+**Scope chosen by the operator: the profile now, the PBS surface later.** Naming
+`type: pbs` in the profile is cheap, but `conventions/scheduler-surfaces.yaml` records only
+Slurm, and a PBS entry is a schema change. The surface schema requires `chdir_option` and
+`append_output_option`, and PBS has neither. It also needs a PBS reading in the checker and
+dry-run harness. Two options were put to the operator: profile only, with the gap stated, or
+profile plus surface in one change. They chose the first. The consequence is recorded where it
+binds: `machines/aurora/notes.md` opens with the warning that the checker refuses an Aurora
+script and **the submission guard does not intercept `qsub`**, because `submit_commands()`
+collects commands from the surfaces alone. `tests/test_aurora_machine.py` ties the warning to
+the surface's absence, and ROADMAP X.11 owns the surface.
+
+**What the profile rests on.** Every value is `evidence: docs`, from ALCF's Aurora overview,
+getting-started, running-jobs, compiling, and Flare pages. Live reads on the login node
+checked them: `qstat -Q`, `-Qf` and `-Bf`, `lscpu`, the Lmod default modules, and `ocloc`'s
+device list. The live server agreed on every recorded limit except two, which are tabled in
+the notes. `debug-scaling` accepts one node, where ALCF's table says two. `prod-large`, a
+routing queue from 1,920 nodes, is absent from the table. The profile keeps the documented
+values.
+
+**Choices worth knowing.**
+- One node type, `gpu-pvc`, so it is the session default without a declaration.
+- `accelerator.arch: pvc` is Intel's ahead-of-time device name, as `ocloc -device pvc`
+  accepts it. It is what a build reads, not a marketing name.
+- `memory_gb: 137.4` converts ALCF's 128 GiB per GPU (768 GiB per node) to GB, as Horizon's
+  profile does.
+- `reserved_cpus` records the cores ALCF reserves for system services, because a
+  `--cpu-bind=list:` layout that uses them is the obvious mistake.
+- Flare has no `environment_variable`, because the site sets none. The profile gives the
+  path pattern with a `<project>` placeholder.
+
+**Deliberately left out.**
+- PALS `mpiexec` as `scheduler.site_launcher`. It is the parallel launcher of this PBS site,
+  not a wrapper beside one, so it belongs in the PBS surface (X.11).
+- Home and Flare backup and purge policy, and node-local `/tmp`. The pages read give none,
+  and nothing was checked on a compute node.
+- Charging rules, the `visualization` queue (by request only), and the site, vendor,
+  training and reservation queues the live server lists.
+- An Intel branch for the accelerator-memory sampler. `--vendor intel` exits as unknown
+  today, so the instrumentation rule cannot be met on Aurora. The notes say so, and X.12
+  owns the branch.
+
+**Detection.** The detector matches `aurora.alcf.anl.gov` and any host under it. That
+covers the login node's `hostname -f` without committing the internal host name. Whether a
+compute node's `hostname -f` ends the same way was not checked, because no job was run.

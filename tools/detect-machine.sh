@@ -26,6 +26,9 @@ case "$detected_hostname" in
   horizon.tacc.utexas.edu|*.horizon.tacc.utexas.edu)
     printf '%s\n' horizon
     ;;
+  aurora.alcf.anl.gov|*.aurora.alcf.anl.gov)
+    printf '%s\n' aurora
+    ;;
   *)
     printf '%s\n' unknown
     ;;
