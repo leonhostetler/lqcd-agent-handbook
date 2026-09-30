@@ -234,6 +234,13 @@ that correlator path to the inline `forget_corr` behavior, and can continue. A n
 requested external artifact was created. Require the requested output route, absence of writer
 errors, and the exact manifest checks above.
 
+`tools/milc-compare-fnal-correlators.py` executes the file checks of step 3 and the duplicate
+check of step 4 for FNAL correlator files, and compares several files record by record against
+the first, relative to each correlator's own scale. Use it rather than reading the files by eye:
+a stale appended record or a short time range looks complete. It does not know the expected
+correlator identities, so compare its reported key set with the input's requests, and it
+reports numerical differences without judging them unless given `--max-relative-difference`.
+
 Apply the same manifest discipline to any other active `ks_spectrum` save directives, including
 saved gauge fields, eigenvectors, sources, propagators, or derived quarks. Their format-specific
 structure is outside this correlator section and must be validated with the corresponding MILC

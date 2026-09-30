@@ -331,6 +331,7 @@ lqcd-agent-handbook/
 │   ├── propose-change.py          # the pre-commit harness (§developer-obligations)
 │   ├── select-python, run-*       # interpreter dispatcher and its runners
 │   ├── extract-milc-timings.py
+│   ├── milc-compare-fnal-correlators.py # FNAL correlator structure checks and comparison
 │   ├── summarize-slurm-job.py
 │   ├── check-batch-script.py      # advisory batch-script lint (§batch-scripts)
 │   └── validate-knowledge.py      # schema, provenance, privacy, staleness, generated

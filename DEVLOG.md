@@ -3727,3 +3727,31 @@ and QIO write/read tests" — **confirmed**; the new subsection says how to know
 scored. The Vista and Perlmutter stack records list their test filters and figures but not their
 arguments; they report converged residuals and iteration counts, so they were scored, and none
 was changed.
+
+## 2026-09-30 — milc-compare-fnal-correlators.py
+
+Comparing FNAL correlator files had been done by hand twice: for Vista's CUDA 13 MILC stack
+against its earlier runs, and for Horizon's MILC stack across three rank geometries. The
+automation checkpoint at the close of the Horizon stack work took it, because its failure is
+quiet: a stale appended record, a short time range or a missing correlator all look complete
+by eye, and `ks-spectrum.md`'s manifest rules exist precisely because the writers append.
+
+The tool checks every file for JobID, lattice size, a key on every correlator, no duplicate
+keys, time indices 0..NT-1 and finite values, then compares each later file against the first,
+relative to each reference correlator's own scale so a vanishing component cannot inflate an
+error. It reports differences, and judges them only against `--max-relative-difference`. Run
+on the Horizon files it reproduces the hand result, 1.669e-7 across all three geometries.
+
+**Tests.** Five tests on synthetic FNAL files generated in the test, each negative first
+checking that its perturbation changed the file. Removing the duplicate check, or the
+time-index check, each failed the structural-defect test. A first draft of the difference test
+used a 3e-7 perturbation, which six printed digits round to 5e-7; the test was corrected to a
+size the printed precision resolves.
+
+**Routing.** From the correlator-file section of `software/milc/applications/ks-spectrum.md`,
+which names what it does not do: it cannot know the expected correlator identities.
+
+**Reconciliation (§developer-obligations item 11).** `ks-spectrum.md`'s four manifest steps —
+**confirmed**, unchanged; the tool implements parts of steps 3 and 4 and the leaf now says which.
+The Horizon and Vista MILC stack records report their comparisons as already done — **confirmed**,
+not rerun or edited.
