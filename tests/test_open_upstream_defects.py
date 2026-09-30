@@ -31,6 +31,8 @@ OPEN_DEFECTS = {
             "machines/vista/stacks/quda-cuda13-milc-cg-2026q3/stack.yaml",
             "machines/vista/stacks/milc-cuda12-quda-ks-spectrum-2026q3/stack.yaml",
             "machines/vista/stacks/milc-cuda13-quda-ks-spectrum-2026q3/stack.yaml",
+            "machines/horizon/stacks/quda-cuda13-milc-cg-2026q3/stack.yaml",
+            "machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-2026q3/stack.yaml",
         ),
     ),
 }

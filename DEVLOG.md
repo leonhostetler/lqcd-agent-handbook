@@ -3574,3 +3574,46 @@ Reconciliation (§developer-obligations item 11):
   own simple command. Its heredoc decision is **confirmed**.
 - The guard docstring — **amended** to state the tokenisation, the scope and the limits.
 - "No override" — **confirmed**.
+
+## 2026-09-29 — Horizon QUDA and MILC stacks validated (early access)
+
+Two stacks landed on Horizon's `gpu-gb200` node type: `quda-cuda13-milc-cg-2026q3` and
+`milc-cuda13-quda-ks-spectrum-2026q3`, both at the same QUDA and MILC commits as Vista's CUDA 13
+pair. The current `develop` tips were exactly those commits, so only the machine and toolchain
+moved: NVHPC 26.9, CUDA 13.3, Open MPI 5.0.11 with UCX 1.22.0, `sm_100`. The operator submitted
+every job; no ceiling was granted, so each was handed off after the checker and the dry-run
+harness passed.
+
+**Build.** QUDA configured on a login node, because configure downloads its dependencies, and
+built in 11 min 19 s on one scheduler node at 64-way parallelism. MILC built on the login node in
+65 s at one job, as on Vista. Two site conditions shaped the recipe: the `cmake/4.4.0` module's
+binaries were not executable, so `/usr/bin/cmake` 3.30.5 was used explicitly; and inside the
+agent sandbox XALT's link wrapper needs a writable `/tmp`, so `xalt` was unloaded for the
+login-node configure and MILC link only. Batch jobs ran with XALT loaded.
+
+**Validation, and what it took to get a valid one.** Three rounds, each fixing the harness rather
+than the stack:
+- QUDA's CG test reports no verdict without `--enable-testing true`, and with it skips the
+  double-sloppy case unless `--prec double`; both skips exit 0. The dslash test takes no such flag.
+  gtest output is colour-coded, which broke the first verdict counter. The first multi-rank dslash
+  leg also partitioned a dimension with local extent 4, below improved staggered's minimum of 6.
+- MILC's four-rank leg ran about 650 times slower than one GPU while staying correct. Three
+  diagnostic jobs isolated it as a launcher fault, recorded in its own entry below.
+
+The final rounds passed on every leg: dslash (single GPU; eight ranks at two volumes), CG to 1e-6
+on one GPU and eight ranks, single-rank QIO, and MILC in three geometries whose 12 correlators
+agree to printing precision after structural checks. Multi-rank QIO failed its read-back checksum
+on `$HOME`, which is the first direct observation of the qio#19 defect on Horizon. GDR was
+confirmed from tunecache keys and UCX protocol tables, not from QUDA's announcement line.
+
+**Recorded as scope limits rather than claims:** validation ran on the early-access layout, where
+a scheduler node is a four-GPU board rather than the documented two-GPU node; the correlators
+were compared across this stack's own geometries, not against Vista's files; deflation, the
+unexercised MILC paths, and QIO through the application remain unvalidated.
+
+**Reconciliation (§developer-obligations item 11).** Not incident-driven. Checked: the Vista
+CUDA 13 stack notes' launch advice ("one rank per node through `ibrun`") — **confirmed** for Vista
+and not carried over, because Horizon's node holds four GPUs; `software/quda/runtime-environment.md`'s
+default table — **confirmed**, every row set or recorded as deliberately unset in both records;
+`software/qio/parallel-singlefile-writes.md` — **confirmed**, unchanged, and both new records point
+to it under `tests/test_open_upstream_defects.py`.

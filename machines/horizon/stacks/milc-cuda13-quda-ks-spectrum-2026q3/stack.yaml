@@ -1,0 +1,171 @@
+schema_version: 1
+machine: horizon
+software: milc
+profile: ks-spectrum-hisq-quda
+validated_on:
+  - gpu-gb200
+tested_software:
+  milc:
+    commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    branch: develop
+  quda:
+    commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+    branch: develop
+reference_sources:
+  milc_vista_sample_input:
+    commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+tested_toolchain:
+  modules: [nvidia/26.9, cuda/13.3, openmpi/5.0.11, ucx/1.22.0]
+  host_compiler:
+    module: nvidia/26.9
+    version: NVHPC 26.9.0 (nvc, nvc++)
+    wrappers:
+      c: mpicc
+      cxx: mpicxx
+  cuda:
+    module: cuda/13.3
+    compiler_version: 13.3.73
+    runtime_version: 13.3
+  driver: 595.71.05 (CUDA driver API 13.2; the 13.3 runtime ran under minor-version compatibility)
+  mpi:
+    module: openmpi/5.0.11
+    transport: UCX 1.22.0 from the loaded ucx module; libmpi carries no run path to UCX
+build:
+  type: optimized double precision with debug information
+  target: CUDA
+  gpu_arch: sm_100
+  generator: GNU Make
+  install_layout: <install-prefix>/bin/ks_spectrum_hisq
+  profile_options_from: software/milc/build-profiles.yaml#ks-spectrum-hisq-quda
+  portable_recipe: software/milc/applications/ks-spectrum.md
+  machine_options:
+    OFFLOAD: CUDA
+    MY_CC: mpicc
+    MY_CXX: mpicxx
+    COMPILER: gnu
+    ARCH: ""
+    GPU_ARCH: nvidia
+    OPT: -O3 -Ofast -g
+    LDFLAGS: -g -fopenmp -lcuda -lnvidia-ml
+    CUDA_HOME: <cuda-toolkit-prefix>
+    CUDA_MATH: <cuda-math-libs-prefix>
+    CUDA_COMP: <cuda-toolkit-prefix>
+    CUDA_NVML: <cuda-toolkit-prefix>
+    QUDA_HOME: <quda-install-prefix>
+    QMPPAR: <quda-install-prefix>
+    QIOPAR: <quda-install-prefix>
+  dependency_acquisition:
+    mode: existing validated QUDA stack installation
+    composed_profile: software/quda/build-profiles.yaml#milc-cg
+    validated_stack: machines/horizon/stacks/quda-cuda13-milc-cg-2026q3/stack.yaml
+    network_required: false
+  cost:
+    where: login
+    command: make -j1 ks_spectrum_hisq
+    parallelism: 1
+    wallclock: 64.7s
+    timing_scope: Fresh checkout of the tested commit; application objects, dependent MILC libraries, and final link, which succeeded on the first attempt. The link resolves -lcuda and -lnvidia-ml from the toolkit's stub libraries, which the cuda module puts on LIBRARY_PATH; the executable records no path to them and loads the driver's libraries at run time.
+    maximum_reported_rss_kib: 239616
+    memory_scope: Maximum RSS of any single process in the make command, from getrusage(RUSAGE_CHILDREN), not aggregate build-process memory.
+validation:
+  date: "2026-09-29"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 2
+    accelerator: NVIDIA GB200
+    accelerator_memory_mib: 189471
+    compute_capability: "10.0"
+    scheduler_node: Early access; one scheduler node was a four-GPU NVL4 board (see the composed QUDA stack).
+    partition: debug
+    exclusive: true
+    requested_walltime: 20m
+    scheduler_elapsed: 1m19s (all three legs)
+    global_lattice: [16, 16, 16, 32]
+    legs:
+      - {name: one_gpu, mpi_ranks: 1, node_geometry: [1, 1, 1, 1], launch: "ibrun -n 1 -o 0", milc_reported_time_seconds: 6.66}
+      - {name: one_board, mpi_ranks: 4, node_geometry: [1, 1, 2, 2], local_lattice: [16, 16, 8, 16], launch: "ibrun -n 4 -o 0, unbound, OMP_PROC_BIND=false", milc_reported_time_seconds: 11.30}
+      - {name: two_boards, mpi_ranks: 8, node_geometry: [1, 1, 2, 4], local_lattice: [16, 16, 8, 8], launch: "full allocation, --map-by slot:PE=36 --bind-to core", milc_reported_time_seconds: 18.87}
+  runtime:
+    communication: QMP over Open MPI 5.0.11 with UCX 1.22.0
+    UCX_TLS: unset (deliberately; UCX default transport list)
+    QUDA_ENABLE_GDR: 1
+    gdr_confirmed_by: >-
+      Tunecache dslash policy keys carry p2p=7,gdr=1 on the multi-rank legs, and UCX_PROTO_INFO=y
+      tables in the eight-rank leg show "rendezvous data fetch into cuda/GPU<n> from cuda"
+    QUDA_ENABLE_P2P: unset (deliberately)
+    QUDA_DETERMINISTIC_REDUCE: unset (deliberately)
+    QUDA_MILC_HISQ_RECONSTRUCT: 13
+    QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY: 9
+    OMP_NUM_THREADS: 16
+    OMP_PROC_BIND: >-
+      spread for the bound eight-rank leg; false for the -n/-o legs, whose ranks ibrun leaves
+      unbound. With spread there, every rank pinned its thread 0 to core 0 and each multi-GPU
+      dslash took about 13 ms; with false it took about 42 us.
+    OMP_PLACES: cores
+    cpu_binding: >-
+      Eight-rank leg: local ranks 0-3 on cores 0-35, 36-71, 72-107, 108-143, beside their GPUs.
+      One- and four-rank legs: unbound (all 144 cores), as ibrun -n/-o launches them.
+    gpu_binding: None; CUDA_VISIBLE_DEVICES unset, QUDA selects the device by local rank.
+    quda_resource_path: Fresh writable tunecache directory per leg for gpu-gb200.
+    slowest_multi_gpu_dslash_policy: {one_board: 4.16e-5 s, two_boards: 4.64e-5 s}
+    application_payload_exit_code: 0
+  tests:
+    - name: application_completion
+      input: upstream systems/Vista/sample.in, unchanged except node_geometry and ionode_geometry
+      proofread: clean on all three inputs through tools/milc-proofread-input.sh
+      terminal_marker: RUNNING COMPLETED
+      payload_exit_code: 0
+      legs_passed: 3
+      result: pass
+    - name: quda_cg_convergence
+      solves_per_leg: 24
+      requested_true_residual: 1.0e-8
+      maximum_true_residual: 9.997018e-9
+      maximum_iterations: 4272
+      result: pass
+    - name: correlator_cross_geometry_comparison
+      reference: this stack's one-GPU leg
+      structural_checks: JobID, lattice_size, correlator identities, complete time coverage, finite values, no duplicate records, in every file
+      keys_matched: 12
+      maximum_difference_relative_to_record_scale: 1.669e-7
+      output_precision: "%.6e (7 significant digits)"
+      result: pass
+  scope_limits:
+    - The correlators were compared across this stack's own three geometries, not against another machine's output. The largest difference equals the printing precision and the value Vista's stack recorded against its own references; no Vista file was compared directly.
+    - Plain CG only. The profile compiled native-CG deflation support, but no eigensolve, deflation-space lifecycle, or deflated solve was exercised.
+    - QIO was linked, but the sample did not exercise QIO file read or write through the application. Multi-rank QIO writes, including save_parallel_scidac and save_parallel_ildg, are unsafe on $HOME and $SCRATCH because of the open upstream defect in software/qio/parallel-singlefile-writes.md (qio#19, quda#1655), which the composed QUDA stack observed on Horizon.
+    - Gaussian smearing, gauge-force, and fermion-force paths were compiled but not exercised by this sample.
+    - Validated on the early-access layout, where one scheduler node is a four-GPU NVL4 board.
+    - The runs populated fresh tunecaches and are not benchmark evidence.
+evidence: experiment
+observed: "2026-09-29"
+observed_on:
+  machine: horizon
+  node_type: gpu-gb200
+  software:
+    milc:
+      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      branch: develop
+    quda:
+      commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+      branch: develop
+  toolchain:
+    cuda: 13.3.73
+    host_compiler: NVHPC 26.9 through Open MPI 5.0.11 wrappers
+    ucx: 1.22.0
+sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Vista/sample.in
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L636-L642
+  - operator-submitted validation runs reviewed in the working directory; raw scheduler output is not committed

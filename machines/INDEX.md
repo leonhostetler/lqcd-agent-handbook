@@ -25,6 +25,8 @@ Entries are grouped by scoped machine.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
+| [MILC CUDA 13 QUDA ks_spectrum stack on Horizon](horizon/stacks/milc-cuda13-quda-ks-spectrum-2026q3/notes.md) | Reproduction notes for the Horizon gpu-gb200 MILC ks_spectrum_hisq stack linked against the CUDA 13 QUDA stack, validated on one GPU, one four-GPU board, and two boards, with the launch settings that keep unbound ranks from sharing a core. | Rebuilding, validating, or launching the Horizon MILC ks_spectrum_hisq stack with QUDA. |
+| [QUDA CUDA 13 milc-cg stack on Horizon](horizon/stacks/quda-cuda13-milc-cg-2026q3/notes.md) | Reproduction commands for the Horizon gpu-gb200 QUDA stack built with NVHPC 26.9, CUDA 13.3 and Open MPI 5.0.11 (UCX 1.22.0) for sm_100, with the launch mapping that keeps each rank beside its GPU on a four-GPU board. | Rebuilding, validating, or running multi-rank work with the quda-cuda13-milc-cg-2026q3 stack on Horizon. |
 | [Working on Horizon](horizon/notes.md) | Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, agent placement, launcher, build, and storage rules for TACC Horizon, including the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe. | Building software or preparing a job on Horizon. |
 
 ## perlmutter
