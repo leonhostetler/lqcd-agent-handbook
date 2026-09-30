@@ -39,7 +39,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 #: Categories PRIVACY.md forbids that no regular expression can decide. Printed
 #: beside the diff so a reviewer knows what they are looking for; the validator
@@ -130,6 +130,35 @@ def regenerate_indices(root: Path, run=_run) -> Step:
     return Step("indices", True, f"{len(before)} generated indices already current")
 
 
+def regenerate_runtime_data(root: Path, run=_run) -> Step:
+    """Regenerate the runtime-data projection in place and report which files moved.
+
+    The same argument as the indices: a stale projection is well-formed JSON that the
+    operational tools will read without complaint, so the defect is only visible here.
+    A file the generator removes counts as moved.
+    """
+    generated = root / "tools" / "generated"
+
+    def snapshot() -> dict[Path, bytes]:
+        return {p: p.read_bytes() for p in sorted(generated.rglob("*.json"))} if generated.is_dir() else {}
+
+    before = snapshot()
+    proc = run([sys.executable, "tools/build-runtime-data.py"], root)
+    if proc.returncode != 0:
+        return Step("runtime-data", False,
+                    f"build-runtime-data.py failed: {proc.stderr.strip()[:400]}")
+    after = snapshot()
+    moved = [str(p.relative_to(root)) for p in sorted(set(before) | set(after))
+             if before.get(p) != after.get(p)]
+    if moved:
+        return Step(
+            "runtime-data", False,
+            "regenerated and CHANGED: " + ", ".join(moved)
+            + " — they were stale; include them in the proposal and re-run",
+        )
+    return Step("runtime-data", True, f"{len(after)} runtime-data files already current")
+
+
 def run_validator(root: Path, run=_run) -> Step:
     """Run the validator and report its own summary line.
 
@@ -207,6 +236,7 @@ def build_report(root: Path, base: str, out_path: Path | None, run=_run) -> Repo
              + (" …" if len(files) > 12 else ""))
     )
     report.steps.append(regenerate_indices(root, run))
+    report.steps.append(regenerate_runtime_data(root, run))
     report.steps.append(run_validator(root, run))
     report.steps.append(run_suite(root, run))
     report.steps.append(privacy_surface(root, added_lines(root, base, run), out_path))

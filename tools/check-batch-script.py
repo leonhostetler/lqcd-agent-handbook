@@ -26,13 +26,19 @@ import pathlib
 import re
 import sys
 
-try:
-    import yaml
-except ImportError:  # pragma: no cover - the runner guarantees this
-    sys.exit("check-batch-script requires PyYAML; invoke it through tools/run-validator's dispatcher")
-
 HANDBOOK = pathlib.Path(__file__).resolve().parents[1]
-SURFACES = HANDBOOK / "conventions" / "scheduler-surfaces.yaml"
+# An operational tool: standard library only, reading the runtime-data projection of the
+# machine profiles and scheduler surfaces rather than their YAML (ARCHITECTURE.md §runtime-data).
+sys.path.insert(0, str(HANDBOOK / "tools"))
+import runtime_data  # noqa: E402
+
+
+def machine_profile(machine: str) -> dict | None:
+    """The profile's projection, None for a machine with no profile; exits on a stale one."""
+    try:
+        return runtime_data.machine(HANDBOOK, machine)
+    except runtime_data.RuntimeDataError as exc:
+        sys.exit(str(exc))
 
 # An application fed its input on stdin cannot be checked by this lint: whether that
 # input parses is a question only the application answers. The warning exists because
@@ -107,10 +113,9 @@ def accelerator_vendors(machine: str | None) -> set[str] | None:
     """
     if machine is None:
         return None
-    profile_path = HANDBOOK / "machines" / machine / "machine.yaml"
-    if not profile_path.exists():
+    profile = machine_profile(machine)
+    if profile is None:
         sys.exit(f"no machine profile at machines/{machine}/machine.yaml")
-    profile = yaml.safe_load(profile_path.read_text())
     vendors = set()
     for node_type in (profile.get("node_types") or {}).values():
         accelerator = (node_type or {}).get("accelerator")
@@ -140,12 +145,14 @@ def load_surface(machine: str | None):
     """Return (surface, profile_scheduler) or (None, None) when not requested."""
     if machine is None:
         return None, None
-    profile_path = HANDBOOK / "machines" / machine / "machine.yaml"
-    if not profile_path.exists():
+    profile = machine_profile(machine)
+    if profile is None:
         sys.exit(f"no machine profile at machines/{machine}/machine.yaml")
-    profile = yaml.safe_load(profile_path.read_text())
     scheduler = profile.get("scheduler", {})
-    surfaces = yaml.safe_load(SURFACES.read_text())["surfaces"]
+    try:
+        surfaces = runtime_data.scheduler_surfaces(HANDBOOK)["surfaces"]
+    except runtime_data.RuntimeDataError as exc:
+        sys.exit(str(exc))
     kind = scheduler.get("type")
     if kind not in surfaces:
         sys.exit(f"no recorded submission surface for scheduler type {kind!r}")
@@ -221,10 +228,9 @@ def logical_cpus(machine: str | None) -> set[int]:
     """Logical CPUs per node across a profile's node types, where recorded."""
     if machine is None:
         return set()
-    profile_path = HANDBOOK / "machines" / machine / "machine.yaml"
-    if not profile_path.exists():
+    profile = machine_profile(machine)
+    if profile is None:
         return set()
-    profile = yaml.safe_load(profile_path.read_text())
     counts = set()
     for node_type in (profile.get("node_types") or {}).values():
         sizing = (node_type or {}).get("sizing") or {}

@@ -1,0 +1,5 @@
+# Search tools that honour .ignore -- ripgrep, and the agent search tools built on it --
+# skip these paths. tools/generated/ is the JSON projection operational tools read in place
+# of YAML (ARCHITECTURE.md §runtime-data); agents read the YAML, and a match in the
+# projection only duplicates one in its source.
+/tools/generated/

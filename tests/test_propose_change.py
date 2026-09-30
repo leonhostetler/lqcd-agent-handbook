@@ -146,6 +146,50 @@ class IndexStep(unittest.TestCase):
         self.assertFalse(step.ok)
 
 
+class RuntimeDataStep(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        self.generated = self.root / "tools" / "generated" / "machines"
+        self.generated.mkdir(parents=True)
+        self.file = self.generated / "somewhere.json"
+        self.file.write_text("{}\n")
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_a_current_projection_passes(self):
+        step = pc.regenerate_runtime_data(self.root, runner(**{"build-runtime-data": FakeProc(0)}))
+        self.assertTrue(step.ok)
+        self.assertIn("1 runtime-data files already current", step.detail)
+
+    def test_a_stale_file_fails_and_is_named(self):
+        """The negative control: stale JSON is well-formed, and the tools read it silently."""
+        def rewrite(cwd):
+            self.file.write_text('{"data": 1}\n')
+            return FakeProc(0)
+
+        step = pc.regenerate_runtime_data(self.root, runner(**{"build-runtime-data": rewrite}))
+        self.assertFalse(step.ok)
+        self.assertIn("tools/generated/machines/somewhere.json", step.detail)
+
+    def test_a_removed_file_counts_as_moved(self):
+        def remove(cwd):
+            self.file.unlink()
+            return FakeProc(0)
+
+        step = pc.regenerate_runtime_data(self.root, runner(**{"build-runtime-data": remove}))
+        self.assertFalse(step.ok)
+        self.assertIn("somewhere.json", step.detail)
+
+    def test_a_failing_generator_fails_the_step(self):
+        step = pc.regenerate_runtime_data(
+            self.root, runner(**{"build-runtime-data": FakeProc(2, stderr="boom")})
+        )
+        self.assertFalse(step.ok)
+        self.assertIn("boom", step.detail)
+
+
 class PrivacySurface(unittest.TestCase):
     def test_it_reports_what_it_scanned_not_only_what_it_found(self):
         """The failure this step exists for: a sweep that never ran and a sweep that

@@ -3935,3 +3935,40 @@ stub `PATH` now remove `BASH_ENV` from the environment they pass, so a site init
 write into the output two of them compare exactly. The tools keep honouring `BASH_ENV`:
 `select-python`'s module discovery runs `module` in a child bash and depends on it. Verified on
 Aurora with the Lmod init file set: both tests failed before the change and pass after it.
+
+## 2026-09-30 — Runtime data: operational tools read a generated projection (X.10)
+
+**Why the Encoding decision was reopened.** The tool Python removed the Aurora roadblock for a
+developer, but left every operational tool one package away from failing: the batch-script
+checker, the dry-run harness and the submission guard parsed `machine.yaml` and the scheduler
+surfaces with PyYAML, and the session-logging tools parsed `handbook.yaml`. The guard fails
+closed, so on a machine without the package every submission was blocked until someone built
+an environment. YAML stays the only written format; operational tools now read
+`tools/generated/`, which `tools/build-runtime-data.py` projects from it.
+
+**Layout.** One JSON file per source rather than one bundle, at the operator's direction: a
+bundle grows with every machine and a search matching it returns every profile at once. The
+projection is pretty-printed, and `.ignore` keeps it out of `rg`, which with it finds one fewer
+match for a surface variable and without it one more. It totals about 33 KB for five machines.
+
+**Enforcement.** The validator fails on a stale projection and on any import in a tool listed
+under `runtime_data.operational_tools` that is neither the standard library, `tomli`, nor
+another listed tool — narrowed during implementation from "another handbook tool", which would
+have let a third-party import in through an unlisted local module. `run-change-proposal` gained
+a regeneration step (1.1.0). The four operational runners declare no requirement; the
+session-logging runner also dropped `tomllib`/`tomli`, which only the Codex TOML merge needs
+and imports lazily. The tool-Python offer is now made in developer mode only.
+
+**Tests.** `tests/test_runtime_data.py`, fifteen tests, including every operational tool run
+under `python -S` so no installed package is visible, and four `regenerate_runtime_data` tests
+in `tests/test_propose_change.py`. Six safeguards were removed in turn and each failed its
+test; restoring `import yaml` in the checker failed seven.
+
+**Reconciliation (§developer-obligations item 11).** Statements about what the operational
+tools require: the runner header comments — **amended**; `playbooks/session-logging.md`
+("requires PyYAML and TOML support") — **amended** to Python 3.10+; `tools/select-python`'s
+header — **amended**; `tests/support.py`'s list of tools carrying third-party imports —
+**amended**, and it had omitted `install-submission-guard.py`; ROADMAP X.4's "five tools" —
+**amended** to a count-free phrase; `playbooks/start-session.md` step 3 — **amended** for the
+developer-mode-only offer. `conventions/scheduler-surfaces.yaml` as the canonical surface
+(§scheduler-surface) — **confirmed**; the hook shim still reads it with `sed`.

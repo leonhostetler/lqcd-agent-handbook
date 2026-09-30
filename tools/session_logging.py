@@ -9,10 +9,12 @@ from pathlib import Path
 import re
 import shutil
 import stat
+import sys
 import tempfile
 from typing import Any
 
-import yaml
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import runtime_data  # noqa: E402
 
 
 LOGGER_TARGETS = {
@@ -30,7 +32,10 @@ class SessionLoggingError(RuntimeError):
 
 
 def load_manifest(root: Path) -> dict[str, Any]:
-    value = yaml.safe_load((root / "handbook.yaml").read_text())
+    try:
+        value = runtime_data.handbook(root)
+    except runtime_data.RuntimeDataError as exc:
+        raise SessionLoggingError(str(exc)) from None
     if not isinstance(value, dict):
         raise SessionLoggingError("handbook.yaml is not a mapping")
     logging = value.get("session_logging")

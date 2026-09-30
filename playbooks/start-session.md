@@ -61,14 +61,15 @@ leaves the tree clean.
 ## 3. Check user-wide session logging
 
 First run `"$LQCD_HANDBOOK/tools/setup-tool-python" --check` and record its state. It reports
-the per-user environment that carries the packages the checks below, the validator and the
-batch-script tools import, and every runner probes it first. When it is `missing`, `stale`, or
-`broken`, include one non-blocking offer: "The tool Python is <state>. Say \"set up the tool
-Python\" to build it for this user account." On explicit acceptance run
-`"$LQCD_HANDBOOK/tools/setup-tool-python"`, which needs access to the Python package index, and
-then re-run the two checks below. Until it is `ready`, a check below that fails because no
-interpreter carries its packages reports its state as `unverified`, never `broken`: the
-component was not examined.
+the per-user environment carrying the packages the developer tools import — the validator, the
+index builders, the change-proposal harness and the test suite. The checks below and every
+other operational tool need only Python 3.10+, so a user-mode session reports this state in
+one line and makes no offer. In developer mode, when it is `missing`, `stale`, or `broken`,
+include one non-blocking offer: "The tool Python is <state>. Say \"set up the tool Python\" to
+build it for this user account." The handbook mode is settled in step 5, so make the offer in
+the final report, or when developer mode is declared later in the session. On explicit
+acceptance run `"$LQCD_HANDBOOK/tools/setup-tool-python"`, which needs access to the Python
+package index.
 
 Run `"$LQCD_HANDBOOK/tools/run-session-logging-python"
 "$LQCD_HANDBOOK/tools/check-session-logging.py" --frontend

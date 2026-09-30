@@ -24,8 +24,6 @@ import stat
 import sys
 from typing import Any
 
-import yaml
-
 from session_logging import (
     SessionLoggingError,
     codex_policy_problem,
@@ -35,6 +33,7 @@ from session_logging import (
     toml_module,
     write_with_backup,
 )
+import runtime_data  # noqa: E402  -- importing session_logging put tools/ on the path
 
 INSTALLED = {
     "claude": Path(".claude/submission_guard.sh"),
@@ -49,7 +48,10 @@ MATCHER = "Bash"
 
 
 def guard_manifest(root: Path) -> dict[str, Any]:
-    config = yaml.safe_load((root / "handbook.yaml").read_text())
+    try:
+        config = runtime_data.handbook(root)
+    except runtime_data.RuntimeDataError as exc:
+        raise SessionLoggingError(str(exc)) from None
     guard = config.get("submission_guard") if isinstance(config, dict) else None
     if not isinstance(guard, dict):
         raise SessionLoggingError("handbook.yaml lacks a submission_guard block")

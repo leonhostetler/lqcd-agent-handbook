@@ -35,7 +35,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 |---|---|---|
 | **Repo split** | Single public repo. No private overlay, no `local/`. Non-transferable knowledge stays in the working directory ([§no-escape-hatch](#no-escape-hatch)) | The operator needs a *durable* fact to travel that cannot be published — the working directory has been shown to cover every case so far |
 | **Loading** | One shared contract behind frontend launchers. Both set common launch/frontend markers and preserve working-project instructions; Claude loads an exact `CLAUDE.md` mirror, while Codex receives an additive pointer to canonical `AGENTS.md` without another writable root ([§loading-chain](#loading-chain)). Revisited for Slice 0c: user-wide session logging remains an offer-only installer because it must work outside LQCD projects, Codex plugin hooks still require trust, and Claude/Codex need different adapters | Playbook routing costs more than a per-machine plugin install would, or the Slice-7 enforcement hooks and agents become load-bearing ([§loading-invariants](#loading-invariants)) |
-| **Encoding** | Schema-validated YAML for facts a script consumes; Markdown prose beside it for mechanism ([§knowledge-atom](#knowledge-atom)) | — |
+| **Encoding** | Schema-validated YAML for facts a script consumes; Markdown prose beside it for mechanism ([§knowledge-atom](#knowledge-atom)). YAML is the only format written. **Operational tools** — those that run in every session or inside a hook — read a generated, committed JSON projection of it and import only the standard library, because a tool that cannot import its parser fails exactly when it is wanted ([§runtime-data](#runtime-data)) | A consumed fact class cannot be projected into JSON without loss |
 | **Build order** | One vertical LQCD-knowledge slice end to end. Slice 1 remains "build QUDA on Perlmutter"; the explicitly scoped Slice 0c pulls the already-designed cross-frontend session-logging adapter forward without changing the knowledge order ([§build-order](ROADMAP.md#build-order)) | — |
 
 <a id="decisions-structure"></a>
@@ -86,7 +86,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate; benchmarking measures a candidate and workload frozen before the measured series. A campaign may move from one to the other but never occupies a hybrid mode, and an exploratory winner needs independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
 | **Trial shape versus production workload** | A tuning or benchmarking trial runs few solves by design: it prices one-time and recurring cost cheaply so production can be costed at counts it never ran. Its own solve count is an instrument setting, and any share, ratio, ranking or winner derived from it carries the count it holds at. **Not a mandatory declaration** — where the production count is unknown the deliverable is `C(N) = I + N·R` and the crossover, so an exploratory campaign discovers its regimes instead of declaring them ([§trial-is-an-instrument](#trial-is-an-instrument)) | An objective appears whose ranking is genuinely solve-count-independent, or the crossover form proves unusable for a real decision |
 | **Performance and tuning boundary** | Performance **diagnoses**: it ingests a profile and produces a ranked, evidenced hypothesis list. Tuning **searches**: it applies a change, rebuilds, remeasures and selects. A profile-driven optimisation loop crosses the boundary and is declared at the crossing, never one mode doing both ([§work-modes](#work-modes), [§profile-analysis](#profile-analysis)) | A diagnosis phase proves to carry no decision content distinct from the search that follows it |
-| **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; a tool Python, session logger or submission guard that is not ready produces a non-blocking offer in the orientation report ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
+| **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; a session logger or submission guard that is not ready produces a non-blocking offer in the orientation report, and so does a tool Python that is not ready, in developer mode only ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
 | **Privacy-screening boundary** | Screen only the exact material crossing into the handbook: a user-mode inbox entry or a direct developer-mode change. Handbook privacy rules never mandate scanning, redacting, or rewriting the working project that holds source evidence ([§privacy-screening](#privacy-screening), [§handbook-modes](#handbook-modes)) | The repository's publication boundary changes |
 | **Concurrency** | Unique filenames for every user-mode write; `base_handbook_commit` on proposals. No branches, no PRs, no curator ([§freshness-model](#freshness-model)) | The handbook gains contributors beyond the operator |
@@ -100,7 +100,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
 | **Test builds** | Build the complete available test suite by default. A reduced test build requires an **explicit operator instruction for that build**; record the opt-out and exact excluded targets. Test execution may remain focused on the validation contract | The complete suite cannot be compiled within available build resources and the operator adopts another standing policy |
 | **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared interpreter dispatcher and checker, and an offer-only installer. Logs are **operator-facing provenance backups**: agents do not read them unless the operator explicitly requests review, and authorized review treats them as private evidence rather than canonical knowledge ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
-| **Interpreter selection** | One shared dispatcher probes caller-declared requirements and rejects any candidate that emits diagnostics. It probes the **handbook tool Python** first — a per-user virtual environment built on request from pinned requirements, at a per-user location and never inside a clone — then `PATH`, whose scan never loads a module. A caller whose output a human reads may opt into **discovering** module-provided interpreters, enumerated from the module system and never named in the tool ([§session-logging](#session-logging)) | A caller needs an interpreter that neither the tool Python, `PATH` nor the module system exposes |
+| **Interpreter selection** | One shared dispatcher probes caller-declared requirements and rejects any candidate that emits diagnostics. It probes the **handbook tool Python** first — a per-user virtual environment built on request from pinned requirements, at a per-user location and never inside a clone — then `PATH`, whose scan never loads a module. A caller whose output a human reads may opt into **discovering** module-provided interpreters, enumerated from the module system and never named in the tool. Operational tools declare no third-party requirement, so any Python 3.10+ serves them ([§session-logging](#session-logging), [§runtime-data](#runtime-data)) | A caller needs an interpreter that neither the tool Python, `PATH` nor the module system exposes |
 | **Repo name** | `lqcd-agent-handbook` ([§locating-handbook](#locating-handbook)) | — |
 | **Locating the handbook** | `LQCD_HANDBOOK` is the sole interface and **the launcher fails fast if it is unset** — no `$HOME` fallback, no canonical path, and no clone path recorded anywhere, since [§deny-list](#deny-list) denies it. Validation is **identity by content**, not by path ([§locating-handbook](#locating-handbook)) | — |
 ---
@@ -207,6 +207,7 @@ lqcd-agent-handbook/
 ├── .gitignore                 # `session_*.log` from slice 0 — developer-mode sessions
 │                              #   run INSIDE this repo and the Stop hook drops verbatim
 │                              #   transcripts here (§session-logging). Not optional.
+├── .ignore                    # keeps tools/generated/ out of search tools (§runtime-data)
 │
 ├── conventions/
 │   ├── INDEX.md               # generated grouped projection from knowledge frontmatter
@@ -309,6 +310,9 @@ lqcd-agent-handbook/
 │   ├── install-codex-skills   # optional, conflict-safe user skill symlink
 │   ├── sync-agent-entrypoints.py # regenerates CLAUDE.md from canonical AGENTS.md
 │   ├── build-index.py         # regenerates or checks grouped domain indices
+│   ├── build-runtime-data.py  # regenerates or checks tools/generated/ (§runtime-data)
+│   ├── runtime_data.py        # stdlib loader operational tools read it through
+│   ├── generated/             # committed JSON projection of consumed YAML; never edited
 │   ├── detect-machine.sh
 │   ├── collect-environment.sh
 │   ├── clang-format-quda.py   # QUDA-only changed-line formatter: named worktree files
@@ -950,6 +954,43 @@ checked, and stays absent elsewhere. An unrecorded field means *nobody has estab
 this*, and a consumer must ask rather than assume — which is why absence and an explicit
 `null` are deliberately different states.
 
+<a id="runtime-data"></a>
+### 3.10. Runtime data: operational tools read a generated projection
+
+Two kinds of tool read the handbook's YAML, and they fail differently. **Developer tools** —
+the validator, the index builders, the change-proposal harness and the test suite — run where
+someone is maintaining the handbook and can build an environment for them
+([§session-logging](#session-logging)'s tool Python). **Operational tools** run in every
+session, some of them inside hooks: the batch-script checker, the dry-run harness, the
+submission guard, and the session-logging and submission-guard checkers and installers. One
+that cannot import its parser fails exactly when it is wanted, and the submission guard fails
+closed, so a missing package on a machine blocks every submission made there.
+
+**So operational tools import only the standard library, and read JSON.** YAML stays the only
+format anyone writes, comments included, and stays canonical. `tools/build-runtime-data.py`
+projects what those tools consume into `tools/generated/`: `handbook.json` from the
+`handbook.yaml` blocks they read, `scheduler-surfaces.json`, and `machines/<name>.json` for
+each machine profile. A generated view of one canonical home is the restatement P2 already
+permits, like the domain indices ([§indexing](#indexing)). The tools list is declared once,
+as `operational_tools` in `handbook.yaml`.
+
+**One file per source, never a bundle.** A bundle grows with every machine onboarded, a tool
+checking one script needs one profile, and a search matching a bundle returns a view of every
+machine at once. The projection is pretty-printed so a match is one short line, and `.ignore`
+keeps `tools/generated/` out of the search tools that honour it. Agents read the YAML; nothing
+routes to the projection.
+
+**Projection is exact or it refuses.** A YAML date becomes an ISO-8601 string; any other value
+JSON cannot represent stops the build rather than being coerced.
+
+**Three checks keep it honest.** `tools/run-change-proposal` regenerates the projection before
+validating. The validator fails when a committed projection differs from what the YAML
+generates, the rule stale indices already follow. And it fails when an operational tool
+imports anything but the standard library or another listed operational tool; `tomli`, the
+pre-3.11 fallback for the standard `tomllib`, is the one exception. The hook shim is Bash and reads the
+scheduler surface with `sed` for a prefilter only, so it needs no exception: the decision it
+defers to is the guard's.
+
 <a id="session-start"></a>
 ## 4. How a session starts across frontends
 
@@ -1155,19 +1196,21 @@ pins the selected absolute interpreter into the hook command, so later hooks do 
 on `PATH` or a module environment.
 
 **The tool Python is probed first, and the handbook builds it on request.** A machine whose
-interpreters carry none of the third-party packages leaves every tool that imports one
-unrunnable — the validator, the batch-script checker, the submission guard, and this
-checker — and an environment the operator must assemble outside the session is a roadblock
-the handbook can remove. `tools/setup-tool-python` builds a virtual environment from the
-pinned `tools/requirements.txt` at a per-user default location, which `LQCD_HANDBOOK_TOOL_PYTHON`
+interpreters carry none of the third-party packages leaves the developer tools unrunnable —
+the validator, the index builders, the change-proposal harness and much of the test suite —
+and an environment the operator must assemble outside the session is a roadblock the handbook
+can remove. Operational tools need no package at all ([§runtime-data](#runtime-data)).
+`tools/setup-tool-python` builds a virtual environment from the pinned
+`tools/requirements.txt` at a per-user default location, which `LQCD_HANDBOOK_TOOL_PYTHON`
 overrides, and the dispatcher probes it before `PATH` under the same requirement and
 reject-on-output rules as any other candidate. The location is per-user and never inside a
 clone, for the reason below that a global hook may not point into `$LQCD_HANDBOOK`; guard
 and logger hooks already resolve through the dispatcher, so none of them records the path.
 Setup follows the installer contract: startup reports `ready`, `missing`, `stale` or
-`broken` and offers the build without asking a second question; the build runs only on
-consent, refuses to replace a directory it did not create, restores the previous
-environment when a rebuild fails, and installs prebuilt packages only.
+`broken`, and in developer mode offers the build without asking a second question — a
+user-mode session runs nothing that needs it, so it gets the state as one line and no offer.
+The build runs only on consent, refuses to replace a directory it did not create, restores
+the previous environment when a rebuild fails, and installs prebuilt packages only.
 
 **The no-module rule is scoped to the session-logging path, not to every caller.** Its
 reason is output integrity: this checker's stdout is parsed as JSON, so an interpreter that

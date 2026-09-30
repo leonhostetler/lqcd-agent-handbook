@@ -24,7 +24,7 @@ The handbook ships two adapters behind one contract:
 
 Both adapters write atomically with mode `0600`. The shared
 `tools/run-session-logging-python` dispatcher prefers a compatible versioned Python command
-over an ambiguous `python3`, requires PyYAML and TOML support, rejects interpreters that
+over an ambiguous `python3`, requires only Python 3.10+, rejects interpreters that
 emit diagnostics during its capability probe, disables NERSC PyMon for deterministic
 checker and installer output, and never loads a module. The monitoring-disable variable is
 inert on systems without NERSC PyMon and is scoped to the dispatcher's child process.

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Select a Python interpreter that satisfies a caller-declared dependency set.
 #
-# Interpreter selection is shared, but the dependency set is not: session
-# logging needs PyYAML plus a TOML reader, while the knowledge validator also
-# needs jsonschema. A probe hard-coded to one caller's imports silently hands
-# the other an interpreter that cannot run it, so requirements are arguments.
+# Interpreter selection is shared, but the dependency set is not: the operational
+# tools need only Python 3.10+, the index builders need PyYAML, and the knowledge
+# validator also needs jsonschema. A probe hard-coded to one caller's imports
+# silently hands another an interpreter that cannot run it, so requirements are
+# arguments.
 set -eu
 
 usage() {
@@ -124,7 +125,7 @@ record_rejection() {
     local what="$1" rc="$2" out="$3" why=""
     if (( rc != 0 )); then
         why="$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1 || true)"
-        why="${why:-does not satisfy Python ${min_major}.${min_minor}+ with ${described}}"
+        why="${why:-does not satisfy Python ${min_major}.${min_minor}+${described:+ with ${described}}}"
     else
         why="imports satisfied, but it emitted: $(printf '%s\n' "$out" \
              | grep -v '^[[:space:]]*$' | head -1 || true)"
@@ -205,7 +206,7 @@ if (( allow_module_load )) && [[ "$(type -t module 2>/dev/null || true)" == func
     done
 fi
 
-echo "${label} requires Python ${min_major}.${min_minor}+ with ${described}" >&2
+echo "${label} requires Python ${min_major}.${min_minor}+${described:+ with ${described}}" >&2
 if [[ -n "$rejected" ]]; then
     echo "candidates probed and rejected:" >&2
     printf '%s' "$rejected" >&2

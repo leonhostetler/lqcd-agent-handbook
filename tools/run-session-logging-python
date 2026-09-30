@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Run a session-logging script under an interpreter that has its dependencies.
-# Installed user hooks invoke this path, so it keeps its name; the interpreter
-# search itself lives in tools/select-python.
+# Run a session-logging script under a Python 3.10+ interpreter. These are operational
+# tools, standard library only (ARCHITECTURE.md §runtime-data); only merging a Codex
+# config.toml needs a TOML reader, which Python 3.11+ ships and the script imports
+# lazily, reporting tomli as the fallback when neither is present. Installed user hooks
+# invoke this path, so it keeps its name; the interpreter search lives in select-python.
 set -eu
 
 if (( $# == 0 )); then
@@ -24,6 +26,4 @@ here="$(cd -- "$here" && pwd)"
 # builtin path resolution above just removed. $BASH is already absolute.
 exec "${BASH:-bash}" "$here/select-python" \
     --label "session logging" \
-    --require yaml \
-    --require-any tomllib,tomli \
     -- "$@"

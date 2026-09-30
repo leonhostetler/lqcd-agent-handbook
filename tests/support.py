@@ -59,10 +59,11 @@ TOOLING_KEEP = ("skills",)
 #   -- it inherits a dependency set something established. Inside a test it is not,
 #   because nothing established what the suite's interpreter carries.
 #
-# Only five tools carry third-party imports: `validate-knowledge.py` (PyYAML and
-# jsonschema) and `build-index.py`, `check-batch-script.py`, `sync-agent-entrypoints.py`
-# and `session_logging.py` (PyYAML). Every other tool is stdlib-only and its
-# `sys.executable` call sites are correct as they stand.
+# Only the developer tools carry third-party imports: `validate-knowledge.py` (PyYAML and
+# jsonschema) and `build-index.py`, `build-runtime-data.py` and `sync-agent-entrypoints.py`
+# (PyYAML). The operational tools are stdlib-only by a validator-enforced rule
+# (ARCHITECTURE.md §runtime-data), as is every other tool, and their `sys.executable`
+# call sites are correct as they stand.
 
 # Deliberately not a module-level set. Several test modules load this file through
 # `spec_from_file_location`, each getting its own copy, so module-level state dedupes

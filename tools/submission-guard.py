@@ -70,8 +70,7 @@ _spec.loader.exec_module(_CBS)
 
 
 def submit_commands() -> set[str]:
-    import yaml  # the runner guarantees this
-    surfaces = yaml.safe_load((HANDBOOK / "conventions" / "scheduler-surfaces.yaml").read_text())
+    surfaces = _CBS.runtime_data.scheduler_surfaces(HANDBOOK)
     return {str(s["submit_command"]) for s in surfaces["surfaces"].values() if s.get("submit_command")}
 
 

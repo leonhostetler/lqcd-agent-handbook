@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import copy
 import datetime as dt
 import functools
@@ -647,6 +648,77 @@ def validate_generated_indices(root: Path, errors: list[str]) -> int:
     return 4
 
 
+def validate_runtime_data(root: Path, errors: list[str]) -> int:
+    """The committed projection must be exactly what the YAML generates (§runtime-data)."""
+    tool = root / "tools/build-runtime-data.py"
+    if not tool.is_file():
+        errors.append("tools/build-runtime-data.py: runtime-data generator is missing")
+        return 0
+    result = subprocess.run(
+        [sys.executable, str(tool), "--check", "--root", str(root)],
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    if result.returncode != 0:
+        messages = result.stdout.strip().splitlines() or ["unknown runtime-data failure"]
+        errors.extend(f"runtime data: {message}" for message in messages)
+    generated = root / "tools" / "generated"
+    return len(list(generated.rglob("*.json"))) if generated.is_dir() else 0
+
+
+# The one third-party name an operational tool may import: the pre-3.11 fallback for the
+# standard tomllib, imported lazily and reported as missing rather than required.
+OPERATIONAL_IMPORT_EXCEPTIONS = {"tomli"}
+
+
+def validate_operational_imports(root: Path, errors: list[str]) -> int:
+    """Operational tools import only the standard library or another operational tool.
+
+    Every import statement counts, including one inside a function or a `try`: a lazy
+    third-party import fails exactly when its branch is wanted, which is the failure the
+    rule exists to prevent. A handbook module counts only when it is itself listed, so a
+    third-party import cannot enter through a local module nobody checks.
+    """
+    config = load_yaml(root / "handbook.yaml")
+    runtime = config.get("runtime_data") if isinstance(config, dict) else None
+    tools = runtime.get("operational_tools") if isinstance(runtime, dict) else None
+    if not isinstance(tools, list) or not tools:
+        errors.append("handbook.yaml: runtime_data.operational_tools must be a non-empty list")
+        return 0
+    listed = {Path(str(entry)).stem for entry in tools}
+    allowed = set(sys.stdlib_module_names) | listed | OPERATIONAL_IMPORT_EXCEPTIONS
+    checked = 0
+    for entry in tools:
+        path = root / str(entry)
+        if not path.is_file():
+            errors.append(f"handbook.yaml: operational tool does not exist: {entry}")
+            continue
+        try:
+            tree = ast.parse(path.read_text(), filename=str(entry))
+        except SyntaxError as exc:
+            errors.append(f"{entry}: cannot parse: {exc}")
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names = [node.module]
+            else:
+                continue
+            for name in names:
+                if name.split(".")[0] not in allowed:
+                    errors.append(
+                        f"{entry}:{node.lineno}: operational tool imports {name}, which is "
+                        "neither the standard library nor a listed operational tool "
+                        "(§runtime-data)"
+                    )
+        checked += 1
+    return checked
+
+
 def numeric_yaml_values(value: Any, key: str = "") -> set[str]:
     ignored_keys = {"schema_version", "observations"}
     values: set[str] = set()
@@ -1221,6 +1293,8 @@ def main() -> int:
     schema_count = validate_schemas(root, errors)
     provenance_count = validate_provenance(root, errors, warnings)
     index_count = validate_generated_indices(root, errors)
+    runtime_count = validate_runtime_data(root, errors)
+    operational_count = validate_operational_imports(root, errors)
     restatement_count = validate_restatements(root, warnings)
     privacy_count = validate_privacy(root, errors)
     reference_count = validate_references(root, errors)
@@ -1247,6 +1321,8 @@ def main() -> int:
             f"{privacy_count} text files · {frontend_count} frontend adapters · "
             f"{logging_count} session-logging assets · "
             f"{index_count} generated indices · "
+            f"{runtime_count} runtime-data files · "
+            f"{operational_count} operational tools · "
             f"{restatement_count} P2 advisories · "
             f"{reference_count} references · "
             f"Tier 0 {tier_bytes}/{tier_limit} bytes · "
@@ -1261,6 +1337,8 @@ def main() -> int:
         f"{frontend_count} frontend adapters valid · "
         f"{logging_count} session-logging assets valid · "
         f"{index_count} generated indices current · "
+        f"{runtime_count} runtime-data files current · "
+        f"{operational_count} operational tools stdlib-only · "
         f"{restatement_count} P2 advisories · "
         f"{reference_count} references resolved · "
         f"Tier 0 {tier_bytes}/{tier_limit} bytes · "

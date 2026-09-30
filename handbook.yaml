@@ -34,6 +34,24 @@ session_logging:
       logger: tools/log-session-claude.sh
     codex:
       logger: tools/log-session-codex.py
+runtime_data:
+  # Operational tools import only the standard library and read a generated JSON projection
+  # of the YAML they consume, never the YAML (ARCHITECTURE.md §runtime-data).
+  # tools/build-runtime-data.py writes it; the validator fails when it is stale or when a
+  # tool listed here imports anything outside the standard library.
+  generator: tools/build-runtime-data.py
+  handbook_blocks: [session_logging, submission_guard]
+  operational_tools:
+    - tools/check-batch-script.py
+    - tools/dry-run-batch-script.py
+    - tools/submission-guard.py
+    - tools/session_logging.py
+    - tools/check-session-logging.py
+    - tools/install-session-logging.py
+    - tools/log-session-codex.py
+    - tools/check-submission-guard.py
+    - tools/install-submission-guard.py
+    - tools/runtime_data.py
 submission_guard:
   # PreToolUse interception of the scheduler submit command: refuses a script that has not
   # passed the checker and the dry-run harness. Offer-only installer; the shim it installs
