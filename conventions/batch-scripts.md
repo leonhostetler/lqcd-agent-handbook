@@ -233,6 +233,34 @@ device selection, even when the rest of it fits unchanged. A wrapper that silent
 rank count is a trap rather than a default, and one that silently assumes an application is the
 same trap a level up.
 
+### Unbound ranks must not pin their threads
+
+**Several ranks on one node that are not bound by the launcher must not set `OMP_PROC_BIND`.**
+Either bind the ranks to disjoint cores, or leave the OpenMP runtime unpinned
+(`OMP_PROC_BIND=false`). Never both unbound and pinned.
+
+The mechanism is the OpenMP runtime building its places from the process's own affinity mask.
+A bound rank sees only its cores, so its threads spread across those and nowhere else. An
+unbound rank sees the whole node, and so does every other unbound rank on it: each computes the
+same place list independently and pins thread *k* to the same core as every other rank's thread
+*k*. Thread 0 of every rank then shares one core. That is the thread that drives the accelerator
+and the communication library, and it spends its time spin-waiting on both, so the ranks
+timeshare it in scheduler slices and every synchronisation stretches to that timescale.
+
+**The failure is numerically silent, and it looks like a communication fault.** `[experiment]`
+Four MILC ranks on one four-GPU node, with QUDA and one variable moved per leg. Unbound with
+`OMP_PROC_BIND=spread`, each multi-GPU dslash took 13 ms, and the solve ran about 650 times slower
+than on one GPU while converging correctly. Unbound with `OMP_PROC_BIND=false` it took 42 us, and
+bound to 36-core blocks with `spread` it took 41 us. `OMP_DISPLAY_AFFINITY=true` showed thread 0 of
+all four ranks on core 0 in the slow leg. QUDA's own CG test, launched unbound the same way, was
+not affected, because its hot path enters no OpenMP region, which is where pinning takes effect.
+So whether an application is exposed depends on its own host code, not on the library under it.
+
+**Look for it where a launcher unbinds ranks you did not ask it to.** A site wrapper that runs a
+subset of the allocation, or a launch whose binding option was dropped, produces unbound ranks
+while the environment still carries the pinning policy from a template written for bound ones.
+A rank count of one is safe: a single process has nothing to collide with.
+
 ## Instrument the run before you need the number
 
 **In every work mode except production, a job on accelerated nodes runs the accelerator

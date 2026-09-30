@@ -3658,3 +3658,49 @@ same objects:
   behaviour is still unobserved on Horizon.
 - "Compile on a login node only at low parallelism" — **confirmed**; MILC's one-job build fits it.
 Nothing was deleted.
+
+## 2026-09-29 — Unbound ranks with OMP_PROC_BIND pin every rank's threads to the same cores
+
+**Symptom.** On Horizon, MILC `ks_spectrum_hisq` with four ranks on one four-GPU board ran its
+first solve in 544 s against 0.84 s on one GPU, and its second at the same rate, while converging
+correctly. The tunecache showed every multi-GPU dslash policy at 13-27 ms.
+
+**Isolation, one variable per job.** All three diagnostics were operator-submitted, one node or two.
+1. QUDA's own CG at MILC's local volume, four ranks: 31-50 ms per 200-iteration solve against 13 ms
+   on one GPU, with binding, peer-to-peer and GDR each moved. That is ordinary strong-scaling cost.
+   Host-memory MPI latency on the board was 0.26 us. Transport, peer-to-peer, GDR and binding
+   alone were cleared. TACC's OSU build lacks CUDA support, so device-memory latency went unmeasured.
+2. Launch shape crossed with application, in one two-node allocation. QUDA through the subset launch
+   was fast, and so was QUDA through the full allocation. MILC through the full allocation was fast
+   (46 us per dslash); MILC through the subset launch was slow (13 ms). The cause was the interaction.
+3. MILC, four ranks, one node, `OMP_DISPLAY_AFFINITY=true`. Unbound with `spread`: slow, thread 0 of
+   all four ranks on core 0. Unbound with `OMP_PROC_BIND=false`: 42 us. Bound with `spread`: 41 us.
+   The prediction written before the job held on every leg.
+
+**Cause.** The launch template carried `OMP_PROC_BIND=spread` from a one-rank-per-node recipe, and
+TACC's `ibrun -n/-o` subset launch forces `--bind-to none`. Each unbound rank derives the same place
+list from its whole-node mask, so the four threads that drive the four GPUs share one core. QUDA's
+CG test takes no OpenMP region on its hot path, which is why it was immune.
+
+**Where it landed.** `conventions/batch-scripts.md` gains a binding subsection stating the rule
+(bind the ranks, or leave the runtime unpinned, never both unbound and pinned), with the mechanism
+and the measurement. The Horizon notes carry the site trigger and point to it. The rule is universal
+in mechanism: nothing in it depends on Horizon, MILC or QUDA beyond the example.
+
+**Follow-up not done here.** Vista's CUDA 13 QUDA stack records a leg of two ranks sharing one
+GH200 in an `idev` session. Whether those ranks were bound, and whether `OMP_PROC_BIND` was set,
+is not recorded. A test that passes correctness is not evidence either way, so that leg's
+performance should not be quoted until it is checked.
+
+**Reconciliation (§developer-obligations item 11).** Statements in `conventions/batch-scripts.md`
+about the same object (thread placement with several ranks per node):
+- The binding section's "dropping the binding wrapper lets every rank's threads spread across all
+  cores and all memory domains and overlap. There is no warning, and the first symptom is a
+  performance number nobody can explain" — **confirmed**; the new subsection gives the mechanism,
+  the single-core collapse of thread 0, and a controlled measurement.
+- "CPU cores, host memory and the network interface: bind them" — **confirmed**; the new rule adds
+  the alternative for launches that cannot bind.
+- `software/quda/runtime-environment.md`'s `OMP_NUM_THREADS` row — **confirmed**; it says nothing
+  about `OMP_PROC_BIND`, and the new rule is placed in the binding convention rather than there,
+  because it concerns placement, not QUDA.
+Nothing was deleted.
