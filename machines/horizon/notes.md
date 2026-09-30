@@ -34,6 +34,8 @@ differences.
 > early access, and TACC's guide lists it as VAST too. Write such files through one writer or
 > as partfiles; see
 > [`../../software/qio/parallel-singlefile-writes.md`](../../software/qio/parallel-singlefile-writes.md).
+> MILC `save_mpiio` was clean on Vista's VAST NFS because MPI-IO there locks each write; it has
+> not been run on Horizon.
 > `[observed]` on Horizon: an eight-rank QUDA gauge write on `$HOME` over two nodes returned
 > status 0 and failed its read-back checksum (`-14`); the single-rank test passed.
 > Keep this warning until the upstream issue is fixed and validated on Horizon.

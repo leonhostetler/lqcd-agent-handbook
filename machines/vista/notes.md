@@ -26,9 +26,11 @@ The machine profile is canonical for hardware, scheduler, filesystem, and policy
 > **WARNING — open upstream defect
 > ([qio#19](https://github.com/usqcd-software/qio/issues/19),
 > [quda#1655](https://github.com/lattice/quda/issues/1655)).** `$HOME` and `$SCRATCH` are NFS,
-> and a multi-node QIO single-file write there silently corrupts the file. That covers every
-> QUDA gauge-field save, QUDA single-file vector saves, and MILC `save_parallel_*`. Write such
-> files on `$WORK` (Lustre), or through one writer; see
+> and a shared file written by several nodes without byte-range locks silently comes back
+> damaged. That covers every QUDA gauge-field save, QUDA single-file vector saves, and MILC
+> `save_parallel` and every `save_parallel_*` keyword, propagators and eigenvectors included.
+> For MILC gauge fields use `save_mpiio`; otherwise write on `$WORK` (Lustre), through one
+> writer, or as partfiles; see
 > [`../../software/qio/parallel-singlefile-writes.md`](../../software/qio/parallel-singlefile-writes.md).
 > Keep this warning until the upstream issue is fixed and validated on Vista.
 
@@ -171,9 +173,11 @@ striping commands. `$SCRATCH` purges files whose access time is more than ten da
 deliberately altering access times to evade the purge is prohibited. Node-local `/tmp` is
 cleared when the job ends; copy out anything needed afterwards.
 
-**Multi-node shared-file writes need `$WORK`.** On the VAST NFS filesystems, several nodes
-writing one file concurrently can lose data. Parallel QIO output is the recorded case (the
-warning at the top of these notes), and any other shared-file writer is exposed the same way.
+**Multi-node shared-file writes need `$WORK`, or a byte-range lock on every write.** On the VAST
+NFS filesystems, several nodes writing one file concurrently can lose data. Parallel QIO output
+and MILC's `save_parallel` are the recorded cases (the warning at the top of these notes). MPI-IO
+through the site's default ROMIO locks each write and was clean; any other shared-file writer
+without locks is exposed the same way.
 
 Follow the universal
 [bounded filesystem-discovery convention](../../conventions/filesystem-discovery.md).

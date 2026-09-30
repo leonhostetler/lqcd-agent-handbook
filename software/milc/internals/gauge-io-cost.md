@@ -103,6 +103,11 @@ the read side.
 
 ## Scope and limits
 
+**Correctness on NFS is a separate question, owned elsewhere.** When several nodes write one
+file on NFS, `save_parallel` loses data and `save_mpiio` through a locking MPI-IO driver did
+not; see [`../../qio/parallel-singlefile-writes.md`](../../qio/parallel-singlefile-writes.md).
+Nothing about cost here overrides that.
+
 **The direction is well-supported; the factor is not portable.** `28.8x` is one controlled pair,
 one lattice, one machine, one placement, 8 ranks, single precision, one MILC commit, one
 measurement per arm with no repeats. Carry the scope whenever the number travels, and do not

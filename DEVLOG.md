@@ -3822,3 +3822,69 @@ as GDR evidence, and ignoring the ceiling, were each caught by the matching test
 the tunecache keys, never from QUDA's announcement line" — **confirmed**; the tool implements the
 key reading. Its "the keys record QUDA's choice; the transport makes its own" — **confirmed**; the
 tool reads only keys, and the new paragraph does not claim transport-level evidence.
+
+## 2026-09-30 — NFS shared-file writes: which writers are safe, and why
+
+Three operator diagnostic series on Vista (2, 4 and 8 × `gpu-gh200`, `$SCRATCH`, scored byte by
+byte against single-writer references and cross-checked from a node that wrote none of the files)
+extended `software/qio/parallel-singlefile-writes.md` from one writer and two nodes to every MILC
+writer, propagators, the read side, and the client mechanism. Evidence stays in the operator's
+working project; only counts and mechanisms enter the leaf.
+
+**What changed in the leaf.**
+- MILC's non-QIO `save_parallel` fails too, so the defect is "several nodes writing a shared file
+  without byte-range locks", not QIO alone. The title and summary now say so.
+- `save_mpiio` is clean on NFS (about 1,100 files, up to 8 nodes and 1.2 GB) because ROMIO's NFS
+  driver locks each write. The single-variable test: OMPIO with its data-write lock 0/200 damaged,
+  without it 136/200 with `save_parallel`'s exact shape.
+- KS propagators: nearly every file damaged at every setup tested; volume does not protect.
+- Read side: damaged SciDAC gauge and KS-propagator files abort MILC (QMP `terminate` calls
+  `MPI_Abort`); 15/15.
+- Mechanism: the NFS client zero-fills a page beyond its cached size and extends each partial write
+  to the page unless the file holds a lock or is `O_DSYNC`. Checked by hand against mainline v5.14
+  `fs/nfs/write.c` and `fs/nfs/file.c`; the `vastnfs` 4.0.34 claims come from a session analysis of
+  its source tarball and were not re-read line by line. The head-zero trigger stays unexplained.
+- QUDA `io_test` labels its vector-test formats backwards at `00c7ef33`; recorded under "Checking
+  a fix" because the removal trigger depends on an honest multi-node read-back.
+- Timings enter only as a ranking, with the caveat that MILC's save time may precede the server
+  write.
+
+**Reconciliation (§developer-obligations item 11).** Statements about multi-node shared-file writes
+on NFS, save keywords, and `io_test`:
+- Leaf, "Every damaged range starts exactly on a page boundary and ends exactly at another
+  writer's first byte" — **amended**: true of the tail shape only; the head shape starts at a
+  writer's first byte and ends on a page boundary.
+- Leaf, "The trigger is a writing node whose cached end-of-file is stale" and the reopen and
+  page-aligned results — **confirmed**, and tied to the client's page extension.
+- Leaf, "Not affected: partfile and multifile formats … single-rank and single-node writes" —
+  **confirmed** and extended (one I/O node, `save_serial*`, `save_mpiio`, `$WORK`).
+- Leaf, "The `save_serial_*` variants … are not validated here either" and "Not claimed: MILC's
+  `save_serial_*` and its non-QIO `save_parallel` path were not exercised" — **deleted**; both were
+  exercised.
+- Leaf, "Only 2 nodes and one geometry were tested systematically" — **deleted**; 2, 4 and 8 nodes.
+- Leaf, "the failure appears only as a checksum mismatch on read" (summary) — **amended**: the
+  mismatch aborts MILC and QUDA.
+- Leaf, "Overriding `QMP_io_node` … is a diagnostic, not a supported configuration" — **confirmed**.
+- Leaf, "Treat a multi-rank read-back checksum mismatch on NFS as this defect" — **confirmed**.
+- `machines/vista/notes.md` warning, "a multi-node QIO single-file write … MILC `save_parallel_*`
+  … `$WORK` (Lustre), or through one writer" — **amended**: covers non-QIO `save_parallel`, names
+  `save_mpiio` and partfiles.
+- `machines/vista/notes.md`, "Multi-node shared-file writes need `$WORK` … any other shared-file
+  writer is exposed the same way" — **amended**: a writer that locks each write is not exposed.
+- `machines/horizon/notes.md` warning, "through one writer or as partfiles" — **confirmed**;
+  `save_mpiio` added as untested on Horizon.
+- `software/quda/internals/vector-io-layout.md`, "On NFS, a multi-rank single-file write is not
+  safe at all" and the NFS clause in its options list — **confirmed** (single-file vectors 5/5
+  failed, partfile 35/35 passed); unchanged.
+- `software/qio/README.md` warning — **confirmed**; unchanged.
+- `software/milc/internals/gauge-io-cost.md`, "The write timing does not [transfer], because it
+  has not been measured" — **confirmed**: no `save_parallel` versus `save_mpiio` timing pair was
+  measured under one leg; a correctness pointer to the leaf added.
+- `software/milc/internals/gauge-read-dispatch.md`, `reload_mpiio` reads SciDAC as MILC binary —
+  **confirmed**; `save_mpiio` writes MILC binary, so its reload advice in the leaf is consistent.
+- Vista and Horizon stack records, "Multi-rank QIO writes, including `save_parallel_scidac` and
+  `save_parallel_ildg`, are unsafe on `$HOME` and `$SCRATCH`" — **confirmed**; unchanged.
+- Vista and Horizon QUDA stack `io_test` records — **confirmed**: every one used
+  `Gauge/GaugeIOTest.*`, which the backwards vector-test labels do not affect.
+- `tests/test_open_upstream_defects.py` — **confirmed**; the leaf and all pointers keep the
+  warning and both issue links.
