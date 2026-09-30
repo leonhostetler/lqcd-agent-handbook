@@ -10,7 +10,9 @@ sources:
   - https://docs.alcf.anl.gov/aurora/running-jobs-aurora/
   - https://docs.alcf.anl.gov/aurora/compiling-and-linking/
   - https://docs.alcf.anl.gov/aurora/data-management/lustre/flare/
+  - https://docs.alcf.anl.gov/account-project-management/allocation-management/allocation-management/
   - Aurora login-node environment, Lmod default modules, and PBS qstat -Q, -Qf and -Bf records, read 2026-09-30
+  - one operator-submitted single-node debug job on 2026-09-30, reviewed in the working directory
 observed: "2026-09-30"
 observed_on:
   machine: aurora
@@ -34,19 +36,36 @@ node: it has no GPU and a different CPU (see `build_environment.login`).
 
 ## Submit and account
 
-- `qsub` takes `-A <project>`; the project is never inferred.
+- `qsub` takes `-A <project>`; the project is never inferred. **A project split into
+  suballocations needs the suballocation too**: `-A <project>::<suballocationName>` or
+  `-A <suballocationID>`, per ALCF. `sbank-list-allocations -r aurora -c` lists them, with
+  each one's balance, whether it is restricted, and its user list.
+- `[observed]` Do not predict acceptance from that listing. One job was accepted and ran
+  against a restricted suballocation whose listed balance was negative and whose user list
+  did not show the submitter, while another suballocation of a different project was
+  rejected. ALCF documents rejection for a non-positive suballocation balance, so the listing
+  and the server's decision can disagree. The operator decides which to charge; a rejection
+  message is the evidence, not the listing.
 - Every job requests `select`, `walltime`, `place` and `filesystems`. Name every filesystem the
   job touches, colon-separated: `-l filesystems=home:flare`. The live server accepts `home`,
   `flare` and `daos_user`.
 - Use `-l place=scatter` for whole-node placement, as ALCF's examples do.
 - ALCF says to submit from the project directory on Flare, not from `$HOME`.
 - **A PBS job starts in `$HOME`, not in the job directory, and no directive pins the job
-  directory.** That is the PBS manual's default (`sandbox` unset); it has not yet been
-  observed on Aurora. `-W sandbox=PRIVATE` starts the job in a PBS-created directory instead,
+  directory.** That is the PBS manual's default (`sandbox` unset). `[observed]` on Aurora:
+  the job's start directory and `PBS_JOBDIR` were both `$HOME`, and `$0` was a copy in the
+  PBS spool directory. `-W sandbox=PRIVATE` starts the job in a PBS-created directory instead,
   which is not the job directory either. `PBS_O_WORKDIR` names wherever `qsub` ran, so the
   common `cd $PBS_O_WORKDIR` works only when the script is submitted from its own directory.
   Change to the job directory by absolute path first, then resolve from `$PWD`. The checker
   and dry-run harness model this: the harness starts the script in an empty home directory.
+- **Key a run root on `PBS_JOBID_SHORT`, not `PBS_JOBID`.** `[observed]` `PBS_JOBID` is the
+  full identifier, the sequence number followed by the PBS server's internal fully qualified
+  host name, so a directory named from it carries an internal host name into every path and
+  every record that quotes one. The site also exports `PBS_JOBID_SHORT`, the sequence number
+  alone; the PBS manual does not list it, so treat it as an ALCF addition.
+- `qstat -f "$PBS_JOBID"` works from inside a job, so the teardown record can be taken there.
+  `qstat -x -f <id>` afterwards gives the final `resources_used`, including `mem`.
 - The submission guard refuses `qsub -I`: an interactive allocation has no script to check.
   The operator starts one from their own shell.
 - Interactive: `qsub -I -l select=1,walltime=1:00:00,place=scatter -l filesystems=home:flare -A <project> -q debug`.
@@ -68,14 +87,17 @@ general-purpose and are not in the profile.
 - The launcher is Cray PALS `mpiexec`: `-n` total ranks, `-ppn` ranks per node, `--depth` CPUs
   per rank, `--cpu-bind`, `--env VAR=value`. Several launches may run at once by
   backgrounding them; give each a disjoint set of cores, GPUs or nodes (a hostfile).
+  `[observed]` two backgrounded single-rank launches on one node both started and exited 0.
 - Cores 0 and 52, and their hyperthreads 104 and 156, are reserved for system services. A
   `--cpu-bind=list:` layout must skip them.
 - A node has 6 GPUs of 2 tiles each, which is 12 tiles. `ZE_AFFINITY_MASK=<gpu>.<tile>`
   restricts a rank to one tile. ALCF's `gpu_tile_compact.sh` maps 12 ranks per node to 12
   tiles, and `gpu_dev_compact.sh` maps 6 ranks to 6 GPUs.
-- The login environment sets `ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE`, so a process sees each
-  GPU as one device with its tiles as sub-devices. Record the value in force on the compute
-  node before interpreting a device count.
+- `ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE` is set on the login node and, `[observed]`, inside a
+  batch job, so a process sees each GPU as one device with its tiles as sub-devices. Record
+  the value in force before interpreting a device count, since a module or script can change
+  it.
+- `xpu-smi` is on neither the login node's nor a compute node's default `PATH`.
 
 ## Place builds deliberately
 
@@ -92,3 +114,7 @@ the device name `pvc`.
 - Compute nodes have no direct outbound network. Set
   `http_proxy`/`https_proxy` to `http://proxy.alcf.anl.gov:3128` for a download inside a job.
   Login nodes need no proxy.
+- `[observed]` A compute node's `/tmp` is a tmpfs of about 504 GiB. It lives in memory, so
+  every byte written there is host memory the job cannot use. PBS sets `TMPDIR` to a per-job
+  directory under `/var/tmp`. What backs `/var/tmp` was not checked, so the profile declares
+  no node-local temporary variable yet; do not reference `TMPDIR` as fast local disk.

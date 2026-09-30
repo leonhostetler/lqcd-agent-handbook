@@ -30,6 +30,12 @@
         "capacity": "91 PB",
         "quota": "1 TB default per project."
       },
+      "node_local_tmp": {
+        "purpose": "Node-local temporary storage held in memory; writes consume host memory.",
+        "path": "/tmp",
+        "type": "tmpfs",
+        "capacity_gib": 504
+      },
       "daos": {
         "purpose": "Object store embedded in the Slingshot fabric, reached through per-project pools and containers rather than as a mounted path.",
         "type": "DAOS",
@@ -204,7 +210,8 @@
       "https://docs.alcf.anl.gov/aurora/data-management/lustre/flare/",
       "https://docs.alcf.anl.gov/aurora/data-management/daos/daos-overview/",
       "https://docs.alcf.anl.gov/running-jobs/example-job-scripts/",
-      "Aurora login-node lscpu, Lmod default modules, ocloc device list, and PBS qstat -Q, -Qf and -Bf records, read 2026-09-30"
+      "Aurora login-node lscpu, Lmod default modules, ocloc device list, and PBS qstat -Q, -Qf and -Bf records, read 2026-09-30",
+      "one operator-submitted single-node debug job on 2026-09-30, reviewed in the working directory"
     ]
   }
 }

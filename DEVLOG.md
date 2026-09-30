@@ -4078,3 +4078,42 @@ change. X.11 now owns reconciling with its result.
 **Seen and left alone.** The checker's truncating-redirection note fires on a `>` inside a
 default expansion such as `${VAR:-<x>}`. It is a note rather than a warning, and fixing it
 is outside this change.
+
+## 2026-09-30 — The pbs surface meets a real Aurora job
+
+The probe prepared under X.11 ran once. It was one node in `debug` for 32 seconds, submitted
+by the operator from their home directory by absolute path. It passed the checker and the
+harness's positive control and negative test under harness 1.3.0 before submission. The
+account took three tries. Two suballocations the operator named were each checked against
+`sbank` first. The first was rejected. The second was accepted and ran, although `sbank`
+listed it with a negative balance and without the submitter as a user. The notes record that
+contrast rather than either number.
+
+**Confirmed against the surface and profile:** the job started in `$HOME`, with `PBS_JOBDIR`
+the same; `$0` was a copy in the PBS spool directory; two backgrounded single-rank PALS
+launches both started and exited 0; `qstat -f` worked inside the job; `qstat -x -f` gave the
+final record afterwards; a compute node's `hostname -f` falls under the detector's
+`*.aurora.alcf.anl.gov`; and `ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE` inside a job.
+
+**New, and where each went:**
+- `PBS_JOBID` is the full identifier, including the PBS server's internal host name.
+  `PBS_JOBID_SHORT`, absent from the manual, carries the sequence number alone. The Aurora
+  notes say to key run roots on the short form. The surface is unchanged: the short variable
+  is not PBS's, and the convention's rule — key on the job id — is still right.
+- A compute node's `/tmp` is a tmpfs of about 504 GiB, so the profile gains a
+  `node_local_tmp` filesystem saying so. PBS set `TMPDIR` to a per-job directory under
+  `/var/tmp`, whose backing store the probe did not check. So
+  `scheduler.node_local_tmp_variable` stays absent rather than declaring a node-local
+  directory nobody established.
+- `xpu-smi` is not on a compute node's default `PATH` either, so X.12 now starts from a
+  module search.
+
+**Not established:** `PBS_O_WORKDIR` equalled `$HOME` here because the submission ran from
+the home directory, so this run does not separate the submission directory from the start
+directory. The manual does. The array variables remain unconfirmed; X.11 now owns only
+them.
+
+**Statements reconciled in `machines/aurora/notes.md`:** the start-directory bullet's "not
+yet observed" is replaced by the observation. The concurrent-launch and device-hierarchy
+bullets gain their observations. The account bullet is amended with the suballocation
+syntax. The storage bullets are confirmed and extended.
