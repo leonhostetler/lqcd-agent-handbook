@@ -12,6 +12,17 @@
 #     monitor=$!
 #     trap 'kill "$monitor" 2>/dev/null || true' EXIT
 #
+# The optional second argument is the accelerator vendor, resolved from the machine
+# profile: nvidia (the default) or intel. Intel reads xpu-smi through
+# tools/xpu-smi-memory-rows.sh, and needs xpu-smi 1.3.5 or later loaded first; 1.2.43
+# answers N/A, which this reports on stderr as unreadable telemetry.
+#
+# Intel streams rather than polls. One xpu-smi query costs seconds, so a poll-and-sleep
+# loop samples at the query cost plus the interval, not at the interval this header
+# records. One long-lived query delivers samples at the interval, and each line is
+# stamped as it arrives. Stopping this monitor stops the stream too: it signals the
+# helper, and the helper stops its own xpu-smi, so no query outlives the monitor.
+#
 # The interval is required because it is the one property of this instrument the
 # script's author decides per run, and it is recorded in the header: a peak read
 # at an unrecorded period is not a bound.
@@ -28,16 +39,38 @@
 # refuses for rocm-smi.
 #
 # Read it with tools/extract-gpu-telemetry.py -- a monitor with no reader is a
-# log, not an instrument. NVIDIA only; there is no AMD monitor yet.
+# log, not an instrument. NVIDIA and Intel; there is no AMD monitor yet.
 
 set -uo pipefail
 
-interval=${1:?usage: monitor-gpu.sh <interval-seconds>}
+interval=${1:?usage: monitor-gpu.sh <interval-seconds> [nvidia|intel]}
+vendor=${2:-nvidia}
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+case "$vendor" in
+  nvidia|intel) ;;
+  *) # Unusable, but a monitor never fails its job.
+     printf 'monitor-gpu: no monitor for vendor %s; no telemetry written\n' "$vendor" >&2
+     exit 0 ;;
+esac
 node=$(hostname -s 2>/dev/null || echo unknown)
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 complained=0
 
-printf '%s,%s,telemetry_start,interval_s=%s,monitor-gpu,0,0\n' "$(now)" "$node" "$interval"
+printf '%s,%s,telemetry_start,interval_s=%s,monitor-gpu-%s,0,0\n' "$(now)" "$node" "$interval" "$vendor"
+
+if [ "$vendor" = intel ]; then
+  stamp() { while IFS=, read -r a b c d e extra; do
+              [ -n "$e" ] && [ -z "$extra" ] && printf '%s,%s,%s,%s,%s,%s,%s\n' "$(now)" "$node" "$a" "$b" "$c" "$d" "$e"
+            done; }
+  "$here/xpu-smi-memory-rows.sh" --stream "$interval" > >(stamp) &
+  stream=$!
+  trap 'kill "$stream" 2>/dev/null; exit 0' TERM INT HUP
+  wait "$stream"
+  # Reached only when the stream ends by itself: no xpu-smi, or no device with a known size.
+  printf 'monitor-gpu: the xpu-smi stream ended on %s; telemetry is unreadable or incomplete\n' \
+         "$node" >&2
+  exit 0
+fi
 
 while true; do
   # A vendor tool can be installed and still fail -- a node with the binary but

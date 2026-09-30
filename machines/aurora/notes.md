@@ -12,7 +12,7 @@ sources:
   - https://docs.alcf.anl.gov/aurora/data-management/lustre/flare/
   - https://docs.alcf.anl.gov/account-project-management/allocation-management/allocation-management/
   - Aurora login-node environment, Lmod default modules, and PBS qstat -Q, -Qf and -Bf records, read 2026-09-30
-  - one operator-submitted single-node debug job on 2026-09-30, reviewed in the working directory
+  - four operator-submitted single-node debug jobs on 2026-09-30, reviewed in the working directory
 observed: "2026-09-30"
 observed_on:
   machine: aurora
@@ -23,11 +23,6 @@ review_by: "2027-03-31"
 
 The machine profile is canonical for hardware, scheduler, filesystem, and policy values. This
 leaf owns how to act on them, and where the live machine differs.
-
-> **The accelerator-memory sampler has no Intel branch.** `tools/gpu-memory-sampler.sh`
-> reads `nvidia-smi` only, and `--vendor intel` exits with an error as an unknown vendor, so
-> do not start it on Aurora. The batch-script instrumentation rule cannot yet be met here.
-> Say so in the script review rather than dropping the rule silently.
 
 ## Declare the compute target
 
@@ -59,11 +54,13 @@ node: it has no GPU and a different CPU (see `build_environment.login`).
   common `cd $PBS_O_WORKDIR` works only when the script is submitted from its own directory.
   Change to the job directory by absolute path first, then resolve from `$PWD`. The checker
   and dry-run harness model this: the harness starts the script in an empty home directory.
-- **Key a run root on `PBS_JOBID_SHORT`, not `PBS_JOBID`.** `[observed]` `PBS_JOBID` is the
-  full identifier, the sequence number followed by the PBS server's internal fully qualified
-  host name, so a directory named from it carries an internal host name into every path and
-  every record that quotes one. The site also exports `PBS_JOBID_SHORT`, the sequence number
-  alone; the PBS manual does not list it, so treat it as an ALCF addition.
+- **Key a run root on `${PBS_JOBID%%.*}`, not on `PBS_JOBID`.** `[observed]` `PBS_JOBID` is
+  the full identifier, the sequence number followed by the PBS server's internal fully
+  qualified host name, so a directory named from it carries an internal host name into every
+  path and every record that quotes one. The site also exports `PBS_JOBID_SHORT`, the sequence
+  number alone, but the PBS manual does not list it and no profile declares it, so the
+  dry-run harness aborts a script that references it; derive the short form from `PBS_JOBID`
+  instead.
 - `qstat -f "$PBS_JOBID"` works from inside a job, so the teardown record can be taken there.
   `qstat -x -f <id>` afterwards gives the final `resources_used`, including `mem`.
 - The submission guard refuses `qsub -I`: an interactive allocation has no script to check.
@@ -97,7 +94,18 @@ general-purpose and are not in the profile.
   batch job, so a process sees each GPU as one device with its tiles as sub-devices. Record
   the value in force before interpreting a device count, since a module or script can change
   it.
-- `xpu-smi` is on neither the login node's nor a compute node's default `PATH`.
+- **Accelerator memory monitor:** `module load xpu-smi/1.3.5`, then start
+  `tools/monitor-gpu.sh <interval> intel` in the background, as the batch-script convention
+  shows. `xpu-smi` is on neither the login node's nor a compute node's default `PATH`, and
+  the unversioned module loads 1.2.43. That version prints `N/A` for each device's size, so
+  the monitor records no rows and says so on stderr.
+- `[observed]` One `xpu-smi` query costs several seconds, which is why the Intel monitor
+  streams: at a 1 s interval it achieved a 1 s period and left no `xpu-smi` running once
+  stopped. Its first sample arrives about 9 s after it starts, so start it well before the
+  phase whose peak matters. An idle GPU reads about 80 MiB, not zero. Holding 8 GiB on a
+  whole GPU and 4 GiB on one tile of another moved the readings by 8,203 and 4,106 MiB and
+  left the other four unchanged. The monitor reports whole GPUs, each the sum of its two
+  tiles; `xpu-smi dump -t` resolves tiles when a question needs them.
 
 ## Place builds deliberately
 

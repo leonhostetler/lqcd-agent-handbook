@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report per-device memory peaks from an accelerator telemetry file.
 
-VERSION 1.0.0
+VERSION 1.1.0
 
 WHY THIS EXISTS. A monitor without a reader is a log, not an instrument. In the
 campaign that produced this pair, a reconciliation tool reported "telemetry absent
@@ -35,6 +35,14 @@ THREE BEHAVIOURS THE LEAF REQUIRES OF ANY SUCH READER, each from a recorded defe
    value, not a property of the telemetry; embedding one would make a policy
    change invisible. It reports capacity and headroom and lets the caller compare.
 
+THE ACHIEVED PERIOD IS MEASURED, NOT TAKEN FROM THE HEADER. The header records the
+interval the collector was asked for; the gaps between sample timestamps record the one
+it achieved. They part company whenever a query costs a large fraction of the interval --
+an Intel monitor that polled xpu-smi recorded 2 s and sampled about every 9 s -- and a
+peak is only as resolved as the achieved period. This reports the median gap per host and
+warns when it exceeds the recorded interval by more than half. Timestamps have one-second
+resolution, so a sub-second interval cannot be checked.
+
 NODE COVERAGE IS NOT A PROPERTY OF THIS FILE. Run as the leaf prescribes, the
 monitor samples one node, so its peak is a floor for the allocation. The hosts it
 saw are reported so that is visible rather than assumed.
@@ -43,11 +51,13 @@ saw are reported so that is visible rather than assumed.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import re
+import statistics
 import sys
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 FIELDS = 7
 LABEL_RE = re.compile(r"^\s*\d+:\s?")
 INTERVAL_RE = re.compile(r"interval_s=(\d+)")
@@ -55,6 +65,7 @@ INTERVAL_RE = re.compile(r"interval_s=(\d+)")
 
 def parse(stream):
     devices: dict[int, dict] = {}
+    stamps: dict[str, set[str]] = {}
     hosts: set[str] = set()
     intervals: set[int] = set()
     headers = 0
@@ -85,6 +96,7 @@ def parse(stream):
             malformed += 1
             continue
 
+        stamps.setdefault(node, set()).add(stamp)
         record = devices.setdefault(
             index,
             {"index": index, "capacity_mib": total, "peak_used_mib": 0,
@@ -95,7 +107,24 @@ def parse(stream):
         record["samples"] += 1
         record["models_seen"].add(parts[4])
 
-    return devices, hosts, intervals, headers, malformed
+    return devices, hosts, intervals, headers, malformed, stamps
+
+
+def achieved_periods(stamps: dict[str, set[str]]) -> dict[str, float]:
+    """Median gap between distinct sample times, per host that has at least two."""
+    periods = {}
+    for host, values in stamps.items():
+        times = []
+        for value in values:
+            try:
+                times.append(dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ"))
+            except ValueError:
+                continue
+        times.sort()
+        gaps = [(b - a).total_seconds() for a, b in zip(times, times[1:])]
+        if gaps:
+            periods[host] = statistics.median(gaps)
+    return periods
 
 
 def main() -> int:
@@ -112,7 +141,7 @@ def main() -> int:
     stream = sys.stdin if args.logfile == "-" else open(
         args.logfile, encoding="utf-8", errors="replace")
     try:
-        devices, hosts, intervals, headers, malformed = parse(stream)
+        devices, hosts, intervals, headers, malformed, stamps = parse(stream)
     finally:
         if stream is not sys.stdin:
             stream.close()
@@ -129,11 +158,18 @@ def main() -> int:
         record["headroom_mib"] = record["capacity_mib"] - record["peak_used_mib"]
 
     peaks = [r["peak_used_mib"] for r in ordered]
+    periods = achieved_periods(stamps)
+    slow = {}
+    if intervals:
+        requested = max(intervals)
+        slow = {h: p for h, p in periods.items() if p > 1.5 * requested}
     summary = {
         "tool_version": VERSION,
         "headers": headers,
         "hosts_sampled": sorted(hosts),
         "sampling_interval_s": sorted(intervals),
+        "achieved_period_s": {h: periods[h] for h in sorted(periods)},
+        "achieved_period_exceeds_interval": sorted(slow),
         "devices": ordered,
         "max_peak_used_mib": max(peaks),
         "peak_spread_mib": max(peaks) - min(peaks),
@@ -175,6 +211,12 @@ def main() -> int:
         if summary["zero_peak_is_a_measurement"]:
             print("  NOTE: peak is 0 MiB on every device. That is a MEASUREMENT -- the "
                   "devices were sampled and held nothing -- not missing telemetry.")
+        if periods:
+            shown = ", ".join(f"{h} {p:g}s" for h, p in sorted(periods.items()))
+            print(f"  achieved period (median gap between samples): {shown}")
+        for host, period in sorted(slow.items()):
+            print(f"  WARNING: {host} sampled every {period:g}s against a recorded interval of "
+                  f"{max(intervals)}s; the peak is resolved only to the achieved period.")
         if not intervals:
             print("  NOTE: no sampling interval recorded; the peak is unqualified by period.")
         if malformed:

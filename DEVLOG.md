@@ -4117,3 +4117,54 @@ them.
 yet observed" is replaced by the observation. The concurrent-launch and device-hierarchy
 bullets gain their observations. The account bullet is amended with the suballocation
 syntax. The storage bullets are confirmed and extended.
+
+## 2026-09-30 — An Intel accelerator-memory monitor (X.12)
+
+Three single-node Aurora debug jobs were submitted by the operator. Each passed the checker
+and the dry-run harness first.
+
+**Job 1: establish `xpu-smi` before parsing it.** The job recorded both installed versions'
+discovery and dump CSVs while a small SYCL program held 8 GiB on all of GPU 0 and 4 GiB on
+tile 1 of GPU 3. Under 1.3.5, metric 18 (GPU memory used, MiB, per device, the sum of its
+tiles) moved by 8,203 and 4,106 MiB, attributed the second to the right tile, and left the
+other GPUs at an idle baseline of about 80 MiB. Version 1.2.43 prints `N/A` for every
+device's size and for the first sample of each query, so it cannot serve. The unversioned
+module loads 1.2.43.
+
+**Job 2: the first monitor, which polled, was wrong in a way its own file could not
+show.** It ran the real draft tools and caught the allocation. But one sample took 7.2 s,
+so with a 2 s interval it sampled about every 9 s while its header said 2 s. The
+batch-script convention treats the recorded period as what makes a peak a bound, so the
+header was the defect. Two changes followed, and the operator chose the first.
+- The Intel monitor streams: discovery once, then one long-lived `xpu-smi dump -i`, each
+  line stamped as it arrives.
+- `tools/extract-gpu-telemetry.py` 1.1.0 measures the achieved period for every vendor,
+  from the samples' own timestamps, and warns when it exceeds the recorded interval. Job
+  2's telemetry is its first true positive: 9 s against 2 s.
+
+**A defect the tests caught before job 3.** Stopping the streaming monitor at first killed
+only its downstream reader, relying on SIGPIPE to reach `xpu-smi`. A test showed the query
+outliving the monitor. The fix is ownership: the monitor stops the helper, and the helper
+stops its own `xpu-smi`. The test fails without the fix. Two processes left by the failing
+run were stopped by hand, and later runs leave none.
+
+**Job 3: the streaming monitor on the hardware.** At a 1 s interval the achieved period was
+1 s. GPU 0 read 8,282 MiB for exactly the 10 s held, and the other five GPUs stayed at 79.
+One `xpu-smi` process ran while monitoring and none remained 3 s after each stop. The 1.2.43
+leg wrote no rows and said so. The first sample arrived about 9 s after start, which the
+notes now say.
+
+**Where each fact went.** The one parse of `xpu-smi` is `tools/xpu-smi-memory-rows.sh`,
+shared by `tools/monitor-gpu.sh <interval> intel` and the sampler's `intel` branch. The
+sampler still polls and says so, and the reader flags its period. The checker recognises
+`xpu-smi`. Dry-run harness 1.4.0 stubs `xpu-smi` in the recorded layout. The extractor is
+otherwise unchanged, because the monitor emits the same seven fields, rounding used memory
+up to a whole MiB. X.12 is removed from ROADMAP. X.5 (AMD) stands.
+
+**Reconciled in `machines/aurora/notes.md`.** The sampler warning is deleted, since the
+monitor now exists. The run-root bullet is amended: the previous change recommended
+`PBS_JOBID_SHORT`, and the dry-run harness aborted the job-1 probe on it, because no profile
+declares it. The bullet now derives the short id as `${PBS_JOBID%%.*}`. The
+device-hierarchy bullet is confirmed. In `conventions/batch-scripts.md` the monitor
+requirements gain the vendor argument, and *Presence is not periodicity* gains the
+achieved-period paragraph.

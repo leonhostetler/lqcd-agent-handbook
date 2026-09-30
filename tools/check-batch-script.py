@@ -95,6 +95,7 @@ HARDENING = re.compile(r"^\s*set\s+-[a-zA-Z]*e[a-zA-Z]*u[a-zA-Z]*\b.*\bpipefail\
 TELEMETRY = {
     "nvidia": ("nvidia-smi",),
     "amd": ("rocm-smi", "amd-smi"),
+    "intel": ("xpu-smi",),
 }
 
 # The handbook's own monitor and sampler satisfy the rule without naming a vendor

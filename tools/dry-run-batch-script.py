@@ -70,7 +70,7 @@ import subprocess
 import sys
 import tempfile
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 # Frontend tooling paths an agent sandbox materialises as unreadable placeholders in whatever
 # directory the session's shell stands in -- including a job directory. They are never job
@@ -263,6 +263,23 @@ exit 0
     if "amd" in vendors:
         for name in ("rocm-smi", "amd-smi"):
             make_stub(bin_dir, name, f'echo "[stub {name}] $*"\nexit 0\n')
+    if "intel" in vendors:
+        # The two queries tools/xpu-smi-memory-rows.sh makes, in the CSV layout xpu-smi 1.3.5
+        # printed on Aurora; anything else is logged and answered with nothing.
+        make_stub(bin_dir, "xpu-smi", f'''model="{args.gpu_model}"; count={args.gpu_count}; total={args.gpu_memory_mib}
+case "${{1:-}}" in
+  discovery)
+    echo "Device ID,Device Name,SOC UUID,Memory Physical Size"
+    i=0; while [ "$i" -lt "$count" ]; do
+      echo "$i,\"$model\",\"00000000-0000-0000-0000-00000000000$i\",\"$total.00 MiB\""; i=$((i + 1))
+    done ;;
+  dump)
+    echo "Timestamp, DeviceId, GPU Memory Used (MiB)"
+    i=0; while [ "$i" -lt "$count" ]; do echo "00:00:00.000,    $i, 0.00"; i=$((i + 1)); done ;;
+  *) echo "[stub xpu-smi] $*" ;;
+esac
+exit 0
+''')
 
     make_stub(bin_dir, "sleep", "exec /bin/sleep 0.1\n")
     for spec in args.stub:

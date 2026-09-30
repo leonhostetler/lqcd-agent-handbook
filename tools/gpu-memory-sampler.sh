@@ -87,6 +87,14 @@ case "$vendor" in
                  --format=csv,noheader,nounits 2>/dev/null
     }
     ;;
+  intel)
+    # One parse of xpu-smi, shared with monitor-gpu.sh; it needs xpu-smi 1.3.5. This polls,
+    # and one xpu-smi sample took about 7 s on Aurora, so the achieved period is roughly
+    # the interval plus that; tools/extract-gpu-telemetry.py reports and flags it.
+    sampler_command=xpu-smi
+    fields=5
+    sample() { "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/xpu-smi-memory-rows.sh"; }
+    ;;
   amd)
     # Deliberately not implemented. `rocm-smi`'s memory field names and column
     # order have moved between ROCm releases, and this handbook does not ship a

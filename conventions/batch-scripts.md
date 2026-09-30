@@ -283,7 +283,7 @@ from a scheduler summary or from a model ([`running.md`](running.md)).
 ### Run it as a plain background process, never as a job step
 
 ```bash
-"$handbook/tools/monitor-gpu.sh" <interval> > "$run_root/gpu-telemetry.out" 2>&1 &
+"$handbook/tools/monitor-gpu.sh" <interval> [vendor] > "$run_root/gpu-telemetry.out" 2>&1 &
 monitor=$!
 trap 'kill "$monitor" 2>/dev/null || true' EXIT
 ```
@@ -313,7 +313,7 @@ the job.
 
 ### What the monitor has to satisfy
 
-`tools/monitor-gpu.sh` satisfies these in about fifteen lines of shell; the list is here
+`tools/monitor-gpu.sh` satisfies these in a few dozen lines of shell; the list is here
 because a replacement must satisfy them too, and each item has a failure behind it rather
 than a preference. **Keep such a replacement small.** This script runs inside the allocation
 alongside the work, so every branch in it is a way to lose a run; the offline reader that
@@ -330,9 +330,11 @@ parses its output can afford care because its failures cost nothing but a re-rea
   without costing the allocation. Record the absence; do not make it fatal.
 - **Its vendor tool matches the machine profile's declared accelerator vendor**, never an
   assumption about the hardware. Resolve the vendor from the profile, then use the monitor for
-  it. `monitor-gpu.sh` is the NVIDIA one; there is no AMD monitor yet, so on an AMD machine
-  this rule cannot currently be met and that gap is recorded rather than papered over with a
-  branch that only reports its own absence.
+  it. `monitor-gpu.sh` takes that vendor as its second argument: `nvidia` (the default) or
+  `intel`, whose one parse of `xpu-smi` is `tools/xpu-smi-memory-rows.sh` and needs
+  `xpu-smi` 1.3.5 or later. There is no AMD monitor yet, so on an AMD machine this rule cannot
+  currently be met and that gap is recorded rather than papered over with a branch that only
+  reports its own absence.
 - **It reports every device on the node.** The vendor query is unfiltered, which is what makes
   per-device asymmetry readable — the observable that most often identifies which device
   exhausted its memory. A monitor that constrains itself to one ordinal cannot answer that,
@@ -373,6 +375,12 @@ can see that a monitor is invoked; it cannot see that it ran, covered the run, o
 anything. Confirm the output exists and spans the run before treating a missing peak as a
 measured absence.
 
+**Nor is the recorded interval the achieved period.** The header records the interval the
+monitor was asked for; a vendor query that costs a large fraction of it stretches the real
+period silently. One monitor asked for 2 s and sampled about every 9 s. The reader below
+measures the achieved period from the samples' own timestamps and warns when it exceeds the
+recorded interval, so qualify a peak by the achieved period, never by the header alone.
+
 ### It samples one node, and that limitation travels with every peak
 
 The monitor covers the node the batch script runs on. **The node that exhausts its memory is
@@ -409,7 +417,8 @@ had to be recovered by hand. Keeping one field order across every collector is w
 recurring; adding a second output format is what causes it.
 
 Read it with `tools/extract-gpu-telemetry.py`, which reports per-ordinal peak, capacity,
-headroom, sample count, the recorded interval, and the spread across ordinals. Three of its
+headroom, sample count, the recorded interval, the achieved period, and the spread across
+ordinals. Three of its
 behaviours are requirements of any replacement, each from a recorded defect:
 
 1. **A zero peak is a measurement, not missing data.** The devices were sampled and held
@@ -426,7 +435,9 @@ behaviours are requirements of any replacement, each from a recorded defect:
 clean-exit limitation is a property of how libraries report teardown counters and is expected
 to transfer. The step-contention failure is scheduler semantics rather than site-specific. No
 sampling period, overhead figure, or per-vendor field layout is asserted here: establish each
-against the tool actually installed. AMD monitoring is unimplemented in both halves of the
+against the tool actually installed. The Intel layout was established that way, against
+`xpu-smi` 1.3.5 on Aurora, including a known allocation that moved the reading by the
+amount held; the helper's header records what was run. AMD monitoring is unimplemented in both halves of the
 pair, which is recorded rather than guessed at.
 ### Record what the scheduler already measured, before the job exits
 
