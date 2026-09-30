@@ -9,6 +9,10 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt#L527-L530
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/CMakeLists.txt#L22
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/staggered_invert_test.cpp#L574-L577
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/staggered_dslash_test.cpp#L119
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/staggered_invert_test_gtest.hpp#L30
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/dslash_improved_staggered.cpp#L23
 observed: "2026-08-20"
 observed_on:
   software:
@@ -96,3 +100,25 @@ For a multi-GPU run, exercise at least one staggered dslash comparison, one CG s
 checked host residual, and QIO write/read tests when QIO is part of the profile. Building
 the MILC interface and passing QUDA-native tests does not establish that a MILC executable
 links and runs; record that as a validation-scope limit until it is tested separately.
+
+### A test that exits 0 has not necessarily been scored
+
+QUDA's test executables differ in how they reach their gtest suite, and the two ways of getting
+it wrong both exit 0. Judge a test by its gtest verdict lines, never by its exit status. At
+`00c7ef3`:
+
+- **`staggered_invert_test` runs gtest only with `--enable-testing true`** `[source]`. Without it
+  a `--gtest_filter` is ignored and the executable does one plain, unscored run with default
+  settings. For CG that means stopping at the default 100 iterations far from any tolerance,
+  with no failure reported.
+- **Its double-sloppy cases are skipped unless `--prec double`** `[source]`. The skip test rejects
+  an outer precision below the sloppy precision, and the default outer precision is single, so a
+  filter such as `cg_mat_pc_direct_pc_double_l2` reports `[ SKIPPED ]` and `PASSED 0 tests`.
+- **`staggered_dslash_test` always runs its gtest suite and rejects `--enable-testing`** as an
+  unexpected argument `[source]`. `io_test` ran its suite with or without the flag `[observed]`.
+- **gtest colours its output**, so a verdict line begins with an escape sequence. Strip the
+  escape codes before matching `[       OK ]`, and count `[  SKIPPED ]` separately so a skip can
+  never read as a pass.
+- **Improved staggered needs every partitioned dimension to have a local extent of at least 6**
+  `[source]`, and aborts at the first dslash otherwise. Choose the local volume and rank grid of
+  a multi-GPU leg together.

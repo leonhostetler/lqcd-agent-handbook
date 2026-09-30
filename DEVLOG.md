@@ -3704,3 +3704,26 @@ about the same object (thread placement with several ranks per node):
   about `OMP_PROC_BIND`, and the new rule is placed in the binding convention rather than there,
   because it concerns placement, not QUDA.
 Nothing was deleted.
+
+## 2026-09-29 — QUDA test executables can exit 0 without being scored
+
+Validating the Horizon QUDA stack took three submissions because the test harness, not the
+stack, was wrong twice. First, a `--gtest_filter` on `staggered_invert_test` was silently
+ignored: without `--enable-testing true` it does one unscored run, and CG stopped at the default
+100 iterations with no failure reported. Second, with the flag, the filtered double-sloppy case
+was skipped (`PASSED 0 tests`) because the default outer precision is single, and it still exited
+0. Adding the same flag to `staggered_dslash_test` aborted it as an unexpected argument, and a
+counter anchored on `^[` missed every verdict because gtest colours its output. Separately, a
+multi-rank dslash leg partitioned a dimension of local extent 4 and aborted: improved staggered
+requires at least 6. Every behaviour was confirmed in source at `00c7ef3`, except that `io_test`
+runs its suite with or without the flag, which was observed only.
+
+**Where it landed.** A subsection of `software/quda/build.md`'s validation section. It is QUDA
+knowledge, not Horizon knowledge: nothing in it depends on the machine.
+
+**Reconciliation (§developer-obligations item 11).** The leaf's existing validation paragraph —
+"exercise at least one staggered dslash comparison, one CG solve with a checked host residual,
+and QIO write/read tests" — **confirmed**; the new subsection says how to know those checks were
+scored. The Vista and Perlmutter stack records list their test filters and figures but not their
+arguments; they report converged residuals and iteration counts, so they were scored, and none
+was changed.
