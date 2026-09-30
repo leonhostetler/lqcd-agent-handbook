@@ -3755,3 +3755,43 @@ which names what it does not do: it cannot know the expected correlator identiti
 **confirmed**, unchanged; the tool implements parts of steps 3 and 4 and the leaf now says which.
 The Horizon and Vista MILC stack records report their comparisons as already done — **confirmed**,
 not rerun or edited.
+
+## 2026-09-30 — milc-proofread-input.sh 1.1.0: parse-only runs keep the GPU runtime out
+
+On Horizon's GPU-less login node the proofread tool could not start a QUDA-linked
+`ks_spectrum_hisq`. The driver's `libcuda.so.1` is absent there. With the toolkit's stubs linked
+in under their run-time names, UCX's CUDA transport asked the stub for a device count, got CUDA
+error 34 (stub library), and the first MPI collective failed before any input was read. The tool
+reported INDETERMINATE, correctly, but no input could be proofread. Disabling Open MPI's
+accelerator component, its UCC collectives and UCX's CUDA transports made all three inputs
+parse clean. It ran first by hand in the operator's shell and then from inside the agent sandbox.
+
+**Change.** The tool now always runs the parse with those three variables set; other MPI
+libraries ignore them, and proofreading returns before `setup_layout()`, so no GPU code runs
+either way. When `ldd` reports `libcuda.so.1` or `libnvidia-ml.so.1` missing, the tool links the
+stubs from the first `LIBRARY_PATH` entry, or `$CUDA_HOME/lib64/stubs`, that holds `libcuda.so`,
+into its private temporary directory. When there is no such directory it stops INDETERMINATE and
+says to load the CUDA module, rather than running the executable to a certain failure. The tool
+now prints its version, 1.1.0.
+
+**Only the combination was tested.** The three variables were set together and never
+individually, so which of them is strictly necessary is not established. They cost nothing in a
+parse-only run, so the tool sets all three.
+
+**Tests.** The tool had none. Five tests use a shell stand-in for `ks_spectrum_hisq` that fails as
+the real one did unless the accelerator component is disabled, and a stand-in `ldd` that reports
+`libcuda.so.1` missing. A good input passes, a bad one still fails, and a copy of the tool without
+the accelerator setting reports INDETERMINATE. That copy is a negative control built inside the
+test, which checks that its perturbation changed the script. Stubs are supplied from
+`LIBRARY_PATH`, and with none available the verdict is INDETERMINATE, never a pass. Removing the
+stub link and ignoring input errors were each caught by the matching test.
+
+**Reconciliation (§developer-obligations item 11).** Statements about proofreading on a GPU-less
+node:
+- `machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-2026q3/notes.md`, "cannot start this
+  executable on the login node as it stands" and its manual command — **amended** to say the
+  tool handles it from 1.1.0.
+- `conventions/batch-scripts.md` review step 3, "go through `tools/milc-proofread-input.sh`" —
+  **confirmed**, unchanged.
+- The tool's own comment that the exit code is discarded because a GPU-less teardown can fail —
+  **confirmed**; the verdict still comes only from the log.

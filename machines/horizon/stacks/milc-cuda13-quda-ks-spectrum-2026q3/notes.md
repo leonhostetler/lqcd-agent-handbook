@@ -36,18 +36,11 @@ on a compute node. Its run path names the QUDA install and Open MPI 5.0.11.
 
 ## Proofread on the login node
 
-`tools/milc-proofread-input.sh` cannot start this executable on the login node as it stands.
-First `libcuda.so.1` is missing. With the stubs exposed under their run-time names, UCX's CUDA
-transport then asks the stub for a device count, gets CUDA error 34 (stub library), and the first
-MPI collective fails before any input is read. Parse-only mode touches no GPU, so turn MPI's GPU
-support off for it:
-
-```bash
-stubs=<dir holding libcuda.so.1 and libnvidia-ml.so.1 links to the toolkit's lib64/stubs>
-LD_LIBRARY_PATH=$stubs:$LD_LIBRARY_PATH OMPI_MCA_accelerator=null OMPI_MCA_coll=^ucc,hcoll \
-UCX_TLS=^cuda_copy,cuda_ipc,gdr_copy \
-  "$LQCD_HANDBOOK/tools/milc-proofread-input.sh" --exe <ks_spectrum_hisq> --input <input>
-```
+`tools/milc-proofread-input.sh` proofreads this executable on the GPU-less login node as it is.
+From version 1.1.0 it keeps MPI's GPU support out of the parse-only run and, when the
+executable's `libcuda.so.1` cannot be resolved, links the toolkit's stubs from the `cuda`
+module's `LIBRARY_PATH`. Load the stack's modules first; without them the tool finds no stubs
+and reports the proofread indeterminate rather than guessing.
 
 ## Launch
 

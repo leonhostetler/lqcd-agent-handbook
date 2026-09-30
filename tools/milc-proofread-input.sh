@@ -16,7 +16,20 @@
 # parses its whole input set before doing physics, so a proofread inside the batch
 # script duplicates a failure the application would produce seconds later anyway. It
 # saves no queue wait and no submission. The entire value is at authoring time.
+#
+# A PARSE-ONLY RUN NEEDS NO GPU, SO THE GPU RUNTIME IS KEPT OUT OF IT. A QUDA-linked
+# executable on a GPU-less login node otherwise dies before reading a line: first the
+# driver's libcuda.so.1 is absent, and with the toolkit's stub libraries in its place
+# the MPI library's CUDA support asks the stub for a device count, gets CUDA error 34
+# (stub library), and the first collective fails. The run below therefore disables
+# Open MPI's accelerator component, its UCC collectives, and UCX's CUDA transports,
+# and, when the executable's libcuda.so.1 or libnvidia-ml.so.1 cannot be resolved,
+# links the toolkit's stubs under those names in a private directory. The variables
+# are ignored by other MPI libraries. Proofreading returns before setup_layout(), so
+# no GPU or halo code runs either way.
 set -euo pipefail
+
+VERSION="1.1.0"
 
 usage() {
   cat >&2 <<'USAGE'
@@ -119,7 +132,37 @@ else
 fi
 
 out="${keep_output:-$work/proofread.out}"
+
+# ---- keep the GPU runtime out of the parse-only run ---------------------------
+runtime_env=("OMPI_MCA_accelerator=null" "OMPI_MCA_coll=^ucc,hcoll" "UCX_TLS=^cuda_copy,cuda_ipc,gdr_copy")
+stubs_used="none needed"
+missing=""
+if command -v ldd >/dev/null 2>&1; then
+  missing=$(ldd "$exe" 2>/dev/null | awk '$2 == "=>" && $3 == "not" && ($1 == "libcuda.so.1" || $1 == "libnvidia-ml.so.1") {print $1}' | sort -u || true)
+fi
+if [ -n "$missing" ]; then
+  stub_dir=""
+  IFS=: read -r -a candidates <<< "${LIBRARY_PATH:-}${CUDA_HOME:+:$CUDA_HOME/lib64/stubs}"
+  for candidate in "${candidates[@]}"; do
+    if [ -n "$candidate" ] && [ -e "$candidate/libcuda.so" ]; then stub_dir="$candidate"; break; fi
+  done
+  if [ -z "$stub_dir" ]; then
+    printf 'INDETERMINATE: %s cannot start here: %s not found,\n' "$exe" "$(echo $missing)"
+    printf '  and no CUDA stub directory holding libcuda.so is on LIBRARY_PATH or under CUDA_HOME.\n'
+    printf '  Load the CUDA module the executable was built with, then re-run. Nothing was proofread.\n'
+    exit 2
+  fi
+  mkdir "$work/cudastub"
+  for lib in $missing; do
+    [ -e "$stub_dir/${lib%.1}" ] && ln -s "$stub_dir/${lib%.1}" "$work/cudastub/$lib"
+  done
+  runtime_env+=("LD_LIBRARY_PATH=$work/cudastub${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}")
+  stubs_used="$(echo $missing) from $stub_dir"
+fi
+
+printf 'milc-proofread-input %s\n' "$VERSION"
 printf 'proofreading %s\n  app %s (%s)\n  exe %s\n' "$input" "$app" "$evidence" "$exe"
+printf '  gpu runtime disabled for the parse; cuda stubs: %s\n' "$stubs_used"
 
 # ---- run --------------------------------------------------------------------
 # The exit code is deliberately discarded. It is 0 on a compute node whether the
@@ -129,7 +172,7 @@ printf 'proofreading %s\n  app %s (%s)\n  exe %s\n' "$input" "$app" "$evidence" 
 # from the log and only from the log.
 set +e
 # shellcheck disable=SC2086
-timeout "$timeout_s" $launcher "$exe" < "$proof" > "$out" 2>&1
+env "${runtime_env[@]}" timeout "$timeout_s" $launcher "$exe" < "$proof" > "$out" 2>&1
 set -e
 
 # ---- verdict ----------------------------------------------------------------
