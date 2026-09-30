@@ -325,6 +325,7 @@ lqcd-agent-handbook/
 │   ├── quda-staggered-memory.py, quda-staggered-decomposition.py
 │   │                              #   admitted from validated source models (§prefer-a-tool)
 │   ├── quda-mg-observables.py, quda_staggered_geometry.py
+│   ├── quda-tunecache-policies.py # dslash policy keys: p2p/gdr in force, slowest policy
 │   ├── gpu-profile-summary.py, gpu-profile-diff.py, gpu_profile/
 │   │                              #   offline extraction and diff (§profile-analysis)
 │   ├── hypothesis-record.py       # derives speedup bounds; checks figure provenance

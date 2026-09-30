@@ -127,6 +127,14 @@ So a validation that must show GPUDirect RDMA working, rather than requested:
 - treats a passing run without either as evidence that QUDA's GDR path is correct, not that
   GPU-to-GPU transfer occurred.
 
+`tools/quda-tunecache-policies.py` reads the policy keys for you: the `p2p`/`gdr` pairs, the
+`commDim` masks, and the slowest and fastest multi-GPU dslash policy with its kernel. Its
+`--expect-gdr 1` fails a run with no communicating policy row, because QUDA stamps `gdr=1` on a
+single-GPU policy too (`commDim=0000`), where nothing crossed a link. Its `--max-policy-seconds`
+fails a pathologically slow halo exchange, which a solver's iteration count and residual never
+show: in one recorded case every dslash took about 13 ms against about 40 us with the run still
+numerically correct.
+
 ## What GDR is worth, as far as it has been measured here
 
 `[experiment]` One measurement exists: on a two-node, eight-rank staggered CG problem at a small

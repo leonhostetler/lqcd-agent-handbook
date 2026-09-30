@@ -3795,3 +3795,30 @@ node:
   **confirmed**, unchanged.
 - The tool's own comment that the exit code is discarded because a GPU-less teardown can fail —
   **confirmed**; the verdict still comes only from the log.
+
+## 2026-09-30 — quda-tunecache-policies.py
+
+During the Horizon stack work the multi-GPU dslash policy rows of QUDA tunecaches were read by
+hand four times: for `gdr=`/`p2p=` evidence as `runtime-environment.md` requires, and three times
+for the slowest policy time, which is what located the 13 ms dslash of the OpenMP pinning
+collision after iteration counts and residuals had shown nothing wrong. The checkpoint took it
+because both failures it guards are quiet: GDR read from the wrong row, and a halo exchange that
+is slow but correct.
+
+The tool counts only rows whose aux string begins `policy,` (not the `policy_kernel=` rows),
+reports the (p2p, gdr) pairs, the commDim masks, and the slowest and fastest policy with kernel and
+volume. `--expect-gdr` fails a file with no communicating policy row. Writing it exposed the case
+that makes this necessary: QUDA stamps `gdr=1` on a single-GPU policy with `commDim=0000`, so a
+one-GPU run would otherwise "show" GDR. `--max-policy-seconds` fails a slow policy. On the
+Horizon tunecaches it fails the pre-fix four-rank MILC leg (13-27 ms) and passes the fixed one
+(39-42 us).
+
+**Tests.** Seven tests on synthetic tunecaches in QUDA 1.1.0's layout. Counting single-GPU rows
+as GDR evidence, and ignoring the ceiling, were each caught by the matching test.
+
+**Routing.** From the GDR section of `software/quda/runtime-environment.md`.
+
+**Reconciliation (§developer-obligations item 11).** `runtime-environment.md`, "verify GDR from
+the tunecache keys, never from QUDA's announcement line" — **confirmed**; the tool implements the
+key reading. Its "the keys record QUDA's choice; the transport makes its own" — **confirmed**; the
+tool reads only keys, and the new paragraph does not claim transport-level evidence.
