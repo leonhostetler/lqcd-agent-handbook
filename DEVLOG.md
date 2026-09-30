@@ -3617,3 +3617,44 @@ and not carried over, because Horizon's node holds four GPUs; `software/quda/run
 default table — **confirmed**, every row set or recorded as deliberately unset in both records;
 `software/qio/parallel-singlefile-writes.md` — **confirmed**, unchanged, and both new records point
 to it under `tests/test_open_upstream_defects.py`.
+
+## 2026-09-29 — Horizon notes: what the first jobs established
+
+The build, validation and diagnostic jobs behind the Horizon stacks were the first to run on the
+machine, and they settled several statements the onboarding had left as inference or gaps. Each
+new claim in `machines/horizon/notes.md` carries its own evidence tag.
+
+- **The QIO defect is observed on Horizon.** An eight-rank QUDA gauge write on `$HOME` returned 0
+  and failed its read-back checksum (-14); the single-rank test passed. The warning's `[inferred]`
+  tag became `[observed]`.
+- **The board's shape inside a job.** Four GB200s joined pairwise by NVLink, GPUs 0-1 on socket 0
+  and 2-3 on socket 1, from in-job `nvidia-smi topo -m` and `lscpu`. Host memory stays unresolved:
+  `free` reports 1692 GiB on a board with 34 NUMA nodes, and attributing the excess to GPU memory
+  was not verified, so the note says not to budget from `free`.
+- **Submission and the project name.** Submission from a login node works. TACC's submit filter
+  rejected the correct allocation spelled in lower case as an unknown project; `taccinfo`'s spelling
+  was accepted. The note gives the rule and no project code.
+- **`OMP_NUM_THREADS=1`** is exported by TACC's default environment and inherited by jobs.
+- **`ibrun` placement.** At several tasks per node it maps ranks alternately to the two sockets
+  unless `OPENMPI_AFFINITY` is preset (read from the installed script), which puts two of four ranks
+  beside the wrong GPU; a preset `--map-by slot:PE=36 --bind-to core` gave each rank its GPU's
+  cores, recorded per rank. A subset launch (`-n`/`-o`) is always `--bind-to none`, which is the
+  precondition for the OpenMP pinning collision in its own entry below.
+- **Build environment.** The `cmake/4.4.0` module's binaries were not executable, so the system
+  cmake was used. Under the agent sandbox XALT's `ld` wrapper, which writes under a hard-coded
+  `/tmp`, failed every link including CMake's compiler checks.
+
+**Reconciliation (§developer-obligations item 11).** Existing statements in this leaf about the
+same objects:
+- The QIO warning's instruction ("write through one writer or as partfiles") — **confirmed**; only
+  its evidence tag changed.
+- "Size a job from what the scheduler allocates" and the early-access table — **confirmed**; the
+  in-job topology adds to them.
+- "The guide's GB host memory is ambiguous … read it from the node" — **amended**: it was read,
+  and the reading does not resolve it.
+- "Whether the batch submit command works from a Horizon compute node has not been established"
+  — **confirmed**, unchanged; the new section covers login-node submission only.
+- The `ibrun` launch-path paragraph and "never background an `ibrun`" — **confirmed**; the step
+  behaviour is still unobserved on Horizon.
+- "Compile on a login node only at low parallelism" — **confirmed**; MILC's one-job build fits it.
+Nothing was deleted.

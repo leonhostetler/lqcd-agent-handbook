@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, agent placement, launcher, build, and storage rules for TACC Horizon, including the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, agent placement, ibrun rank placement on a four-GPU board, build, and storage rules for TACC Horizon, including the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -10,9 +10,10 @@ sources:
   - https://developer.nvidia.com/cuda-gpus
   - Horizon Lmod module listing and live Slurm partition and node records, read from a login node 2026-09-28
   - the site's installed ibrun script, read 2026-09-28
+  - operator-submitted build, validation and diagnostic jobs on gpu-gb200 nodes, 2026-09-29, reviewed in the working directory
   - https://github.com/usqcd-software/qio/issues/19
   - https://github.com/lattice/quda/issues/1655
-observed: "2026-09-28"
+observed: "2026-09-29"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -33,7 +34,8 @@ differences.
 > early access, and TACC's guide lists it as VAST too. Write such files through one writer or
 > as partfiles; see
 > [`../../software/qio/parallel-singlefile-writes.md`](../../software/qio/parallel-singlefile-writes.md).
-> `[inferred]` from the NFS mounts and the defect's mechanism; not yet reproduced on Horizon.
+> `[observed]` on Horizon: an eight-rank QUDA gauge write on `$HOME` over two nodes returned
+> status 0 and failed its read-back checksum (`-14`); the single-rank test passed.
 > Keep this warning until the upstream issue is fixed and validated on Horizon.
 
 ## Early access: the live machine is not the documented one
@@ -59,9 +61,17 @@ partition`. Once a job runs, reconcile the node with `nvidia-smi`. A scheduler q
 under the agent sandbox must be the whole command; see
 [`../../conventions/agent-sandbox.md`](../../conventions/agent-sandbox.md).
 
+**Inside a job the board looks like this.** `[reproduced ×3]`: in-job `nvidia-smi` and
+`lscpu` on build and validation jobs. Four GB200 GPUs of 185 GiB each, every pair joined by
+NVLink (`NV6`); GPUs 0-1 attach to socket 0 (cores 0-71) and GPUs 2-3 to socket 1 (cores
+72-143). A rank therefore belongs on the socket of the GPU it drives, which *Launch MPI deliberately*
+below sets up.
+
 **The guide's GB host memory is ambiguous**: its prose gives 120 GiB per Grace CPU and its
-table 240 GiB per node, so the profile records neither. Read it from the node before a
-host-memory estimate depends on it.
+table 240 GiB per node, so the profile records neither. On a board `free` reported 1692 GiB
+and `lscpu` 34 NUMA nodes, of which only 0 and 1 hold CPUs. GPU memory exposed as NUMA memory
+would account for the excess over the documented LPDDR, but that was not verified, so the
+host memory behind each socket remains unresolved. Do not budget host memory from `free`.
 
 **Do not write `$WORK` into a script.** The shell sets it during early access, but the
 directory does not exist. The profile therefore declares no variable for it.
@@ -75,6 +85,19 @@ Horizon documents two node types, `gpu-gb200` and `cpu-vv`. Select one explicitl
 resolving a build or stack. The login nodes are Grace Grace nodes, which are neither type,
 so a login host says nothing about the intended target. During early access only
 `gpu-gb200` hardware is schedulable.
+
+## Submit and account
+
+Batch submission works from a login node `[reproduced]`. Give the project name exactly as
+`/usr/local/etc/taccinfo` prints it: TACC's submit filter matches it case-sensitively and
+rejects any other spelling as an unknown project, even when it names the right allocation
+`[observed]`.
+
+## Set the OpenMP thread count
+
+TACC's default environment exports `OMP_NUM_THREADS=1`, and a job inherits it. Every job must
+set its own thread count; GNU `nproc` honours the variable too, so inside a job it reports one
+CPU however many the job holds `[reproduced]`.
 
 ## Run agent sessions on compute nodes
 
@@ -99,6 +122,20 @@ an `ibrun` while later legs launch.
 The profile records `ibrun` as `scheduler.site_launcher`, and the batch-script dry-run
 harness stubs it from that record.
 
+**`ibrun`'s own rank placement is wrong for a four-GPU board.** With several tasks per node it
+passes `--map-by socket:PE=<cores per task>` unless `OPENMPI_AFFINITY` is already set
+`[source]`, which alternates ranks between the two sockets. QUDA gives local rank *n* GPU *n*,
+so local ranks 1 and 2 land on the socket away from their GPU. Export
+`OPENMPI_AFFINITY="--map-by slot:PE=36 --bind-to core"` before `ibrun` at four ranks per node:
+each rank then holds the 36 cores beside its GPU `[reproduced]`, recorded by a per-rank wrapper.
+
+**A subset launch is always unbound.** `ibrun -n N -o M` replaces any mapping with
+`--bind-to none` `[source]`, so every rank may use all 144 cores. Several such ranks with
+`OMP_PROC_BIND` set pin their threads to the same cores and serialise the threads that drive
+the GPUs: a four-rank MILC run spent about 13 ms per multi-GPU dslash instead of about 40 us
+`[experiment]`. Set `OMP_PROC_BIND=false` for a subset launch, or use the whole allocation.
+[`../../conventions/batch-scripts.md`](../../conventions/batch-scripts.md) owns the mechanism.
+
 ## Place builds deliberately
 
 GB200 GPUs are compute capability 10.0, so a GPU build targets `sm_100`; an `sm_90` build
@@ -110,6 +147,16 @@ and therefore requires an explicit campaign budget before submission.
 
 Several CUDA, NVIDIA compiler, and Open MPI versions are installed. Choose them from a
 validated stack, and record exact module versions in the stack, not in the profile.
+
+**The `cmake/4.4.0` module was unusable** when the first stacks were built: its binaries lacked
+execute permission, so `cmake` silently resolved to `/usr/bin/cmake` 3.30.5 `[observed]`. QUDA
+needs 3.18 or newer, so the validated stacks use the system cmake explicitly. Check
+`type -a cmake` before relying on the module.
+
+**Inside an agent sandbox, unload `xalt` before linking.** XALT's `ld` wrapper writes under a
+hard-coded `/tmp`, which a sandbox that confines writes makes read-only, and every link then
+fails, including CMake's compiler checks `[reproduced]`. A batch job is unaffected, so keep XALT
+loaded there.
 
 ## Choose storage by workload
 
