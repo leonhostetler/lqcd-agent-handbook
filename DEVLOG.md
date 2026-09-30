@@ -3888,3 +3888,42 @@ on NFS, save keywords, and `io_test`:
   `Gauge/GaugeIOTest.*`, which the backwards vector-test labels do not affect.
 - `tests/test_open_upstream_defects.py` — **confirmed**; the leaf and all pointers keep the
   warning and both issue links.
+
+## 2026-09-30 — The handbook tool Python
+
+An Aurora session could run neither startup diagnostic: no interpreter on `PATH`, nor the
+loaded Python module, carried PyYAML, and the session-logging runner does not search modules.
+The logger itself needs only Bash and `jq`, so it was installed through a throwaway
+environment, but the checker, the submission guard, the batch-script checker and the
+validator all stayed unrunnable. This is the second machine to hit the class — the 2026-08-28
+Perlmutter validator episode was the first — and the remedy each time was an environment the
+operator assembled outside the session.
+
+`tools/setup-tool-python` now builds a per-user virtual environment from the pinned
+`tools/requirements.txt`, and `select-python` probes it before `PATH`. Startup runs `--check`
+and offers the build; the operator's only step is accepting it. On Aurora the build selected
+the system `python3.11` as its base rather than the module Python, whose prefix names a dated
+site release. Rejected along the way: pinning the interpreter into each hook command, since
+both Claude hooks already resolve through `select-python` and would only gain a path to
+maintain; and a venv inside the clone, which the no-hook-into-`$LQCD_HANDBOOK` rule forbids.
+Making the operational tools stdlib-only is owed as ROADMAP X.10.
+
+**Tests.** `tests/test_tool_python.py`, twelve tests. Each safeguard was removed in turn and
+its test failed: never probing the tool Python, trusting it without the probe, no rollback
+trap, no refusal of a directory the tool did not build, and no stale detection. The three
+session-logging runner tests that stub `PATH` now point `LQCD_HANDBOOK_TOOL_PYTHON` at an
+absent directory, since a real tool Python would otherwise answer for their stubs.
+
+**Found, not fixed.** On Aurora `BASH_ENV` names the Lmod init script, which every
+non-interactive bash sources; under the two runner tests' stubbed `PATH` it writes errors into
+their captured output, and both fail with or without this change. The new tests drop
+`BASH_ENV`.
+
+**Reconciliation (§developer-obligations item 11).** The Interpreter-selection decision row —
+**amended**; its reopen trigger, an interpreter neither `PATH` nor modules expose, is what
+occurred. The §session-logging dispatcher paragraphs — **confirmed**, one paragraph added. The
+Session-start decision row — **amended** to name all three offers. `playbooks/session-logging.md`
+("never loads a module", "requires PyYAML and TOML support") — **confirmed**; the tool Python
+is not a module. The test-suite skip banner in `tests/support.py` — **amended** to name the
+setup tool. `README.md` and `CONTRIBUTING.md` still invoke the index and validator tools with a
+bare `python3` — **left**, a separate fact class.

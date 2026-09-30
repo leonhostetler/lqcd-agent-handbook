@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Check, build, or rebuild the handbook tool Python: a per-user virtual environment carrying
+# the packages pinned in tools/requirements.txt, which tools/select-python probes before any
+# other interpreter (§session-logging).
+#
+#   setup-tool-python --check   report ready | missing | stale | broken, change nothing
+#   setup-tool-python           build it, or rebuild one this tool built earlier
+#
+# Offer-only, like every installer: startup runs --check, and the build runs only after the
+# operator accepts, because it downloads packages and writes outside the repository.
+set -euo pipefail
+
+usage() {
+    echo "usage: setup-tool-python [--check]" >&2
+    exit 2
+}
+
+mode=build
+if (( $# > 1 )); then
+    usage
+elif (( $# == 1 )); then
+    [[ "$1" == --check ]] || usage
+    mode=check
+fi
+
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+here="$(cd -- "$here" && pwd)"
+requirements="$here/requirements.txt"
+# shellcheck source=tool-python-location.sh
+source "$here/tool-python-location.sh"
+
+# The marker records which requirements the environment was built from. It is also what
+# makes a directory this tool's to replace: one without it was made by someone else.
+marker_name=lqcd-tool-python.requirements.sha256
+
+# The import names of tools/requirements.txt. A probe must be silent as well as succeed,
+# the same reject-on-output rule select-python applies to every candidate.
+probe='import yaml, jsonschema
+try:
+    import tomllib
+except ImportError:
+    import tomli'
+
+hash_of() {  # hash_of <python> <file>; uses the interpreter, so no coreutils dependency
+    "$1" -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$2"
+}
+
+say() {
+    printf 'tool python: %s\n' "$*"
+}
+
+if ! dir="$(lqcd_tool_python_dir)"; then
+    say "broken — no per-user location: HOME is unset; set LQCD_HANDBOOK_TOOL_PYTHON"
+    exit $([[ "$mode" == check ]] && echo 0 || echo 1)
+fi
+python="$dir/bin/python"
+marker="$dir/$marker_name"
+
+state() {  # sets state and reason for the environment at $dir
+    if [[ ! -e "$dir" ]]; then
+        state=missing reason="nothing at $dir"
+    elif [[ ! -f "$marker" ]]; then
+        state=broken reason="$dir exists but was not built by this tool; it will not be replaced — remove it or set LQCD_HANDBOOK_TOOL_PYTHON to another location"
+    elif [[ ! -x "$python" ]]; then
+        state=broken reason="$python is not executable"
+    elif ! out="$("$python" -c "$probe" </dev/null 2>&1)" || [[ -n "$out" ]]; then
+        state=broken reason="its interpreter cannot import the pinned packages cleanly${out:+: $(printf '%s\n' "$out" | tail -1)}"
+    elif [[ "$(<"$marker")" != "$(hash_of "$python" "$requirements")" ]]; then
+        state=stale reason="built from an older tools/requirements.txt"
+    else
+        state=ready reason="$dir"
+    fi
+}
+
+state
+if [[ "$mode" == check ]]; then
+    say "$state — $reason"
+    exit 0
+fi
+
+if [[ -e "$dir" && ! -f "$marker" ]]; then
+    say "refused — $reason"
+    exit 1
+fi
+
+# The base interpreter only needs to create a virtual environment. select-python's order
+# prefers a versioned command on PATH to a module-provided one, which matters here: a module
+# prefix usually names a site release, and a site upgrade that removes it breaks every
+# environment built on it. The startup check reports that as broken, and a rebuild repairs it.
+if ! base="$("${BASH:-bash}" "$here/select-python" \
+        --label "the tool Python's base interpreter" \
+        --no-tool-python \
+        --allow-module-load \
+        --require venv \
+        --require ensurepip \
+        -- -c 'import sys; print(sys.executable)')"; then
+    say "not built — no base interpreter could create a virtual environment"
+    exit 1
+fi
+
+previous=""
+if [[ -e "$dir" ]]; then
+    previous="$dir.previous.$$"
+    mv -- "$dir" "$previous"
+fi
+restore() {
+    rm -rf -- "$dir"
+    if [[ -n "$previous" ]]; then
+        mv -- "$previous" "$dir"
+        say "not rebuilt — the previous environment was restored"
+    else
+        say "not built — nothing was left behind"
+    fi
+}
+trap restore EXIT
+
+mkdir -p -- "${dir%/*}"
+"$base" -m venv -- "$dir"
+# Prebuilt packages only. One dependency is compiled, and building it from source needs a
+# compiler toolchain and can run for a long time on a shared login node; failing here with
+# pip's own message is the better outcome.
+"$python" -m pip install --disable-pip-version-check --no-input --only-binary=:all: \
+    -r "$requirements"
+if ! out="$("$python" -c "$probe" </dev/null 2>&1)" || [[ -n "$out" ]]; then
+    say "the new environment cannot import the pinned packages cleanly: $out"
+    exit 1
+fi
+hash_of "$python" "$requirements" > "$marker"
+
+trap - EXIT
+if [[ -n "$previous" ]]; then
+    rm -rf -- "$previous"
+fi
+say "ready — $dir, built from $base"

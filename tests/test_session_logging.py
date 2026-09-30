@@ -487,6 +487,8 @@ class SessionLoggingTests(unittest.TestCase):
             versioned.chmod(0o700)
             environment = os.environ.copy()
             environment["PATH"] = str(binary_dir)
+            # A tool Python is probed before PATH; these tests are about PATH.
+            environment["LQCD_HANDBOOK_TOOL_PYTHON"] = str(binary_dir / "absent")
             result = subprocess.run(
                 ["/bin/bash", str(RUNNER), "-c", 'print("payload")'],
                 cwd=ROOT,
@@ -517,6 +519,8 @@ class SessionLoggingTests(unittest.TestCase):
             versioned.chmod(0o700)
             environment = os.environ.copy()
             environment["PATH"] = str(binary_dir)
+            # A tool Python is probed before PATH; these tests are about PATH.
+            environment["LQCD_HANDBOOK_TOOL_PYTHON"] = str(binary_dir / "absent")
             environment["NERSC_PYMON_DISABLE"] = "0"
             result = subprocess.run(
                 ["/bin/bash", str(RUNNER), "-c", 'print("payload")'],
@@ -538,6 +542,8 @@ class SessionLoggingTests(unittest.TestCase):
             generic.chmod(0o700)
             environment = os.environ.copy()
             environment["PATH"] = str(binary_dir)
+            # A tool Python is probed before PATH; these tests are about PATH.
+            environment["LQCD_HANDBOOK_TOOL_PYTHON"] = str(binary_dir / "absent")
             result = subprocess.run(
                 ["/bin/bash", str(RUNNER), "ignored.py"],
                 cwd=ROOT,

@@ -1,0 +1,5 @@
+# Third-party packages for the handbook tool Python, built by tools/setup-tool-python.
+# Changing a line here marks every existing tool Python stale at the next startup check.
+PyYAML==6.0.3
+jsonschema==4.26.0
+tomli==2.2.1; python_version < "3.11"

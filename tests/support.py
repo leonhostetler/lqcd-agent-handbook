@@ -100,8 +100,9 @@ def _announce(requirements: tuple[str, ...], detail: str) -> None:
         f"!! {detail}\n"
         "!! The tests below are SKIPPED, not passing. Nothing they cover was\n"
         "!! verified, including the privacy deny-list and the schema checks.\n"
-        "!! Supply the dependencies, or make them loadable through the module\n"
-        "!! system so tools/select-python can find them, and re-run.\n"
+        "!! Build the handbook tool Python with tools/setup-tool-python, or make\n"
+        "!! the dependencies loadable through the module system so\n"
+        "!! tools/select-python can find them, and re-run.\n"
         f"{bar}\n",
         file=sys.stderr,
         flush=True,

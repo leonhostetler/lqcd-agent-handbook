@@ -86,7 +86,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate; benchmarking measures a candidate and workload frozen before the measured series. A campaign may move from one to the other but never occupies a hybrid mode, and an exploratory winner needs independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
 | **Trial shape versus production workload** | A tuning or benchmarking trial runs few solves by design: it prices one-time and recurring cost cheaply so production can be costed at counts it never ran. Its own solve count is an instrument setting, and any share, ratio, ranking or winner derived from it carries the count it holds at. **Not a mandatory declaration** — where the production count is unknown the deliverable is `C(N) = I + N·R` and the crossover, so an exploratory campaign discovers its regimes instead of declaring them ([§trial-is-an-instrument](#trial-is-an-instrument)) | An objective appears whose ranking is genuinely solve-count-independent, or the crossover form proves unusable for a real decision |
 | **Performance and tuning boundary** | Performance **diagnoses**: it ingests a profile and produces a ranked, evidenced hypothesis list. Tuning **searches**: it applies a change, rebuilds, remeasures and selects. A profile-driven optimisation loop crosses the boundary and is declared at the crossing, never one mode doing both ([§work-modes](#work-modes), [§profile-analysis](#profile-analysis)) | A diagnosis phase proves to carry no decision content distinct from the search that follows it |
-| **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; missing session logging produces a non-blocking offer in the orientation report ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
+| **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; a tool Python, session logger or submission guard that is not ready produces a non-blocking offer in the orientation report ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
 | **Privacy-screening boundary** | Screen only the exact material crossing into the handbook: a user-mode inbox entry or a direct developer-mode change. Handbook privacy rules never mandate scanning, redacting, or rewriting the working project that holds source evidence ([§privacy-screening](#privacy-screening), [§handbook-modes](#handbook-modes)) | The repository's publication boundary changes |
 | **Concurrency** | Unique filenames for every user-mode write; `base_handbook_commit` on proposals. No branches, no PRs, no curator ([§freshness-model](#freshness-model)) | The handbook gains contributors beyond the operator |
@@ -100,7 +100,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Budget** | **Granted** in the opening message, **scoped** per-campaign, **tracked** in an append-only ledger in the working directory. Debit reserved cost at submit, reconcile down at completion. The handbook ships the format, never the numbers ([§budget-rule](#budget-rule)) | — |
 | **Test builds** | Build the complete available test suite by default. A reduced test build requires an **explicit operator instruction for that build**; record the opt-out and exact excluded targets. Test execution may remain focused on the validation contract | The complete suite cannot be compiled within available build resources and the operator adopts another standing policy |
 | **Session logging** | One frontend-neutral provenance contract with frontend-specific `Stop` loggers, a shared interpreter dispatcher and checker, and an offer-only installer. Logs are **operator-facing provenance backups**: agents do not read them unless the operator explicitly requests review, and authorized review treats them as private evidence rather than canonical knowledge ([§session-logging](#session-logging)) | The prose-only record proves insufficient for reconstructing what happened — see [§deferred-decisions](ROADMAP.md#deferred-decisions) |
-| **Interpreter selection** | One shared dispatcher probes caller-declared requirements and rejects any candidate that emits diagnostics; the `PATH` scan never loads a module. A caller whose output a human reads may opt into **discovering** module-provided interpreters, enumerated from the module system and never named in the tool ([§session-logging](#session-logging)) | A caller needs an interpreter that neither `PATH` nor the module system exposes |
+| **Interpreter selection** | One shared dispatcher probes caller-declared requirements and rejects any candidate that emits diagnostics. It probes the **handbook tool Python** first — a per-user virtual environment built on request from pinned requirements, at a per-user location and never inside a clone — then `PATH`, whose scan never loads a module. A caller whose output a human reads may opt into **discovering** module-provided interpreters, enumerated from the module system and never named in the tool ([§session-logging](#session-logging)) | A caller needs an interpreter that neither the tool Python, `PATH` nor the module system exposes |
 | **Repo name** | `lqcd-agent-handbook` ([§locating-handbook](#locating-handbook)) | — |
 | **Locating the handbook** | `LQCD_HANDBOOK` is the sole interface and **the launcher fails fast if it is unset** — no `$HOME` fallback, no canonical path, and no clone path recorded anywhere, since [§deny-list](#deny-list) denies it. Validation is **identity by content**, not by path ([§locating-handbook](#locating-handbook)) | — |
 ---
@@ -331,6 +331,8 @@ lqcd-agent-handbook/
 │   ├── hypothesis-record.py       # derives speedup bounds; checks figure provenance
 │   ├── propose-change.py          # the pre-commit harness (§developer-obligations)
 │   ├── select-python, run-*       # interpreter dispatcher and its runners
+│   ├── setup-tool-python, requirements.txt, tool-python-location.sh
+│   │                              #   offer-only per-user tool Python (§session-logging)
 │   ├── extract-milc-timings.py
 │   ├── milc-compare-fnal-correlators.py # FNAL correlator structure checks and comparison
 │   ├── summarize-slurm-job.py
@@ -1151,6 +1153,21 @@ samples at interpreter exit, the dispatcher disables it for its own subprocess o
 variable is inert elsewhere and never alters the caller's module state. The Codex installer
 pins the selected absolute interpreter into the hook command, so later hooks do not depend
 on `PATH` or a module environment.
+
+**The tool Python is probed first, and the handbook builds it on request.** A machine whose
+interpreters carry none of the third-party packages leaves every tool that imports one
+unrunnable — the validator, the batch-script checker, the submission guard, and this
+checker — and an environment the operator must assemble outside the session is a roadblock
+the handbook can remove. `tools/setup-tool-python` builds a virtual environment from the
+pinned `tools/requirements.txt` at a per-user default location, which `LQCD_HANDBOOK_TOOL_PYTHON`
+overrides, and the dispatcher probes it before `PATH` under the same requirement and
+reject-on-output rules as any other candidate. The location is per-user and never inside a
+clone, for the reason below that a global hook may not point into `$LQCD_HANDBOOK`; guard
+and logger hooks already resolve through the dispatcher, so none of them records the path.
+Setup follows the installer contract: startup reports `ready`, `missing`, `stale` or
+`broken` and offers the build without asking a second question; the build runs only on
+consent, refuses to replace a directory it did not create, restores the previous
+environment when a rebuild fails, and installs prebuilt packages only.
 
 **The no-module rule is scoped to the session-logging path, not to every caller.** Its
 reason is output integrity: this checker's stdout is parsed as JSON, so an interpreter that

@@ -11,7 +11,7 @@ usage() {
     cat >&2 <<'USAGE'
 usage: select-python [--label TEXT] [--min-version MAJOR.MINOR]
                      [--require MODULE]... [--require-any MOD,MOD]...
-                     [--allow-module-load]
+                     [--allow-module-load] [--no-tool-python]
                      -- <script> [args ...]
 USAGE
     exit 2
@@ -23,6 +23,7 @@ min_minor=10
 require=()
 require_any=()
 allow_module_load=0
+use_tool_python=1
 
 while (( $# > 0 )); do
     case "$1" in
@@ -32,6 +33,7 @@ while (( $# > 0 )); do
         --require)     (( $# >= 2 )) || usage; require+=("$2"); shift 2 ;;
         --require-any) (( $# >= 2 )) || usage; require_any+=("$2"); shift 2 ;;
         --allow-module-load) allow_module_load=1; shift ;;
+        --no-tool-python) use_tool_python=0; shift ;;
         --)            shift; break ;;
         *)             usage ;;
     esac
@@ -136,6 +138,32 @@ probe_ok() {  # sets probe_rc and probe_out; succeeds only on a clean, silent pr
     (( probe_rc == 0 )) && [[ -z "$probe_out" ]]
 }
 
+# 0. Prefer the handbook tool Python, the per-user environment tools/setup-tool-python
+#    builds from pinned requirements. It is probed like any other candidate, so one that
+#    lacks a caller's requirement or emits diagnostics is passed over, never trusted on
+#    its name. The one caller that opts out is setup-tool-python itself, which needs a
+#    base interpreter to build it from and must not be handed the environment it is
+#    replacing. An absent environment is not a rejection: it is the ordinary state until
+#    the operator accepts the startup offer, and the failure message below says so.
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+tool_python_dir=""
+if (( use_tool_python )); then
+    # shellcheck source=tool-python-location.sh
+    source "$here/tool-python-location.sh"
+    tool_python_dir="$(lqcd_tool_python_dir || true)"
+fi
+if [[ -n "$tool_python_dir" && -x "$tool_python_dir/bin/python" ]]; then
+    candidate="$tool_python_dir/bin/python"
+    if probe_ok "$candidate" -c "$probe"; then
+        drop_injected_pythonpath "$candidate"
+        exec "$candidate" "$@" <&3 3<&-
+    fi
+    record_rejection "$candidate (tool Python)" "$probe_rc" "$probe_out"
+fi
+
 # 1. Prefer versioned commands already on PATH. On module-based systems an
 #    unversioned python3 may be the system Python or a module wrapper that emits
 #    site diagnostics on stdout.
@@ -190,5 +218,10 @@ if (( allow_module_load )); then
     fi
 else
     echo "this caller does not search module-provided interpreters" >&2
+fi
+if [[ -n "$tool_python_dir" && ! -e "$tool_python_dir" ]]; then
+    echo "no handbook tool Python exists yet; tools/setup-tool-python builds one for this user" >&2
+elif [[ -n "$tool_python_dir" ]]; then
+    echo "the handbook tool Python did not qualify; tools/setup-tool-python --check says why" >&2
 fi
 exit 2
