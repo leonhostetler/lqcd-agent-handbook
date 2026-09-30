@@ -32,8 +32,9 @@ startup reports it as pending intake.
    operator explicitly requests that specific commit.
 5. Classify durability, scope, mechanism, actionability, evidence, and publishability.
 6. Keep each knowledge file atomic and each commit limited to one fact class.
-7. Run `python3 tools/build-index.py`, review the generated changes, then run
-   `python3 tools/validate-knowledge.py`.
+7. Run `tools/run-change-proposal` and review what it reports, including any regenerated
+   indices and the added lines it leaves for privacy review. If no interpreter carries its
+   packages, `tools/setup-tool-python` builds one.
 8. At a slice boundary, record acceptance evidence and exactly one next action in
    `ROADMAP.md`; update the architecture decision log only when a decision changed.
 

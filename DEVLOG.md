@@ -3927,3 +3927,11 @@ Session-start decision row — **amended** to name all three offers. `playbooks/
 is not a module. The test-suite skip banner in `tests/support.py` — **amended** to name the
 setup tool. `README.md` and `CONTRIBUTING.md` still invoke the index and validator tools with a
 bare `python3` — **left**, a separate fact class.
+
+## 2026-09-30 — Session-logging runner tests drop `BASH_ENV`
+
+The failure recorded as found-not-fixed in the tool-Python entry. The three runner tests that
+stub `PATH` now remove `BASH_ENV` from the environment they pass, so a site init file cannot
+write into the output two of them compare exactly. The tools keep honouring `BASH_ENV`:
+`select-python`'s module discovery runs `module` in a child bash and depends on it. Verified on
+Aurora with the Lmod init file set: both tests failed before the change and pass after it.

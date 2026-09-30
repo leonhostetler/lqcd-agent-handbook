@@ -489,6 +489,9 @@ class SessionLoggingTests(unittest.TestCase):
             environment["PATH"] = str(binary_dir)
             # A tool Python is probed before PATH; these tests are about PATH.
             environment["LQCD_HANDBOOK_TOOL_PYTHON"] = str(binary_dir / "absent")
+            # A site shell-init file named by BASH_ENV runs in every non-interactive bash;
+            # under this stubbed PATH it fails and writes errors into the captured output.
+            environment.pop("BASH_ENV", None)
             result = subprocess.run(
                 ["/bin/bash", str(RUNNER), "-c", 'print("payload")'],
                 cwd=ROOT,
@@ -521,6 +524,9 @@ class SessionLoggingTests(unittest.TestCase):
             environment["PATH"] = str(binary_dir)
             # A tool Python is probed before PATH; these tests are about PATH.
             environment["LQCD_HANDBOOK_TOOL_PYTHON"] = str(binary_dir / "absent")
+            # A site shell-init file named by BASH_ENV runs in every non-interactive bash;
+            # under this stubbed PATH it fails and writes errors into the captured output.
+            environment.pop("BASH_ENV", None)
             environment["NERSC_PYMON_DISABLE"] = "0"
             result = subprocess.run(
                 ["/bin/bash", str(RUNNER), "-c", 'print("payload")'],
@@ -544,6 +550,9 @@ class SessionLoggingTests(unittest.TestCase):
             environment["PATH"] = str(binary_dir)
             # A tool Python is probed before PATH; these tests are about PATH.
             environment["LQCD_HANDBOOK_TOOL_PYTHON"] = str(binary_dir / "absent")
+            # A site shell-init file named by BASH_ENV runs in every non-interactive bash;
+            # under this stubbed PATH it fails and writes errors into the captured output.
+            environment.pop("BASH_ENV", None)
             result = subprocess.run(
                 ["/bin/bash", str(RUNNER), "ignored.py"],
                 cwd=ROOT,
