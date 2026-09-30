@@ -80,6 +80,10 @@
                 "string",
                 "null"
               ]
+            },
+            "steps_share_allocation": {
+              "type": "boolean",
+              "description": "True when concurrent launches share the job's allocation with no option at all; the dry-run harness then models no step contention. Omitted or false with a null overlap_option means a launch can never share it."
             }
           },
           "additionalProperties": false

@@ -54,18 +54,24 @@ class AuroraMachineTests(unittest.TestCase):
         self.assertEqual(node["accelerator"]["tiles_per_gpu"], 2)
         self.assertEqual(node["sizing"]["reserved_cpus"], [0, 52, 104, 156])
 
-    def test_scheduler_is_pbs_and_the_missing_surface_is_flagged(self):
+    def test_scheduler_is_pbs_with_a_recorded_surface(self):
         profile = yaml.safe_load(PROFILE.read_text())
         self.assertEqual(profile["scheduler"]["type"], "pbs")
         surfaces = yaml.safe_load(SURFACES.read_text())["surfaces"]
+        self.assertIn("pbs", surfaces)
+        # The tools now check and guard Aurora scripts, so the leaf must not say otherwise.
         notes = " ".join(NOTES.read_text().split())
-        if "pbs" not in surfaces:
-            # While no PBS surface exists the tools cannot check or guard an Aurora script,
-            # and the leaf must say so. Adding the surface makes this test fail on purpose,
-            # so the warning is revisited rather than left stale.
-            self.assertIn("does not intercept `qsub`", notes)
-        else:
-            self.assertNotIn("does not intercept `qsub`", notes)
+        self.assertNotIn("does not intercept `qsub`", notes)
+
+    def test_pals_mpiexec_is_the_site_launcher_and_its_launches_share(self):
+        profile = yaml.safe_load(PROFILE.read_text())
+        # MPI launch belongs to the site: the pbs surface names no parallel launcher.
+        surfaces = yaml.safe_load(SURFACES.read_text())["surfaces"]
+        self.assertNotIn("parallel_launcher", surfaces["pbs"])
+        launcher = profile["scheduler"]["site_launcher"]
+        self.assertEqual(launcher["command"], "mpiexec")
+        self.assertIsNone(launcher["overlap_option"])
+        self.assertIs(launcher["steps_share_allocation"], True)
 
     def test_flare_declares_no_environment_variable(self):
         # The site sets none, so the profile must not license a script to reference one.

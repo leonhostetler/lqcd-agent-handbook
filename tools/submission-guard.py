@@ -74,6 +74,17 @@ def submit_commands() -> set[str]:
     return {str(s["submit_command"]) for s in surfaces["surfaces"].values() if s.get("submit_command")}
 
 
+def interactive_by_flag() -> set[str]:
+    """Submit commands that are also the interactive command, so `-I` requests an allocation.
+
+    Under PBS `qsub -I` holds nodes with no script to check. Where the two commands differ,
+    `-I` means something else (it is `--immediate` to Slurm's submit command).
+    """
+    surfaces = _CBS.runtime_data.scheduler_surfaces(HANDBOOK)
+    return {str(s["submit_command"]) for s in surfaces["surfaces"].values()
+            if s.get("submit_command") and s.get("submit_command") == s.get("interactive_command")}
+
+
 def detect_machine(explicit: str | None) -> str | None:
     if explicit:
         return None if explicit == "unknown" else explicit
@@ -304,6 +315,16 @@ def decide(event: dict, machine_arg: str | None) -> tuple[int, str]:
     tokens, at = found
     hit = tokens[at]
     cwd = pathlib.Path(event.get("cwd") or os.getcwd())
+    if posixpath.basename(hit) in interactive_by_flag():
+        options = []
+        for token in tokens[at + 1:]:
+            if is_separator(token):
+                break
+            options.append(token)
+        if "-I" in options:
+            return 2, (f"submission refused: '{hit} -I' requests an interactive allocation, which "
+                       "has no script to check and holds nodes until it is released; the operator "
+                       "starts one from their own shell")
     script, reason = find_script(tokens[at:], hit, cwd)
     if script is None:
         return 2, (f"submission refused: {reason}\n"

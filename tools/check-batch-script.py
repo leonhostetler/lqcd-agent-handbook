@@ -284,7 +284,8 @@ def check(path: pathlib.Path, machine: str | None,
     for number, code in code_lines:
         # Nested submission: the one mistake with unbounded, unrecoverable cost.
         if submit:
-            for command in (submit, interactive):
+            # Under PBS the two are one word; report a line once, not twice.
+            for command in dict.fromkeys((submit, interactive)):
                 if re.search(rf"(?<![\w./-]){re.escape(command)}(?![\w-])", code):
                     finding = (number, f"submits another job ({command})")
                     (errors if looks_like_batch else warnings).append(finding)
@@ -321,8 +322,20 @@ def check(path: pathlib.Path, machine: str | None,
             ("chdir_option", "chdir_option_short", "working directory"),
             ("output_option", "output_option_short", "output destination"),
         ):
-            if not option_present(directives, surface[key], surface.get(short_key)):
+            # A null option is one the scheduler does not have; the working-directory
+            # case is then the script's own job, checked below.
+            if surface[key] and not option_present(directives, surface[key], surface.get(short_key)):
                 warnings.append((0, f"{label} not pinned ({surface[key]}); it will be inherited"))
+        if not surface["chdir_option"]:
+            # No directive can pin the working directory, so the job starts where the
+            # surface records -- the home directory, under PBS -- and every relative path
+            # resolves there unless the script changes directory itself.
+            start = ("the home directory" if surface.get("unpinned_start_directory") == "home"
+                     else "the directory the submit command ran in")
+            if not any(re.search(r"\bcd\s+[\"']?[/$~]", code) for _, code in code_lines):
+                warnings.append((0, "this scheduler has no working-directory directive, so the job "
+                                    f"starts in {start}; cd to the job directory by absolute path "
+                                    "before resolving anything from $PWD"))
     elif machine is None:
         notes.append((0, "no --machine given: directive, nested-submission, and "
                          "accelerator-telemetry checks were skipped"))
@@ -338,8 +351,8 @@ def check(path: pathlib.Path, machine: str | None,
     # recording the variable in a log is what the leaf recommends instead.
     if surface and directives:
         submit_dir = surface.get("submit_dir_variable")
-        chdir_pinned = option_present(directives, surface["chdir_option"],
-                                      surface.get("chdir_option_short"))
+        chdir_pinned = bool(surface["chdir_option"]) and option_present(
+            directives, surface["chdir_option"], surface.get("chdir_option_short"))
         location_use = None
         if submit_dir:
             var = re.escape(submit_dir)
@@ -359,11 +372,16 @@ def check(path: pathlib.Path, machine: str | None,
                                "submission by absolute path they are different directories, "
                                "and the job will die in its first assertion after the queue "
                                "wait; resolve from $PWD, which the directive set"))
-            else:
+            elif surface["chdir_option"]:
                 warnings.append((location_use,
                                  f"resolves a location from ${submit_dir}, so the job runs "
                                  "only if submitted from that exact directory; pin "
                                  f"{surface['chdir_option']} and resolve from $PWD"))
+            else:
+                warnings.append((location_use,
+                                 f"resolves a location from ${submit_dir}, so the job runs "
+                                 "only if submitted from that exact directory; this scheduler "
+                                 "cannot pin one, so cd to the job directory by absolute path"))
         script_dir = re.compile(r"\bdirname\s+\"?\$0\b|\$\{0%/\*\}|\$\{BASH_SOURCE")
         for number, code in code_lines:
             if script_dir.search(code):

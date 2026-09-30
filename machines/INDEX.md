@@ -7,7 +7,7 @@ Entries are grouped by scoped machine.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
-| [Working on Aurora](aurora/notes.md) | What the handbook's batch-script tools cannot yet do on a PBS machine, node-target resolution, submission requirements (filesystems resource, place, project directory), where live queues differ from ALCF's table, PALS mpiexec rank and GPU-tile placement, build placement, and storage and network rules for ALCF Aurora. | Building software or preparing a job on Aurora. |
+| [Working on Aurora](aurora/notes.md) | Where a PBS job starts and how to reach the job directory, node-target resolution, submission requirements (filesystems resource, place, project directory), where live queues differ from ALCF's table, PALS mpiexec rank and GPU-tile placement, build placement, and storage and network rules for ALCF Aurora. | Building software or preparing a job on Aurora. |
 
 ## deltaai
 

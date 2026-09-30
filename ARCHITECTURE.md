@@ -54,7 +54,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Branch policy** | **There is none, deliberately.** QUDA and MILC are built from `develop`, a feature branch, or a fork, per episode; tagged releases are not used. So the branch is session state too, and the environment-vs-stack check reports **ancestry — including `diverged` — never a commit distance** ([§version-lifetimes](#version-lifetimes)) | Either project adopts a real release cadence |
 | **Node types** | One `machines/<name>/` per machine with `node_types:` inside, for CPU/GPU partitions and heterogeneous accelerators alike — never `machine-gpu/` beside `machine-cpu/`. Build-determining fields are carried separately from sizing-determining ones, shared-architecture compatibility is **reported as an inference, never as validation**, and a login host alone never selects a type ([§node-types](#node-types)) | — |
 | **Machine order** | Frontier → DeltaAI → Aurora, onboarded as needed rather than as slices. Scheduler and accelerator fields are **discriminated on type from slice 2** so PBS and non-NVIDIA arrive as values, not restructures ([§build-order](ROADMAP.md#build-order)) | — |
-| **Scheduler submission surface** | Recorded **once per scheduler type** in `conventions/scheduler-surfaces.yaml`, so submission guidance stays scheduler-agnostic. A machine profile names its `type` and overrides only what its site genuinely changes; a site facility that does not exist is an explicit `null`, never omitted. A site's own MPI launcher is such a facility, recorded as `scheduler.site_launcher` and stubbed beside the parallel launcher, never in its place ([§scheduler-surface](#scheduler-surface)) | A scheduler arrives whose submission surface cannot be expressed as named options and variables |
+| **Scheduler submission surface** | Recorded **once per scheduler type** in `conventions/scheduler-surfaces.yaml`, so submission guidance stays scheduler-agnostic. A machine profile names its `type` and overrides only what its site genuinely changes; a site facility that does not exist is an explicit `null`, never omitted. A site's own MPI launcher is such a facility, recorded as `scheduler.site_launcher` and stubbed beside the parallel launcher, never in its place. An option a scheduler lacks is an explicit `null` in its surface too, and a scheduler that cannot pin a job's working directory records where an unpinned job starts ([§scheduler-surface](#scheduler-surface)) | A scheduler arrives whose submission surface cannot be expressed as named options and variables |
 | **The plan itself** | Ships in the repo as `ARCHITECTURE.md` (durable design), `ROADMAP.md` (mutable state) and `DEVLOG.md` (the episode record, never loaded at session start), developer-mode only ([§plan-ships-with-handbook](#plan-ships-with-handbook)) | — |
 | **Cross-references** | Stable `<a id="slug">` anchors, not section numbers; numbers stay in headings and may change freely. Validator-enforced. **Long documents only** — knowledge files are already addressed by path ([§stable-anchors](#stable-anchors)) | — |
 | **Predictions** | The loop is mandatory in benchmarking and tuning, but records live in the **working directory**; only `prediction.schema.json` ships ([§records-in-working-directory](#records-in-working-directory)) | — |
@@ -882,8 +882,8 @@ an extracted number as comparable evidence.
 <a id="scheduler-surface"></a>
 ### 3.9. The scheduler submission surface
 
-Submission guidance must not name one scheduler. Three profiled machines are Slurm and
-Aurora is PBS, so a leaf that writes `sbatch`, `#SBATCH`, or `$SLURM_JOB_ID` into its prose
+Submission guidance must not name one scheduler. Every profiled machine but Aurora is Slurm
+and Aurora is PBS, so a leaf that writes `sbatch`, `#SBATCH`, or `$SLURM_JOB_ID` into its prose
 fails the P3 test the moment Aurora lands. The slice-2 insurance already discriminates
 `scheduler:` on `type:` so a second scheduler arrives as a value; this section states what
 that block must carry for the discrimination to be usable by a consumer rather than merely
@@ -916,8 +916,9 @@ surfaces:
 ```
 
 Every field is here because [§batch-scripts](#batch-scripts) or its checker consumes it;
-none is decorative. Aurora then arrives as one new `pbs` entry, which is what the slice-2
-insurance promised when it discriminated the block on `type:`.
+none is decorative. Aurora arrived as one new `pbs` entry, which is what the slice-2
+insurance promised when it discriminated the block on `type:` — plus one structural change,
+for the options a scheduler does not have, described below.
 
 **A machine profile names its `type` and carries only what its site changes or provides.**
 It may override any field, because a site can wrap a submit command or disable an option;
@@ -936,6 +937,17 @@ from one nobody recorded. The same rule governs which filesystem variables a scr
 name: only those a profile declares, which is why the guidance never writes `$SCRATCH`,
 `$PROJECT`, or `$CFS` into its own text.
 
+**An option a scheduler does not have is an explicit `null` in its surface.** PBS has no
+directive that pins a job's working directory and no append mode for its output streams, so
+its record carries `chdir_option: null` and `append_output_option: null`, and consumers skip
+what cannot exist rather than invent it. The missing directive changes an invariant rather
+than just an option. Where nothing can pin the working directory, the job starts wherever
+the scheduler puts it — the home directory under PBS, the submission directory under Slurm
+without `--chdir` — so every surface records `unpinned_start_directory`. The checker then
+requires the script to change to its job directory by absolute path itself, and the dry-run
+harness starts the script where that field says. A field that is merely absent would leave
+the harness guessing, which is the state that let a job die in its first assertion.
+
 **A site's own MPI launcher is a site facility, not a surface override.** TACC's `ibrun`
 wraps a different launch path from `srun`'s. It goes through the MPI library's own starter,
 and on Open MPI that creates one scheduler step per call and can pass no step-sharing option.
@@ -943,11 +955,15 @@ Overriding `parallel_launcher` with it would stub `ibrun` with `srun`'s rules an
 `srun`. So a profile records it as `scheduler.site_launcher`: the command, and the option that
 lets its step share the allocation, where a `null` states there is none. The dry-run harness
 stubs it beside the parallel launcher with exactly that model, and refuses a record that
-would replace the parallel launcher's stub. The mechanism belongs in the machine's notes,
+would replace the parallel launcher's stub. A launcher whose concurrent launches share the
+allocation with no option at all — ALCF's PALS `mpiexec` is one, because PBS has no job
+steps — records `steps_share_allocation: true`, and the harness then models no contention;
+without it a `null` overlap option still means a launch can never share. The mechanism belongs in the machine's notes,
 because it is site knowledge; the record holds only what a tool consumes.
 
 **Populate from fact, not from anticipation.** The Slurm values are recorded because they
-are verified. PBS values arrive with Aurora; inventing them now would be the overclaim
+are verified. The PBS values came from the manual pages installed with Aurora's PBS client,
+not from analogy to Slurm; guessing them would be the overclaim
 [§stacks](#stacks) rule 2 exists to prevent, in a schema instead of a stack. The same rule
 binds the site fields: `node_local_tmp_variable` is recorded only where it was actually
 checked, and stays absent elsewhere. An unrecorded field means *nobody has established

@@ -4,12 +4,17 @@
   "data": {
     "schema_version": 2,
     "name": "aurora",
-    "summary": "ALCF HPE Cray EX system with Intel Xeon CPU Max and six Intel Data Center GPU Max 1550 GPUs per node, scheduled by PBS; the handbook's batch-script tools do not yet cover PBS (see notes.md).",
+    "summary": "ALCF HPE Cray EX system with Intel Xeon CPU Max and six Intel Data Center GPU Max 1550 GPUs per node, scheduled by PBS and launched with Cray PALS mpiexec.",
     "public_login_hosts": [
       "aurora.alcf.anl.gov"
     ],
     "scheduler": {
-      "type": "pbs"
+      "type": "pbs",
+      "site_launcher": {
+        "command": "mpiexec",
+        "overlap_option": null,
+        "steps_share_allocation": true
+      }
     },
     "filesystems": {
       "home": {
@@ -198,6 +203,7 @@
       "https://docs.alcf.anl.gov/aurora/compiling-and-linking/",
       "https://docs.alcf.anl.gov/aurora/data-management/lustre/flare/",
       "https://docs.alcf.anl.gov/aurora/data-management/daos/daos-overview/",
+      "https://docs.alcf.anl.gov/running-jobs/example-job-scripts/",
       "Aurora login-node lscpu, Lmod default modules, ocloc device list, and PBS qstat -Q, -Qf and -Bf records, read 2026-09-30"
     ]
   }

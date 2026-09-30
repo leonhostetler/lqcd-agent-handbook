@@ -14,6 +14,7 @@
         "account_option_short": "-A",
         "chdir_option": "--chdir",
         "chdir_option_short": "-D",
+        "unpinned_start_directory": "submission",
         "output_option": "--output",
         "output_option_short": "-o",
         "error_option": "--error",
@@ -44,10 +45,30 @@
         "accounting_format_option": "--format",
         "accounting_units_option": "--units",
         "step_accounting_fields": "JobID,JobName,Elapsed,NNodes,NTasks,MaxRSS,MaxRSSNode,AveRSS,MaxVMSize,State,ExitCode"
+      },
+      "pbs": {
+        "submit_command": "qsub",
+        "interactive_command": "qsub",
+        "query_command": "qstat",
+        "queues_command": "qstat",
+        "directive_prefix": "#PBS",
+        "account_option": "-A",
+        "chdir_option": null,
+        "unpinned_start_directory": "home",
+        "output_option": "-o",
+        "error_option": "-e",
+        "append_output_option": null,
+        "job_id_variable": "PBS_JOBID",
+        "array_job_id_variable": "PBS_ARRAY_ID",
+        "array_task_id_variable": "PBS_ARRAY_INDEX",
+        "submit_dir_variable": "PBS_O_WORKDIR",
+        "control_command": "qstat",
+        "job_record_option": "-f",
+        "accounting_command": "qstat"
       }
     },
     "evidence": "docs",
-    "observed": "2026-08-28",
+    "observed": "2026-09-30",
     "observed_on": {
       "requirements": "scheduler-submission-surface"
     },
@@ -59,7 +80,9 @@
       "https://slurm.schedmd.com/sinfo.html",
       "https://slurm.schedmd.com/srun.html",
       "https://slurm.schedmd.com/sacct.html",
-      "https://slurm.schedmd.com/sstat.html"
+      "https://slurm.schedmd.com/sstat.html",
+      "PBS Professional 2026.1 qsub(1B), qstat(1B) and pbs_job_attributes(7B) manual pages, as installed with the PBS client",
+      "https://centers.hpc.mil/users/docs/advancedTopics/Job_Arrays.html"
     ]
   }
 }

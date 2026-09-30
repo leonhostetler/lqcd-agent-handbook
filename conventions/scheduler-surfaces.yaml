@@ -17,6 +17,8 @@ surfaces:
     account_option_short: "-A"
     chdir_option: "--chdir"
     chdir_option_short: "-D"
+    # Without the chdir option a job starts in the directory the submit command ran in.
+    unpinned_start_directory: submission
     output_option: "--output"
     output_option_short: "-o"
     error_option: "--error"
@@ -56,8 +58,40 @@ surfaces:
     # maximum over the step's tasks, not a job-wide mean, so MaxRSSNode is what
     # makes a per-node ceiling comparison possible at all.
     step_accounting_fields: "JobID,JobName,Elapsed,NNodes,NTasks,MaxRSS,MaxRSSNode,AveRSS,MaxVMSize,State,ExitCode"
+  pbs:
+    # PBS Professional. Interactive jobs are the submit command with -I, so the two
+    # commands are the same word; queue status is qstat -Q.
+    submit_command: qsub
+    interactive_command: qsub
+    query_command: qstat
+    queues_command: qstat
+    directive_prefix: "#PBS"
+    account_option: "-A"
+    # PBS has no directive that pins a job's working directory. With the default
+    # sandbox (unset or HOME) the job starts in the user's home directory, so a script
+    # must change to its job directory by absolute path itself.
+    chdir_option: null
+    unpinned_start_directory: home
+    output_option: "-o"
+    error_option: "-e"
+    # No append option: PBS writes each stream to its destination when the job ends.
+    append_output_option: null
+    job_id_variable: PBS_JOBID
+    array_job_id_variable: PBS_ARRAY_ID
+    array_task_id_variable: PBS_ARRAY_INDEX
+    # The directory qsub ran in. Under submission by absolute path it is not the job
+    # directory, and nothing in PBS makes it the start directory either.
+    submit_dir_variable: PBS_O_WORKDIR
+    # The job's full record, as requested and granted, with resources_used so far.
+    # qstat -x -f reads the same record after the job ends, for as long as the server
+    # keeps job history; PBS keeps no per-step record.
+    control_command: qstat
+    job_record_option: "-f"
+    accounting_command: qstat
+    # No parallel launcher: MPI launch belongs to the site (a machine profile records it
+    # as scheduler.site_launcher).
 evidence: docs
-observed: "2026-08-28"
+observed: "2026-09-30"
 observed_on:
   requirements: scheduler-submission-surface
 review_by: "2027-08-28"
@@ -69,3 +103,5 @@ sources:
   - https://slurm.schedmd.com/srun.html
   - https://slurm.schedmd.com/sacct.html
   - https://slurm.schedmd.com/sstat.html
+  - PBS Professional 2026.1 qsub(1B), qstat(1B) and pbs_job_attributes(7B) manual pages, as installed with the PBS client
+  - https://centers.hpc.mil/users/docs/advancedTopics/Job_Arrays.html

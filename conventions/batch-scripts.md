@@ -547,7 +547,13 @@ and the only one.
 
 **Resolve from `$PWD`, which the directive set, and assert.** Under a pinned working directory
 `$PWD` is the one location the scheduler guarantees; the submission-directory variable is
-diagnostic — record it, never `cd` to it — and `$0` is the spool copy:
+diagnostic — record it, never `cd` to it — and `$0` is the spool copy.
+
+**Where the scheduler has no working-directory directive, the script pins it itself.** The
+surface record says so with a null working-directory option, and names where an unpinned job
+starts instead — under PBS, the home directory. Make the script's first action a `cd` to the
+job directory by absolute path, then resolve from `$PWD` as below. Everything else holds:
+the submission-directory variable is still only where the submit command ran.
 
 ```bash
 here=$(pwd -P)   # what the working-directory directive pinned; nothing else is authoritative
@@ -671,7 +677,8 @@ the job.
 - **Run a copy, never the real job directory.** The point is to reach *past* the preflight,
   which means the script will create and write things.
 - **Present the scheduler's environment, not your shell's.** The working directory is what the
-  directive pins; the submission-directory variable names a directory that is *not* the job
+  directive pins, or, where the scheduler has none, where its surface record says an unpinned
+  job starts; the submission-directory variable names a directory that is *not* the job
   directory; `$0` is a spool copy; the job-id variable is set and nothing else the scheduler
   exports is, so an undeclared variable aborts here rather than on the machine. A harness that
   inherits the shell's environment tests a case the machine never presents — and every harness

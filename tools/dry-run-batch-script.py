@@ -12,8 +12,9 @@ variable is never the job directory. The machine presented a case neither harnes
 
 So the environment model is the point, and it is deliberately unlike the shell it runs in:
 
-  * the working directory is the one the script's own directive pins (or a directory that is
-    NOT the job directory when no directive pins one, which is what an inherited cwd risks);
+  * the working directory is the one the script's own directive pins; when none pins it, it
+    is where the scheduler's surface says an unpinned job starts -- the home directory, or a
+    directory that is NOT the job directory standing for wherever the submit command ran;
   * the scheduler's submission-directory variable names a directory that is NOT the job
     directory, because a script is normally submitted by absolute path from elsewhere;
   * the script that runs is a copy in a spool directory, so `$0` resolves there;
@@ -69,7 +70,7 @@ import subprocess
 import sys
 import tempfile
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 # Frontend tooling paths an agent sandbox materialises as unreadable placeholders in whatever
 # directory the session's shell stands in -- including a job directory. They are never job
@@ -203,8 +204,12 @@ def write_stubs(bin_dir: pathlib.Path, surface: dict, vendors: set[str], args,
         name = site_launcher["command"]
         if name == launcher:
             raise Refusal(f"site launcher {name!r} would replace the parallel launcher's stub")
+        # A launcher whose concurrent launches share the allocation with no option at all
+        # has no contention to model; otherwise a null overlap option means it never can.
+        shares = bool(site_launcher.get("steps_share_allocation"))
         launcher_stub(bin_dir, name, site_launcher.get("overlap_option") or "",
-                      site_launcher.get("overlap_option") is None, args.launcher_output)
+                      site_launcher.get("overlap_option") is None and not shares,
+                      args.launcher_output)
 
     for key in ("query_command", "queues_command", "control_command",
                 "accounting_command", "live_step_command"):
@@ -416,14 +421,20 @@ def main(argv=None) -> int:
             raise Refusal(f"--short-stand-in names no declared --stand-in: {args.short_stand_in}")
 
         # -- the environment the scheduler presents ----------------------------
-        chdir_value = _CBS.directive_value(directives, surface["chdir_option"],
-                                           surface.get("chdir_option_short"))
+        chdir_value = None
+        if surface["chdir_option"]:
+            chdir_value = _CBS.directive_value(directives, surface["chdir_option"],
+                                               surface.get("chdir_option_short"))
         if chdir_value:
             cwd = confined_path(chdir_value, rewrites, sandbox_real,
                                 f"the {surface['chdir_option']} directive")
             if not cwd.is_dir():
                 raise Refusal(f"the {surface['chdir_option']} directive names {chdir_value}, which "
                               "does not exist in the copied job directory")
+        elif surface.get("unpinned_start_directory") == "home":
+            # PBS starts an unpinned job in the home directory, which is never the job
+            # directory, so a script relying on its start directory fails here too.
+            cwd = sandbox / "home"
         else:
             cwd = submitted_from
         spool_copy = spool / script.name
@@ -455,7 +466,10 @@ def main(argv=None) -> int:
 
         before_files = snapshot(job)
         print(f"=== dry run {VERSION}: {script.name}  [{kind}{': ' + detail if detail else ''}]")
-        print(f"    machine {args.machine}; cwd {'pinned by directive' if chdir_value else 'NOT pinned (a non-job directory)'};"
+        where = ("pinned by directive" if chdir_value else
+                 "NOT pinned (the home directory)" if cwd == sandbox / "home" else
+                 "NOT pinned (a non-job directory)")
+        print(f"    machine {args.machine}; cwd {where};"
               f" {surface['submit_dir_variable']} is not the job directory; $0 is a spool copy;"
               f" {rewritten_files} copied file(s) had roots rewritten")
         proc = subprocess.run(["/usr/bin/env", "-i"] + [f"{k}={v}" for k, v in env.items()]

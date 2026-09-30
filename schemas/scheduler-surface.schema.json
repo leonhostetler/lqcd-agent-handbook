@@ -47,7 +47,8 @@
           "job_id_variable",
           "array_job_id_variable",
           "array_task_id_variable",
-          "submit_dir_variable"
+          "submit_dir_variable",
+          "unpinned_start_directory"
         ],
         "properties": {
           "submit_command": {
@@ -69,7 +70,11 @@
             "type": "string"
           },
           "chdir_option": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null when the scheduler has no such option; a consumer must not invent one."
           },
           "output_option": {
             "type": "string"
@@ -83,6 +88,13 @@
           "chdir_option_short": {
             "type": "string"
           },
+          "unpinned_start_directory": {
+            "enum": [
+              "submission",
+              "home"
+            ],
+            "description": "Where a job starts when no working-directory directive pins it: the directory the submit command ran in, or the user's home directory."
+          },
           "output_option_short": {
             "type": "string"
           },
@@ -90,7 +102,11 @@
             "type": "string"
           },
           "append_output_option": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null when the scheduler has no such option; a consumer must not invent one."
           },
           "exclude_nodes_option": {
             "type": "string"

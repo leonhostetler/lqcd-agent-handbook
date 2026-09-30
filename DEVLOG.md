@@ -4023,3 +4023,58 @@ values.
 **Detection.** The detector matches `aurora.alcf.anl.gov` and any host under it. That
 covers the login node's `hostname -f` without committing the internal host name. Whether a
 compute node's `hostname -f` ends the same way was not checked, because no job was run.
+
+## 2026-09-30 — The pbs scheduler surface (X.11)
+
+The operator asked for X.11 right after the Aurora profile landed. It was scoped in that
+entry as a schema change, and it was one.
+
+**Where the PBS values came from.** The PBS 2026.1 manual pages installed with Aurora's PBS
+client supplied `qsub(1B)`, `qstat(1B)` and `pbs_job_attributes(7B)`: the directive prefix,
+`-A`, `-o`/`-e`/`-j`, the exported variables, `PBS_O_WORKDIR`, the `sandbox` attribute, and
+`qstat -x`. The live server keeps job history for 120 hours (`qstat -Bf`), so `qstat -x -f`
+reads a finished job's record. The array variables are absent from those pages. They come
+from PBS Professional site guides and stay unconfirmed until an array job runs. ALCF's
+example-job-scripts page documents backgrounding several `mpiexec` launches at once.
+
+**The two structural changes, and why each is a field.**
+- `chdir_option` and `append_output_option` became nullable, because PBS has neither. The
+  checker skips a null option rather than warning that it is unpinned. Leaving it would
+  tell every PBS script to pin something PBS cannot pin.
+- `unpinned_start_directory` is required in every surface: `submission` for Slurm, `home` for
+  PBS. Where a script cannot pin its working directory, the start directory is the fact that
+  decides whether `$PWD` resolves. The harness had silently assumed the submission
+  directory, which under PBS would test a case the machine never presents. A test pins this:
+  set `pbs` to `submission` and two tests fail.
+
+**PALS `mpiexec` is a site launcher that shares.** It is not PBS's launcher, so the `pbs`
+surface names none, and Aurora's profile records it as `scheduler.site_launcher`. The
+existing model for a `null` overlap option is "never shares", which is right for `ibrun` and
+wrong here: the harness would have refused the second of two documented concurrent
+launches. The new optional `steps_share_allocation` says so. A test pins it too: set it to
+`false` and the concurrent-launch and guard tests fail.
+
+**The guard and `qsub -I`.** Under PBS the interactive command is the submit command, so
+the guard now sees `qsub -I` and would have refused it with "submit by absolute path". It
+now names the actual reason: an interactive allocation has no script to check. The check
+applies only where the two commands are one word, because to Slurm's submit command `-I`
+means `--immediate`.
+
+**A duplicate finding fixed on the way.** With submit and interactive the same word, the
+checker reported every nested `qsub` twice.
+
+**Statements reconciled.** In `conventions/batch-scripts.md`, the `$PWD` recipe and the
+dry-run bullet presumed a working-directory directive. Both are amended, and the leaf's
+"schedulers differ" sentence under *Directives and submission* is confirmed as written. In
+`ARCHITECTURE.md` §scheduler-surface, the Slurm-count sentence, "Aurora then arrives as one
+new entry" and "PBS values arrive with Aurora" are rewritten. The decision-log row gains the
+null-option clause. `machines/aurora/notes.md` loses its "tools do not cover Aurora"
+warning and keeps the Intel-sampler one.
+
+**Not verified: no job ran.** A probe script is in the operator's working project. It passed
+the checker (one warning: no Intel sampler) and the harness's positive control under this
+change. X.11 now owns reconciling with its result.
+
+**Seen and left alone.** The checker's truncating-redirection note fires on a `>` inside a
+default expansion such as `${VAR:-<x>}`. It is a note rather than a warning, and fixing it
+is outside this change.
