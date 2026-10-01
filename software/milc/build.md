@@ -65,6 +65,18 @@ assignment in one quoted array element because values including `CTIME`, `OPT`, 
 ownership error instead of relying on command-line ordering. Before the build, print or capture
 the resolved arrays in provenance so that the command can be reproduced.
 
+**A command-line assignment replaces the Makefile's own additions to that variable.** GNU make
+gives a command-line variable precedence over the Makefile's ordinary `+=`, while an environment
+variable is appended to. So a stack's `LDFLAGS` is the complete link value, not a prefix. With
+`OMP=true` and `COMPILER=gnu` the Makefile appends `-fopenmp ... -lgomp` to `LDFLAGS` while the
+objects still compile with `-fopenmp`, so `LDFLAGS=-g` on the command line compiles and then
+fails at the final link on unresolved OpenMP symbols, unless the compiler wrapper supplies
+OpenMP itself. Name the runtime of the compiler actually behind the wrapper, which `COMPILER`
+does not tell you: `-fopenmp -lgomp` for GCC; `-fopenmp` alone for Intel `icx`, where adding
+`-lgomp` links a second OpenMP runtime (see the
+[Aurora stack notes](../../machines/aurora/stacks/milc-sycl-quda-ks-spectrum-2026q4/notes.md)).
+After linking, `readelf -d` must list exactly one of `libgomp`, `libiomp5` or `libomp`.
+
 For example, this profile fragment:
 
 ```yaml

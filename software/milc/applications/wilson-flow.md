@@ -104,12 +104,9 @@ that profile is sufficient for the first MILC build attempt even when no Wilson-
 stack exists on that machine. That situation limits runtime validation; it is not a reason to
 reinspect QUDA source or rebuild QUDA before compiling MILC.
 
-For a GNU/OpenMP build, take care with a command-line `LDFLAGS` assignment. GNU make gives that
-assignment precedence over the Makefile's ordinary `LDFLAGS += -fopenmp ... -lgomp`, so an
-assignment such as `LDFLAGS=-g` can compile successfully and then fail at the final link with
-unresolved `GOMP_parallel` and `omp_*` symbols. The validated DeltaAI build used
-`LDFLAGS="-g -fopenmp -lgomp"`. Resolve other compiler-family runtime flags from the selected
-machine stack rather than copying the GNU flags.
+A command-line `LDFLAGS` must carry the OpenMP link flags itself; [`../build.md`](../build.md)
+owns the rule and which runtime to name per compiler. The validated DeltaAI build used
+`LDFLAGS="-g -fopenmp -lgomp"`.
 
 ## Flow rows and endpoint semantics
 
