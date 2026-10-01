@@ -7,6 +7,8 @@ Entries are grouped by scoped machine.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
+| [MILC ks_spectrum_hisq on SYCL QUDA on Aurora](aurora/stacks/milc-sycl-quda-ks-spectrum-2026q4/notes.md) | Machine options and reproduction for the validated Aurora MILC stack, and why the upstream Aurora link flags must not be copied - with icx they link GNU and Intel OpenMP runtimes together, which collapsed every rank's threads onto one CPU and returns thread id 0 on every thread. | Rebuilding or validating the milc-sycl-quda-ks-spectrum-2026q4 stack, building any OpenMP MILC application with the Intel compilers on Aurora, or reusing the upstream Aurora MILC scripts. |
+| [QUDA SYCL milc-cg stack on Aurora](aurora/stacks/quda-sycl-milc-cg-2026q4/notes.md) | Reproduction commands, the feature/sycl branch requirement, and the runtime placement for the validated Aurora SYCL QUDA stack, including why QUDA_ENABLE_MPS=1 is safe here only together with QUDA_ENABLE_P2P=0. | Rebuilding or validating the quda-sycl-milc-cg-2026q4 stack, or launching QUDA on Aurora. |
 | [Working on Aurora](aurora/notes.md) | Where a PBS job starts and how to reach the job directory, node-target resolution, submission requirements (filesystems resource, place, project directory), where live queues differ from ALCF's table, PALS mpiexec rank and GPU-tile placement, build placement, and storage and network rules for ALCF Aurora. | Building software or preparing a job on Aurora. |
 
 ## deltaai

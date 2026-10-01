@@ -64,7 +64,7 @@ class SliceTwoStackTests(unittest.TestCase):
 
     def test_schema_uses_values_not_vendor_specific_structure(self):
         stacks = [yaml.safe_load(path.read_text()) for path in self.stack_paths]
-        self.assertEqual({stack["build"]["target"] for stack in stacks}, {"CUDA", "HIP"})
+        self.assertEqual({stack["build"]["target"] for stack in stacks}, {"CUDA", "HIP", "SYCL"})
         target_schema = self.schema["$defs"]["build"]["properties"]["target"]
         self.assertEqual(target_schema, {"type": "string", "minLength": 1})
         self.assertNotIn("gpu_arch", self.schema["$defs"]["build"]["required"])

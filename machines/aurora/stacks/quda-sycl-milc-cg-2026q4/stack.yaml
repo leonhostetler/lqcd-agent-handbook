@@ -1,0 +1,163 @@
+schema_version: 1
+machine: aurora
+software: quda
+profile: milc-cg
+validated_on:
+  - gpu-pvc
+tested_software:
+  quda:
+    commit: 0616968dec1858307efaa8ff181c9ebead44e0e0
+    branch: feature/sycl
+    forked_from_default: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+reference_sources:
+  milc_aurora_compile_script:
+    commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+  eigen:
+    version: 3.4.0
+    acquisition: QUDA CMake download
+tested_toolchain:
+  environment: Aurora software environment 26.181.0, site defaults after module reset
+  modules:
+    - gcc/14.3.0
+    - oneapi/release/2026.1.0
+    - mpich/prd/5.0.0.aurora_test.87e2045
+    - libfabric/2.3.1
+    - cray-pals/1.8.0
+    - cray-libpals/1.8.0
+    - cmake/3.31.11
+  sycl:
+    compiler: icpx through mpicxx
+    version: Intel oneAPI DPC++/C++ 2026.1.0 (2026.1.0.20260617)
+    targets: spir64_gen
+    device: pvc
+  mpi:
+    module: mpich/prd/5.0.0.aurora_test.87e2045
+  cmake: 3.31.11
+build:
+  type: RELEASE
+  target: SYCL
+  gpu_arch: pvc
+  generator: Unix Makefiles
+  install_layout: <build-dir>/usqcd
+  profile_options_from: software/quda/build-profiles.yaml#milc-cg
+  machine_options:
+    CMAKE_C_COMPILER: mpicc
+    CMAKE_CXX_COMPILER: mpicxx
+    CMAKE_INSTALL_LIBDIR: lib
+    QUDA_TARGET_TYPE: SYCL
+    QUDA_BUILD_SHAREDLIB: true
+    environment:
+      QUDA_SYCL_TARGETS: spir64_gen
+      SYCL_LINK_FLAGS: -Xs "-device pvc" -fsycl-device-code-split=per_kernel -fsycl-max-parallel-link-jobs=32 -flink-huge-device-code -Xs "-options -ze-opt-large-register-file"
+      QUDA_WARP_SIZE: 16
+      QUDA_MAX_BLOCK_SIZE: 512
+      QUDA_MAX_ARGUMENT_SIZE: 2048
+      QUDA_TEST_NUMPROCS: 1
+  dependency_acquisition:
+    mode: QUDA CMake downloads
+    network_required_at_configure: true
+  cost:
+    where: login
+    command: cmake --build <build-dir> --target install --parallel 16
+    parallelism: 16
+    wallclock: 8m36.06s
+    timing_scope: Fresh out-of-source build and install after a fresh configure, complete test suite included (31 installed test executables).
+    maximum_reported_rss_kib: 1432260
+    memory_scope: Maximum RSS reported by GNU time for the command, not aggregate build-process memory.
+validation:
+  date: "2026-10-01"
+  submitted_by: agent
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 1
+    queue: debug
+    mpi_ranks: 12
+    gpus_per_rank: one tile
+    visible_gpu_devices_per_rank: 1
+    accelerator: Intel Data Center GPU Max 1550, one tile per rank
+    rank_grid: [1, 2, 2, 3]
+  runtime:
+    communication: QMP over MPICH
+    launcher: mpiexec -n 12 --ppn 12 --cpu-bind list:1-8:9-16:17-24:25-32:33-40:41-48:53-60:61-68:69-76:77-84:85-92:93-100 /soft/tools/mpi_wrapper_utils/gpu_tile_compact.sh
+    gpu_binding: ZE_AFFINITY_MASK=<gpu>.<tile> per local rank through ALCF's gpu_tile_compact.sh, so each rank sees one device; QUDA_ENABLE_MPS=1 maps every rank's counted gpuid to 0.
+    cpu_binding: Eight physical cores per rank, skipping the reserved cores 0 and 52.
+    ZE_FLAT_DEVICE_HIERARCHY: COMPOSITE
+    QUDA_ENABLE_P2P: 0
+    QUDA_ENABLE_MPS: 1
+    QUDA_ENABLE_GDR: 1
+    QUDA_DETERMINISTIC_REDUCE: unset
+    QUDA_MILC_HISQ_RECONSTRUCT: 13
+    QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY: 9
+    MPICH_GPU_SUPPORT_ENABLED: unset; not a Cray MPICH environment
+    OMP_NUM_THREADS: 8
+    OMP_PROC_BIND: spread
+    OMP_PLACES: unset
+    ONEAPI_DEVICE_SELECTOR: level_zero:gpu
+    MPIR_CVAR_CH4_OFI_ENABLE_GPU_PIPELINE: 1
+    tunecache_policy_keys: p2p=0,gdr=1 on all 8 multi-GPU dslash policy rows; commDim 0111
+    resource_path: Fresh writable directory for gpu-pvc.
+    device_memory_monitor: tools/monitor-gpu.sh intel, xpu-smi 1.3.5, 1 s interval, achieved period 1 s
+    peak_device_memory_mib: 4798
+    peak_device_memory_scope: Whole job including the companion MILC legs; one node; sampled.
+  tests:
+    - name: staggered_dslash_test
+      filter: StaggeredDslashTest.verify
+      operator: asqtad MatPC
+      precision: single
+      local_lattice: [6, 6, 6, 6]
+      l2_relative_deviation: 1.576111e-9
+      maximum_deviation: 7.112470e-6
+      failures_at_1e-6: 0
+      result: pass
+    - name: staggered_invert_test
+      filter: EvenOdd/StaggeredInvertTest.verify/cg_mat_pc_direct_pc_double_l2
+      operator: asqtad
+      solver: cg
+      precision: double
+      local_lattice: [6, 6, 6, 6]
+      iterations: 181
+      requested_l2_relative_residual: 1.0e-6
+      true_l2_relative_residual: 9.898125e-7
+      result: pass
+    - name: io_test
+      filter: Gauge/GaugeIOTest.*
+      local_lattice: [6, 6, 6, 6]
+      precisions: [double, single]
+      result: pass
+  scope_limits:
+    - Built from feature/sycl, not develop. develop at the fork point has no SYCL backend (lib/targets holds cuda, generic and hip only), so this stack does not transfer to a develop checkout.
+    - The MILC interface was exercised by the companion milc-sycl-quda-ks-spectrum-2026q4 stack, not by these tests.
+    - The profile compiled eigensolver support, but validation did not exercise an eigensolve, preserved deflation space, or deflated solve.
+    - Validation covers one node and the P2P-disabled path only; no inter-node halo crossed the fabric, so GPU-Direct RDMA over Slingshot is requested (gdr=1) but not shown to transfer GPU to GPU.
+    - The run populated a fresh tunecache and is not benchmark evidence.
+evidence: experiment
+observed: "2026-10-01"
+observed_on:
+  machine: aurora
+  node_type: gpu-pvc
+  software:
+    quda:
+      commit: 0616968dec1858307efaa8ff181c9ebead44e0e0
+      branch: feature/sycl
+      forked_from_default: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+  toolchain:
+    oneapi: 2026.1.0
+    mpich: 5.0.0.aurora_test.87e2045
+sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Aurora/compile_quda.sh
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Aurora/submit.qsub
+  - https://github.com/lattice/quda/blob/0616968dec1858307efaa8ff181c9ebead44e0e0/lib/targets/sycl/target_sycl.cmake
+  - https://github.com/lattice/quda/blob/0616968dec1858307efaa8ff181c9ebead44e0e0/lib/targets/sycl/comm_target.cpp
+  - https://github.com/lattice/quda/blob/0616968dec1858307efaa8ff181c9ebead44e0e0/include/communicator_quda.h
+  - agent-submitted validation run reviewed in the working directory; raw scheduler output is not committed
