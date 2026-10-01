@@ -4305,3 +4305,47 @@ the exports. The two-node Aurora job was the first submission checked with `--mo
 test failure. The harness keeps no suite output, so the test is unidentified. Four reruns on the
 unchanged tree passed all 605 tests. The change touched only YAML and notes, so an intermittent
 test is the likely cause, but this is not established.
+
+## 2026-10-01 — Four intake items from a QUDA pull-request review
+
+A QUDA pull-request review on DeltaAI ran in user mode and recorded five candidates in its own
+working directory. The operator switched to developer mode and approved four: items 1, 2, 3 and 5
+below. Item 4, a billing observation, was not taken up.
+
+1. **Dry-run harness 1.5.1: a perturbed directive now reaches the run.** `main()` read the
+   script's directives from the original text before the job copy was perturbed. So a `--negative`
+   that edited the working-directory directive ran unperturbed and was recorded as a guard that
+   never fired. Directives are now read from the perturbed copy. A missing working directory is
+   refused with the reason, since the scheduler's fallback is not modelled. Two tests were added,
+   and both failed against 1.5.0. The submission guard's minimum harness version is unchanged:
+   a 1.5.0 receipt was never wrongly marked fired, only wrongly marked unfired.
+2. **QUDA ctest's absolute launcher.** `QUDA_CTEST_LAUNCH` is built from the MPI launcher that
+   CMake resolves, and every registered case records it as an absolute path. A dry run of a
+   ctest-driven job therefore called the real `srun` on the login node. Nothing was allocated,
+   because each call failed against the harness's fake job id. The universal half went into the
+   batch-script leaf's stub bullet; the QUDA half went into `software/quda/build.md`.
+3. **DeltaAI `ghx4-interactive`: one job per user, queued or running.** NCSA's running-jobs page
+   states it, and three same-moment submissions were rejected with `QOSMaxSubmitJobPerUserLimit`.
+   Recorded as `maximum_submitted_per_user: 1`, using the key `machines/vista` already uses, with
+   the consequence in the notes. The same page gives the partition a charge factor of 2.0, against
+   1.0 for `ghx4`; the operator approved recording it after the review's ledger had counted
+   interactive GPU-hours at 1.0. It is recorded as `charge_factor: 2.0`, with a sentence in the
+   notes. The profile's `charge_basis` still describes the fraction that is charged, and the factor
+   multiplies it.
+5. **Refuse non-finite values before scoring.** A comparison tool's `max()` dropped a NaN, so a
+   NaN-carrying leg scored as agreement. Added to the diagnostic-rig leaf with its IEEE mechanism.
+
+**Reconciliation (obligation 11).**
+- Batch-script leaf: the step 9 "Present the scheduler's environment" bullet says the working
+  directory is what the directive pins. *Confirmed*: 1.5.1 now holds it for negative runs too.
+  The "Negative test" bullet was *amended*, and the "Make sure the stubs win" bullet *amended*.
+  No other statement in the leaf concerns directive perturbation or absolute launch paths.
+- `software/quda/build.md`: no prior statement about ctest's launcher.
+  `software/quda/development.md` says to "run the relevant CTest registration". *Confirmed*:
+  the new text says how to do that from a batch script, not whether to.
+- DeltaAI notes and profile: the interactive-limit sentence was *amended*. The profile's three
+  existing interactive limits are *confirmed* unchanged. The notes' statement that oversized CPU
+  or memory requests can raise the charged fraction, and the profile's `charge_basis`, are both
+  *confirmed*: the factor multiplies the fraction and replaces neither.
+- Diagnostic-rig leaf: the "Evidence and limits" statement that the rules are empirical was
+  *amended*, to name this rule's mechanism.

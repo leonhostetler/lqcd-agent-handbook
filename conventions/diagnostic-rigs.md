@@ -154,6 +154,16 @@ diagnostic marker before it tested the exit status, so every leg carrying that m
 weaker label than it had earned. A scoring function is code and carries the same defect classes as
 any other.
 
+**Refuse a non-finite value before comparing or aggregating anything.** Every ordered comparison
+with a NaN is false, so the guard's direction decides the verdict. `abs(a - b) > tol` is false for a
+NaN difference and reports agreement, and a running maximum keeps its old value whenever
+`x > current` is false. Python's `max()` therefore drops a NaN anywhere but in first position:
+`max([1.0, nan, 2.0])` is `2.0`, while `max([nan, 1.0])` is `nan`. Sorting is undefined in the
+same way. So a leg that is mostly or entirely NaN can score as a small or zero difference, and
+whether it does depends on where in the list the NaN lands. Count the non-finite values on each
+side first, and report any nonzero count as a failure that is not scored, before computing any
+difference, maximum, or ranking.
+
 ## Reading a sampled resource trace
 
 Six rules, each recorded because getting it wrong produced a written-up conclusion that was later
@@ -253,7 +263,9 @@ than writing a placeholder.
 ## Evidence and limits
 
 Empirical, converted from recorded episodes in one operator campaign rather than argued from
-mechanism, except where a mechanism is named in the text. What transfers is the failure mode and
-the guard; no rate, threshold, sampling interval, or cost figure is claimed, and the illustrative
+mechanism, except where a mechanism is named in the text. The non-finite rule is the exception: its
+mechanism is IEEE 754 comparison semantics. It was observed once, in a separate campaign, when a
+comparison tool scored a NaN-carrying leg as agreement. What transfers is the failure mode and the
+guard; no rate, threshold, sampling interval, or cost figure is claimed, and the illustrative
 magnitudes are reported only to convey scale. Each rule above cost something specific in its source
 campaign, which is the only evidence offered that it is worth its space.
