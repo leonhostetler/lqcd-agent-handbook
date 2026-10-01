@@ -55,7 +55,9 @@
         "interactive_limits": {
           "maximum_nodes_per_job": 4,
           "maximum_walltime_hours": 2,
-          "maximum_running_node_hours_per_user": 8
+          "maximum_running_node_hours_per_user": 8,
+          "maximum_submitted_per_user": 1,
+          "charge_factor": 2.0
         }
       },
       "accounting": {

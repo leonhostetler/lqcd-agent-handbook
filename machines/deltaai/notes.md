@@ -54,4 +54,10 @@ Neither `/projects` nor `/work` has snapshots or backups.
 
 The `ghx4-interactive` partition is for short debugging and prototyping. Its two-hour,
 four-node, and eight-running-node-hour-per-user limits are recorded in the profile; use
-`ghx4` for larger or longer work.
+`ghx4` for larger or longer work. It also admits **one job per user, queued or running**. A
+second submission is rejected at submit time with `QOSMaxSubmitJobPerUserLimit` and is not
+queued, so a campaign of several jobs there is serial. Submit each job only after the previous
+one has left the queue, and treat a rejected submission as not submitted. The partition is also
+**charged at twice the `ghx4` rate**, a charge factor of 2.0, so a one-GPU job there bills two
+GH200-hours per hour. Count it at that rate in a budget ledger, and use `ghx4` when the queue
+wait allows.

@@ -43,6 +43,8 @@ site_policy:
       maximum_nodes_per_job: 4
       maximum_walltime_hours: 2
       maximum_running_node_hours_per_user: 8
+      maximum_submitted_per_user: 1  # queued or running, in any state
+      charge_factor: 2.0  # ghx4 is 1.0
   accounting:
     unit: GH200-hour
     charge_basis: Reserved GPU, CPU, or host-memory fraction, whichever is largest.
