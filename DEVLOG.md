@@ -4168,3 +4168,140 @@ declares it. The bullet now derives the short id as `${PBS_JOBID%%.*}`. The
 device-hierarchy bullet is confirmed. In `conventions/batch-scripts.md` the monitor
 requirements gain the vendor argument, and *Presence is not periodicity* gains the
 achieved-period paragraph.
+
+## 2026-10-01 — Aurora SYCL QUDA and MILC stacks validated
+
+Two stacks landed on Aurora's `gpu-pvc` node type: `quda-sycl-milc-cg-2026q4` and
+`milc-sycl-quda-ks-spectrum-2026q4`. They are the first SYCL stacks. The operator granted a
+campaign ceiling and declared the account, so for the first time on Aurora the agent submitted
+the jobs itself, each after the checker and the dry-run harness.
+
+**The upstream sample scripts were the starting point, and four things in them did not hold.**
+They are `systems/Aurora` at MILC `6b9b8a0`, last changed seven months earlier.
+- QUDA's SYCL backend exists only on `feature/sycl`, 494 commits ahead of `develop` and none
+  behind. `develop` accepts `QUDA_TARGET_TYPE=SYCL` but has no `lib/targets/sycl`. The script
+  clones `feature/sycl` on a first run and switches an existing checkout to `develop` on a
+  second.
+- The script's `--depth=16 --cpu-bind depth` for twelve ranks covers logical CPUs 0 to 191. That
+  includes reserved core 0 and doubles up ranks 6 to 11 on the hyperthreads of ranks 0 to 5.
+  This is inferred from the CPU numbering and was not run. The stacks use ALCF's explicit list.
+- `OFFLOAD=SYCL` is inert, because the Makefile tests lowercase `sycl`. The value is kept.
+- The MILC link flags load two OpenMP runtimes. That has its own entry below.
+
+The script's `QUDA_HOME` pointed at the QUDA build tree while QMP and QIO came from the install
+prefix. The stack uses the install prefix for all three, so the linked and loaded `libquda.so`
+are one copy. The oneAPI linker writes `DT_RUNPATH`, not the `DT_RPATH` the linkage leaf
+observed on Cray, which that leaf already says to confirm rather than assume.
+
+**`QUDA_ENABLE_MPS=1` was kept, with a reason.** The sample gives each rank one tile through
+`ZE_AFFINITY_MASK`, and that needs MPS to clamp QUDA's per-host `gpuid`. The rank-placement leaf
+records this clamp as corrupting the peer-to-peer decision on CUDA and HIP. On `feature/sycl`,
+`comm_peer2peer_possible` returns false and the whole peer-to-peer setup is gated on
+`QUDA_ENABLE_P2P`, which the sample sets to 0, so the corrupted branch is never reached. The
+stack notes say not to set MPS without P2P=0.
+
+**Build.** QUDA built on the login node in 8 min 36 s at 16 jobs, all tests included, with
+`pvc` device code compiled ahead of time. MILC built on the login node in 51 s at one job.
+
+**Validation.** On one node with twelve ranks, and then on two nodes with twenty-four, every
+leg passed:
+- QUDA's staggered dslash, double-precision CG with a checked host residual, and QIO gauge
+  read-back, each scored by its gtest verdict lines.
+- The MILC upstream sample: 24 of 24 solves converged.
+
+One-node correlators were bit-identical across a repeat. Two-node correlators agreed with them
+to 1.2e-7 relative, which the 1e-8 solver residual allows. A per-rank record on two nodes
+confirmed the tile wrapper's compact mapping. The tunecache carried `p2p=0,gdr=1`, with
+`commDim` 0111 on one node and 1111 on two.
+
+**Recorded as scope limits, not claims:** GPU-to-GPU transfer over the fabric, since the test
+messages are small and no transport log was taken; deflation; QIO through MILC; and the
+smearing and force paths.
+
+**Two tests pinned the old inventory and were updated with the stacks.** The schema-object
+count went from 39 to 41. The slice-2 vendor-target test now expects `{CUDA, HIP, SYCL}`: Aurora
+arrived as a value with no schema change, which is what that test exists to allow.
+
+**Reconciliation (§developer-obligations item 11).** Not incident-driven. Checked:
+- `software/quda/internals/rank-placement.md` on MPS: **confirmed**, and the stack notes say why
+  this backend is the exception.
+- `software/quda/runtime-environment.md`: **confirmed**. Every row is set or recorded as
+  deliberately unset. `MPICH_GPU_SUPPORT_ENABLED` is recorded as unset because this is not Cray
+  MPICH. The leaf's `p2p=7` witness does not apply with P2P disabled, and the notes say to read
+  `gdr=` alone.
+- `software/milc/quda-linkage.md`: **confirmed**. Its scope already says the dynamic tag is a
+  linker-default property.
+
+## 2026-10-01 — The complete-LDFLAGS rule, a third time, and the Intel case
+
+The MILC link on Aurora failed on 870 undefined OpenMP symbols. `build.md` passes every option
+as a make command-line argument, and a command-line `LDFLAGS` replaces the Makefile's
+`LDFLAGS += -fopenmp ... -lgomp`. The DeltaAI wilson-flow stack and the Vista CUDA 12 stack had
+each hit and fixed the same failure, but the rule lived only in the wilson-flow guide and in
+stack notes, so `build.md` never carried it.
+
+**The upstream form exposed a second defect.** The sample passes `LDFLAGS` through the
+environment, so the append survives. With `icx` behind `mpicc`, `-fopenmp` links Intel's
+`libiomp5`, and the appended `-lgomp` adds GNU's runtime ahead of it. A minimal program linked
+that way reported thread id 0 on all eight threads; linked with `-fopenmp` alone it reported
+eight. In a contrast leg run in the same job as the stack validation, the mixed binary placed
+all eight threads of every rank on one CPU. Compute-propagators time was 22.7 s against 13.3 s,
+one observation each. Its correlators were nevertheless bit-identical to the corrected
+binary's. `ks_meson_cont_mom` indexes per-thread accumulators by that id, so the collapse makes
+a race possible. That it stays latent at the sample's geometry is an inference, because each
+time slice is probably handled by one thread there.
+
+`build.md` now owns the rule: a command-line `LDFLAGS` is the complete value, and it must name
+the runtime of the compiler actually behind the wrapper, verified with `readelf -d`. The
+wilson-flow guide points to it.
+
+**Reconciliation (§developer-obligations item 11).**
+- `software/milc/build.md:63`, on whitespace in values: **confirmed**.
+- `software/milc/applications/wilson-flow.md`, the GNU/OpenMP paragraph: **amended** to a
+  pointer, keeping the DeltaAI value.
+- The DeltaAI wilson-flow stack and notes, and the Perlmutter wilson-flow notes: **confirmed**.
+  Both use `-fopenmp -lgomp`. The compiler behind their Cray `cc` wrapper was not rechecked.
+- The Vista CUDA 12 and CUDA 13 notes: **confirmed**.
+- The `LDFLAGS=-g` stacks on Perlmutter and DeltaAI: unchanged. The Vista notes attribute
+  DeltaAI's link to its Cray wrappers supplying OpenMP. Perlmutter's was not rechecked; its
+  executables' OpenMP runtimes are unexamined.
+
+## 2026-10-01 — milc-proofread-input.sh 1.2.0: SYCL executables and core files
+
+Run against the Aurora executable on a login node, 1.1.0 failed in three ways:
+- It aborted before reading input, because the SYCL QUDA library constructs a static device at
+  load and the site default selects `level_zero:gpu`.
+- The abort wrote a 342 MB core file into the caller's directory.
+- Its indeterminate verdict named a log the exit trap had already deleted.
+
+A by-hand parse with `ONEAPI_DEVICE_SELECTOR=opencl:cpu` reached `EOF on input`. 1.2.0 sets that
+selector when the executable links `libsycl`, runs under `ulimit -c 0`, and prints the log tail
+on an indeterminate verdict. Three tests were added. The SYCL and core-dump tests each failed
+against a tool with their guard removed. The core test raises the caller's limit first, so a
+shell already at 0 cannot pass it vacuously. Against the real executable, 1.2.0 passed the
+upstream sample and rejected a malformed input, leaving no core file.
+
+The change is in commit `c0f559d`, whose subject line is the dry-run harness's. That message
+was a mix-up; the operator chose not to rewrite pushed history. The harness change is
+`a703ef8`, and its message says so.
+
+## 2026-10-01 — Dry-run harness 1.5.0: module environment changes
+
+The Aurora validation script checks its executables with `ldd` after `module reset`. Under the
+harness that check failed. `module` was an executable stub, and a child process cannot change
+its parent's environment, so the oneAPI library path a real reset establishes never appeared.
+The workaround, `--env LD_LIBRARY_PATH=...`, sets the value before the script's own reset, a
+state the machine never presents.
+
+1.5.0 defines `module` as a shell function over the stub, in a harness-owned file passed through
+`BASH_ENV`. On `module reset` or `module load` it exports each `--module-env KEY=VALUE`.
+`PATH`, `BASH_ENV` and `DRYRUN_*` are refused, so real commands cannot come back ahead of the
+stubs. The receipt records the keys. Four tests were added, one of them showing `--env` caught
+setting the value too early. The positive test failed against a harness whose function skipped
+the exports. The two-node Aurora job was the first submission checked with `--module-env`.
+`conventions/batch-scripts.md` step 9 gained one sentence.
+
+**An unexplained suite failure.** The first full run after the two-node stack update reported a
+test failure. The harness keeps no suite output, so the test is unidentified. Four reruns on the
+unchanged tree passed all 605 tests. The change touched only YAML and notes, so an intermittent
+test is the likely cause, but this is not established.
