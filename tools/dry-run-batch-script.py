@@ -23,6 +23,17 @@ So the environment model is the point, and it is deliberately unlike the shell i
   * the environment is otherwise empty (`env -i`), so a startup file or an exported shell
     function cannot put a real command back ahead of a stub.
 
+Modules are a shell function, as Lmod's are, defined in a harness-owned file passed through
+BASH_ENV. It records what the script loads and, when the script runs `module reset` or
+`module load`, exports each `--module-env KEY=VALUE` into the script's own shell. An
+executable stub cannot do that: a child process cannot change its parent's environment, so a
+script that runs a real dynamic-library check after `module reset` -- `ldd` on its executables,
+say -- found none of the site's libraries and failed a positive control the machine would pass.
+`--env` is the wrong substitute, because it sets the value before the script's own reset, which
+on the machine would rebuild it. Take the values from the machine itself, for example
+`bash -lc 'module reset >/dev/null 2>&1; printf %s "$LD_LIBRARY_PATH"'`. PATH is refused: a
+module-provided PATH would put real commands back ahead of the stubs.
+
 Stubs replace the submit and interactive commands (they refuse), the parallel launcher (it
 logs the step and, where the surface records an overlap option, models step-allocation
 contention), a site launcher the machine profile records under `scheduler.site_launcher`
@@ -64,13 +75,14 @@ import json
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import stat
 import subprocess
 import sys
 import tempfile
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 # Frontend tooling paths an agent sandbox materialises as unreadable placeholders in whatever
 # directory the session's shell stands in -- including a job directory. They are never job
@@ -126,6 +138,9 @@ def parse_args(argv=None):
                          "to the frontend tooling paths, which are never copied")
     ap.add_argument("--module", action="append", default=[], metavar="NAME",
                     help="module the stub reports as loaded, besides those the script loads")
+    ap.add_argument("--module-env", action="append", default=[], metavar="KEY=VALUE",
+                    help="variable the module function exports into the script's shell when the "
+                         "script runs `module reset` or `module load`; repeatable; PATH is refused")
     ap.add_argument("--stub", action="append", default=[], metavar="NAME=TEXT",
                     help="extra command stub printing TEXT and exiting 0")
     ap.add_argument("--env", action="append", default=[], metavar="KEY=VALUE",
@@ -154,6 +169,34 @@ def make_stub(bin_dir: pathlib.Path, name: str, body: str) -> None:
     path = bin_dir / name
     path.write_text("#!/usr/bin/env bash\n" + body)
     path.chmod(0o755)
+
+
+MODULE_ENV_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def write_module_function(sandbox: pathlib.Path, bin_dir: pathlib.Path, specs: list[str]) -> list[str]:
+    """Write the BASH_ENV file defining `module` as a shell function over the stub, and the
+    file of exports it applies at `module reset` and `module load`. Returns the keys."""
+    exports, keys = [], []
+    for spec in specs:
+        key, sep, value = spec.partition("=")
+        if not sep or not MODULE_ENV_KEY.fullmatch(key):
+            raise Refusal(f"--module-env needs KEY=VALUE with a shell variable name, got {spec!r}")
+        if key == "PATH" or key == "BASH_ENV" or key.startswith("DRYRUN_"):
+            raise Refusal(f"--module-env may not set {key}: it would undo the stubs or the harness")
+        exports.append(f"export {key}={shlex.quote(value)}")
+        keys.append(key)
+    env_file = sandbox / "module-env.sh"
+    env_file.write_text("".join(line + "\n" for line in exports))
+    stub = shlex.quote(str(bin_dir / "module"))
+    (sandbox / "module-function.sh").write_text(f'''module() {{
+  {stub} "$@"
+  local rc=$?
+  case "${{1:-}}" in reset|load|add) . {shlex.quote(str(env_file))} ;; esac
+  return $rc
+}}
+''')
+    return keys
 
 
 def launcher_stub(bin_dir: pathlib.Path, name: str, overlap: str, never_overlaps: bool,
@@ -459,6 +502,7 @@ def main(argv=None) -> int:
 
         write_stubs(bin_dir, surface, vendors, args, site_launcher)
         (sandbox / "modules").write_text("")
+        module_env_keys = write_module_function(sandbox, bin_dir, args.module_env)
 
         env = {
             "PATH": f"{bin_dir}:/usr/bin:/bin",
@@ -470,6 +514,7 @@ def main(argv=None) -> int:
             "DRYRUN_REFUSED": str(sandbox / "refused"),
             "DRYRUN_MODULES": str(sandbox / "modules"),
             "DRYRUN_ALLOW_SEQUENTIAL_STEPS": "1" if args.allow_sequential_steps else "0",
+            "BASH_ENV": str(sandbox / "module-function.sh"),
             surface["job_id_variable"]: "999999",
             surface["submit_dir_variable"]: str(submitted_from),
         }
@@ -489,6 +534,7 @@ def main(argv=None) -> int:
         print(f"    machine {args.machine}; cwd {where};"
               f" {surface['submit_dir_variable']} is not the job directory; $0 is a spool copy;"
               f" {rewritten_files} copied file(s) had roots rewritten")
+        print(f"    module env at reset/load: {', '.join(module_env_keys) or 'none'}")
         proc = subprocess.run(["/usr/bin/env", "-i"] + [f"{k}={v}" for k, v in env.items()]
                               + ["bash", str(spool_copy)],
                               cwd=cwd, text=True, capture_output=True)
@@ -546,7 +592,8 @@ def main(argv=None) -> int:
             digest = sha256(script)
             receipt = load_receipt(script, digest)
             entry = {"utc": utc_now(), "kind": kind, "detail": detail, "rc": rc,
-                     "machine": args.machine, "step_refusals": len(refused)}
+                     "machine": args.machine, "step_refusals": len(refused),
+                     "module_env": module_env_keys}
             if kind == "positive":
                 entry["passed"] = passed
                 receipt["positive"] = entry

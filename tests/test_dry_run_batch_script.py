@@ -52,6 +52,16 @@ echo "job ${{SLURM_JOB_ID}} done"
 """
 
 
+# A script that checks a module-provided variable the way a library preflight does: absent
+# before its own `module reset`, present after it.
+MODULE_ENV_RECIPE = """here=$(pwd -P)
+[ -z "${{SITE_LIB_PATH:-}}" ] || {{ echo "FATAL: set before module reset"; exit 1; }}
+module reset
+[ "${{SITE_LIB_PATH:-}}" = "/opt/site lib" ] || {{ echo "FATAL: libraries unresolved"; exit 1; }}
+modules=$(module -t list 2>&1)
+"""
+
+
 class DryRunHarnessTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -131,6 +141,40 @@ class DryRunHarnessTests(unittest.TestCase):
         result = self.run_harness(script, "--module-drift", "stubmod/1.0")
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn("module drift", result.stdout)
+
+    def write_module_env_script(self) -> Path:
+        script = self.jobdir / "job.sbatch"
+        script.write_text((HEAD + MODULE_ENV_RECIPE).format(jobdir=self.jobdir))
+        return script
+
+    def test_module_env_is_exported_by_module_reset_not_before(self):
+        script = self.write_module_env_script()
+        result = self.run_harness(script, "--module-env", "SITE_LIB_PATH=/opt/site lib")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("module env at reset/load: SITE_LIB_PATH", result.stdout)
+        self.assertEqual(self.receipt(script)["positive"]["module_env"], ["SITE_LIB_PATH"])
+
+    def test_without_module_env_the_library_preflight_fails(self):
+        # The gap this option closes: an executable module stub cannot change the script's
+        # environment, so the preflight fails although the machine would pass it.
+        script = self.write_module_env_script()
+        result = self.run_harness(script)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("libraries unresolved", result.stdout)
+
+    def test_env_is_not_a_substitute_for_module_env(self):
+        # --env sets the value before the script's own reset, which the machine never does.
+        script = self.write_module_env_script()
+        result = self.run_harness(script, "--env", "SITE_LIB_PATH=/opt/site lib")
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("set before module reset", result.stdout)
+
+    def test_module_env_may_not_set_path(self):
+        script = self.write_module_env_script()
+        result = self.run_harness(script, "--module-env", "PATH=/usr/local/bin")
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("may not set PATH", result.stdout)
+        self.assertFalse(script.with_name(script.name + ".dry-run-receipt.json").exists())
 
     def test_stand_in_outside_the_sandbox_is_refused_before_anything_runs(self):
         """An earlier harness created stand-ins wherever a declaration pointed."""

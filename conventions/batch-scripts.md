@@ -701,7 +701,10 @@ the job.
   the submission command itself so that it **refuses** — a batch script must never submit
   another job, and the refusal turns that mistake into a visible failure. A stub answers on
   the stream the real command uses: a modules listing that arrives on stdout where the real
-  one arrives on stderr certifies nothing about a guard that reads stderr.
+  one arrives on stderr certifies nothing about a guard that reads stderr. It also changes what
+  the real command changes: `module reset` rebuilds the job shell's library path, so a script
+  that runs a real library check after it needs the site's values supplied at the reset
+  (`--module-env`), not before it (`--env`).
 - **Make sure the stubs win.** A shell startup file or an exported shell function can put the
   real command back ahead of them; run with an empty environment, or the run silently tests
   nothing.
