@@ -27,9 +27,19 @@
 # links the toolkit's stubs under those names in a private directory. The variables
 # are ignored by other MPI libraries. Proofreading returns before setup_layout(), so
 # no GPU or halo code runs either way.
+#
+# A SYCL-linked executable dies earlier still, at library load: the SYCL QUDA library
+# constructs a static device, and with no GPU the SYCL runtime throws "No device of
+# requested type available" before main. When the executable links libsycl, the parse
+# therefore runs with ONEAPI_DEVICE_SELECTOR=opencl:cpu, which overrides a site default
+# such as level_zero:gpu. That needs the oneAPI CPU OpenCL runtime; without it the run
+# still dies, and the verdict below reports it as indeterminate, never as a pass.
+#
+# Core dumps are disabled for the run. A GPU-less abort is expected here, not a fault to
+# debug, and a core file written into the caller's directory costs hundreds of megabytes.
 set -euo pipefail
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 
 usage() {
   cat >&2 <<'USAGE'
@@ -136,9 +146,15 @@ out="${keep_output:-$work/proofread.out}"
 # ---- keep the GPU runtime out of the parse-only run ---------------------------
 runtime_env=("OMPI_MCA_accelerator=null" "OMPI_MCA_coll=^ucc,hcoll" "UCX_TLS=^cuda_copy,cuda_ipc,gdr_copy")
 stubs_used="none needed"
+sycl_device="not linked"
 missing=""
 if command -v ldd >/dev/null 2>&1; then
-  missing=$(ldd "$exe" 2>/dev/null | awk '$2 == "=>" && $3 == "not" && ($1 == "libcuda.so.1" || $1 == "libnvidia-ml.so.1") {print $1}' | sort -u || true)
+  ldd_out=$(ldd "$exe" 2>/dev/null || true)
+  missing=$(awk '$2 == "=>" && $3 == "not" && ($1 == "libcuda.so.1" || $1 == "libnvidia-ml.so.1") {print $1}' <<< "$ldd_out" | sort -u || true)
+  if grep -qE '^[[:space:]]*libsycl\.so' <<< "$ldd_out"; then
+    runtime_env+=("ONEAPI_DEVICE_SELECTOR=opencl:cpu")
+    sycl_device="opencl:cpu"
+  fi
 fi
 if [ -n "$missing" ]; then
   stub_dir=""
@@ -162,7 +178,7 @@ fi
 
 printf 'milc-proofread-input %s\n' "$VERSION"
 printf 'proofreading %s\n  app %s (%s)\n  exe %s\n' "$input" "$app" "$evidence" "$exe"
-printf '  gpu runtime disabled for the parse; cuda stubs: %s\n' "$stubs_used"
+printf '  gpu runtime disabled for the parse; cuda stubs: %s; sycl device: %s\n' "$stubs_used" "$sycl_device"
 
 # ---- run --------------------------------------------------------------------
 # The exit code is deliberately discarded. It is 0 on a compute node whether the
@@ -172,7 +188,7 @@ printf '  gpu runtime disabled for the parse; cuda stubs: %s\n' "$stubs_used"
 # from the log and only from the log.
 set +e
 # shellcheck disable=SC2086
-env "${runtime_env[@]}" timeout "$timeout_s" $launcher "$exe" < "$proof" > "$out" 2>&1
+(ulimit -c 0; env "${runtime_env[@]}" timeout "$timeout_s" $launcher "$exe" < "$proof" > "$out" 2>&1)
 set -e
 
 # ---- verdict ----------------------------------------------------------------
@@ -207,5 +223,12 @@ fi
 
 printf 'INDETERMINATE: no input error, but the parser never reached end of input.\n'
 printf '  The proofread may have been killed, or the application may have stopped early.\n'
-printf '  Treat this as NOT proofread. Log: %s\n' "$out"
+printf '  Treat this as NOT proofread. Last lines of the log:\n\n'
+tail -n 20 "$out" | sed 's/^/    /'
+if [ -n "$keep_output" ]; then
+  printf '\n  Full log: %s\n' "$keep_output"
+else
+  printf '\n  The full log was temporary and is now gone. Re-run with --keep-output PATH\n'
+  printf '  to retain it.\n'
+fi
 exit 2

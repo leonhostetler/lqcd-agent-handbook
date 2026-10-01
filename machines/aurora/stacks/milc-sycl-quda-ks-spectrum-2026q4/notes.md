@@ -80,4 +80,5 @@ SYCL device at load, and a login node has no GPU, so the executable aborts with
 `No device of requested type available` before reading input, whatever `prompt` says. With
 `ONEAPI_DEVICE_SELECTOR=opencl:cpu` the `prompt 2` parse ran to `EOF on input`, and the process
 then aborted in QUDA teardown after parsing. Judge it by the log, as the proofread rule says.
-`tools/milc-proofread-input.sh` does not yet set the selector.
+`tools/milc-proofread-input.sh` sets the selector itself, from 1.2.0, when the executable links
+`libsycl`; it passed this stack's executable on `sample.in` and rejected a malformed input.
