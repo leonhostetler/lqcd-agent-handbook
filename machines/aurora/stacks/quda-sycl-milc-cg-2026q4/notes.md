@@ -101,7 +101,9 @@ depth sixteen claim logical CPUs 0 to 191 in order `[inferred]` from the CPU num
 physical, 104 to 207 their hyperthreads): rank 0 takes reserved core 0, and ranks 6 to 11 land on
 the hyperthreads of the cores ranks 0 to 5 already hold. That layout was not run here. The list gives each rank
 eight physical cores and skips reserved cores 0 and 52. Confirm with
-`OMP_DISPLAY_AFFINITY=true`.
+`OMP_DISPLAY_AFFINITY=true`. On two nodes, `-n 24 --ppn 12` placed ranks 0-11 on the first
+node and 12-23 on the second, and a per-rank record taken inside the wrapper showed local rank
+`r` with `ZE_AFFINITY_MASK=(r/2).(r%2)`: one rank per tile, every tile used once.
 
 ### Why `QUDA_ENABLE_MPS=1` is safe here, and only with `QUDA_ENABLE_P2P=0`
 
@@ -142,5 +144,6 @@ minimum improved staggered accepts:
   '--gtest_filter=Gauge/GaugeIOTest.*'
 ```
 
-All three passed, scored by their gtest verdict lines. The whole job, including the companion
+All three passed, scored by their gtest verdict lines, on one node with `--gridsize 1 2 2 3`
+and on two with `-n 24 --ppn 12` and `--gridsize 2 2 2 3`. The whole job, including the companion
 MILC legs, held at most 4.8 GiB on any GPU.

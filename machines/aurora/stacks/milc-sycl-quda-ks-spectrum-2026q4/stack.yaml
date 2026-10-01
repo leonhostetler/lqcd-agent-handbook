@@ -87,6 +87,13 @@ validation:
     global_lattice: [16, 16, 16, 48]
     rank_grid: [1, 2, 2, 3]
     local_lattice_per_rank: [16, 8, 8, 16]
+    two_node_run:
+      nodes: 2
+      mpi_ranks: 24
+      ranks_per_node: 12
+      rank_grid: [2, 2, 2, 3]
+      local_lattice_per_rank: [8, 8, 8, 16]
+      queue: debug
   runtime:
     communication: QMP over MPICH
     launcher: same as quda-sycl-milc-cg-2026q4
@@ -136,6 +143,19 @@ validation:
       comparison: second run of the same binary and input in the same job
       largest_relative_difference: 0
       result: pass
+    - name: two_node_completion_and_convergence
+      input: upstream systems/Aurora/sample.in with node_geometry and ionode_geometry 2 2 2 3
+      terminal_marker: RUNNING COMPLETED
+      solves: 24
+      requested_true_residual: 1.0e-8
+      maximum_true_residual: 9.999162e-9
+      result: pass
+    - name: cross_decomposition_correlator_agreement
+      tool: tools/milc-compare-fnal-correlators.py
+      comparison: two-node 2 2 2 3 run against the one-node 1 2 2 3 run
+      largest_relative_difference: 1.153e-7
+      interpretation: Not bitwise, as a changed decomposition changes reduction order and solver iterates; consistent with solves converged to a 1e-8 true residual.
+      result: pass
   scope_limits:
     - Built against QUDA feature/sycl; see quda-sycl-milc-cg-2026q4 for why develop cannot be used.
     - The profile compiled native-CG deflation support, but validation exercised plain CG only; no eigensolve, deflation-space lifecycle, or deflated solve is validated.
@@ -143,7 +163,7 @@ validation:
     - Gaussian smearing, gauge-force, and fermion-force paths were compiled but not exercised by this sample.
     - The gauge-fixing path executed, but acceptance did not assert that its final delta met the configured tolerance.
     - Correlator validation checked structure, completeness and run-to-run agreement, not agreement with reference correlator values.
-    - One node only; the P2P-disabled path only.
+    - One and two nodes; the P2P-disabled path only. GPU-to-GPU transfer over the fabric is not shown; see quda-sycl-milc-cg-2026q4.
     - The run populated a fresh tunecache and is not benchmark evidence.
 experiments:
   - name: upstream_link_flags_contrast
