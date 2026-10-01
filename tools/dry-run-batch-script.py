@@ -82,7 +82,7 @@ import subprocess
 import sys
 import tempfile
 
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 
 # Frontend tooling paths an agent sandbox materialises as unreadable placeholders in whatever
 # directory the session's shell stands in -- including a job directory. They are never job
@@ -410,9 +410,7 @@ def main(argv=None) -> int:
     surface, profile_scheduler = _CBS.load_surface(args.machine)
     site_launcher = (profile_scheduler or {}).get("site_launcher")
     vendors = _CBS.accelerator_vendors(args.machine) or set()
-    text = script.read_text()
     prefix = surface["directive_prefix"]
-    directives = [l for l in text.splitlines() if l.strip().startswith(prefix)]
 
     tmp_root = pathlib.Path(os.environ.get("TMPDIR") or tempfile.gettempdir())
     sandbox = pathlib.Path(tempfile.mkdtemp(prefix="dry-run.", dir=tmp_root))
@@ -481,6 +479,11 @@ def main(argv=None) -> int:
             raise Refusal(f"--short-stand-in names no declared --stand-in: {args.short_stand_in}")
 
         # -- the environment the scheduler presents ----------------------------
+        # Directives are read from the job copy, after the rewrites and the perturbation: a
+        # --negative that edits a directive must reach the environment the run is given, or the
+        # run tests the unperturbed script and reports the guard as never firing.
+        directives = [l for l in (job / script.name).read_text().splitlines()
+                      if l.strip().startswith(prefix)]
         chdir_value = None
         if surface["chdir_option"]:
             chdir_value = _CBS.directive_value(directives, surface["chdir_option"],
@@ -490,7 +493,10 @@ def main(argv=None) -> int:
                                 f"the {surface['chdir_option']} directive")
             if not cwd.is_dir():
                 raise Refusal(f"the {surface['chdir_option']} directive names {chdir_value}, which "
-                              "does not exist in the copied job directory")
+                              "does not exist in the copied job directory"
+                              + ("; the harness does not model what the scheduler does with a "
+                                 "missing working directory, so perturb it to another directory "
+                                 "that exists" if kind == "negative" else ""))
         elif surface.get("unpinned_start_directory") == "home":
             # PBS starts an unpinned job in the home directory, which is never the job
             # directory, so a script relying on its start directory fails here too.

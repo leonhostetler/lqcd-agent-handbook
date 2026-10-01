@@ -13,6 +13,7 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/staggered_dslash_test.cpp#L119
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/staggered_invert_test_gtest.hpp#L30
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/dslash_improved_staggered.cpp#L23
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/CMakeLists.txt#L295-L296
 observed: "2026-08-20"
 observed_on:
   software:
@@ -122,3 +123,18 @@ it wrong both exit 0. Judge a test by its gtest verdict lines, never by its exit
 - **Improved staggered needs every partitioned dimension to have a local extent of at least 6**
   `[source]`, and aborts at the first dslash otherwise. Choose the local volume and rank grid of
   a multi-GPU leg together.
+
+### ctest runs each case through an absolute launcher fixed at configure
+
+QUDA builds its ctest launch line from CMake's MPI launcher, as the cache string
+`QUDA_CTEST_LAUNCH` `[source]`. CMake's MPI discovery stores that launcher as an absolute path, so
+every registered case is recorded as, for example, `"/usr/bin/srun" "-n" "1" <test> <args>`
+`[observed]`. Two things follow. A `PATH` stub never sees it: running `ctest` under the dry-run
+harness calls the real launcher on the login node. And the launch line is fixed when the build is
+configured, so no binding, accelerator, or step time-limit option in the batch script reaches the
+cases. To run registered cases from a batch script, export them with
+`ctest --test-dir <build> --show-only=json-v1`. Strip the recorded launcher from each case's
+`command`, run it in its `WORKING_DIRECTORY` property, skip any case whose `DISABLED` property is
+set, and launch each one with the script's own launcher line. Refuse an export whose launcher
+differs from the one you expect to strip. Overriding `QUDA_CTEST_LAUNCH` at configure with a bare
+launcher name is untested here.

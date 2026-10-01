@@ -123,6 +123,24 @@ class DryRunHarnessTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stdout)
         self.assertIn("matched nothing", result.stdout)
 
+    def test_negative_on_the_chdir_directive_reaches_the_run(self):
+        """A perturbed working-directory directive must move the start directory. Before 1.5.1
+        the directives were read from the unperturbed script, so this guard never fired."""
+        script = self.write_script(PWD_RECIPE)
+        result = self.run_harness(script, "--negative", "job.sbatch",
+                                  r"s|^\(#SBATCH --chdir=.*\)$|\1/inputs|")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("is not the job directory", result.stdout)
+        self.assertIn("NEGATIVE TEST PASSED", result.stdout)
+        self.assertTrue(self.receipt(script)["negatives"][-1]["fired"])
+
+    def test_negative_naming_a_missing_chdir_is_refused_with_a_reason(self):
+        script = self.write_script(PWD_RECIPE)
+        result = self.run_harness(script, "--negative", "job.sbatch",
+                                  r"s|^\(#SBATCH --chdir=.*\)$|\1/absent|")
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn("does not model what the scheduler does", result.stdout)
+
     def test_omitted_stand_in_makes_the_absence_guard_fire(self):
         script = self.write_script(PWD_RECIPE)
         result = self.run_harness(script, "--omit-stand-in", str(self.gauge))

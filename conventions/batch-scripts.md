@@ -707,7 +707,10 @@ the job.
   (`--module-env`), not before it (`--env`).
 - **Make sure the stubs win.** A shell startup file or an exported shell function can put the
   real command back ahead of them; run with an empty environment, or the run silently tests
-  nothing.
+  nothing. A command invoked by absolute path bypasses every stub, and a program the script runs
+  can hold such a path that the script never wrote: a test driver may record its launcher at
+  configure time and call the real one from inside the dry run. Launch those cases from the script
+  through a `PATH`-resolved launcher instead.
 - **Do not fake anything verified by checksum.** No stand-in satisfies a hash, and those
   inputs are read-only, so leave them at their real paths. A guard that checks only a *size*
   can be satisfied by a sparse file, so even a very large input costs no space — but **confine
@@ -727,7 +730,10 @@ the job.
 - **Negative test, one guard at a time:** perturb the input that guard protects and require
   the run to fail. **A perturbation that changed nothing is not a test** — confirm the file
   actually differs before believing the result, because an expression that matched nothing
-  produces the same clean output as a guard that works.
+  produces the same clean output as a guard that works. A perturbed directive reaches the run,
+  because the harness reads directives from the perturbed copy. The harness refuses a
+  working-directory directive that names a missing directory, because it does not model what
+  the scheduler does then.
 
 The harness is subject to the same rule it enforces: `tests/test_dry_run_batch_script.py` makes
 it fail on purpose — a refused stand-in, a refused no-op perturbation, and the submission-directory
