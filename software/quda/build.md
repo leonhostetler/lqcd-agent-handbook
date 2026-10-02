@@ -76,8 +76,9 @@ profile's validation contract; it must not narrow what is compiled.
 Pin the install library directory with `-DCMAKE_INSTALL_LIBDIR=lib`. QUDA installs its own
 libraries to a literal `lib` and sets the installed run path to `${CMAKE_INSTALL_PREFIX}/lib`,
 but installs the test support library `libquda_test.so` to `${CMAKE_INSTALL_LIBDIR}`. Where
-CMake's `GNUInstallDirs` resolves that to `lib64` — observed on Vista, see
-[`quda-cuda12-milc-cg-2026q3`](../../machines/vista/stacks/quda-cuda12-milc-cg-2026q3/notes.md) — every
+CMake's `GNUInstallDirs` resolves that to `lib64` — observed on Vista and on DeltaAI, see the
+[Vista](../../machines/vista/stacks/quda-cuda12-milc-cg-2026q3/notes.md) and
+[DeltaAI](../../machines/deltaai/stacks/quda-cuda12-milc-cg-2026q3/notes.md) `quda-cuda12-milc-cg-2026q3` notes — every
 installed test fails at start-up with `libquda_test.so: cannot open shared object file`, while
 the build-tree tests in `<build>/tests` still run. Adding the option to an existing build and
 reinstalling is enough; it does not require a fresh configure.
