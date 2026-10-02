@@ -4349,3 +4349,84 @@ below. Item 4, a billing observation, was not taken up.
   *confirmed*: the factor multiplies the fraction and replaces neither.
 - Diagnostic-rig leaf: the "Evidence and limits" statement that the rules are empirical was
   *amended*, to name this rule's mechanism.
+
+## 2026-10-02 — Ten intake items from a closed staggered-MG tuning campaign at 0.06 fm
+
+A staggered-MG tuning campaign at 0.06 fm closed and carried staged entries to the handbook. The
+operator declared developer mode and approved items 1-8, asked whether item 9 still had anything to
+add (it had), and approved item 10, a defect found while running the suite. For items 6-8 the
+operator decided the publishability class: iteration counts, contraction rates, memory figures
+and cost ratios measured on this spacing may be published, without the ensemble's identity. That
+decision is recorded in the working directory under §ensemble-numbers rule 4, not here.
+
+1. **MMA colour pairs.** With `use_mma true`, QUDA's coarse-to-coarse UV/VUV kernels exist only for
+   ten listed (fine, coarse) colour pairs (`lib/coarse_op_mma_launch.h`, identical at `b6998853`
+   and `00c7ef33d`). The leaf's colour rule and the decomposition tool's colour check both passed
+   `nvec 1 = 32, nvec 2 = 96`, which then aborted at the first coarse-to-coarse build, after the
+   level-1 generation had been paid for. The tool gains `QUDA_MMA_COARSE_COLOR_PAIR`. Two existing
+   memory tests had used the uninstantiated pair `64 -> 32` with `--mma`. Their `nvec 2` moves to
+   `64`; neither asserted a value that depends on it.
+2. **`quda-mg-observables.py` 1.5.0: unbatched level-1 setup streams.** At a batch width of 1
+   (`nvec % 16 != 0`) QUDA prints no `n = <j>`, so the tool reported `setup_l1_capped_fraction
+   unavailable` for a build whose 24 streams had all stopped at the cap. The tool had no test
+   file; one is added. Against the old tool, 7 of its 9 cases fail. Over 65 real logs, the only
+   pre-existing field that changed is that build's.
+3. **`quda-mg-observables.py` 1.6.0: `first_cycle_contraction`.** The contract defines it and the
+   tool never emitted it. It is now emitted per solve, `;`-joined, matching an independent trace
+   extractor on every log compared.
+4. **`milc-proofread-input.sh` 1.3.0: the I/O-node geometry rule.** MILC terminates in layout
+   initialisation when an `ionode_geometry` extent does not divide the matching `node_geometry`
+   extent, after the parse has passed. It is now checked statically, before the parse. The source
+   is `generic/layout_hyper_prime.c`, identical at `32e18069` and `6b9b8a06`.
+5. **`milc-compare-fnal-correlators.py` 1.1.0: one `--job-id` per file.** A tested run compared
+   against a separate reference run carries two `JobID`s, and the single value made that
+   comparison impossible without editing copies.
+6. **Hierarchy-and-setup: the coarsest-volume ordering fails at 0.06 fm.** Three four-level
+   hierarchies; the KD pseudo-fine coarse solve decided the outcome. Two of them share the second
+   block and the coarsest grid, so the first block's shape alone moved the result.
+7. **Memory: a width-1 setup sits `27.6%` below the model.** Recorded as a scoped observation, not
+   a refit.
+8. **Tuning: a coarsest-degree scan through MILC measures a (degree, basis) pair.**
+9. **GPU-aware MPI device contexts: when the first-sample check can be read.** Includes a 36-node
+   confirmation of the budget.
+10. **`milc-proofread-input.sh` 1.2.1: core files from the `ldd` probe.** On a Perlmutter login node,
+    `ldd` on the suite's shell-script stand-in ran `/lib/ld-linux.so.2 --verify`, which crashed and
+    left a 32-bit core file in the caller's directory. Running the suite from the handbook root
+    would therefore have left an untracked file, which the next session's freshness gate stops on.
+    The probe now runs under `ulimit -c 0`. A test records the probe's core limit, with the
+    caller's limit raised first; it fails against the unfixed tool.
+
+The pre-commit harness ran without the handbook tool Python: its runner selected a
+module-provided interpreter carrying `yaml` and `jsonschema`. All 625 tests passed.
+
+**Reconciliation (obligation 11).**
+- `staggered-multigrid.md`, geometry constraints. The MMA colour bullet is *confirmed* as a
+  necessary condition, and the pair rule is added beside it. The tool paragraph, which named only
+  `QUDA_MMA_COARSE_GAUGE_COLOR`, was *amended*. The `QUDA_MULTIGRID_NVEC_LIST` statements are
+  *confirmed*: the pair check is independent of them. No other statement in the leaf, or in
+  `tuning.md`, concerns MMA legality.
+- `diagnostics.md`, extraction contract. The `setup_l1_iters` bullet was *amended* to name both
+  line shapes. The `first_cycle_contraction` bullet is *confirmed*, with one sentence on the
+  tool's output form. The "one-cycle screen" section is *confirmed* unchanged.
+- `ks-spectrum.md`, proofread section. Line 99 says the input's `node_geometry` is read but never
+  acted on: *confirmed*, since that is why the check is static. "What it does not cover" names a
+  wrong `node_geometry`: *confirmed*; a non-dividing pair is now covered, and a merely wrong one is
+  not. `ks-measure.md`'s parallel section is *amended* with a pointer. The QIO leaf's one-I/O-node
+  workaround is *confirmed* consistent: `1 1 1 1` divides every geometry, and it is the intended
+  coarser partition the new default exempts.
+- `ks-spectrum.md`, correlator comparison paragraph: *amended* for per-file `JobID`s.
+- `hierarchy-and-setup.md`. The 0.09 fm paragraph is *confirmed*: that population kept the
+  ordering. The new 0.06 fm paragraph sits beside it. The inadequate-coarsest-grid signature
+  bullet was *amended* with a pointer to the upstream case. The aspect counter-evidence paragraph
+  is *confirmed*.
+- `staggered-memory.md`. "The floor at a fixed placement is phase A" was *amended*: its 4% figure
+  for `nvec_1` 64 against 24 is the model's, and a measured pair differs by about a third. Its
+  invariance to blocks, coarse counts, deflation and MMA is *confirmed*. The three-level
+  over-prediction at `nvec_1` other than 64 is *confirmed*: it points the same way. The
+  setup-workspace paragraph is *confirmed*, and the observation follows it.
+- `tuning.md`. The `maxiter`/basis-size sentence is *confirmed*; the new paragraph states its
+  tuning consequence. The terminal-side-optimum paragraph is *confirmed* and cited.
+- `gpu-aware-mpi-device-context.md`. The first-sample check was *amended* to say when it can be
+  read. The mechanism section ("created during `MPI_Init`") is *confirmed* unchanged: the new
+  observation fixes when the surplus is visible, not when it is created. The scope section is
+  *confirmed*.

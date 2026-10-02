@@ -63,7 +63,15 @@ capacity - (ranks per node - 1) x 416 MiB
 
 and treat the first telemetry sample as the check: it should show ordinal `0` above its siblings
 by about that amount before any lattice work. A first sample that does **not** show the asymmetry
-means the launch arrangement is not the one the budget assumed — which is itself worth knowing.
+means the launch arrangement is not the one the budget assumed — which is itself worth knowing —
+**provided the ranks had created their device contexts by then.** `[observed]` In a 36-node run at
+four ranks per node, the three sibling contexts (`3 x 424` MiB) appeared on ordinal `0` in the same
+sample in which each sibling device first showed its own rank's context, `3` s after the
+application's start line; the steady-state excess then held at a median of `1324` MiB, within `7%`
+of the `1248` budget. A run whose ranks died in MILC's layout initialisation, before any of them
+created a device context, showed one context on ordinal `0` and none of the surplus: that is too
+early to read, not a different launch arrangement. Read the check from the first sample in which
+every device carries its own rank's context.
 The memory leaf's Perlmutter advisory band was fitted to a whole-device gap that, on the sampled
 node's ordinal `0`, plausibly contained this term `[inferred]`; the band is not a substitute for
 budgeting it explicitly on the device that carries it.
