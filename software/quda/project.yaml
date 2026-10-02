@@ -98,6 +98,18 @@ build_options:
     type: boolean
     capabilities:
       - multigrid
+  QUDA_MAX_MULTI_RHS_TILE:
+    meaning: >-
+      Register tile for the staggered and improved-staggered dslash: the most right-hand sides
+      one thread applies the operator to. Default 1; it may not exceed QUDA_MAX_MULTI_RHS. It
+      acts on every staggered dslash applied to several right-hand sides at once, multigrid and
+      multi-source solves alike, including the invertMultiSrcQuda path the MILC interface's
+      multi-source inverter calls, so it is not a multigrid option. A call with fewer
+      right-hand sides than the tile falls back to smaller tiles, so results are unchanged;
+      whether the larger compiled tile costs a single-RHS call registers is not measured. The
+      tile is part of the dslash tuning key (n_rhs_tile), so changing it invalidates those
+      tunecache entries. Speed and compile-time cost are not measured here.
+    type: integer
   QUDA_DOWNLOAD_USQCD:
     meaning: Downloads and builds the selected USQCD dependencies, including QMP and QIO.
     type: boolean
@@ -116,3 +128,6 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/staggered_invert_test.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/kernels/dslash_staggered.cuh
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/dslash.h
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
