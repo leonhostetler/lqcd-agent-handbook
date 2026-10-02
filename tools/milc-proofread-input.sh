@@ -39,7 +39,7 @@
 # debug, and a core file written into the caller's directory costs hundreds of megabytes.
 set -euo pipefail
 
-VERSION="1.2.0"
+VERSION="1.2.1"
 
 usage() {
   cat >&2 <<'USAGE'
@@ -149,7 +149,9 @@ stubs_used="none needed"
 sycl_device="not linked"
 missing=""
 if command -v ldd >/dev/null 2>&1; then
-  ldd_out=$(ldd "$exe" 2>/dev/null || true)
+  # ldd runs the dynamic loader on the file; on a non-ELF executable some loaders crash,
+  # and a core dump would land in the caller's directory. Disable cores for it too.
+  ldd_out=$(ulimit -c 0; ldd "$exe" 2>/dev/null || true)
   missing=$(awk '$2 == "=>" && $3 == "not" && ($1 == "libcuda.so.1" || $1 == "libnvidia-ml.so.1") {print $1}' <<< "$ldd_out" | sort -u || true)
   if grep -qE '^[[:space:]]*libsycl\.so' <<< "$ldd_out"; then
     runtime_env+=("ONEAPI_DEVICE_SELECTOR=opencl:cpu")

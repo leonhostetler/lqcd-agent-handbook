@@ -95,7 +95,7 @@ class ProofreadTests(unittest.TestCase):
         result = self.run_tool(self.good)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("PASS", result.stdout)
-        self.assertIn("milc-proofread-input 1.2.0", result.stdout)
+        self.assertIn("milc-proofread-input 1.2.1", result.stdout)
         self.assertIn("sycl device: not linked", result.stdout)
 
     def test_a_bad_input_still_fails(self):
@@ -153,6 +153,20 @@ class ProofreadTests(unittest.TestCase):
         result = self.run_tool(self.good, extra_args=("--keep-output", str(log)), preexec_fn=raise_limit)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("core limit: 0", log.read_text())
+
+    def test_core_dumps_are_disabled_for_the_ldd_probe(self):
+        # ldd runs the dynamic loader on the executable; on a non-ELF stand-in some loaders
+        # crash, and a core would land in the caller's directory. Raise the caller's limit
+        # first so a tool that never lowers it cannot pass.
+        hard = resource.getrlimit(resource.RLIMIT_CORE)[1]
+        if hard == 0:
+            self.skipTest("hard core limit is 0 here; the tool's ulimit cannot be distinguished")
+        raise_limit = lambda: resource.setrlimit(resource.RLIMIT_CORE, (hard, hard))
+        record = Path(self.temp.name) / "ldd-core-limit"
+        fake = f'#!/bin/bash\nulimit -c > "{record}"\necho "\tlibc.so.6 => /lib64/libc.so.6 (0x0000)"\n'
+        result = self.run_tool(self.good, fake_ldd=fake, preexec_fn=raise_limit)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(record.read_text().strip(), "0")
 
     def test_missing_libcuda_without_stubs_is_indeterminate_not_a_pass(self):
         result = self.run_tool(self.good, {"REQUIRE_STUB": "1"}, fake_ldd=True)
