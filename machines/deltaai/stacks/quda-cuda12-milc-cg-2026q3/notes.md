@@ -40,6 +40,7 @@ export CRAY_ACCEL_TARGET=nvidia90
 cmake --fresh -S "$QUDA_SOURCE_DIR" -B "$QUDA_BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=RELEASE \
   -DCMAKE_INSTALL_PREFIX="$QUDA_BUILD_DIR/usqcd" \
+  -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_C_COMPILER=cc \
   -DCMAKE_CXX_COMPILER=CC \
   -DQUDA_TARGET_TYPE=CUDA \
@@ -69,6 +70,13 @@ parallelism from 32 to 8, selected the complete handbook profile explicitly, and
 only the focused validation executables after installation. The commands above implement the
 current all-tests default instead. The cost in `stack.yaml` predates that policy and must not be
 used as an estimate for an all-tests build.
+
+**Pin `CMAKE_INSTALL_LIBDIR=lib`.** On DeltaAI `GNUInstallDirs` selects `lib64`, so without
+it `libquda_test.so` installs to `usqcd/lib64` and every installed test under `usqcd/bin`
+reports it `not found`. The build-tree tests in `<build>/tests`, which the focused validation
+below runs, are unaffected. `[observed]` in a complete all-tests build at QUDA `00c7ef3`
+(`develop`) under CMake 3.28.3 on 2026-10-02. The validated build predates the option, so
+`stack.yaml` does not record it; the mechanism is in `software/quda/build.md`.
 
 ## Use the short debugging partition
 
