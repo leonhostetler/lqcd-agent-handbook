@@ -414,6 +414,19 @@ source-exact workspace bounds what the fitted term can legitimately absorb, and 
 run saves at most that workspace and probably less**, because the blocks it frees are the sizes
 the outer GCR and any verify pass later take from the pool.
 
+`[observed]` **A width-1 setup sits far below the model, in the direction the workspace argument
+predicts.** One four-level run at a 0.06 fm placement generated all three levels with
+`nvec_1 = 24`, whose level-1 setup runs at batch width `1`. `mg-fit` named an eigenspace-blind
+phase A the winner at `20.1` GiB of QUDA Device memory; the run's endQuda `Device memory used` was
+`14.6` GiB, `27.6%` below. A run of the same blocks, `nvec_2` and placement at `nvec_1 = 64`
+that **loaded** its level-1 set, and so allocated no level-1 setup workspace at all, reported
+`21.8` GiB. The model's setup term carries no batch width and was fitted only at `nvec_1 = 64`,
+where the width is `16`, so at any `nvec_1` not divisible by `16` it charges a workspace the run
+never allocates; the level-1 near-null set and the coarse links shrink with `nvec_1` as well.
+The direction matches the three-level over-predictions at `nvec_1` other than `64` recorded
+above. **Recorded as a scoped observation, not a refit:** at such an `nvec_1`, read phase A as
+an upper estimate of unknown slack and measure the run.
+
 Coarse gauge color is `2*nvec`, so its link storage scales quadratically. Raising
 `nvec` from 64 to 96 multiplies that object by 2.25, not 1.5. Here MMA means the
 tensor-core matrix-multiply-accumulate path selected by MILC `use_mma`. It can allocate
@@ -447,8 +460,11 @@ that the rank geometry itself lies in the calibration envelope.
 At a placement already chosen, the device high-water **floor** is phase A — near-null
 generation on the fine grid. Phase A scales with fine **local** volume and is invariant to
 level count, aggregation blocks, the coarse near-null counts, the coarsest deflation count
-and MMA. Only the level-1 near-null count moves it, and weakly: roughly `4%` between counts
-of `64` and `24`.
+and MMA. Only the level-1 near-null count moves it, and in the model weakly: roughly `4%`
+between counts of `64` and `24`. **Measured, that pair differed by about a third** — the
+width-1 observation above — so the `nvec_1` dependence is the one part of this rule the
+evidence questions; the invariance to blocks, coarse counts, deflation and MMA is untouched
+by it.
 
 **So retuning the hierarchy cannot rescue a placement whose local volume has already broken
 the fit.** No choice of levels, blocks or coarse counts reaches the floor.
