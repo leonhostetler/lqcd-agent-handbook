@@ -52,6 +52,16 @@ Do not infer the accelerator architecture from a login node. Resolve it from the
 compute-node type. When using QMP, leave `QUDA_MPI=OFF`; QUDA warns that enabling both may
 produce undefined behavior. Enabling QIO requires QMP.
 
+**Configure needs the network, and an allowlist must name three hosts.** Before resolving any
+dependency, `cmake/CPM.cmake` downloads the CPM package manager from a GitHub release URL, and
+GitHub answers it with a redirect to `release-assets.githubusercontent.com` `[observed]`. The
+dependencies then come from `github.com` — QMP, QIO and CCCL, cloned by repository name — and
+`gitlab.com`, the Eigen archive `[source]`. A sandbox or proxy that allows `github.com` but not
+the release-asset host fails inside `CPM.cmake` with `file DOWNLOAD cannot compute hash on
+failed download` and `HTTP response code said error`, followed by
+`Unknown CMake command "CPMAddPackage"`. That reads like a broken checkout; it is a refused
+redirect.
+
 Build and install through CMake, respecting the machine's build-placement and parallelism
 limits:
 
