@@ -91,6 +91,10 @@ keyword's value. Count those positions in this application's own parameter
 reader before assuming a comment is safe anywhere; the starting-lattice filename is one of
 them in every application.
 
+The tool also checks, before parsing, that every `node_geometry` extent is divisible by the
+matching `ionode_geometry` extent — a layout rule the parse returns before reaching; see
+the proofread section of [`ks-spectrum.md`](ks-spectrum.md).
+
 **What it does not cover:** semantics. A wrong tadpole factor, a wrong `node_geometry`, a
 gauge file that does not exist, an unsubstituted template placeholder, a wrong mass — none
 are caught. It complements a launcher's assertions; it does not replace them.

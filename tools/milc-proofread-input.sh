@@ -35,11 +35,20 @@
 # such as level_zero:gpu. That needs the oneAPI CPU OpenCL runtime; without it the run
 # still dies, and the verdict below reports it as indeterminate, never as a pass.
 #
+# ONE LAYOUT RULE IS CHECKED STATICALLY, BECAUSE THE PARSE NEVER REACHES IT. MILC requires
+# every node_geometry extent to be divisible by the matching ionode_geometry extent, and
+# terminates every rank in layout initialisation otherwise (generic/layout_hyper_prime.c
+# init_io_node at MILC 6b9b8a06; the same test is in the other layouts). Proofreading returns
+# before setup_layout(), so a parse-clean input can still die there. The two lines are
+# therefore compared here, before the parse: a non-dividing extent fails the input, and
+# lines that differ but divide are reported, because a placement change edits node_geometry
+# and leaves an inherited ionode_geometry looking plausible.
+#
 # Core dumps are disabled for the run. A GPU-less abort is expected here, not a fault to
 # debug, and a core file written into the caller's directory costs hundreds of megabytes.
 set -euo pipefail
 
-VERSION="1.2.1"
+VERSION="1.3.0"
 
 usage() {
   cat >&2 <<'USAGE'
@@ -126,6 +135,39 @@ for candidate in $EXECUTION_VERIFIED; do
   [ "$candidate" = "$app" ] && evidence="verified-by-execution"
 done
 
+# ---- the one layout rule the parse cannot reach -------------------------------
+geom_line() {
+  awk -v key="$1" '{sub(/#.*/, "")} $1 == key && NF >= 5 {print $2, $3, $4, $5; exit}' "$input"
+}
+node_geom=$(geom_line node_geometry)
+ionode_geom=$(geom_line ionode_geometry)
+geometry_note="not checked (node_geometry and ionode_geometry not both present)"
+if [ -n "$node_geom" ] && [ -n "$ionode_geom" ]; then
+  read -r -a ng <<< "$node_geom"
+  read -r -a ig <<< "$ionode_geom"
+  bad=""
+  for i in 0 1 2 3; do
+    if ! [[ "${ng[$i]}" =~ ^[0-9]+$ && "${ig[$i]}" =~ ^[0-9]+$ ]] || [ "${ig[$i]}" -eq 0 ] \
+       || [ $(( ng[i] % ig[i] )) -ne 0 ]; then
+      bad="$bad ${i}"
+    fi
+  done
+  if [ -n "$bad" ]; then
+    printf 'milc-proofread-input %s\n' "$VERSION"
+    printf 'FAIL: ionode_geometry %s does not divide node_geometry %s (directions:%s).\n' \
+      "$ionode_geom" "$node_geom" "$bad"
+    printf '  MILC terminates every rank in layout initialisation on this, AFTER the parse this\n'
+    printf '  tool runs would have passed. Set ionode_geometry equal to node_geometry unless a\n'
+    printf '  coarser I/O partition is intended; equality is always legal.\n'
+    exit 1
+  fi
+  if [ "$node_geom" = "$ionode_geom" ]; then
+    geometry_note="ionode_geometry equals node_geometry"
+  else
+    geometry_note="ionode_geometry $ionode_geom divides node_geometry $node_geom but differs from it; confirm it was meant"
+  fi
+fi
+
 # ---- build the proofread input ----------------------------------------------
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
 proof="$work/proofread.in"
@@ -181,6 +223,7 @@ fi
 printf 'milc-proofread-input %s\n' "$VERSION"
 printf 'proofreading %s\n  app %s (%s)\n  exe %s\n' "$input" "$app" "$evidence" "$exe"
 printf '  gpu runtime disabled for the parse; cuda stubs: %s; sycl device: %s\n' "$stubs_used" "$sycl_device"
+printf '  layout: %s\n' "$geometry_note"
 
 # ---- run --------------------------------------------------------------------
 # The exit code is deliberately discarded. It is 0 on a compute node whether the

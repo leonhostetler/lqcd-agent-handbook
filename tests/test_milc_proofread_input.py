@@ -95,7 +95,7 @@ class ProofreadTests(unittest.TestCase):
         result = self.run_tool(self.good)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("PASS", result.stdout)
-        self.assertIn("milc-proofread-input 1.2.1", result.stdout)
+        self.assertIn("milc-proofread-input 1.3.0", result.stdout)
         self.assertIn("sycl device: not linked", result.stdout)
 
     def test_a_bad_input_still_fails(self):
@@ -153,6 +153,40 @@ class ProofreadTests(unittest.TestCase):
         result = self.run_tool(self.good, extra_args=("--keep-output", str(log)), preexec_fn=raise_limit)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("core limit: 0", log.read_text())
+
+    def geometry_input(self, node: str, ionode: str) -> Path:
+        path = Path(self.temp.name) / f"geom-{node.replace(' ', '')}-{ionode.replace(' ', '')}.in"
+        path.write_text(f"prompt 0\nnx 4\nnode_geometry {node}\nionode_geometry {ionode}\n")
+        return path
+
+    def test_a_non_dividing_ionode_geometry_fails_before_the_parse(self):
+        # 4 is not divisible by 12 in t: MILC would terminate in layout initialisation,
+        # after a prompt-2 parse had passed. The stand-in parser would pass this input.
+        result = self.run_tool(self.geometry_input("2 3 6 4", "2 3 2 12"))
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("FAIL: ionode_geometry 2 3 2 12 does not divide node_geometry 2 3 6 4", result.stdout)
+        self.assertIn("directions: 3", result.stdout)
+
+    def test_equal_geometries_pass_and_say_so(self):
+        result = self.run_tool(self.geometry_input("2 3 6 4", "2 3 6 4"))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("layout: ionode_geometry equals node_geometry", result.stdout)
+
+    def test_a_dividing_but_different_ionode_geometry_passes_with_a_note(self):
+        result = self.run_tool(self.geometry_input("2 4 4 6", "1 2 4 3"))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("divides node_geometry 2 4 4 6 but differs from it", result.stdout)
+
+    def test_the_geometry_check_is_what_fails_the_bad_layout(self):
+        # Negative control: with no direction ever recorded as bad, the stand-in parser
+        # passes the same input, so the FAIL above comes from the comparison.
+        script = TOOL.read_text().replace('      bad="$bad ${i}"\n', "      :\n")
+        self.assertNotEqual(script, TOOL.read_text(), "vacuous perturbation")
+        crippled = Path(self.temp.name) / "crippled.sh"
+        crippled.write_text(script)
+        result = self.run_tool(self.geometry_input("2 3 6 4", "2 3 2 12"), tool=crippled)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("PASS", result.stdout)
 
     def test_core_dumps_are_disabled_for_the_ldd_probe(self):
         # ldd runs the dynamic loader on the executable; on a non-ELF stand-in some loaders

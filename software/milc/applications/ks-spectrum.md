@@ -14,6 +14,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/spectrum_ks.c#L1360-L1665
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/ks_multicg.c#L760-L823
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/mat_invert.c#L207-L514
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic/layout_hyper_prime.c#L278-L314
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic/io_helpers.c#L664-L705
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/ks_spectrum_includes.h#L33-L40
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/test/ks_spectrum_hisq.fpi.2.sample-in
@@ -118,6 +119,18 @@ comments in exactly one reader, `get_next_tag`; keywords read by a bare `scanf` 
 tolerate a preceding comment line, and a comment placed above one is consumed **as** that
 keyword's value. There are ten such positions in `ks_spectrum`'s parameter reader alone,
 plus the starting-lattice filename.
+
+**One layout rule is checked statically, because the parse returns before it.** Every
+`node_geometry` extent must be divisible by the matching `ionode_geometry` extent;
+otherwise MILC terminates every rank in layout initialisation with `ionode geometry ... is
+incommensurate with node geometry ...` (`generic/layout_hyper_prime.c` `init_io_node`, the
+same test in the other layouts) — after a proofread of the same input has passed. The
+likely way to break it is a placement change: it forces `node_geometry` to be edited and
+leaves an inherited `ionode_geometry` looking plausible. `tools/milc-proofread-input.sh`
+compares the two lines before parsing, fails a non-dividing extent, and reports lines that
+divide but differ. **Set `ionode_geometry` equal to `node_geometry`** unless a coarser I/O
+partition is intended: equality is always legal, and a launcher guard on placement must
+read both lines.
 
 **What it does not cover:** semantics. A wrong tadpole factor, a wrong `node_geometry`, a
 gauge file that does not exist, an unsubstituted template placeholder, a wrong mass — none
