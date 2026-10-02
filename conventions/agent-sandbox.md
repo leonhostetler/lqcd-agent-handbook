@@ -2,7 +2,7 @@
 title: Working under an agent sandbox
 summary: How sandbox restrictions present as machine, scheduler, device, or permission faults, the invocation shapes that decide whether a site query succeeds, and what that means for tool design.
 scope: [universal]
-load_when: A command fails, hangs, or leaves a half-written file in a way that suggests a machine, scheduler, or permission fault while the session runs under an agent sandbox; or before writing a tool that shells out to a site service.
+load_when: A command fails, hangs, or leaves a half-written file in a way that suggests a machine, scheduler, network-service, or permission fault while the session runs under an agent sandbox; or before writing a tool that shells out to a site service.
 evidence: reproduced
 observations: 2
 observed: "2026-09-21"
@@ -127,6 +127,20 @@ node, from the operator's own shell, found both. `[reproduced ×2]`
 So a GPU run, a fabric or GPU-memory probe, or anything that must open an accelerator is run
 from a shell outside the sandbox, and the record says where it ran. Building, reading
 binaries, and checking linkage still work inside it.
+
+## A host allowlist does not follow redirects
+
+A sandbox network allowlist matches the host a request is sent to, and many downloads are
+redirected: a release file on a code-hosting site is typically served from a separate asset
+host. The first host is allowed, the redirect target is refused, and the tool reports an HTTP
+or download error that reads as a broken upstream or a bad checksum rather than as a denied
+connection. `[observed]` once, in a build's configure step; the software-specific host list
+belongs in that software's build leaf.
+
+Before diagnosing the upstream, find where the request actually went. A header-only request
+that follows redirects (`curl -sSIL <url>`) names the final host, and the sandbox's own denial
+report, where it gives one, names the refused host. Allow that host for the command and retry;
+never route around the allowlist.
 
 ## Where the neighbouring rules already live
 
