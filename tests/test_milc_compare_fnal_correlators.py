@@ -57,7 +57,7 @@ class CompareCorrelatorTests(unittest.TestCase):
         result = self.run_tool(self.ref, copy)
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn("largest |difference| / correlator scale = 0.000e+00", result.stdout)
-        self.assertIn("milc-compare-fnal-correlators 1.0.0", result.stdout)
+        self.assertIn("milc-compare-fnal-correlators 1.1.0", result.stdout)
 
     def test_a_difference_is_reported_and_judged_only_against_a_given_limit(self):
         other = self.perturbed("other.corr", fnal_text(scale=1.0 + 2e-5))
@@ -94,6 +94,34 @@ class CompareCorrelatorTests(unittest.TestCase):
         result = self.run_tool(self.ref, fewer)
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertIn("key set differs", result.stdout)
+
+    def run_ids(self, ids, *files: Path):
+        args = ["--nt", str(NT), "--job-id", *ids, "--lattice", "4,4,4,8", *map(str, files)]
+        return subprocess.run([interpreter_for(), str(TOOL), *args],
+                              text=True, capture_output=True, check=False)
+
+    def test_one_job_id_per_file_compares_runs_with_different_job_ids(self):
+        # A tested run and its reference are separate jobs with separate JobIDs.
+        other = self.perturbed("other.corr", fnal_text().replace("TestRun", "RefRun"))
+        single = self.run_ids(["TestRun"], self.ref, other)
+        self.assertEqual(single.returncode, 1, single.stdout)
+        self.assertIn("metadata JobID 'RefRun', expected 'TestRun'", single.stdout)
+        paired = self.run_ids(["TestRun", "RefRun"], self.ref, other)
+        self.assertEqual(paired.returncode, 0, paired.stdout)
+        self.assertIn("largest |difference| / correlator scale = 0.000e+00", paired.stdout)
+
+    def test_per_file_job_ids_are_checked_in_file_order(self):
+        other = self.perturbed("other.corr", fnal_text().replace("TestRun", "RefRun"))
+        swapped = self.run_ids(["RefRun", "TestRun"], self.ref, other)
+        self.assertEqual(swapped.returncode, 1, swapped.stdout)
+        self.assertEqual(swapped.stdout.count("PROBLEM metadata JobID"), 2)
+
+    def test_a_job_id_count_that_matches_neither_form_is_a_usage_error(self):
+        copy = self.dir / "copy.corr"
+        copy.write_text(self.ref.read_text())
+        result = self.run_ids(["TestRun", "TestRun"], self.ref, copy, copy)
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn("one value or one per file", result.stderr)
 
     def test_an_unreadable_file_is_a_usage_error_not_a_pass(self):
         result = self.run_tool(self.ref, self.dir / "absent.corr")

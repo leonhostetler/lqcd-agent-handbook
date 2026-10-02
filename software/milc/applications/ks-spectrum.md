@@ -253,6 +253,9 @@ the first, relative to each correlator's own scale. Use it rather than reading t
 a stale appended record or a short time range looks complete. It does not know the expected
 correlator identities, so compare its reported key set with the input's requests, and it
 reports numerical differences without judging them unless given `--max-relative-difference`.
+Files from different runs carry different `JobID`s — a tested run against its reference
+always does — so give `--job-id` one value per file, in file order, rather than editing the
+files to agree.
 
 Apply the same manifest discipline to any other active `ks_spectrum` save directives, including
 saved gauge fields, eigenvectors, sources, propagators, or derived quarks. Their format-specific

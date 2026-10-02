@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Check MILC FNAL-format correlator files structurally, then compare them value by value.
 
-    milc-compare-fnal-correlators.py --nt NT --job-id ID --lattice X,Y,Z,T
+    milc-compare-fnal-correlators.py --nt NT --job-id ID [ID ...] --lattice X,Y,Z,T
                                      [--max-relative-difference D] FILE [FILE ...]
 
 The structural contract is software/milc/applications/ks-spectrum.md's: the writers open
 their destinations in APPEND mode, so a file can carry stale or duplicated records and still
 look complete. Every file is checked for
 
-  - the expected JobID and lattice_size in every metadata block;
+  - the expected JobID and lattice_size in every metadata block. One --job-id applies to every
+    file; a correctness comparison of a tested run against a separate reference run carries two
+    different JobIDs, so --job-id may instead give exactly one value per file, in file order.
+    Any other count is a usage error rather than a guess at the pairing;
   - a correlator_key on every correlator block, and no key twice (a stale append);
   - exactly NT rows per correlator, with time indices 0..NT-1 in order;
   - finite numbers throughout.
@@ -37,7 +40,7 @@ import argparse
 import math
 import sys
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 
 def parse(path: str, nt: int, job_id: str, lattice: str) -> tuple[dict, list[str]]:
@@ -98,20 +101,25 @@ def largest_difference(ref: dict, other: dict) -> tuple[float, str | None]:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--nt", type=int, required=True, help="temporal extent: rows per correlator")
-    ap.add_argument("--job-id", required=True, help="the input's JobID")
+    ap.add_argument("--job-id", required=True, nargs="+",
+                    help="the input's JobID: one for every file, or one per file in file order")
     ap.add_argument("--lattice", required=True, help="lattice_size as the file prints it, e.g. 16,16,16,32")
     ap.add_argument("--max-relative-difference", type=float,
                     help="fail a file whose largest difference from the first file exceeds this")
     ap.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
     ap.add_argument("files", nargs="+")
     args = ap.parse_args(argv)
+    if len(args.job_id) not in (1, len(args.files)):
+        ap.error(f"--job-id takes one value or one per file: got {len(args.job_id)} "
+                 f"for {len(args.files)} files")
+    job_ids = args.job_id * len(args.files) if len(args.job_id) == 1 else args.job_id
 
     print(f"milc-compare-fnal-correlators {VERSION}")
     ok = True
     parsed = []
-    for path in args.files:
+    for path, job_id in zip(args.files, job_ids):
         try:
-            corrs, problems = parse(path, args.nt, args.job_id, args.lattice)
+            corrs, problems = parse(path, args.nt, job_id, args.lattice)
         except OSError as exc:
             print(f"{path}: cannot read ({exc})")
             return 2
