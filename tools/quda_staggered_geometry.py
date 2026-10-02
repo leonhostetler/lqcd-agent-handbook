@@ -40,6 +40,18 @@ SOURCE_COMMIT = "b6998853f6b605e22d67ea2ddfa3cab0d752679a"
 # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/coarse_op_preconditioned_mma_launch.h#L156
 # Re-verified 2026-09-21 at 00c7ef33dacadfb94860e3ca1cc06862926182dc, same line.
 MMA_COARSE_GAUGE_COLORS = (12, 48, 64, 128, 192)
+# A coarse operator built FROM a coarse level (QUDA's from_coarse path) has MMA UV/VUV kernels
+# only for these (fine colour, coarse colour) pairs, both spin 2; every other pair reaches a
+# catch-all overload whose body is errorQuda("MMA implementation not available ..."). The
+# colours are colour-spinor colours, i.e. near-null counts, not coarse gauge colours. The first
+# aggregation out of the Kahler-Dirac level is not from_coarse and is not governed by this
+# table, so only a four-level hierarchy has a pair to check: (nvec1, nvec2).
+# https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/coarse_op_mma_launch.h#L338-L356
+# Re-verified 2026-10-02 at 00c7ef33dacadfb94860e3ca1cc06862926182dc: the header is unchanged.
+MMA_COARSE_COLOR_PAIRS = (
+    (6, 6), (24, 24), (24, 32), (24, 64), (24, 96),
+    (32, 32), (32, 64), (64, 64), (64, 96), (96, 96),
+)
 # Fine staggered colour. Enters coarse_fine_work as N_c^2 and is a property of the
 # staggered operator, not of any fitted population.
 FINE_COLOURS = 3
@@ -386,6 +398,43 @@ def mma_capability_check(
     }
 
 
+def mma_pair_check(
+    levels: int,
+    nvec1: int,
+    nvec2: int,
+    use_mma: bool | None,
+) -> dict[str, object]:
+    """Describe QUDA's MMA (fine colour, coarse colour) pair restriction without implying it ran.
+
+    Necessary in addition to the per-colour check, never instead of it: a hierarchy whose
+    near-null counts are each MMA-supported colours can still name a pair QUDA did not
+    instantiate, and then aborts at its first coarse-to-coarse operator build.
+    """
+    required = (
+        [{"parameters": "nvec1->nvec2", "pair": [nvec1, nvec2]}] if levels == 4 else []
+    )
+    if use_mma is None:
+        status, unsupported = "unchecked", []
+    elif not use_mma or not required:
+        status, unsupported = "not-applicable", []
+    else:
+        unsupported = [
+            item for item in required if tuple(item["pair"]) not in MMA_COARSE_COLOR_PAIRS
+        ]
+        status = "fail" if unsupported else "pass"
+    return {
+        "status": status,
+        "required": required,
+        "supported_pairs": [list(pair) for pair in MMA_COARSE_COLOR_PAIRS],
+        "unsupported": unsupported,
+        "scope": (
+            "binds only when MILC use_mma is true, on every coarse operator built from a "
+            "coarse level: (nvec1, nvec2) at four levels, none at two or three; checked in "
+            "addition to the coarse-gauge-colour rule"
+        ),
+    }
+
+
 def attach_mma_capability_check(
     hierarchy: dict[str, object],
     levels: int,
@@ -403,6 +452,17 @@ def attach_mma_capability_check(
                 f"{item['parameter']}={item['value']} gives coarse gauge color "
                 f"N={item['coarse_gauge_color']}, for which QUDA builds no MMA "
                 "coarse-operator kernel; use_mma aborts in coarse-operator construction"
+            )
+        hierarchy["source_status"] = "error"
+    pair = mma_pair_check(levels, nvec1, nvec2, use_mma)
+    capability["QUDA_MMA_COARSE_COLOR_PAIR"] = pair
+    if pair["status"] == "fail":
+        for item in pair["unsupported"]:
+            fine, coarse = item["pair"]
+            hierarchy["source_errors"].append(
+                f"{item['parameters']} = {fine} -> {coarse} is not an instantiated MMA "
+                "coarse-operator colour pair; use_mma aborts at the first coarse-to-coarse "
+                "operator build ('MMA implementation not available')"
             )
         hierarchy["source_status"] = "error"
     return hierarchy

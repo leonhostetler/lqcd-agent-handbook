@@ -152,7 +152,7 @@ class StaggeredMemoryTests(unittest.TestCase):
             "--nvec1",
             "64",
             "--nvec2",
-            "32",
+            "64",
             "--nvec3",
             "0",
             "--mma",
@@ -205,7 +205,7 @@ class StaggeredMemoryTests(unittest.TestCase):
             "--nvec1",
             "64",
             "--nvec2",
-            "32",
+            "64",
             "--nvec3",
             "0",
             "--mma",
@@ -706,6 +706,31 @@ class StaggeredMemoryTests(unittest.TestCase):
         self.assertEqual(
             supported["build_capability"]["QUDA_MMA_COARSE_GAUGE_COLOR"]["status"], "pass"
         )
+
+    def test_mma_coarse_colour_pair_is_checked_beside_the_per_colour_rule(self):
+        """32 and 96 are each MMA colours, but QUDA instantiates no 32 -> 96 coarse-to-coarse pair."""
+        args = (
+            "--global", "16", "16", "16", "32", "--ranks", "1", "1", "1", "1",
+            "--block1", "4", "4", "4", "4", "--block2", "2", "2", "2", "2", "--nvec3", "0",
+        )
+
+        def statuses(nvec1, nvec2, *flags):
+            code, payload = run_json(
+                DECOMPOSITION, *args, "--nvec1", nvec1, "--nvec2", nvec2, *flags, check=False
+            )
+            capability = payload["build_capability"]
+            return (code.returncode, payload["source_status"],
+                    capability["QUDA_MMA_COARSE_GAUGE_COLOR"]["status"],
+                    capability["QUDA_MMA_COARSE_COLOR_PAIR"]["status"])
+
+        code, source, colour, pair = statuses("32", "96", "--mma")
+        self.assertEqual((source, colour, pair), ("error", "pass", "fail"))
+        self.assertEqual(code, 2)
+        for nvec1, nvec2 in (("32", "64"), ("24", "96"), ("64", "96")):
+            self.assertEqual(statuses(nvec1, nvec2, "--mma")[1:], ("pass", "pass", "pass"))
+        self.assertEqual(statuses("32", "96", "--no-mma")[1:],
+                         ("pass", "not-applicable", "not-applicable"))
+        self.assertEqual(statuses("32", "96")[3], "unchecked")
 
     def test_new_public_files_contain_no_private_paths_or_job_identifiers(self):
         paths = (

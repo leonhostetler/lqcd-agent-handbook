@@ -30,6 +30,7 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L495
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L185
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L745-L780
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/coarse_op_mma_launch.h#L338-L356
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c#L619-L653
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L583-L601
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L809-L827
@@ -318,6 +319,23 @@ Additional hard constraints include:
   constraint that turns on `2*nvec_(L-1)` rather than `nvec` itself — coarse-operator
   cost, which scales as `(2*nvec)^2`, is the other.
 
+  **That colour rule is necessary, not sufficient: the coarse-to-coarse build is
+  instantiated per colour PAIR.** `[source]` at QUDA `00c7ef33d`,
+  `lib/coarse_op_mma_launch.h`: a coarse operator built from an already-coarse level has
+  MMA kernels only for the (fine colour, coarse colour) pairs `6->6, 24->24, 24->32,
+  24->64, 24->96, 32->32, 32->64, 64->64, 64->96, 96->96`, and every other pair reaches a
+  catch-all that aborts with `MMA implementation not available for fineColor = .. coarseColor
+  = ..`. The colours here are near-null counts. The first aggregation out of the KD level is
+  not such a build, so the rule binds only from the second aggregation on — in a four-level
+  MILC parameter file the pair (`nvec 1`, `nvec 2`); a three-level hierarchy has none.
+  `nvec 1 = 32` with `nvec 2 = 96` passes the colour rule and `QUDA_MULTIGRID_NVEC_LIST`,
+  and still aborts at the first coarse-to-coarse build, which in a generating run comes only
+  after the level-1 near-null generation has been paid for. So with MMA on, `nvec 1 = 32`
+  admits `nvec 2` in `{32, 64}`, `24` admits `{24, 32, 64, 96}`, and `64` admits `{64, 96}`,
+  and **changing one level's `nvec` can make the hierarchy illegal through its neighbour's**.
+  Re-read the table from the header at the revision being built; it is a list of
+  instantiations, not a rule QUDA derives.
+
 Decomposition choice therefore changes both legality and the executed hierarchy. Check
 it before allocating a long setup job; do not infer validity from global lattice
 divisibility alone.
@@ -361,10 +379,11 @@ python3 "$LQCD_HANDBOOK/tools/quda-staggered-decomposition.py" \
 It emulates the current transfer constructor's halving, keeps requested and effective
 blocks separate, checks aggregate, long-link, and compiled-`nvec` constraints, and reports
 global and local coarse volumes. Pass `--mma` to check the coarse gauge colour against
-QUDA's supported MMA set; the result appears as
-`build_capability.QUDA_MMA_COARSE_GAUGE_COLOR.status`, which is `unchecked` unless `--mma`
-or `--no-mma` is supplied. Pass `--allow-truncation` to enumerate the truncated long-link
-space deliberately. Every result is derived from the supplied global lattice and rank
+QUDA's supported MMA set and the coarse-to-coarse colour pair against its instantiated
+pairs; the results appear as `build_capability.QUDA_MMA_COARSE_GAUGE_COLOR.status` and
+`build_capability.QUDA_MMA_COARSE_COLOR_PAIR.status`, each `unchecked` unless `--mma` or
+`--no-mma` is supplied, and the pair check is `not-applicable` below four levels. Pass
+`--allow-truncation` to enumerate the truncated long-link space deliberately. Every result is derived from the supplied global lattice and rank
 geometry; there is no built-in lattice size or lattice-spacing default. The
 `build_capability.QUDA_MULTIGRID_NVEC_LIST.status` field is `pass` or `fail` only when
 `--compiled-nvecs` is supplied; otherwise it is explicitly `unchecked`. A geometry
