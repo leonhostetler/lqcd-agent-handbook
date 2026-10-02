@@ -4430,3 +4430,61 @@ module-provided interpreter carrying `yaml` and `jsonschema`. All 625 tests pass
   read. The mechanism section ("created during `MPI_Init`") is *confirmed* unchanged: the new
   observation fixes when the surplus is visible, not when it is created. The scope section is
   *confirmed*.
+
+## 2026-10-02 — Three build facts from a DeltaAI QUDA/MILC rebuild
+
+A debugging session on DeltaAI reviewed and rebuilt the operator's QUDA and MILC build scripts
+on a `gpu-gh200` login node: QUDA `00c7ef3` (`develop`) as an all-tests `milc-cg`-shaped build,
+then MILC `6b9b8a0` `ks_spectrum_hisq` and a baryon target against it. The operator switched to
+developer mode and approved three findings, applied as five commits.
+
+1. **DeltaAI also installs `libquda_test.so` to `lib64`.** Without `CMAKE_INSTALL_LIBDIR`,
+   `GNUInstallDirs` chose `lib64` under CMake 3.28.3, and `ldd` on an installed
+   `usqcd/bin/staggered_invert_test` reported the library `not found`. This is the mechanism
+   `software/quda/build.md` already gave, observed on a second machine. That leaf now names
+   DeltaAI. The DeltaAI `quda-cuda12-milc-cg-2026q3` notes add the option to their configure
+   command, with a paragraph. Its `stack.yaml` is unchanged, because the validated build did not
+   use the option. The validated run executed build-tree tests, so it could not have seen this.
+2. **QUDA's configure reaches three hosts, and one is a redirect target.** `cmake/CPM.cmake`
+   downloads CPM from a GitHub release URL, which redirects to
+   `release-assets.githubusercontent.com`. Under a sandbox allowing only `github.com`, configure
+   failed in `CPM.cmake` with an HTTP error, then `Unknown CMake command "CPMAddPackage"`.
+   `curl -sSIL` showed the redirect, and the sandbox's denial report named the refused host.
+   With that host allowed, configure and the build completed. The host list went into
+   `software/quda/build.md`, with QMP, QIO and CCCL from `github.com` and Eigen from `gitlab.com`
+   read from `CMakeLists.txt`. The software-independent half — an allowlist matches the request
+   host, not a redirect target — went into `conventions/agent-sandbox.md` as an `[observed]`
+   section, and that leaf's `load_when` now names network-service faults.
+3. **`QUDA_MAX_MULTI_RHS_TILE` is a staggered-dslash register tile.** The operator said it is a
+   performance option that applies beyond multigrid. Read at `b699885` and `00c7ef3`: it sets
+   `StaggeredArg`'s default `n_src_tile`; the kernel falls back to smaller tiles when fewer
+   right-hand sides remain; `n_rhs_tile` is part of the dslash tuning key; and multi-source
+   solves reach the same dslash through `invertMultiSrcQuda`, which the MILC interface's
+   `qudaInvertMsrc` calls. The source makes no claim about speed, so none was recorded. Added to
+   `software/quda/project.yaml` with three citations. The `milc-cg` profile was not changed,
+   because no stack validates the tile there.
+
+Not proposed: the run-time `libgomp` resolving from the NVIDIA HPC SDK directory ahead of
+GCC's, because nothing has shown a consequence; the dead `/usr/uumath` link path in MILC's
+`Makefile`; `make clean` keeping MILC executables; and the session's build times, which were
+measured on a heavily loaded login node.
+
+The pre-commit harness ran without the handbook tool Python, through the runner's fallback
+interpreter. All 625 tests passed on each of the five commits.
+
+**Reconciliation (obligation 11).**
+- `software/quda/build.md`, install-libdir paragraph: "observed on Vista" was *amended* to name
+  DeltaAI. The mechanism and the reinstall-without-reconfigure sentence are *confirmed*.
+- Stack notes setting `CMAKE_INSTALL_LIBDIR=lib` — Vista CUDA 12 and 13, Horizon, Aurora — are
+  *confirmed*. The Frontier and Perlmutter QUDA notes do not set it and were *left unchanged*,
+  because the `lib64` choice has not been observed there.
+- The three DeltaAI notes and the Frontier and Perlmutter notes that put `usqcd/lib64` on
+  `LD_LIBRARY_PATH` are *confirmed*: harmless with the option set, and needed without it.
+- Every stack's "configuration downloads Eigen, QMP, QIO and CCCL" sentence is *confirmed*: CPM
+  is the fetcher, not a dependency. Every `network_required_at_configure: true` is *confirmed*.
+  The build playbook's clone-authorization rule is *confirmed* and does not concern configure.
+- `conventions/agent-sandbox.md`: no prior statement concerned network redirects. The
+  credential-lock and placeholder sections are *confirmed* unchanged.
+- `software/quda/build-profiles.yaml` (`mg-staggered` sets the tile to 3) and the Perlmutter
+  `quda-cuda13-mg-staggered-2026q3` notes are *confirmed*. `internals/autotuning.md`, whose key
+  description already lists "right-hand-side count and tiling", is *confirmed*.
