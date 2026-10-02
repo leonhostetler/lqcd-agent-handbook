@@ -79,7 +79,14 @@ tool together. A field the tool reports `unavailable` is missing data, never a z
   new level-1 near-null CG stream. Take the terminal printed `k` before the next reset
   or the end of the build, then take the arithmetic mean of those terminal values.
   Do not add one to the printed counter and do not substitute solve-side level-1 GCR
-  iterations.
+  iterations. **The `n = <j>` field appears only when the level generates its near-null
+  vectors in batches**, and the batch width is 16 only when the level's `nvec` is divisible
+  by 16 ([`../../internals/staggered-mg-setup-allocation.md`](../../internals/staggered-mg-setup-allocation.md)).
+  At width 1 the same streams print `MG level 1 (GPU): CG: <k> iterations, <r,r> = ...`
+  with no index, one stream at a time, so the reset rule alone delimits them; read that
+  shape only before `MG inverter setup complete`. A parser matching only the batched shape
+  reports these fields unavailable for every such build, which reads as missing data rather
+  than as the capped setup it may be.
 - **`setup_maxiter_1`:** read the literal MILC parameter-file value
   `setup_maxiter 1` used for the same hierarchy build. If it cannot be recovered, report
   `setup_l1_capped_fraction` as unavailable rather than borrowing a cap from another
@@ -108,7 +115,8 @@ tool together. A field the tool reports `unavailable` is missing data, never a z
   `MG level` prefix, `GCR: <k> iterations, <r,r> = <s>, |r|/|b| = <v>` — take `<v>` at
   `k = 1`. The `k = 0` line prints `|r|/|b| = 1.000000e+00`, so that single value already
   is the first cycle's contraction of the initial residual. Read it per solve and never
-  across solves; an inner-level line carrying the same shape is a different quantity.
+  across solves; an inner-level line carrying the same shape is a different quantity. The
+  tool emits one value per solve of the build event, `;`-joined in log order.
 
 Keep separate records when a log contains multiple hierarchy builds or eigensolve
 events; never maximize or average across them silently. Compute `coarsest_global_volume`

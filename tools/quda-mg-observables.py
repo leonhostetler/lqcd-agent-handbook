@@ -29,6 +29,20 @@ report a confident, wrong cap. A missing field is recoverable; a wrongly attribu
 is not. A cap is never borrowed from another level, run, or hierarchy build.
 
 VERSION HISTORY.
+  1.6.0  2026-10-02  Emits `first_cycle_contraction`, which the contract defines and the tool
+                     had never produced: `|r|/|b|` at outer GCR iteration 1, one value per
+                     solve in log order, joined with `;` and never combined across solves. The
+                     outer trace is the unprefixed `GCR: <k> iterations, ... |r|/|b| = <v>` lines.
+  1.5.0  2026-10-02  Level-1 near-null streams are also read from the UNBATCHED line shape.
+                     QUDA prints `n = <j>` only when a level generates its near-null vectors in
+                     batches; the batch width is 16 only when `nvec % 16 == 0` and 1 otherwise
+                     (software/quda/internals/staggered-mg-setup-allocation.md), and a width-1
+                     setup prints `CG: <k> iterations, <r,r> = ...` with no index. Before this
+                     version such a build reported `setup_l1_capped_fraction unavailable` while
+                     every stream had in fact stopped at the cap. Unbatched lines are counted
+                     only before `MG inverter setup complete`, so no solve-phase level-1 CG line
+                     can join a setup stream; the streams run one at a time, so the contract's
+                     reset rule alone delimits them.
   1.4.0  2026-09-03  --mgparams is REQUIRED and path discovery is removed. Locating the
                      parameter file by directory convention assumed one workspace
                      layout; a different arrangement, including a single shared file,
@@ -83,12 +97,17 @@ import pathlib
 import re
 import sys
 
-VERSION = "1.4.0"
+VERSION = "1.6.0"
 UNAVAIL = "unavailable"
 
 RE_BLOCK = re.compile(r"MG level (\d+) \(GPU\): Transfer: using block size ((?:\d+ x ){3}\d+)")
-# Level-1 near-null setup streams carry the "n = <j>" field; solve-side calls do not.
+# Level-1 near-null setup streams carry the "n = <j>" field when generated in batches;
+# solve-side calls do not.
 RE_SETUP_CG = re.compile(r"MG level 1 \(GPU\): CG:\s+(\d+) iterations, n = (\d+),")
+# A batch width of 1 (nvec % 16 != 0) prints no stream index. Read only during setup.
+RE_SETUP_CG_UNBATCHED = re.compile(r"MG level 1 \(GPU\): CG:\s+(\d+) iterations, <r,r> =")
+# Outer GCR trace: unprefixed, one line per outer iteration.
+RE_OUTER_TRACE = re.compile(r"^GCR:\s+(\d+) iterations, <r,r> = \S+, \|r\|/\|b\| = ([\d.eE+-]+)")
 RE_EVAL = re.compile(
     r"MG level (\d+) \(GPU\): Eval\[(\d+)\] = \(([+-][\d.eE+-]+),.*?Residual = ([+-][\d.eE+-]+)"
 )
@@ -155,6 +174,10 @@ FIELDS = [
     # value and is reported as 0. Appended at the end so name-based readers are
     # unaffected.
     "coarsest_eig_progress_last", "coarsest_eig_progress_kind",
+    # Added 2026-10-02 (1.6.0). Contract-governed: outer |r|/|b| at k = 1, one value per
+    # solve in log order, joined with ';'. Appended at the end so name-based readers are
+    # unaffected.
+    "first_cycle_contraction",
 ]
 
 
@@ -179,6 +202,7 @@ class Event:
         self.caps = {}            # level -> count of explicit cap warnings
         self.eig_progress = {}    # level -> (last step, marker name); progress, not a contract observable
         self.outer = []           # (iters, true, requested)
+        self.first_cycle = []     # outer |r|/|b| at k = 1, one per solve
         self.congrad5 = []
         self.multisrc = None
         self.fallback = False
@@ -295,6 +319,19 @@ def parse_log(path, mg):
             m = RE_SETUP_CG.search(line)
             if m:
                 cur.setup_cg(int(m.group(1)), int(m.group(2)))
+                continue
+
+            if not cur.setup_done:
+                m = RE_SETUP_CG_UNBATCHED.search(line)
+                if m:
+                    # One stream at a time; -1 cannot collide with a batched index.
+                    cur.setup_cg(int(m.group(1)), -1)
+                    continue
+
+            m = RE_OUTER_TRACE.match(line)
+            if m:
+                if int(m.group(1)) == 1:
+                    cur.first_cycle.append(float(m.group(2)))
                 continue
 
             m = RE_EIG_PROGRESS.search(line)
@@ -480,6 +517,8 @@ def row_for(path, ev, mg):
         r["congrad5_seconds_total"] = _fmt(sum(c[0] for c in ev.congrad5))
     r["invert_multisrc_seconds"] = _fmt(ev.multisrc)
     r["fallback_observed"] = "yes" if ev.fallback else "no"
+    if ev.first_cycle:
+        r["first_cycle_contraction"] = ";".join(_fmt(v) for v in ev.first_cycle)
     return r
 
 
