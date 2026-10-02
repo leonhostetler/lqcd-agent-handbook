@@ -114,6 +114,31 @@ Treat `10000` as a ranking prior, never as a rejection threshold; a candidate be
 needs a measured outer-iteration count, not a veto. Evidence: one ensemble, one spacing,
 three classes, four levels; the screen has still not been refitted.
 
+**At 0.06 fm the volume ordering itself failed, and the level that decided the outcome was
+the KD pseudo-fine level, not the coarsest.** On a `96^3 x 192` lattice, three four-level
+hierarchies at the same node count shared the build, the loaded level-1 near-null set
+(`nvec 1 = 64`), `nvec 2 = 96`, the coarsest deflation count, the V-cycle, the mass and the
+`1e-8` request, and differed only in their aggregation blocks:
+
+| `geo_block_size 1` / `geo_block_size 2` | `coarsest_global_volume`, cell aspect | KD pseudo-fine coarse solve: geometric contraction per iteration, share of invocations at cap | outer iterations |
+|---|---|---|---|
+| `4 4 8 8` / `2 2 1 1` | `41472`, `2.0` | `0.94`, `0.98` | `42`-`45` |
+| `4 4 6 8` / `2 2 2 2` | `13824`, `3.0` | `0.89`, `0.96` | `25`-`29` |
+| `4 4 4 12` / `2 2 2 2` | `13824`, `3.0` | `0.75`, `0.89` | `12` |
+
+The largest coarsest grid needed the most iterations, so the ordering is not even a ranking
+prior here. The first row against the third moved both blocks; the second against the third
+holds the second block and the coarsest grid fixed, so the **first aggregation block's
+shape alone** moved the KD pseudo-fine solve and the outer count with it. In every row the
+level directly above the coarsest was healthy, and the first outer cycle contracted alike
+(`|r|/|b|` near `0.05` at `k = 1`): the difference appears only over many cycles. **So read
+the KD pseudo-fine coarse solve before blaming coarsest volume:** when it is pinned at its
+cap while the level directly above the coarsest contracts, the first aggregation block is
+the suspect, and a larger coarsest grid will not help. Evidence: empirical, one ensemble,
+one mass, one node count, three hierarchies; the mechanism — the KD pseudo-fine coarse
+solve is preconditioned by the space the first aggregation builds — is source-consistent
+but not isolated, and which block shapes work is not predicted by anything here.
+
 ## What the coarsest level has to represent
 
 The coarsest eigensolve approximates the **fine** operator's low modes. The number of those
@@ -147,7 +172,9 @@ not look like one.** Two consequences follow from the same mechanism:
   directly above it barely contracts. Everything at the coarsest level looks healthy, because
   the problem is not that the solve is inaccurate — it is that the space being solved cannot
   represent what the level above needs. Suspect coarsest **volume** before coarsest solve
-  accuracy whenever those two readings appear together.
+  accuracy whenever those two readings appear together. If instead the level directly above
+  the coarsest contracts and the KD pseudo-fine level is the one pinned, the cause is
+  upstream of the coarsest grid; see the 0.06 fm comparison above.
 - **Setup-side eigensolver knobs cannot repair a starved coarsest level.** `deflate_a_min`,
   `deflate_n_kr`, `deflate_poly_deg` and the setup tolerance move setup cost and vector
   quality. They do not make an inadequate grid contract. A recorded case ran full ladders on
