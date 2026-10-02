@@ -317,6 +317,18 @@ the CA basis size jointly select the coarse solver's execution mode, so a cap ch
 silently change what the solver *is* — see
 [`the MG overview`](../staggered-multigrid.md).
 
+**A coarsest-degree scan through MILC changes the polynomial basis at 8, so it measures a
+(degree, basis) pair, not a degree.** In fixed-iteration mode the MILC interface clamps the
+basis size to `coarse_solver_maxiter` and selects a power basis at `<= 8` and a Chebyshev basis
+above it ([`the MG overview`](../staggered-multigrid.md)), and nothing in the parameter file
+separates the two. On one four-level hierarchy at 0.06 fm, power-basis degrees `6` and `8`
+cut recurring cost against the degree-`16` Chebyshev default, by about `10%` at `8`, degree `4`
+was within run-to-run resolution, and degree `12`, still Chebyshev, gained nothing; the same
+change to `8` bought nothing on two other hierarchies at that spacing. **Scan both sides of
+`8`, attribute any gain to the pair, and confirm which branch ran** from the presence or absence
+of the approximate lambda-max line. Evidence: empirical, one ensemble, one gain and two nulls; the basis switch is
+source-backed, and which side wins is a property of the grid, as the paragraph below says.
+
 **A terminal-side optimum belongs to the grid it was found on, not to the parameter value.**
 Re-applying a coarse-solver tolerance that was optimal on one hierarchy gave, on three
 hierarchies differing in coarsest volume and cell shape, a substantial gain, a small gain, and a
