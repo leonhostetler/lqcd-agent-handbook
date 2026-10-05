@@ -4655,3 +4655,18 @@ recorded beyond the leg and round counts.
   *confirmed*. The section states the check generically.
 - `conventions/agent-sandbox.md`, full home quota: *confirmed*, and consistent with the
   quota-sizing sentence.
+
+## 2026-10-05 — Float-float findings from the lattice/quda#1654 review parked until merge
+
+The review's findings about QUDA's float-float storage and reductions concern an open pull request
+(state checked on GitHub on 2026-10-05; head `14fd699d8`). Its commits can still be rebased or
+dropped, which is the reason the split-grid row parks unmerged work. So this session admitted
+none of them, and added a §5 row with "the pull request merges" as the trigger. The row names the
+classes of knowledge waiting there and the first admissions to make. Everything from the review
+that did not depend on the branch landed in the five entries above.
+
+**Reconciliation (obligation 11).**
+- The split-grid deferred row: *confirmed*. Same reasoning, a different branch.
+- The QIO / QUDA #1655 deferred row: *confirmed*. Unrelated defect, and no overlap.
+- `software/quda/development.md`: no statement concerns float-float storage. Nothing to reconcile
+  until merge.
