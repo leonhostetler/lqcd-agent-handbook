@@ -57,7 +57,10 @@ build_options:
     capabilities:
       - covariant derivative
   QUDA_INTERFACE_MILC:
-    meaning: Builds the MILC application interface and MILC field ordering.
+    meaning: >-
+      Enables QUDA's MILC host gauge-field orders (it defines BUILD_MILC_INTERFACE, which the
+      gauge copy routines and instantiation checks read). The MILC adapter source,
+      lib/milc_interface.cpp, is compiled whether or not the option is set.
     type: boolean
     capabilities:
       - MILC interface
@@ -131,3 +134,6 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/kernels/dslash_staggered.cuh
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/dslash.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/CMakeLists.txt#L105
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/CMakeLists.txt#L633-L635
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/instantiate.h#L52

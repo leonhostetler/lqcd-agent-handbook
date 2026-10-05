@@ -4708,3 +4708,51 @@ batch-script and repeated-work conventions. Its first test was run against the t
   boundaries.
 - `software/quda/development.md` and `software/milc/development.md` ("independently of work
   mode"): *confirmed*. They remain the home of software-specific code-change rules.
+
+## 2026-10-05 — Where a MILC-facing QUDA change belongs: `software/quda/interface-layers.md`
+
+The operator asked for engineering-mode knowledge about the boundary between QUDA's core and its
+interface code. They relayed upstream maintainer guidance from the lattice/quda#1654 review: the
+MILC adapter is the boundary and must speak IEEE host types, so anything that touches QUDA's
+native storage belongs inside QUDA, and some adapter loops should eventually move. The session
+read QUDA `develop` (`00c7ef33d`) and MILC `develop` (`6b9b8a06`) to establish what is true there
+rather than on the reviewed branch.
+
+What source showed:
+- The layering is core, then the public `quda.h` API in `interface_quda.cpp`, then application
+  adapters. A public entry point converts host data to QUDA storage by assigning a CPU reference
+  field to a device field.
+- At that revision four adapter functions compute inside the adapter.
+- `qudaExactCurrent` decodes a raw device buffer by precision. Its own comment says this is
+  because the generic spinor copy lacks the one-colour shape.
+- `QUDA_INTERFACE_MILC` gates only the MILC gauge orders and not the adapter source. That
+  corrects the `project.yaml` meaning, and it was also checked at the record's own commit
+  `b699885`.
+- MILC signals link refresh in band with `num_iters = -1`.
+- `QudaInvertArgs_t` has no size guard.
+- QUDA `develop` defines `qudaExactCurrent`, while MILC `develop` has no caller of it.
+
+Nothing specific to float-float was admitted: the reviewed branch's move of the exact current
+into the core, its storage type, and its division fix stay parked under the §5 row, which now
+also names this leaf for re-reading on merge. The maintainer guidance is cited descriptively
+without quotation or attribution, and the operator cleared that at the approval step. The claim
+that a direct `quda.h` call leaves the adapter's statics stale is labelled inferred, because it
+was read from source and not exercised.
+
+**Reconciliation (obligation 11).**
+- `software/milc/development.md`, "Calling into QUDA from the application" (a public `quda.h`
+  entry is reachable without a new include, so prefer an application-side line to a QUDA change):
+  *confirmed* against `include/generic_quda.h`. A sentence was added naming where new device work
+  goes, and the leaf qualifies direct `quda.h` calls that touch adapter-managed resources.
+- `software/quda/development.md`, "Preserve interface and build contracts" (`quda.h` changes
+  update `check_params.h` and the Fortran mirrors): *confirmed*. The leaf points to it rather
+  than restating it. A pointer section to the leaf was added before it.
+- `software/quda/project.yaml`, `QUDA_INTERFACE_MILC` ("Builds the MILC application interface and
+  MILC field ordering"): *amended*. The adapter source is compiled unconditionally.
+- `software/quda/internals/milc-deflation-space.md`, "Exact-current preconditions": *confirmed*.
+  It describes the same function's preconditions and host-precision handling, and no statement
+  conflicts.
+- `software/milc/quda-linkage.md` (an executable binds the QUDA it was linked against):
+  *confirmed*, and cited for the relink a signature change forces.
+- The stack notes and solver leaves that pass `-DQUDA_INTERFACE_MILC=ON`: *confirmed*. Their
+  builds need the MILC gauge orders, which is what the option provides.

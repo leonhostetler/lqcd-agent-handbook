@@ -199,6 +199,15 @@ because of the old kind, and enumerate them** rather than assuming the edit was 
 drain is required, prefer one that stays correct if stream assignment changes later, and place it so
 the packing loop's own ordering is not relied upon across iterations.
 
+## Put the change in the layer that owns it
+
+Before writing a change that crosses into or out of an application interface, decide which of
+QUDA's layers owns it: the core, the public `quda.h` API, or an application adapter such as
+`lib/milc_interface.cpp`. Anything that reads, writes, or accumulates data in QUDA's own field
+storage belongs in the core behind a public entry point; an adapter translates host conventions
+and nothing more. The layers, the rule, and the existing adapter code that does not follow it
+are in [`interface-layers.md`](interface-layers.md).
+
 ## Preserve interface and build contracts
 
 - Enforce public-input, preserved-state, vector-cardinality, and similar runtime contracts with

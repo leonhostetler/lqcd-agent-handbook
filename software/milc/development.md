@@ -91,6 +91,12 @@ previous section already bounds. Where the QUDA behaviour is genuinely defective
 unhelpful here, the application-side line is a local remedy and not a substitute for the upstream
 fix — record it as such so the fix is not considered done.
 
+When no QUDA entry point does what the application needs, the new work belongs in QUDA's core
+behind a public entry point, with a thin MILC-interface wrapper, and not in MILC or in the
+wrapper. What crosses the boundary, the in-band link-refresh signal, and the cross-repository
+signature contract are in
+[`../quda/interface-layers.md`](../quda/interface-layers.md).
+
 For what the QUDA side of such a call costs and when it is worth making, see
 [`../quda/internals/device-memory-pool.md`](../quda/internals/device-memory-pool.md); for the rules
 governing a change to QUDA itself, see [`../quda/development.md`](../quda/development.md).
