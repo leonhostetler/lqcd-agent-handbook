@@ -4591,3 +4591,33 @@ and tagged `[observed]` in the leaf.
 - The placeholder section: *confirmed*. The new section follows from it.
 - `batch-scripts.md`'s teardown accounting section: *confirmed*, and now pointed to.
 - The DeltaAI notes and `running.md` make no statement about the sandbox: nothing to reconcile.
+
+## 2026-10-05 — First QUDA incident: errorQuda's exit path corrupts the heap
+
+From the same QUDA pull-request review, and the first file under `software/quda/incidents/`. The
+review attributed a glibc `double free or corruption` after `errorQuda` to the base commit
+`00c7ef33` (`develop`), and recorded one float-float run that hung instead of aborting. Rereading
+the outputs for this entry widened both points. All thirteen recorded `errorQuda` exits printed
+the heap error: six eigensolver-test legs, and seven MILC `ks_spectrum_hisq` aborts on solver
+divergence. In the hanging leg, QUDA's own allocator reported an invalid host-pointer free in
+`ColorSpinorField::destroy()` before the garbage-named tunecache file appeared.
+
+Filed as an incident because no mechanism is known. It is graded `reproduced` with thirteen
+observations, and the file says that only one is on `develop` and that the rest are builds of an
+open pull request. The only source claim is the `errorQuda_` save-then-abort order, read at
+`00c7ef33`. No upstream issue was searched for beyond the review's own records; the file asks for
+a report.
+
+**Reconciliation (obligation 11).**
+- `modes/debugging.md` rule 16, an error path that is itself what dies: *confirmed*. This is an
+  instance, and the incident points to the first `ERROR` line accordingly.
+- `software/quda/solvers/eigensolver.md`, TRLM exhausting `max_restarts` calls `errorQuda`, "the
+  fatal handler": *confirmed*. The incident says what that handler then did.
+- `software/quda/solvers/staggered-memory.md`, "a silent abort with no error text is a device
+  out-of-memory": *confirmed*. It concerns aborts with no `ERROR` line; this one always has one.
+- `software/quda/development.md` on always-on `errorQuda` checks: *confirmed*. It concerns where
+  to call `errorQuda`, not what happens after.
+- `software/quda/internals/autotuning.md` on tunecache files: no statement concerns a
+  garbage-named file. Nothing to reconcile.
+- `conventions/batch-scripts.md`, the step time limit from the 2026-10-05 entry: *confirmed*, and
+  pointed to.
