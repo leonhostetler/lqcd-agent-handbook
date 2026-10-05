@@ -96,9 +96,9 @@ profiles:
           communication: [qmp]
           io: [qio]
     notes:
-      - This profile differs from ks-spectrum-hisq-quda in exactly two respects, and both matter. KSCGMULTI adds -DMULTIGRID and -DMULTISOURCE, and the composed QUDA profile is mg-staggered rather than milc-cg.
-      - MULTIGRID is a KSCGMULTI preprocessor define in the observed GNU Make path, not a WANT_* switch. software/milc/project.yaml records WANT_MULTIGRID as the corresponding CMake control; a Make-driven build that sets only WANT_* variables does not compile the MG dispatch.
-      - -DMULTISOURCE selects the multi-right-hand-side dispatch that reaches qudaInvertMsrcMG. It is independent of the QUDA_MULTIGRID_MRHS_LIST compiled shapes and of the runtime use_mma switch.
+      - This profile differs from ks-spectrum-hisq-quda in exactly two respects, and both matter. KSCGMULTI adds -DMULTIGRID (it also carries -DMULTISOURCE, which no source reads at the observed revision), and the composed QUDA profile is mg-staggered rather than milc-cg.
+      - -DMULTIGRID compiles MILC's QUDA multigrid paths. In the observed GNU Make path it comes from either this profile's KSCGMULTI or WANT_MULTIGRID=true in a WANTQUDA build; the base profile's WANT_* set leaves WANT_MULTIGRID at its default of false, so it compiles no MG dispatch.
+      - The multi-right-hand-side dispatch that reaches qudaInvertMsrcMG is compiled under HAVE_QUDA and MULTIGRID and selected at run time by an MG inverter type on a multi-source set. It is independent of the QUDA_MULTIGRID_MRHS_LIST compiled shapes and of the runtime use_mma switch.
       - Capabilities describe compiled paths; each stack records which paths its runtime validation actually exercised.
       - WANT_FN_CG_GPU forces WANT_EIG_GPU in the observed MILC Makefile, so this profile also compiles the native-CG deflation path even when a run supplies no eigenspace.
       - The composed QUDA installation must instantiate the requested coarse colours in QUDA_MULTIGRID_NVEC_LIST. A legal aggregation whose nvec is absent from that list fails at runtime, not at configure time.

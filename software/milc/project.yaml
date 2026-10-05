@@ -31,41 +31,71 @@ capabilities:
   - Multi-rank execution
 build_options:
   WANTQUDA:
-    meaning: Enables the MILC-to-QUDA interface.
+    meaning: >-
+      Enables the MILC-to-QUDA interface; defines HAVE_QUDA. The WANT_*_GPU switches below
+      produce USE_*_GPU defines whether or not WANTQUDA is set, and the Grid back end reads some
+      of them too, so QUDA code is guarded on HAVE_QUDA as well as the USE_*_GPU define.
     type: boolean
     capabilities: [QUDA interface]
   WANT_SHIFT_GPU:
-    meaning: Routes generic KS covariant shifts through the QUDA MILC interface.
+    meaning: Routes generic KS covariant shifts through the QUDA MILC interface; defines USE_SHIFT_GPU.
     type: boolean
     capabilities: [QUDA covariant shifts]
   WANT_SPIN_TASTE_GPU:
-    meaning: Routes generic KS spin-taste operators through the QUDA MILC interface.
+    meaning: Routes generic KS spin-taste operators through the QUDA MILC interface; defines USE_SPIN_TASTE_GPU.
     type: boolean
     capabilities: [QUDA spin-taste operators]
   WANT_FN_CG_GPU:
-    meaning: Enables QUDA staggered conjugate-gradient solves.
+    meaning: Enables accelerated staggered conjugate-gradient solves; defines USE_CG_GPU and forces WANT_EIG_GPU on in a WANTQUDA build.
     type: boolean
     capabilities: [QUDA staggered CG]
   WANT_FL_GPU:
-    meaning: Enables QUDA fermion-link construction.
+    meaning: Enables accelerated fermion-link construction; defines USE_FL_GPU.
     type: boolean
     capabilities: [QUDA fermion links]
   WANT_GF_GPU:
-    meaning: Enables QUDA gauge-force support.
+    meaning: Enables accelerated gauge-force support; defines USE_GF_GPU.
     type: boolean
     capabilities: [QUDA gauge force]
   WANT_FF_GPU:
-    meaning: Enables QUDA fermion-force support.
+    meaning: Enables accelerated fermion-force support; defines USE_FF_GPU.
     type: boolean
     capabilities: [QUDA fermion force]
   WANT_GAUGEFIX_OVR_GPU:
-    meaning: Enables QUDA over-relaxation gauge fixing.
+    meaning: Enables accelerated over-relaxation gauge fixing; defines USE_GAUGEFIX_OVR_GPU.
     type: boolean
     capabilities: [QUDA gauge fixing]
   WANT_GSMEAR_GPU:
-    meaning: Enables QUDA Gaussian smearing.
+    meaning: Enables accelerated Gaussian smearing; defines USE_GSMEAR_GPU.
     type: boolean
     capabilities: [QUDA Gaussian smearing]
+  WANT_EIG_GPU:
+    meaning: Enables the accelerated eigensolver and deflation paths; defines USE_EIG_GPU.
+    type: boolean
+    capabilities: [QUDA eigensolver]
+  WANT_KS_CONT_GPU:
+    meaning: >-
+      Links the QUDA contraction object ks_meson_mom_quda.o in place of ks_meson_mom.o through
+      HAVE_KS_CONT_GPU in Make_template_combos. It also defines USE_KS_CONT_GPU, which no source
+      reads at the observed revision.
+    type: boolean
+    capabilities: [QUDA staggered contractions]
+  WANT_CL_BCG_GPU:
+    meaning: Enables accelerated clover BiCG solves; defines USE_CL_GPU and also USE_GAUGEFIX_OVR_GPU.
+    type: boolean
+    capabilities: [QUDA clover solves]
+  WANT_GA_GPU:
+    meaning: >-
+      Enables accelerated gauge-action and gauge-observable paths; defines USE_GA_GPU. Unlike the
+      other GPU switches it has no default line in the WANTQUDA block.
+    type: boolean
+    capabilities: [QUDA gauge observables]
+  WANT_MULTIGRID:
+    meaning: >-
+      In a WANTQUDA build, adds -DMULTIGRID, which compiles MILC's QUDA multigrid solve paths. A
+      KSCGMULTI value carrying -DMULTIGRID has the same effect.
+    type: boolean
+    capabilities: [QUDA staggered multigrid]
   WANT_MIXED_PRECISION_GPU:
     meaning: Selects the accelerator mixed-precision policy; value 2 is double-single for a double-precision build.
     type: integer
@@ -109,4 +139,6 @@ observed_on:
       branch: develop
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L1278-L1344
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Make_template_combos#L121-L128
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Frontier/compile_ks_spectrum_hisq.sh

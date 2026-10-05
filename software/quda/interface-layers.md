@@ -112,7 +112,8 @@ adapter.
   `initialize_quda()` in `generic/milc_to_quda_utilities.c` is lazy and idempotent, and the
   QUDA-calling routines invoke it first. Makefile `WANT_*_GPU` switches become `USE_*_GPU`
   defines; `WANT_FN_CG_GPU`, for example, becomes `USE_CG_GPU`. Enabling QUDA CG also forces the
-  eigensolver switch on.
+  eigensolver switch on. The header's helpers, the pinned site lattice, and how the switches
+  compose are in [`../milc/quda-host-helpers.md`](../milc/quda-host-helpers.md).
 - **Some state is signalled in band.** MILC sets `num_iters = -1` before a solve to tell the
   adapter its links changed, and the adapter then invalidates the resident gauge field. Changing
   a solver call's argument handling can break that signal silently.

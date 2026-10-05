@@ -95,7 +95,9 @@ When no QUDA entry point does what the application needs, the new work belongs i
 behind a public entry point, with a thin MILC-interface wrapper, and not in MILC or in the
 wrapper. What crosses the boundary, the in-band link-refresh signal, and the cross-repository
 signature contract are in
-[`../quda/interface-layers.md`](../quda/interface-layers.md).
+[`../quda/interface-layers.md`](../quda/interface-layers.md). The MILC-side plumbing a new call
+has to fit into — `generic_quda.h`, QUDA start-up and shutdown, the pinned site lattice, and the
+`WANT_*_GPU` and `USE_*_GPU` guards — is in [`quda-host-helpers.md`](quda-host-helpers.md).
 
 For what the QUDA side of such a call costs and when it is worth making, see
 [`../quda/internals/device-memory-pool.md`](../quda/internals/device-memory-pool.md); for the rules

@@ -52,13 +52,13 @@ therefore not sufficient to reproduce the build; the copy must be reproduced too
 same applies to `ks_spectrum/Makefile`, copied unmodified from the application directory's
 parent.
 
-**2. `MULTIGRID` is a `KSCGMULTI` define, not a `WANT_*` switch.** In the observed GNU Make
-path the MG dispatch is compiled only when `KSCGMULTI` carries `-DMULTIGRID`. A build that
-sets every `WANT_*` variable correctly and leaves `KSCGMULTI` at its plain-CG value produces
-a working QUDA-accelerated executable with **no** MG path, and the omission does not surface
-until a run silently takes the CG fallback. `software/milc/project.yaml` records
-`WANT_MULTIGRID` as the corresponding CMake control; the two build systems do not agree, so
-check the one you are actually using.
+**2. `-DMULTIGRID` must reach the compile line, and this stack put it in `KSCGMULTI`.** The MG
+dispatch is compiled only under `-DMULTIGRID`. In the observed GNU Make path that define comes
+from either `KSCGMULTI` or `WANT_MULTIGRID=true` in a `WANTQUDA` build, and `WANT_MULTIGRID`
+defaults to false. A build that sets the base profile's `WANT_*` variables and leaves
+`KSCGMULTI` at its plain-CG value therefore produces a working QUDA-accelerated executable with
+**no** MG path. Check for `-DMULTIGRID` on the compile line rather than trusting either
+variable.
 
 ## The linked QUDA cannot be changed by environment
 

@@ -4756,3 +4756,62 @@ was read from source and not exercised.
   *confirmed*, and cited for the relink a signature change forces.
 - The stack notes and solver leaves that pass `-DQUDA_INTERFACE_MILC=ON`: *confirmed*. Their
   builds need the MILC gauge orders, which is what the option provides.
+
+## 2026-10-05 — MILC's QUDA host-side helpers, and two corrected MG build claims
+
+The operator asked for engineering-mode knowledge of MILC's `generic_quda.h` helpers. The session
+read MILC `develop` `6b9b8a06` (the commit every MILC stack here pins) together with QUDA
+`develop` `00c7ef33d`, and wrote `software/milc/quda-host-helpers.md`. All of it was read from
+source and none of it was exercised.
+
+What it records:
+- Which header helpers are live. Five have no caller, and two carry swapped comments.
+- `make_lattice()` initializes QUDA and pins the whole site array.
+- QUDA reads the site struct in place through runtime offsets. The momentum offset is 0 without
+  `MOM_SITE`.
+- `qudaAllocateManaged` silently becomes pinned memory unless QUDA's own header defines
+  `USE_QUDA_MANAGED`, which happens only for CUDA at compute capability 6.0 or higher.
+- `WANT_*_GPU` acts through both object selection and `USE_*_GPU` defines, and
+  `USE_KS_CONT_GPU` is read by no source.
+- `ks_meson_mom_quda.c` keeps unchecked local copies of QUDA's contraction declarations. They
+  match QUDA today.
+
+`software/milc/project.yaml` now names the define each switch produces. It also gains
+`WANT_EIG_GPU`, `WANT_KS_CONT_GPU`, `WANT_CL_BCG_GPU`, `WANT_GA_GPU` and `WANT_MULTIGRID`.
+
+Two existing claims were wrong at the same commit, and both were corrected:
+- **"`MULTIGRID` is a `KSCGMULTI` define, not a `WANT_*` switch."** At `6b9b8a06` the top-level
+  Makefile adds `-DMULTIGRID` from `WANT_MULTIGRID=true` in a `WANTQUDA` build, and `CGPU` reaches
+  `CFLAGS` through `DARCH`. The 2026-09-02 entry above states the original claim; it stays as
+  written, being an episode.
+- **"`-DMULTISOURCE` selects the dispatch that reaches `qudaInvertMsrcMG`."** No source reads the
+  macro (only the unrelated `MULTISOURCE_SET` enumerator), and the Makefile lists it as
+  deprecated. The block MG path is guarded by `HAVE_QUDA && MULTIGRID` and chosen at run time.
+
+The stack note's phrase that a missing `-DMULTIGRID` surfaces only when "a run silently takes the
+CG fallback" was removed rather than corrected, because source does not support it: both MG
+solve paths print an error and terminate without the define, and `rebuild_type` is not parsed.
+That too was read from source, not exercised. The stack's own build, and its validation, are
+unaffected: it did carry `-DMULTIGRID`.
+
+**Reconciliation (obligation 11).**
+- `machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md` item 2:
+  *amended*, as above. It also no longer cites a `WANT_MULTIGRID` row that `project.yaml` never
+  had.
+- `software/milc/build-profiles.yaml`, `ks-spectrum-hisq-quda-mg` notes 1–3: *amended*. Note 1
+  keeps the profile's actual `KSCGMULTI`. Notes 2 and 3 state the two sources of `-DMULTIGRID`
+  and the real guard.
+- `software/milc/build-profiles.yaml` and `software/quda/build-profiles.yaml`, "`WANT_FN_CG_GPU`
+  forces `WANT_EIG_GPU`": *confirmed*.
+- `software/milc/development.md`, "Confirm which object the target actually builds": *confirmed*.
+  The leaf cites it for object selection. A pointer to the leaf was added under "Calling into
+  QUDA".
+- `software/quda/interface-layers.md`, "MILC reaches QUDA through one header and one
+  initializer": *confirmed*, and it now points to the leaf.
+- `software/quda/internals/managed-memory.md` (`qudaAllocateManaged` bypasses the prefetch
+  gate): *confirmed*. The leaf adds that MILC reaches that path only on CUDA, and cites the
+  managed-memory leaf for the cost.
+- `software/milc/applications/wilson-flow.md` (cites `generic_quda.h` lines 43–82, the link-copy
+  helpers): *confirmed*. Those helpers are live.
+- `software/milc/project.yaml`, the existing `WANT_*` meanings: *amended* to name each define.
+  The "QUDA ..." wording became "accelerated ...", because Grid reads some of the same switches.
