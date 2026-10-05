@@ -45,6 +45,20 @@ GPU-aware Cray MPICH requires `MPICH_GPU_SUPPORT_ENABLED=1`, and the application
 build is a scheduler job and therefore requires an explicit campaign budget before
 submission.
 
+**The login node caps each user's memory, and the cap stalls work instead of failing it.** All
+of one user's processes on a login node share one control group. Its `memory.high` is 16 GiB
+and its `memory.max` is 20 GiB (read from the user slice, `[reproduced ×2]`, 2026-10-03 and
+2026-10-05, the second on `gh-login02`). Above `memory.high` the kernel throttles every process
+in the group and reclaims from it, killing none; at `memory.max` it kills. A parallel build that
+crosses the first limit therefore freezes everything the user runs on that node, including an
+agent session and its shell. It looks like a hang, not a build error. Two QUDA builds stalled
+this way at `-j16`, at the same file and with the agent unresponsive, while the same
+configuration later built on a compute node. That the throttle caused it is inferred, because
+the group's event counters had been reset before anyone read them. On the login node, keep
+parallel jobs × the largest per-process RSS under 16 GiB; the validated stacks record their
+per-process peak. A build whose compile processes each need several GiB belongs on a compute
+node, as a job under the campaign budget.
+
 ## Choose storage by workload
 
 DeltaAI has no `/scratch` filesystem. Use `/work/hdd` for large computational I/O,

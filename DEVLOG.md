@@ -4528,3 +4528,33 @@ multi-task step without kill-on-bad-exit was not added.
   *confirmed*, and consistent.
 - `scheduler-surfaces.yaml` had no field for launcher failure or step time. The Vista and Aurora
   site launchers' equivalents are left unrecorded, as unestablished.
+
+## 2026-10-05 — The DeltaAI login node's per-user memory cap
+
+From the same QUDA pull-request review. Two QUDA builds at `-j16` on a DeltaAI login node stalled
+at 84%, on the same files, and each time the agent session stopped responding. The user's control
+group on the login node has `memory.high` 16 GiB and `memory.max` 20 GiB: read on 2026-10-03, and
+again on 2026-10-05 on `gh-login02`. One compile process of that configuration reached 13.4 GB of
+maximum RSS in an earlier build. The kernel's documented behaviour above `memory.high` is to
+throttle and reclaim from every process in the group, which fits a stall of the build and the agent
+together. It is still an inference, because the group's event counters had been reset by the time
+they were read. The same configuration built on a compute node at `-j6`.
+
+The value went into the notes with an inline evidence tag, not into `machine.yaml`. The profile's
+evidence is site documentation and this is a reading of the system. No tool consumes it, so the
+notes are its one home. The configuration that needed 13.4 GB per process belongs to an unmerged
+QUDA branch, so the notes give no figure for it; they point to the per-process peaks the
+validated stacks already record.
+
+**Reconciliation (obligation 11).**
+- DeltaAI notes, "Place builds deliberately": the compiler-wrapper paragraph and "A compute-node
+  build is a scheduler job" are *confirmed*.
+- `machine.yaml` `build_environment`: login is `intended_for` compilation, and compute's `use_for`
+  includes memory-intensive builds. Both *confirmed*. The new paragraph says where the boundary
+  sits on the login side.
+- `playbooks/build-lqcd-stack.md`, "use the machine profile … to cap build parallelism" and "Do
+  not describe maximum per-process RSS as aggregate build memory": *confirmed*. The new sizing
+  rule uses per-process RSS as a per-job factor, not as an aggregate figure.
+- `software/quda/build.md`, "respecting the machine's build-placement and parallelism": *confirmed*.
+- The DeltaAI `quda-cuda12-milc-cg-2026q3` and wilson-flow stack costs (login, `--parallel 8`,
+  recorded per-process maximum RSS): *confirmed*. Eight jobs at that peak stay under 16 GiB.
