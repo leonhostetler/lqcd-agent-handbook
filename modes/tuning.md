@@ -218,4 +218,4 @@ recorded; rejected and untested alternatives are named; and an independent confi
 benchmark is defined. Before closing, run the automation checkpoint in
 [`conventions/repeated-work.md`](../conventions/repeated-work.md) and record its outcome,
 including candidates deliberately left manual. A transition to benchmarking, production,
-performance, or debugging requires another explicit operator declaration.
+performance, debugging, or engineering requires another explicit operator declaration.

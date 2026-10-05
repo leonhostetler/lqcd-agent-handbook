@@ -4670,3 +4670,41 @@ that did not depend on the branch landed in the five entries above.
 - The QIO / QUDA #1655 deferred row: *confirmed*. Unrelated defect, and no overlap.
 - `software/quda/development.md`: no statement concerns float-float storage. Nothing to reconcile
   until merge.
+
+## 2026-10-05 — A sixth work mode: engineering
+
+The operator proposed a work mode for developing software such as QUDA and MILC. None of the five
+fitted. Debugging forbids broadening a fix into a feature or refactor. Tuning owns source changes
+only when they are kept because they measured better. Performance, benchmarking and production do
+not change source at all. The lattice/quda#1654 review, a review and validation of another
+author's change, had no natural mode. The operator first proposed the name *development* and then
+chose *engineering* from two candidates. *Development* was rejected because it is a near-homonym
+of developer mode, so a work-mode declaration could be read as a grant of handbook write access.
+*Implementation* was rejected because the handbook already uses the word in 41 lines for a
+software's realization of a solver. The mode document points to `modes/debugging.md` for the
+state table, the independent-reference rule and layered validation, rather than restating them.
+It also defers software-specific rules to `software/<name>/development.md`. Tier 0 had 23 bytes
+of headroom before the change.
+
+`tests/test_work_modes.py` now holds the mode list in `AGENTS.md`, the question in
+`playbooks/start-session.md` and the documents in `modes/` to one set. It also refuses a work
+mode that shares a stem with a handbook mode, and requires every work mode to route to the
+batch-script and repeated-work conventions. Its first test was run against the tree with only
+`modes/engineering.md` added and failed, as intended.
+
+**Reconciliation (obligation 11).**
+- `modes/debugging.md`, "Do not broaden a correctness fix into a feature, optimization, or
+  refactor": *amended*, to name engineering and tuning as the modes that work belongs to.
+- The transition sentences closing `modes/debugging.md`, `modes/tuning.md`,
+  `modes/performance.md`, `modes/benchmarking.md` and `modes/production.md`: *amended*, to list
+  engineering.
+- `modes/tuning.md`, "Trials that change source": *confirmed*. It still owns source changes
+  selected by measurement, and the engineering mode points to it.
+- `modes/benchmarking.md`, "Do not modify project code or parameters to improve a measured
+  result": *confirmed*. It recommends tuning, performance or debugging, and an optimisation is
+  still not engineering.
+- The `ARCHITECTURE.md` decision rows "Work mode", "Performance and tuning boundary" and
+  "Development conventions": *confirmed*. A new row records the engineering mode and its
+  boundaries.
+- `software/quda/development.md` and `software/milc/development.md` ("independently of work
+  mode"): *confirmed*. They remain the home of software-specific code-change rules.

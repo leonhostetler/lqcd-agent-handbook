@@ -17,8 +17,8 @@ Do not infer a node type from a login host. If the matched machine profile has e
 `node_types` entry, use that sole type as the default; otherwise require explicit operator
 declaration.
 
-Exactly one work mode is current: debugging, performance, benchmarking, tuning, or
-production. It changes only when the operator explicitly declares a change.
+Exactly one work mode is current: debugging, engineering, performance, benchmarking,
+tuning, or production. It changes only when the operator explicitly declares a change.
 
 Exactly one handbook mode is current:
 

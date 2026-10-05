@@ -124,8 +124,8 @@ then read `ARCHITECTURE.md`, `ROADMAP.md`, `handbook.yaml`, and `modes/developer
 Do not read `DEVLOG.md` at startup; it is opened by name when an episode's evidence is
 needed.
 
-Ask one question only: which current work mode applies — debugging, performance,
-benchmarking, tuning, or production? State it after the operator answers. A mode changes
+Ask one question only: which current work mode applies — debugging, engineering,
+performance, benchmarking, tuning, or production? State it after the operator answers. A mode changes
 only on another explicit declaration. After the operator answers, read exactly
 `modes/<work-mode>.md` when it exists. If that mode document has not landed during
 bootstrap, report that limitation and use no unrecorded conventions.

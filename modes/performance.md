@@ -204,4 +204,4 @@ and what the capture could not observe is named rather than left as silence. Bef
 the automation checkpoint in
 [`conventions/repeated-work.md`](../conventions/repeated-work.md) and record its outcome,
 including candidates deliberately left manual. A transition to tuning, benchmarking, debugging,
-or production requires another explicit operator declaration.
+engineering, or production requires another explicit operator declaration.

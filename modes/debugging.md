@@ -153,7 +153,9 @@ Before editing, building, or running anything:
 - In analysis-only work, inspect and report without editing, building, recompiling, or executing
   the target workload.
 - In hands-on work, make only changes needed to test the stated hypothesis. Do not broaden a
-  correctness fix into a feature, optimization, or refactor without operator direction.
+  correctness fix into a feature, optimization, or refactor without operator direction. A
+  feature or refactor is engineering mode, and an optimization kept because it measured better
+  is tuning mode; either needs an explicit transition.
 - Never submit a scheduler job without an explicit campaign-scoped node-hour or GPU-hour
   ceiling and a working-directory budget ledger. Without both, prepare the job and give the
   submit command to the operator.
@@ -190,5 +192,5 @@ for canonical knowledge.
 Debugging is done when the cause is demonstrated or the remaining uncertainty is explicitly
 bounded; the reproducer, environment, and violated invariant are recorded; any hands-on fix
 is validated to its stated scope; and unresolved integration or regression risks are named. Before closing, run the automation checkpoint in [`conventions/repeated-work.md`](../conventions/repeated-work.md) and record its outcome, including candidates deliberately left manual.
-A transition to performance, benchmarking, tuning, or production requires another explicit
+A transition to engineering, performance, benchmarking, tuning, or production requires another explicit
 operator declaration.

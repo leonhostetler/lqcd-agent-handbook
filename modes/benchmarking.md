@@ -186,5 +186,5 @@ missing or unexpected entries; warm, setup, recurring, and excluded costs are di
 accepted runs have observed ledgers; any production projection is separate and states its
 recurrence model; prediction misses and uncertainty are explained; and the result answers the
 declared comparison or workflow-cost question without claiming beyond the measured scope. Before closing, run the automation checkpoint in [`conventions/repeated-work.md`](../conventions/repeated-work.md) and record its outcome, including candidates deliberately left manual. Any
-adaptive follow-up requires an explicit transition to tuning, performance, debugging, or
-production mode.
+adaptive follow-up requires an explicit transition to tuning, performance, debugging,
+engineering, or production mode.

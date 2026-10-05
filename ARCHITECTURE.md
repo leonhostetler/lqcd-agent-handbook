@@ -85,6 +85,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Task-time Tier-2 routing** | Startup loads Tier 1 only. Before substantive analysis or action, and whenever a task narrows or changes, derive the named applications, solvers, ensembles and immediate decision from the request and the active project instructions, then load the smallest Tier-2 leaves whose `load_when` matches. Interpretation waits for this check | A reliable executable task router makes the Tier-0 checkpoint redundant |
 | **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate; benchmarking measures a candidate and workload frozen before the measured series. A campaign may move from one to the other but never occupies a hybrid mode, and an exploratory winner needs independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
 | **Trial shape versus production workload** | A tuning or benchmarking trial runs few solves by design: it prices one-time and recurring cost cheaply so production can be costed at counts it never ran. Its own solve count is an instrument setting, and any share, ratio, ranking or winner derived from it carries the count it holds at. **Not a mandatory declaration** — where the production count is unknown the deliverable is `C(N) = I + N·R` and the crossover, so an exploratory campaign discovers its regimes instead of declaring them ([§trial-is-an-instrument](#trial-is-an-instrument)) | An objective appears whose ranking is genuinely solve-count-independent, or the crossover form proves unusable for a real decision |
+| **Engineering work mode** | A sixth work mode for changing software on purpose — a capability, a restructuring, an interface, a port, or the review and validation of another author's change — accepted on correctness against a stated contract. **Debugging** owns defects in code that already existed and **tuning** owns a source change kept because it measured better, and software-specific code-change rules stay in `software/<name>/development.md`. Named *engineering*, not *development*, because a near-homonym of developer mode would let a work-mode declaration be read as a grant of handbook write access ([§work-modes](#work-modes), [§handbook-modes](#handbook-modes)) | A session cannot classify a source change as engineering or tuning from its immediate decision, or the mode proves to carry no method beyond `software/<name>/development.md` |
 | **Performance and tuning boundary** | Performance **diagnoses**: it ingests a profile and produces a ranked, evidenced hypothesis list. Tuning **searches**: it applies a change, rebuilds, remeasures and selects. A profile-driven optimisation loop crosses the boundary and is declared at the crossing, never one mode doing both ([§work-modes](#work-modes), [§profile-analysis](#profile-analysis)) | A diagnosis phase proves to carry no decision content distinct from the search that follows it |
 | **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; a session logger or submission guard that is not ready produces a non-blocking offer in the orientation report, and so does a tool Python that is not ready, in developer mode only ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
@@ -226,6 +227,7 @@ lqcd-agent-handbook/
 │
 ├── modes/                     # two families; ONE FROM EACH is in force at any moment
 │   ├── debugging.md           #  ┐
+│   ├── engineering.md         #  │
 │   ├── performance.md         #  │ work modes — what the agent is doing.
 │   ├── benchmarking.md        #  │ Current, not permanent: may change mid-session,
 │   ├── tuning.md              #  │ but only by explicit declaration (§work-mode-currency).
@@ -1759,7 +1761,7 @@ against the folklore accumulation called out in the requirements.
 ## 7. Modes
 
 <a id="work-modes"></a>
-### 7.1. Work modes (five, from the requirements)
+### 7.1. Work modes (six: five from the requirements, engineering added in bootstrap)
 
 One is in force at a time, loaded from `modes/`; it may change during a session ([§work-mode-currency](#work-mode-currency)).
 Each states: what the agent must ask for up front, what it may do unprompted, what it must
@@ -1769,6 +1771,16 @@ distinguishing content:
 - **debugging** — needs the problem statement and where the code is; must ask whether it
   is analysis-only or hands-on (build/run/edit/recompile); `compute-sanitizer`,
   `valgrind4hpc`; **may submit jobs only under an explicit node-hour budget** ([§budget-rule](#budget-rule)).
+- **engineering** — needs the change contract (what changes, the acceptance criteria, and what
+  must not change), whose change it is and the head and base under review, and whether the work
+  is analysis-only or hands-on. It inventories the interfaces the change crosses and their
+  consumers, builds base and change in separate trees, derives the build matrix from dispatch,
+  requires every new test to fail without the change, and validates in layers. A defect in code
+  the change did not touch is a declared debugging phase; a source change kept because it
+  measured better is tuning. Its deliverable is an unstaged change, or scoped findings on another
+  author's, never a commit or a review comment unless explicitly requested. **May submit jobs
+  only under an explicit node-hour budget** ([§budget-rule](#budget-rule)), and a compute-node
+  build counts.
 - **performance** — needs the profile or the capture plan, the application and the build that
   produced it, the region of interest, and the division of labour. It answers *where does the
   time go, and why*: capture or ingest a profiler database, extract a structured summary with a
@@ -1808,8 +1820,8 @@ distinguishing content:
 The mode follows the **immediate decision**, not the presence of a timer or profiler. Reading a
 profile to find out where the time goes is performance. Measuring
 a candidate while deciding what to try next is tuning. Measuring a fixed candidate to estimate
-its performance or cost is benchmarking. A campaign may pass through debugging, performance,
-tuning, benchmarking, and production in sequence; exactly one governs each phase.
+its performance or cost is benchmarking. A campaign may pass through debugging, engineering,
+performance, tuning, benchmarking, and production in sequence; exactly one governs each phase.
 
 <a id="trial-is-an-instrument"></a>
 ### 7.1a. A trial is an instrument for costing production, not a small production run

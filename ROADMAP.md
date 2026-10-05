@@ -219,7 +219,7 @@ profiles in two software contexts. **Accepted 2026-08-17.**
 
 ### Slice 4 — modes, benchmarking, and the prediction loop
 
-All five work modes, `conventions/{running,measurement}.md`, the benchmark and capture
+All six work modes, `conventions/{running,measurement}.md`, the benchmark and capture
 playbooks, the prediction schema, the budget-ledger format, and the MILC timing, Slurm summary
 and environment-collection tools. MILC application semantics live under
 `software/milc/applications/`, not in the generic modes. The staggered memory and decomposition

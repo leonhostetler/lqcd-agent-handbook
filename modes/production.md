@@ -257,5 +257,5 @@ no duplicate or untracked attempts remain active; scheduler and application evid
 resource consumption are reconciled; raw evidence and derived-product provenance are retained;
 and the contract, ledgers, final handoff, and closure summary are consistent and sufficient for
 another operator to audit or resume the campaign safely. Before closing, run the automation checkpoint in [`conventions/repeated-work.md`](../conventions/repeated-work.md) and record its outcome, including candidates deliberately left manual. Any change to the frozen setup or
-investigation beyond failure triage requires an explicit transition to debugging, performance,
-tuning, or benchmarking mode.
+investigation beyond failure triage requires an explicit transition to debugging, engineering,
+performance, tuning, or benchmarking mode.
