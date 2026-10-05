@@ -4621,3 +4621,37 @@ a report.
   garbage-named file. Nothing to reconcile.
 - `conventions/batch-scripts.md`, the step time limit from the 2026-10-05 entry: *confirmed*, and
   pointed to.
+
+## 2026-10-05 — Bisecting with one job when builds are free
+
+From the same QUDA pull-request review. A double-double result changed deterministically between
+two heads of the pull request, nine commits apart. Builds on the login node cost no allocation,
+while the interactive queue admits one job per user. So the review built the variant at each of the
+seven library-changing commits, plus fresh rebuilds of both endpoints, and ran one ten-leg job in
+history order. A scorer, negative-tested beforehand, required a single old-to-new transition and
+named one commit. Both fresh endpoints reproduced their references bitwise.
+
+Filed as a section of the diagnostic-rig leaf, not as a debugging-mode rule, because the mode
+document is loaded at the start of every debugging session and the rig leaf only on demand. The
+leaf's `load_when` now names bisection, so routing finds it from that word. The named commit's
+change was algebraically exact, and a host test of it found no difference; the mechanism was
+inferred but not demonstrated. That gave the section's closing rule. No figure from the case is
+recorded beyond the leg and round counts.
+
+**Reconciliation (obligation 11).**
+- Rig leaf, "A positive control" and "A matched control at the same work count": *confirmed*. The
+  fresh endpoint rebuilds are this section's positive controls.
+- "Let an independent leg fail alone, and put the controls first": *confirmed*. The endpoint legs
+  sit at the ends of history order, and the scorer reports a missing leg rather than skipping it.
+- "A clean result the rig did not earn" (completeness before negative checks): *confirmed*. The
+  scorer's missing-leg refusal is the same rule.
+- "Evidence and limits": *amended*, to name this section's source and mechanisms.
+- `measurement.md`, "A deterministic-looking observable is not a determinism claim": *confirmed*,
+  and pointed to rather than restated.
+- `modes/debugging.md` rule 3 (reproduction fingerprint) and rule 19 (single-variable results):
+  *confirmed*. A bisection is a single-variable experiment over revisions, and its endpoint
+  rebuilds are a fingerprint check.
+- `software/milc/quda-linkage.md` (each MILC binary loads the QUDA it was linked against):
+  *confirmed*. The section states the check generically.
+- `conventions/agent-sandbox.md`, full home quota: *confirmed*, and consistent with the
+  quota-sizing sentence.

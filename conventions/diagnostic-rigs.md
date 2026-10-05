@@ -2,7 +2,7 @@
 title: Diagnostic rigs — designing a multi-leg run and reading what it returns
 summary: How to build a diagnostic run whose legs are interpretable, what a rig must gate on rather than merely print, which readings of a sampled resource trace are artifacts, and the ways a rig reports a clean result it did not earn.
 scope: [universal]
-load_when: Designing, scoring, or interpreting a diagnostic run made of several legs, or adding instrumentation, environment-variable comparisons, or resource sampling to an existing one.
+load_when: Designing, scoring, or interpreting a diagnostic run made of several legs, including a bisection of a change across revisions, or adding instrumentation, environment-variable comparisons, or resource sampling to an existing one.
 evidence: reproduced
 observations: 15
 sources:
@@ -201,6 +201,43 @@ nodes, and between samples, is at least as high.
 successful run has bounded, and the failing request size in the error message sharpens it further.
 Do not discard a failed leg from the analysis merely because it produced no primary result.
 
+## Bisecting a change when builds are free and runs are not
+
+When a result changed between two revisions and only an allocation can measure it, but each
+revision can be built without one (on a login node, within its limits), a sequential bisection is
+the wrong shape. It spends a build and a job per step, and on a queue that admits one job per user
+those rounds are serial, each paying its own wait. Instead, **build every revision in the range that
+changes the library** (read each diff, and skip those that touch only tests or documentation), and
+**run one job with one leg per build, in history order.** Four things make that one job readable:
+
+- **Show the observable is deterministic first.** A single leg classifies a revision only if a
+  repeat of the same binary reproduces it, bitwise or within a measured floor. Establish that with
+  a zero-variable repeat of an endpoint ([`measurement.md`](measurement.md)). Without it, every leg
+  needs repeats, and the job grows to match.
+- **Classify each leg against both endpoints.** A leg is *old*, *new*, or *neither*. *Neither* is a
+  result: it says the change is not one change.
+- **Require exactly one transition along the history, and let the scorer refuse anything else** —
+  a reversal, a leg that matches neither endpoint, or a missing leg. A scorer that accepts any
+  pattern will name a commit from noise. Make it fail on purpose before trusting it, with the order
+  reversed, a foreign leg, and a leg removed.
+- **Rebuild both endpoints fresh, in the same batch.** Reference results built on different days
+  can differ through the toolchain, a downloaded dependency, or the build environment, not the
+  source. Fresh endpoint builds that reproduce their old results exclude that. One that does not
+  reproduce stops the bisection before it names a commit.
+
+Pin each build to its revision by full hash, in its own clean worktree and its own build directory,
+and check that each executable loads its own library rather than another build's. Size the batch
+against the filesystem's quota before starting, because a dozen build directories add up.
+
+In the recorded case, seven library-changing commits and two fresh endpoint builds ran as one
+ten-leg job, replacing about four serial build-and-job rounds. The scorer found one clean
+transition, and both fresh endpoints reproduced their references bitwise `[observed]`.
+
+**A bisection names a commit, not a mechanism.** In that case the named change was algebraically
+exact, and a host-side test of it showed no difference, so why it changed the result stayed open.
+Report the commit as an attribution, and keep the explanation a separate claim with its own
+evidence.
+
 ## Exhaust what is already on disk
 
 **The first question of any resource investigation is what the completed runs already know.** In
@@ -265,7 +302,10 @@ than writing a placeholder.
 Empirical, converted from recorded episodes in one operator campaign rather than argued from
 mechanism, except where a mechanism is named in the text. The non-finite rule is the exception: its
 mechanism is IEEE 754 comparison semantics. It was observed once, in a separate campaign, when a
-comparison tool scored a NaN-carrying leg as agreement. What transfers is the failure mode and the
+comparison tool scored a NaN-carrying leg as agreement. The bisection section also comes from that
+separate campaign, where it worked once. Its rules rest on stated mechanisms: a single leg
+classifies only under determinism, a scorer must be able to refuse, and a dependency can drift
+between builds. What transfers is the failure mode and the
 guard; no rate, threshold, sampling interval, or cost figure is claimed, and the illustrative
 magnitudes are reported only to convey scale. Each rule above cost something specific in its source
 campaign, which is the only evidence offered that it is worth its space.
