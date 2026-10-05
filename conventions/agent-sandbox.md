@@ -53,9 +53,11 @@ This is narrower than "run it directly". An environment prefix is enough to brea
 
 **Recognise the signature.** The failure reports an unsupported address family and a socket
 address of `family = 0, port = 0`: no address was resolved, rather than a connection refused
-or timed out. The output is a header with no data rows, and the exit status is non-zero. **A
-real outage does not look like this** — it reports an inability to contact the controller, or
-it times out. Treat the address-family signature as sandbox, not cluster.
+or timed out. The output is a header with no data rows, and the exit status is non-zero. Treat
+the address-family signature as sandbox, not cluster. **The converse does not hold.** A real
+outage reports an inability to contact the controller, or times out. But the sandbox has
+produced the controller-contact message too (below), so that message alone does not establish
+an outage either.
 
 **The submission client fails differently again, and its symptom points at the site.** Where the
 accounting client reports a socket error, a submission client wrapped in anything can report a
@@ -63,6 +65,12 @@ container-runtime *ownership* complaint about a root-owned configuration file an
 **segmentation fault**. Nothing about that reads as a restriction on the agent: it reads as a
 broken site install, and it has been reported as one. It is the sandbox's user-namespace mapping
 showing through.
+
+**It can also report that the controller is unreachable.** In one campaign a submission client
+run inside a shell loop said it could not contact the controller three times, and twice more on
+single submissions whose exact shape was not recorded. Nothing was submitted, and a bare retry
+succeeded each time `[observed]`. That message reads as an outage, which is what makes this one
+the most misleading face of the cause; the rule below covers it unchanged.
 
 **Submission usually still works, and assuming otherwise is expensive.** Because the bare command
 is exempt, an agent that has authority to submit can normally submit — so a misdiagnosis here does
@@ -84,6 +92,17 @@ rows and not just a header.**
 
 **So the capture is three commands, not one pipeline:** run the query bare, read its output,
 then write the file in a separate command.
+
+**Bare is necessary, not sufficient.** A bare accounting query that had worked failed later in
+the same session with the address-family signature, and in that campaign every later re-query
+failed `[observed]`. A record the job captured at teardown, where no sandbox applies, is the one
+to rely on, as [`batch-scripts.md`](batch-scripts.md) already requires. A query from the sandbox
+is a convenience.
+
+**Some queries have no working shape at all.** A site's account-listing command and the
+scheduler's administration client failed with the address-family signature even as bare
+commands, and a filesystem quota query reported `Connection refused` `[observed]`. The operator
+runs these from their own shell. Ask, and record that they did.
 
 ## A tool must take site data as an input, not fetch it
 
@@ -115,6 +134,16 @@ existence check. Two consequences seen in practice:
   produces an error about being unable to take a lock, which reads as a stale lock rather than
   as a denied write. `playbooks/start-session.md` carries the specific retry this handbook
   uses for its own freshness check.
+
+## A full home filesystem stops every command
+
+The sandbox writes its placeholders when it starts each command, and the working directory
+usually lies on the home filesystem. When that filesystem is out of quota, the write fails and
+**no command starts at all**: every tool call fails, including the ones that would diagnose why
+`[observed]`. Nothing inside the session can show the cause, because the quota query is one of
+the shapes above that fails, and nothing inside it can free space. So before a batch of large
+writes into home, such as several build directories, ask the operator for the quota headroom.
+Once it has happened, only the operator's own shell can recover it.
 
 ## A device the sandbox hides looks like a node without one
 

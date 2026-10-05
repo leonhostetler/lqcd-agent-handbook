@@ -4558,3 +4558,36 @@ validated stacks already record.
 - `software/quda/build.md`, "respecting the machine's build-placement and parallelism": *confirmed*.
 - The DeltaAI `quda-cuda12-milc-cg-2026q3` and wilson-flow stack costs (login, `--parallel 8`,
   recorded per-process maximum RSS): *confirmed*. Eight jobs at that peak stay under 16 GiB.
+
+## 2026-10-05 — Sandbox: the controller-contact message, bare queries that still fail, a full home
+
+From the same QUDA pull-request review, four observations about the agent sandbox, each seen once
+and tagged `[observed]` in the leaf.
+
+1. The submission client reported that it could not contact the controller three times from inside
+   a shell loop, and twice more on first attempts whose shape the workspace log does not record.
+   Nothing was submitted, and a bare retry succeeded each time. The leaf named that message as what
+   a real outage looks like, as the counterpart to the sandbox's address-family signature. That
+   half was wrong, and it is removed.
+2. A bare `sacct` that had worked failed later with the address-family signature, and every later
+   re-query in that campaign failed. The leaf's table said the bare form works. That stays true as
+   the necessary shape, and the leaf now says it is not sufficient. It points to the batch-script
+   leaf's teardown capture, which the review relied on throughout.
+3. `accounts` (NCSA's account listing) and `sacctmgr` failed even as bare commands, and `quota`
+   reported `Connection refused`. The operator ran them.
+4. Bisection builds exhausted the home quota. The sandbox then could not write its settings-file
+   placeholder, and no command could start. The operator freed space from their own shell.
+
+**Reconciliation (obligation 11).**
+- "A real outage does not look like this — it reports an inability to contact the controller":
+  *amended*. The address-family rule is kept, and the converse is withdrawn.
+- The invocation table and "It succeeds only when the query is the entire command": *confirmed*.
+  The new paragraph adds that the bare shape can still fail.
+- "The submission client fails differently again" (ownership complaint, segmentation fault):
+  *confirmed*. A second face is added beside it, not in place of it.
+- "Submission usually still works … Retry bare before concluding anything": *confirmed*. It
+  covers the new face unchanged.
+- "A hang is the same cause wearing a different face": *confirmed*.
+- The placeholder section: *confirmed*. The new section follows from it.
+- `batch-scripts.md`'s teardown accounting section: *confirmed*, and now pointed to.
+- The DeltaAI notes and `running.md` make no statement about the sandbox: nothing to reconcile.
