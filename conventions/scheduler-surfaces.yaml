@@ -42,6 +42,13 @@ surfaces:
     # one that does not claims it exclusively and is refused while any step holds it.
     launcher_overlap_option: "--overlap"
     task_label_option: "--label"
+    # Ends a step when any task exits non-zero. Unset, the site's KillOnBadExit default
+    # decides. The short form takes its value with no space (-K1), so pass it bare.
+    launcher_kill_on_bad_exit_option: "--kill-on-bad-exit"
+    launcher_kill_on_bad_exit_option_short: "-K"
+    # Given to the parallel launcher inside an allocation, this limits that step only.
+    launcher_time_limit_option: "--time"
+    launcher_time_limit_option_short: "-t"
     # The controller's own record of the job as requested and granted. It is
     # purged a site-configured interval after the job leaves the queue, so a
     # job that does not capture it loses it -- unlike the accounting record,
@@ -91,7 +98,7 @@ surfaces:
     # No parallel launcher: MPI launch belongs to the site (a machine profile records it
     # as scheduler.site_launcher).
 evidence: docs
-observed: "2026-09-30"
+observed: "2026-10-05"
 observed_on:
   requirements: scheduler-submission-surface
 review_by: "2027-08-28"
@@ -104,4 +111,5 @@ sources:
   - https://slurm.schedmd.com/sacct.html
   - https://slurm.schedmd.com/sstat.html
   - PBS Professional 2026.1 qsub(1B), qstat(1B) and pbs_job_attributes(7B) manual pages, as installed with the PBS client
+  - Slurm 25.11.8 srun(1) manual page, as installed
   - https://centers.hpc.mil/users/docs/advancedTopics/Job_Arrays.html

@@ -36,6 +36,10 @@
         "parallel_launcher": "srun",
         "launcher_overlap_option": "--overlap",
         "task_label_option": "--label",
+        "launcher_kill_on_bad_exit_option": "--kill-on-bad-exit",
+        "launcher_kill_on_bad_exit_option_short": "-K",
+        "launcher_time_limit_option": "--time",
+        "launcher_time_limit_option_short": "-t",
         "control_command": "scontrol",
         "job_record_option": "show job",
         "accounting_command": "sacct",
@@ -68,7 +72,7 @@
       }
     },
     "evidence": "docs",
-    "observed": "2026-09-30",
+    "observed": "2026-10-05",
     "observed_on": {
       "requirements": "scheduler-submission-surface"
     },
@@ -82,6 +86,7 @@
       "https://slurm.schedmd.com/sacct.html",
       "https://slurm.schedmd.com/sstat.html",
       "PBS Professional 2026.1 qsub(1B), qstat(1B) and pbs_job_attributes(7B) manual pages, as installed with the PBS client",
+      "Slurm 25.11.8 srun(1) manual page, as installed",
       "https://centers.hpc.mil/users/docs/advancedTopics/Job_Arrays.html"
     ]
   }

@@ -147,6 +147,18 @@
           "task_label_option": {
             "type": "string"
           },
+          "launcher_kill_on_bad_exit_option": {
+            "type": "string"
+          },
+          "launcher_kill_on_bad_exit_option_short": {
+            "type": "string"
+          },
+          "launcher_time_limit_option": {
+            "type": "string"
+          },
+          "launcher_time_limit_option_short": {
+            "type": "string"
+          },
           "accounting_command": {
             "type": "string"
           },

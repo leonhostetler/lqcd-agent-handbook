@@ -519,6 +519,26 @@ leg is reported rather than silently absent. See
 Note separately that `set -e` does not reach inside a job step launched by the scheduler's parallel
 launcher — check that step's exit status explicitly, whichever policy is in force.
 
+**A step with several tasks must end when any one of them fails, or it waits.** A rank that exits
+early, for example on a device it could not find, leaves the others blocked in their first
+collective. Unless the launcher is told to end the step when any task exits non-zero, the step stays
+up until a time limit stops it. Whether it ends on its own is a site default, not a property of the
+script. In one recorded job, every two-rank step followed a one-rank leg. In each of those steps one
+rank aborted while the other sat out its step limit. The job then reached its walltime, and the
+waiting cost two GPU-hours at a doubled charge rate. So every launcher step with more than one task
+passes the parallel launcher's kill-on-bad-exit option explicitly
+(`launcher_kill_on_bad_exit_option` in [`scheduler-surfaces.yaml`](scheduler-surfaces.yaml)). The
+launcher's exit status then reports the failure, and the check above sees it.
+
+**Give every launcher step its own time limit, set from the leg's measured or predicted
+duration.** Kill-on-bad-exit covers a task that dies, but not one that hangs, and a library's error
+path can hang instead of exiting. With a step time limit (`launcher_time_limit_option`), a hung leg
+costs its own limit plus a margin, and the legs after it still run. Without one, the hang takes the
+rest of the job's walltime and every leg after it. Under the continue-past-failure policy above,
+this is what keeps one bad leg from losing the job. A site launcher recorded as
+`scheduler.site_launcher` has options of its own. Establish its equivalents from its manual page
+before relying on them; an unrecorded equivalent is unknown, not absent.
+
 **Reference only variables the machine profile declares.** A profile records the filesystem
 roots its site provides and, in its scheduler block, whether the site exports a node-local
 temporary directory at all. An explicit `null` there means the site provides none; an absent

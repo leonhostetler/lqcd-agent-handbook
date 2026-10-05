@@ -4488,3 +4488,43 @@ interpreter. All 625 tests passed on each of the five commits.
 - `software/quda/build-profiles.yaml` (`mg-staggered` sets the tile to 3) and the Perlmutter
   `quda-cuda13-mg-staggered-2026q3` notes are *confirmed*. `internals/autotuning.md`, whose key
   description already lists "right-hand-side count and tiling", is *confirmed*.
+
+## 2026-10-05 — Kill-on-bad-exit and a time limit for every launcher step
+
+A second intake from the DeltaAI QUDA pull-request review (the first is the 2026-10-01 entry). In
+one job, every two-rank step followed a one-rank leg. In each of them one rank aborted at QUDA's
+device selection while the other stayed blocked until the twelve-minute step limit. The job reached
+its walltime and lost two GPU-hours, charged at the interactive factor of 2.0. Every later script
+passed `-K` and a per-step `--time` set from measured leg times, and those jobs completed: one
+two-rank rig ran twelve legs with no step left waiting. Later, a QUDA error path hung instead of
+exiting. Its ten-minute step limit stopped it, and the remaining legs ran.
+
+The option semantics were read from the installed `srun(1)`, Slurm 25.11.8. `--kill-on-bad-exit`
+overrides the site's `KillOnBadExit`, and `--time` "applies to job and step allocations". DeltaAI
+runs Slurm without a local configuration file, so its `KillOnBadExit` value was not read; the job's
+behaviour shows the step was not ended. The rule went into the batch-script leaf, and the option
+names went into the Slurm surface as four optional keys, so the leaf names no scheduler's flags.
+PBS has no parallel launcher in its surface, so it gains nothing.
+
+Not recorded: why the rank aborted. A probe using the same launch line as the job's first step saw
+both GPUs, and the review's explanation (the previous step's GPU not yet released) was never shown.
+So the explicit per-step GPU request the review also added is not a rule. A checker note for a
+multi-task step without kill-on-bad-exit was not added.
+
+**Reconciliation (obligation 11).**
+- Batch-script leaf, "`set -e` does not reach inside a job step": *confirmed*. The new paragraph
+  says how to make the launcher's status report a partial failure.
+- "Step creation retries rather than failing … bound that retry": *confirmed*. It concerns a step
+  that cannot start, not one that started and stalls.
+- Step 9 positive control, "that step waits for the allocation until the walltime ends":
+  *confirmed*. A refused step is a different cause.
+- "Do not fail fast when independent legs sit behind a queue wait": *confirmed*. The new paragraph
+  names the step time limit as what makes that policy safe against a hang.
+- Monitor sections ("never as a job step"; the per-node sampling paragraph's overlap option):
+  *confirmed*. Neither concerns task failure or step time.
+- `diagnostic-rigs.md` "Let an independent leg fail alone" and `running.md`'s step exit codes:
+  *confirmed*.
+- The DeltaAI `milc-cuda12-quda-wilson-flow-2026q3` notes already launch with `srun -K`:
+  *confirmed*, and consistent.
+- `scheduler-surfaces.yaml` had no field for launcher failure or step time. The Vista and Aurora
+  site launchers' equivalents are left unrecorded, as unestablished.
