@@ -19,6 +19,18 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/ks_spectrum_includes.h#L33-L40
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/test/ks_spectrum_hisq.fpi.2.sample-in
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/test/ks_spectrum_hisq.fpi.2.sample-out
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/setup.c#L121-L126
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic/io_helpers.c#L843-L853
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/control.c#L131-L134
+  - https://github.com/milc-qcd/milc_qcd/commit/45e0ec0e
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/ks_action_paths_hisq.c#L106-L114
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/imp_actions/hisq/hisq_u3_action.h
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/d_congrad5_fn_quda.c#L127-L131
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/eigen_stuff_QUDA.c#L172-L208
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/setup.c#L1063-L1075
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/ks_meson_mom.c#L290-L356
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/ks_baryon.c#L219-L245
+  - operator's campaign records (the pre-2024 gauge-fixing comparison)
 observed: "2026-08-18"
 observed_on:
   software:
@@ -90,6 +102,64 @@ at most two masses or the run has a nonzero eigenvector count. `set_type multico
 instead enters a block inversion over all source colors. Confirm the executed path from the
 emitted solver records, including mass and right-hand-side cardinality; the requested set type
 alone is not sufficient evidence.
+
+### Fields that parse cleanly and then do something else
+
+Each of these is accepted by the parser, so a proofread passes, and each either has no effect or
+an effect the input does not suggest. All are source facts at the observed revision unless
+labelled otherwise.
+
+- **`iseed` is a signed 32-bit integer, with no range check.** `setup.c` reads it with `get_i`,
+  which parses `%d` into an `int`, and stores the result in an unsigned 32-bit field. A larger
+  value is accepted and silently truncated — observed on glibc as the low 32 bits — so the seed
+  that runs is not the one written, and seeds that differ only above bit 31 collide. Keep seeds
+  at or below 2147483647, which a generator that concatenates a prefix with a gauge
+  configuration number easily exceeds, and check the `iseed` the output echoes.
+- **`coulomb_gauge_fix` on an input set that starts with `continue` is a no-op.** `control.c`
+  gauge-fixes only when the set's start flag is not `continue`, so the field keeps the fixing
+  done by the set that reloaded it. That condition arrived in upstream `45e0ec0e` (2024-08-13).
+  Before it, every such set ran gauge fixing again on the already fixed field, which typically
+  stops after one more over-relaxation step and still moves the field slightly. Output from
+  older code therefore matches current output for the first set and differs for wall and
+  corner sources in later sets of the same input, by an amount that grows set by set — observed
+  once against archived pre-2024 output. An input meant to run under both
+  should say `no_gauge_fix` on its `continue` sets.
+- **The tadpole factor `u0` does not reach a HISQ solve on the QUDA path.** HISQ path
+  coefficients are divided by `u0` only under `TADPOLE_IMPROVE`
+  (`generic_ks/ks_action_paths_hisq.c`), which `hisq/hisq_u3_action.h`, the action header the
+  `ks_spectrum_hisq` target builds with, does not define. The QUDA CG, multi-shift and Dslash
+  calls pass `tadpole = 1.0` for HISQ (`generic_ks/d_congrad5_fn_quda.c`,
+  `ks_multicg_offset_quda.c`, `dslash_fn.c`), and QUDA derives the long-link scale from that
+  value. A wrong `u0` is therefore inert for HISQ spectroscopy on this path. **One unguarded
+  exception:** the QUDA eigensolver path (`generic_ks/eigen_stuff_QUDA.c`) sets the tadpole
+  coefficient, and the long-link scale from it, to `u0` with no HISQ condition. Whether that
+  mis-scales the long links when `u0 ≠ 1` has not been run; check it before adding QUDA
+  eigenvector deflation to a HISQ input whose `u0` is not 1.
+- **Meson correlator normalization factors are echoed with `%g`.** The log shows six significant
+  digits while the run uses the full value, so an input reconstructed from a log is not the
+  input that ran. Take numeric values from the input file.
+- **A meson pair and its reverse are not independent.** The first propagator of a pair becomes
+  the antiquark (`generic_ks/ks_meson_mom.c`). For a local spin-taste sink, which multiplies by a
+  real site sign, the site value is `su3_dot` of the signed first propagator with the second, so
+  reversing the pair conjugates it site by site. At zero momentum the reversed correlator is
+  therefore the complex conjugate; at nonzero momentum it is the conjugate at the opposite
+  momentum (inferred from the Fourier phase). For these sinks, pairs with the first index at or
+  below the second are complete. The point-split vector sinks apply operators to both
+  propagators and are not covered.
+- **A baryon triplet's order changes the value on each gauge configuration.** `ks_nucleon_nd`
+  (`generic_ks/ks_baryon.c`) builds row r of the color matrix from quark r's propagator from
+  source color r and sums its determinant over corner sites, so reordering a mixed-mass triplet
+  changes which mass carries which source color. Each ordering is a separate estimator. That the
+  orderings share an ensemble average, through a global color rotation of the source time
+  slice, is an inference that has not been tested. One ordering per mass set gives one
+  estimator and all orderings give more at contraction cost only; which is wanted is an analysis
+  decision.
+
+Input generators commonly rotate source times as `t0 = (k·n mod s) + j·s` over a gauge
+configuration index `n`. That visits every offset only when `gcd(k, s) = 1`: with `k = 9` and
+`s = 18`, only offsets 0 and 9 ever occur. Check the gcd, and make `n` an exact non-negative
+integer for every gauge configuration run, since a negative `n` gives a negative remainder in C
+and in shell arithmetic.
 
 ### Proofread the input before submitting, not at run time
 
