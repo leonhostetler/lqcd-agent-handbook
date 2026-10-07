@@ -2,7 +2,7 @@
 title: MILC quark-source types and parity
 summary: All base-source keywords accepted by MILC's generic parser, their construction and support status, subset behavior, and staggered parity.
 scope: [software:milc]
-load_when: Constructing or debugging a MILC base quark source, determining its staggered parity, or selecting an inverter for it.
+load_when: Constructing or debugging a MILC base quark source, determining its staggered parity, selecting an inverter for it, or comparing random-source correlators with output from older MILC builds.
 evidence: source
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/include/generic_quark_types.h#L25-L83
@@ -10,6 +10,9 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/libraries/gaussrand.c
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/ranstuff.c
   - https://github.com/milc-qcd/milc_qcd/commit/9683296ca73334d0805bc3f2ba0feec22594e0bd
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/quark_source.c#L458-L476
+  - https://github.com/milc-qcd/milc_qcd/commit/5c6ab6ee
+  - operator's comparison against archived pre-2011-11 output
 observed: "2026-08-19"
 observed_on:
   software:
@@ -108,6 +111,26 @@ sources, or loaded complex/vector fields. Do not infer their parity from the
 
 Momentum insertion multiplies existing source values by phases and does not
 change which sites are nonzero, so it does not change parity support.
+
+## Random-color-wall normalization before 2011-11
+
+Since `generic/quark_source.c` entered the public history (`5c6ab6ee`, 2011-11-29),
+`random_color_wall` scales the color vector at each selected site to unit length, so
+`|η|² = 1` per site; the routine is unchanged in this respect at the observed revision. Builds
+from before that import — the `v7.7.2` development series — gave the same source twice that
+amplitude, `|η|² = 4` per site. The line that did so is not in the public history.
+
+A stochastic-wall bilinear is quadratic in its source, so a random-color-wall correlator from
+such a build is exactly 4 times one from current code given the same input and random numbers;
+masses are unaffected. Divide the older amplitudes by 4 before comparing them with current
+output. This rests on one comparison against archived output from two builds of that series,
+which agreed with each other. Those builds print each solve's `source_norm`, the squared norm
+of the source on one parity, and a random color wall was 4 times an even-and-odd wall on the
+same time slice. A current build made to reproduce the older random numbers then gave every
+random-wall correlator record as exactly one quarter of the archived one.
+
+To check any build, compare the `source_norm` of a random-color-wall solve with that of an
+even-and-odd wall on the same time slice: their ratio is `|η|²`.
 
 ## Current `develop` Gaussian-origin defect
 
