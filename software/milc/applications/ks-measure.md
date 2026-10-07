@@ -11,6 +11,13 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_measure/ks_measure_includes.h#L25-L31
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_measure/test/ks_measure_hisq.2.sample-in
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_measure/test/ks_measure_hisq.2.sample-out
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/setup.c#L184-L200
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/setup.c#L205-L262
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/setup.c#L375-L460
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/control.c#L82-L170
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_helpers.c#L565-L665
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/f_meas_current.c#L1572-L1900
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/f_meas_current.c#L2030-L2060
 observed: "2026-08-18"
 observed_on:
   software:
@@ -46,11 +53,18 @@ job identifier, and any compiled geometry. It then loops over ordered input sets
 At the observed revision, an input set describes:
 
 1. starting and ending gauge-field handling, smearing, coordinate origin, and temporal boundary
-   condition;
-2. optional eigenpair input, calculation, and output;
+   condition. From `d17e9559` (PR #99, 2026-10-06) a QIO build reads two more directives after
+   the APE smearing parameters: a fat-link file command (`fresh_fat`, `continue_fat`,
+   `reload_serial_fat`, or `reload_parallel_fat`, the reload forms followed by a file name) and
+   the `_long` equivalents; the reload forms overwrite the links just built from the gauge field;
+2. optional eigenpair input, calculation, and output. From `d17e9559` a build with the
+   accelerated eigensolver and either the accelerated CG or current path also reads
+   `tol_restart`, and on reload `file_number_of_eigenpairs` and `eigensolver_prec`;
 3. `number_of_sets` observable sets; and
 4. for each observable set, repetition count, solver limits, precision, mass count, and the mass,
-   Naik correction, absolute residual, and relative residual for every member.
+   Naik correction, absolute residual, and relative residual for every member. From `d17e9559`,
+   when eigenpairs are requested, each set also reads `deflate yes|no`; before it every set
+   deflated whenever eigenvectors existed.
 
 Compile-time features can add current, susceptibility, chemical-potential, eigenvector, U(1), or
 other controls. Use the current `setup.c` and executable's printed options to establish the
@@ -60,6 +74,17 @@ When `WANT_SHIFT_GPU` or `WANT_SPIN_TASTE_GPU` is enabled, load
 `../../quda/internals/milc-shift-interface.md` before treating current or spin-taste observables
 as validated. These switches select separate interface paths with selector and resident-gauge
 contracts beyond ordinary solver validation.
+
+From `d17e9559`, a build with `WANT_CURRENT_GPU` computes the exact low-mode current through
+`qudaExactCurrent` and projects the low modes out of stochastic sources through `qudaProject`,
+both from a deflation space of both parities that the application loads at mass zero at
+start-up; with the accelerated eigensolver as well, the host eigenvector arrays stay empty.
+The same merge makes the five-mass current writers emit a separate strange-mass record in both
+the low-mode and the high-mode output, so the expected record count changes across it. Each
+input set reloads the space through QUDA, and QUDA restores a space it already holds without
+checking that the links changed, so hold one gauge configuration per process; see
+[`../../quda/internals/milc-deflation-space.md`](../../quda/internals/milc-deflation-space.md).
+Read from source, not run.
 
 ### Proofread the input before submitting, not at run time
 
@@ -115,7 +140,9 @@ With `PRTIME`, this application uses `Time to ...` rather than `Aggregate time t
 phase records. Source-backed phases include setup, input, eigenpairs, the combined observable
 calculation, lattice output, and optional eigenvector work. `CGTIME` and backend records are
 needed when solve-level attribution is required; the combined observable phase alone does not
-separate masses or repetitions.
+separate masses or repetitions. From `d17e9559` the current paths add unconditional
+`Time to ...` lines of their own: deflation-space loading, other-parity reconstruction, source
+collection, the one-link dslash, and one measurement step per block of random sources.
 
 ## Tuning and benchmarking interpretation
 

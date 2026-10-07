@@ -21,15 +21,17 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/milc_to_quda_utilities.c#L13-L58
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/d_congrad5_fn_quda.c#L115-L150
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L591-L629
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/f_meas_current.c#L1572-L1604
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L604-L619
   - upstream QUDA maintainer guidance on the interface boundary, relayed by the operator
-observed: "2026-10-05"
+observed: "2026-10-07"
 observed_on:
   software:
     quda:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
 ---
 
@@ -111,9 +113,10 @@ adapter.
   guarded by `HAVE_QUDA`, includes `quda_milc_interface.h`, and that header includes `quda.h`.
   `initialize_quda()` in `generic/milc_to_quda_utilities.c` is lazy and idempotent, and the
   QUDA-calling routines invoke it first. Makefile `WANT_*_GPU` switches become `USE_*_GPU`
-  defines; `WANT_FN_CG_GPU`, for example, becomes `USE_CG_GPU`. Enabling QUDA CG also forces the
-  eigensolver switch on. The header's helpers, the pinned site lattice, and how the switches
-  compose are in [`../milc/quda-host-helpers.md`](../milc/quda-host-helpers.md).
+  defines; `WANT_FN_CG_GPU`, for example, becomes `USE_CG_GPU`. Through MILC `6b9b8a06` enabling
+  QUDA CG also forced the eigensolver switch on; from `d17e9559` it does not. The header's
+  helpers, the pinned site lattice, and how the switches compose are in
+  [`../milc/quda-host-helpers.md`](../milc/quda-host-helpers.md).
 - **Some state is signalled in band.** MILC sets `num_iters = -1` before a solve to tell the
   adapter its links changed, and the adapter then invalidates the resident gauge field. Changing
   a solver call's argument handling can break that signal silently.
@@ -136,6 +139,8 @@ executable binds the QUDA it was linked against; see
   `check_params.h` rejects a mismatch. In the MILC header, `QudaEigensolverArgs_t` carries one,
   but only some entry points check it, and `QudaInvertArgs_t` carries none. A member added to an
   unguarded struct that is passed by value goes undetected until results are wrong.
-- **The two sides land at different times.** At the observed revisions QUDA `develop` defines
-  `qudaExactCurrent`, and MILC `develop` has no caller of it; its caller lives on a MILC feature
-  branch. Check each side's branch separately before assuming an entry point is in use.
+- **The two sides land at different times.** QUDA `develop` defined `qudaExactCurrent` for
+  months before MILC `develop` had a caller: the caller, `ks_measure`'s current measurement
+  under `USE_CURRENT_GPU`, lived on a MILC feature branch until PR #99 merged it
+  (`d17e9559`, 2026-10-06). Check each side's branch separately before assuming an entry
+  point is in use.

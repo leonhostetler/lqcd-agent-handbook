@@ -10,6 +10,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/libraries/gaussrand.c
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/ranstuff.c
   - https://github.com/milc-qcd/milc_qcd/commit/9683296ca73334d0805bc3f2ba0feec22594e0bd
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/libraries/gaussrand.c#L42-L113
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/quark_source.c#L458-L476
   - https://github.com/milc-qcd/milc_qcd/commit/5c6ab6ee
   - operator's comparison against archived pre-2011-11 output
@@ -20,11 +21,11 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/libraries/Make_vanilla#L54
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/libraries/rand_ahmat.c#L15
   - operator's old-generator reproduction build
-observed: "2026-08-19"
+observed: "2026-10-07"
 observed_on:
   software:
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
 ---
 
@@ -139,13 +140,13 @@ random-wall correlator record as exactly one quarter of the archived one.
 To check any build, compare the `source_norm` of a random-color-wall solve with that of an
 even-and-odd wall on the same time slice: their ratio is `|η|²`.
 
-## Current `develop` Gaussian-origin defect
+## Gaussian-origin defect, fixed for the complex routine at `d17e9559`
 
 The deterministic `gaussian` source does not use the Gaussian random-number
 routine and is not affected by this defect.
 
 `random_complex_wall` and `random_color_wall` call
-`complex_gaussian_rand_no`. At the observed `develop` revision, its polar
+`complex_gaussian_rand_no`. Through `develop` `6b9b8a06`, its polar
 transformation rejects only `r >= 1`:
 
 ```c
@@ -163,11 +164,13 @@ the scale singular and can put a NaN into the MILC source before any inverter
 or QUDA call.
 
 Upstream commit `9683296ca73334d0805bc3f2ba0feec22594e0bd` adds the missing
-`r == 0.0` rejection to the active complex routine on a feature branch, but
-that commit is not an ancestor of the observed `develop` tip. Similar scalar
-and legacy loops also omit the origin guard.
+`r == 0.0` rejection to the active complex routine. It reached `develop` in
+PR #99 (merge `d17e9559`, 2026-10-06), so every `develop` checkout from there
+on has the guard in `complex_gaussian_rand_no`; the validated `ks_spectrum`
+stacks at `6b9b8a06` do not. The scalar `gaussian_rand_no` and both
+`OLD_GAUSSRAND` loops still omit the origin guard at `a5f8f9fa`.
 
-For an affected checkout:
+For a checkout without the merge, or for the scalar and legacy routines:
 
 1. inspect the Gaussian rejection loop rather than assuming a branch name
    contains the fix;
@@ -175,7 +178,7 @@ For an affected checkout:
 3. when debugging a random-wall NaN, check the source immediately after MILC
    constructs it, before investigating solver kernels; and
 4. do not claim all Gaussian variants are fixed merely because the complex
-   feature-branch patch is present.
+   routine's patch is present.
 
 ## Reproducing the pre-2016 random-number generator
 

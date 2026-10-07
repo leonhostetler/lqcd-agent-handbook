@@ -35,6 +35,11 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/commit/08b263db
   - https://github.com/milc-qcd/milc_qcd/commit/6bd16fce292a3bda9d65b426b3d263ee184d3a9a
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L748-L826
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/control.c#L280-L385
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/lattice.h#L143-L148
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_QUDA.c#L112-L255
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L136-L220
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_meson_mom_quda.c#L337-L385
   - operator's rank-count comparison (the baryon normalization)
 observed: "2026-08-18"
 observed_on:
@@ -140,10 +145,24 @@ labelled otherwise.
   calls pass `tadpole = 1.0` for HISQ (`generic_ks/d_congrad5_fn_quda.c`,
   `ks_multicg_offset_quda.c`, `dslash_fn.c`), and QUDA derives the long-link scale from that
   value. A wrong `u0` is therefore inert for HISQ spectroscopy on this path. **One unguarded
-  exception:** the QUDA eigensolver path (`generic_ks/eigen_stuff_QUDA.c`) sets the tadpole
-  coefficient, and the long-link scale from it, to `u0` with no HISQ condition. Whether that
-  mis-scales the long links when `u0 ≠ 1` has not been run; check it before adding QUDA
-  eigenvector deflation to a HISQ input whose `u0` is not 1.
+  exception:** `ks_eigensolve_QUDA` (`generic_ks/eigen_stuff_QUDA.c`) sets the tadpole
+  coefficient, and the long-link scale from it, to `u0` with no HISQ condition. Through
+  `6b9b8a06` a QUDA-deflation build reached it; from `d17e9559` that build loads the space
+  through `load_evecs_quda`, which passes `1.0` for HISQ, and the exception remains only for a
+  build with `USE_EIG_GPU` and neither `USE_CG_GPU` nor `USE_CURRENT_GPU`. Whether it
+  mis-scales the long links when `u0 ≠ 1` has not been run.
+- **From `d17e9559`, one gauge configuration per process when eigenvectors are QUDA-resident.**
+  Each input set reloads or recomputes the deflation space through QUDA, and QUDA restores the
+  space it already holds without checking that the links changed, so a later input set deflates
+  with the earlier gauge configuration's eigenvectors. Mechanism and remedy are in
+  [`../../quda/internals/milc-deflation-space.md`](../../quda/internals/milc-deflation-space.md).
+  Read from source, not run.
+- **At `a5f8f9fa` a single-precision build with host eigenvectors is type-mismatched.**
+  `lattice.h` declares `eigVal` as `double *` and `eigVec` as double-precision vectors, while
+  the eigensolver and residual-check routines take `Real *` and `su3_vector **`, which at
+  `PRECISION=1` are single. GCC 14 and later reject the call; older compilers warn and then
+  misread the eigenvalues. The profiles here build `PRECISION=2`, where the types coincide.
+  Read from source, not compiled.
 - **Meson correlator normalization factors are echoed with `%g`.** The log shows six significant
   digits while the run uses the full value, so an input reconstructed from a log is not the
   input that ran. Take numeric values from the input file.
@@ -247,6 +266,16 @@ With the corresponding component instrumentation:
 - meson, baryon, smearing, link, and I/O timers provide child costs inside application phases;
   and
 - backend tuning and memory records describe accelerator state, not `ks_spectrum` work units.
+
+From `d17e9559` a QUDA-accelerated build also emits, read from source: `srcs = <n>` on every
+`CONGRAD5` line from the QUDA CG path, including single-source solves, because that entry now
+wraps the multi-source one; `Loading deflation spaces into QUDA`, `Time to load deflation
+space = ...`, and one `Solving for <n> source(s) with|without deflation for parity <p>` line per
+solve when eigenpairs are requested; QIO debug-level output during the eigenvector load, which
+the application switches on just before it and the next MILC SciDAC call switches off; and, in
+a `WANT_KS_CONT_GPU` build, several lines from every rank around each contraction call. Saved
+eigenvector files from that revision are written at `eigensolver_prec` (single unless it is 2),
+not at the build precision.
 
 Do not add `Aggregate time to compute propagators` to its constituent `CONGRAD5` times. Use the
 parent for workflow accounting and the child records for solver attribution, then report any

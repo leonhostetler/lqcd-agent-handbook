@@ -7,6 +7,10 @@ evidence: source
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/include/generic_quda.h
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/milc_to_quda_utilities.c#L13-L58
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/include/generic_quda.h
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/milc_to_quda_utilities.c#L50-L140
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L1419-L1422
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_meson_mom_quda.c#L337-L385
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/make_lattice.c#L25-L30
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/make_lattice.c#L67-L71
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/control.c#L1197-L1200
@@ -30,11 +34,11 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/quda_milc_interface.h#L15-L19
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/quda_define.h.in#L9-L14
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L396-L407
-observed: "2026-10-05"
+observed: "2026-10-07"
 observed_on:
   software:
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
     quda:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
@@ -56,8 +60,9 @@ plumbing a MILC change has to fit into.
 
 The whole header is guarded by `HAVE_QUDA` and includes QUDA's `quda_milc_interface.h`, which
 in turn includes `quda.h`. Every helper in it is `static`, so each file that includes it gets
-its own copy. A compiler warning about an unused static function in such a file is therefore
-noise, not a sign of a broken path.
+its own copy. Through `6b9b8a06` they were plain `static`, so a compiler warning about an
+unused static function in such a file was noise, not a sign of a broken path; from `d17e9559`
+(PR #99, 2026-10-06) they are `static inline`, which silences that warning.
 
 | Helper | Does | Live at the observed revision |
 |---|---|---|
@@ -66,6 +71,7 @@ noise, not a sign of a broken path.
 | `create_G_from_site_quda()`, `destroy_G_quda()` | copy every site's four links into a separate pinned array, and free it | yes: `fermion_links_from_site.c`, `wilson_flow/integrate_quda.c` |
 | `create_G_quda()`, `fast_copy()` | the pinned allocation and the `memcpy` the line above uses | internal only |
 | `copy_to_site_from_G_quda()` and all four `*_M_quda` momentum helpers | the reverse copy, and the momentum equivalents | **no caller** |
+| `load_quda_default_eig_args()`, `print_quda_eig_args()` | declared here from `d17e9559`, defined in `milc_to_quda_utilities.c`: fill a `QudaEigensolverArgs_t` from `param.eigen_param` for every deflation consumer, and dump it | yes: the QUDA CG wrapper, `load_evecs_quda`, and the exact-current caller |
 
 The comments on `copy_to_site_from_G_quda` ("momentum") and `destroy_M_quda` ("gauge-field")
 describe the wrong field. Read the body, not the comment.
@@ -81,9 +87,11 @@ describe the wrong field. Read the body, not the comment.
 
 The device field it sets to 0 is commented "only valid for single-gpu build".
 
-`finalize_quda()` first frees QUDA-side MILC state: the deflation spaces under `USE_CG_GPU`,
-and the multigrid hierarchy under `MULTIGRID`. Only then does it call `qudaFinalize`. A new
-cache that MILC asks QUDA to keep needs its cleanup added here, before `qudaFinalize`.
+`finalize_quda()` first frees QUDA-side MILC state: the deflation spaces (under `USE_CG_GPU`
+through `6b9b8a06`; under any of `USE_CG_GPU`, `USE_EIG_GPU`, or `USE_CURRENT_GPU` from
+`d17e9559`), and the multigrid hierarchy under `MULTIGRID` (and `USE_CG_GPU`, from
+`d17e9559`). Only then does it call `qudaFinalize`. A new cache that MILC asks QUDA to keep
+needs its cleanup added here, before `qudaFinalize`.
 
 ## Under QUDA the whole site lattice is pinned, and QUDA starts with it
 
@@ -156,8 +164,9 @@ Five things about how the switches compose are not visible from any single switc
    `KSCGMULTI`, but no source file reads that macro at the observed revision, and the top-level
    Makefile lists it as deprecated. Do not treat it as a switch.
 5. **All of these reach the compiler through `CGPU`**, which `DARCH` puts into both `CFLAGS` and
-   `CXXFLAGS`. Check a build's guards by reading the compile line or the generated object, not
-   the make variables.
+   `CXXFLAGS`, except `WANT_CURRENT_GPU` (from `d17e9559`), whose `-DUSE_CURRENT_GPU` goes
+   through `OCFLAGS`. Check a build's guards by reading the compile line or the generated
+   object, not the make variables.
 
 ## A local copy of a QUDA declaration is unchecked
 
@@ -172,3 +181,7 @@ function that is also named `qudaContractFT`.
 When changing a QUDA declaration that MILC uses, search MILC for local re-declarations of that
 name, not only for `#include <quda_milc_interface.h>`. A new MILC-side call includes
 `generic_quda.h` rather than copying the declaration.
+
+From `d17e9559` the same file prints a line on every rank before and after each
+`qudaContractFT` call and around the spin-taste and accumulation steps, so a `WANT_KS_CONT_GPU`
+build writes several lines per rank per contraction.

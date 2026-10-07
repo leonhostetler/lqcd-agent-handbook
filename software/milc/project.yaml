@@ -56,7 +56,12 @@ build_options:
     type: boolean
     capabilities: [QUDA spin-taste operators]
   WANT_FN_CG_GPU:
-    meaning: Enables accelerated staggered conjugate-gradient solves; defines USE_CG_GPU and forces WANT_EIG_GPU on in a WANTQUDA build.
+    meaning: >-
+      Enables accelerated staggered conjugate-gradient solves; defines USE_CG_GPU. Through
+      6b9b8a06 a WANTQUDA build also forced WANT_EIG_GPU on; PR #99 (merge d17e9559,
+      2026-10-06) commented that rule out, so from there the eigensolver switch must be set
+      explicitly, and a build without it can deflate only with eigenvectors MILC reads from
+      its own files or computes on the host and hands to QUDA.
     type: boolean
     capabilities: [QUDA staggered CG]
   WANT_FL_GPU:
@@ -80,9 +85,21 @@ build_options:
     type: boolean
     capabilities: [QUDA Gaussian smearing]
   WANT_EIG_GPU:
-    meaning: Enables the accelerated eigensolver and deflation paths; defines USE_EIG_GPU.
+    meaning: >-
+      Enables the accelerated eigensolver and deflation paths; defines USE_EIG_GPU. From
+      d17e9559 the QUDA eigensolver object is linked into every WANTQUDA build whether or not
+      this is set; the switch then decides whether QUDA computes or reads the eigenvectors
+      itself (set) or MILC supplies host eigenvectors to it (unset).
     type: boolean
     capabilities: [QUDA eigensolver]
+  WANT_CURRENT_GPU:
+    meaning: >-
+      From d17e9559: routes ks_measure's exact low-mode current through qudaExactCurrent and
+      its low-mode source projection through qudaProject; defines USE_CURRENT_GPU, added
+      through OCFLAGS rather than CGPU. Needs a QUDA-resident deflation space of both
+      parities, which ks_measure loads at start-up when eigenpairs are requested.
+    type: boolean
+    capabilities: [QUDA exact current]
   WANT_KS_CONT_GPU:
     meaning: >-
       Links the QUDA contraction object ks_meson_mom_quda.o in place of ks_meson_mom.o through
@@ -151,15 +168,18 @@ build_options:
     type: string
     capabilities: [application timing reports]
 evidence: source
-observed: "2026-08-17"
+observed: "2026-10-07"
 observed_on:
   software:
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L1278-L1344
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L604-L619
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L1419-L1422
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Make_template_combos#L177-L198
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L1141-L1159
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L1098-L1102
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Make_template_combos#L325-L347

@@ -14,14 +14,18 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp#L1299-L1645
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp#L1990-L2110
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/milc_to_quda_utilities.c
-observed: "2026-08-19"
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/milc_to_quda_utilities.c#L50-L60
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_QUDA.c#L112-L255
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/f_meas_current.c#L1572-L1604
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2015-L2030
+observed: "2026-10-07"
 observed_on:
   software:
     quda:
       commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
       branch: develop
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
 ---
 
@@ -139,10 +143,19 @@ to the represented operator. Invalidating or reloading QUDA's resident gauge
 does not itself clear these process-global deflation pointers or the
 zero-mass snapshot.
 
-MILC's observed `finalize_quda` path calls the cleanup routine before
-`qudaFinalize`, but finalization is too late to protect multiple distinct
+MILC's `finalize_quda` calls the cleanup routine before `qudaFinalize` (under
+`USE_CG_GPU` through MILC `6b9b8a06`; under any of `USE_CG_GPU`, `USE_EIG_GPU`,
+or `USE_CURRENT_GPU` from `d17e9559`), and nothing else in `ks_spectrum` or
+`ks_measure` calls it. Finalization is too late to protect multiple distinct
 operators processed within one QUDA lifetime. The caller that changes operator
-identity owns that earlier lifecycle boundary.
+identity owns that earlier lifecycle boundary, and at `d17e9559` neither
+application takes it: each input set calls `load_evecs_quda`, whose
+`QUDA_MILC_EIG_COMPUTE` mode runs the deflatable inverter, and that inverter
+restores an existing parity space instead of computing one, with no check that
+the links changed. A second gauge configuration in one process therefore
+deflates, and for the exact current projects, with the first gauge configuration's
+eigenvectors. Read from source, not run: hold one gauge configuration per
+process when the space is QUDA-resident, or add the cleanup between input sets.
 
 ## Exact-current preconditions
 
@@ -156,7 +169,10 @@ At the observed revision, `qudaExactCurrent` requires:
 
 Having a zero-mass snapshot is not a substitute for those first two
 conditions: the actual parity spaces must be loaded and tagged at mass zero
-before the exact-current call.
+before the exact-current call. MILC's caller exists from `d17e9559`:
+`ks_measure` built with `WANT_CURRENT_GPU` loads both parities at mass zero at
+start-up (`load_evecs_quda(fn, 1)`) and calls `qudaExactCurrent` once per
+mass group.
 
 The exact-current path uses eigensolver precision for its device fields and
 operators, even when MILC's solve precision differs. Its host mass and current

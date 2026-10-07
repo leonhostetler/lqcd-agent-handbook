@@ -38,7 +38,7 @@ profiles:
     notes:
       - QDP remains enabled because the native staggered dslash and inverter tests construct QDP-ordered host gauge fields.
       - QMP and QIO are dependencies of this MILC-facing build, not separate profile-name components.
-      - Deflated CG needs no additional QUDA profile switch at the observed revision; the composed MILC profile forces eigensolver support on with WANT_FN_CG_GPU. Runtime validation remains stack-owned.
+      - Deflated CG needs no additional QUDA profile switch at the observed revision; the composed MILC profile sets WANT_EIG_GPU explicitly (MILC's Makefile forced it from WANT_FN_CG_GPU through 6b9b8a06 and stopped at d17e9559). Runtime validation remains stack-owned.
       - The all-tests options implement the default in playbooks/build-lqcd-stack.md; only an explicit operator instruction may override them for a build.
   mg-staggered:
     summary: Native staggered CG, deflated CG, and GCR with a multigrid preconditioner, plus MILC and QDP interfaces, QMP, and QIO.

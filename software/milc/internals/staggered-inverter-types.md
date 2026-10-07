@@ -24,11 +24,12 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L748-L826
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L645-L656
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L1087-L1094
-observed: "2026-08-19"
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L136-L160
+observed: "2026-10-07"
 observed_on:
   software:
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
 ---
 
@@ -164,7 +165,12 @@ Why the thin update matters for memory and when it is exact is owned by
 
 The MILC `CG`, `CGZ`, and `UML` implementations can apply their CPU low-mode
 deflation step on both parities. When the QUDA deflation path is compiled, those
-CPU deflation calls are skipped and deflation ownership moves to QUDA.
+CPU deflation calls are skipped and deflation ownership moves to QUDA. Through
+`6b9b8a06` the QUDA path deflated only the even-parity call; from `d17e9559`
+it deflates every parity whose propagator says `deflate yes`, so `UML`'s odd
+polish and `CGZ`'s odd solve are deflated too, with QUDA building the odd space
+from the even one on first use, and a nonzero relative residual switches QUDA
+deflation off for that propagator.
 
 Deflation does not change the parity algorithms above:
 

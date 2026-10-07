@@ -14,14 +14,17 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/CMakeLists.txt
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/d_congrad5_fn_quda.c
-observed: "2026-08-19"
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L136-L160
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_QUDA.c#L112-L255
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L604-L619
+observed: "2026-10-07"
 observed_on:
   software:
     quda:
       commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
       branch: develop
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
 ---
 
@@ -93,10 +96,19 @@ The generic solver moves eigenvectors and eigenvalues into
 next solver instance. The MILC interface keeps one process-global pointer for even
 parity and one for odd parity, plus mass tags and a shared zero-mass eigenvalue snapshot.
 
-The observed MILC staggered call site requests `n_ev_deflate > 0` only for even-parity
-solves. QUDA's interface can reconstruct a missing parity space from a preserved
-opposite-parity space, but that capability does not mean the standard MILC call sequence
-deflates both parity solves.
+Through MILC `6b9b8a06` the staggered call site requested `n_ev_deflate > 0` only for
+even-parity solves. From `d17e9559` (PR #99, 2026-10-06) it requests it for every parity
+whose propagator says `deflate yes` (the single-source entry now wraps the multi-source one),
+so the first odd-parity solve makes QUDA reconstruct the odd space from the preserved even
+one. The same call site zeroes `n_ev_deflate` whenever the propagator asks for a nonzero
+relative residual, because QUDA's deflation does not support that stopping condition; the
+only trace is the line `Solving for <n> source(s) without deflation for parity <p>`.
+
+From `d17e9559` MILC's `ks_spectrum` and `ks_measure` also build the space before any solve,
+through `load_evecs_quda`, at mass zero from the charge-0, Naik-epsilon-0 links. The
+eigensolver window is therefore judged against the zero-mass spectrum, and every solve's
+eigenvalues come from the `4 m^2` shift below. Before that merge the space was computed inside
+the first deflated solve, at that solve's mass.
 
 For the preconditioned staggered normal operator, the interface shifts preserved
 eigenvalues across masses using
@@ -139,10 +151,12 @@ QUDA_DIRAC_STAGGERED=ON
 ```
 
 MILC must compile with QUDA CG and eigensolver support (`HAVE_QUDA`, `USE_CG_GPU`, and
-`USE_EIG_GPU` in the observed source). Current MILC build logic forces eigensolver
-support on when improved-staggered QUDA CG is enabled, but the selected QUDA revision,
-precision set, communication backend, eigenvector I/O path, and intended block-TRLM
-settings still require stack validation.
+`USE_EIG_GPU`). Through `6b9b8a06` MILC's Makefile forced `WANT_EIG_GPU` on with
+`WANT_FN_CG_GPU`; from `d17e9559` it does not, and a build without `USE_EIG_GPU` can deflate
+only with eigenvectors MILC reads from its own files or computes on the host and hands to QUDA
+(`QUDA_MILC_EIG_LOAD`), a fresh-eigenvector request then terminating at input. The selected
+QUDA revision, precision set, communication backend, eigenvector I/O path, and intended
+block-TRLM settings still require stack validation.
 
 ## When to use it
 
@@ -225,7 +239,9 @@ projection, and a representative solve rather than sampling only steady-state CG
 For a fresh space, confirm that output shows an eigensolver construction and convergence
 before CG. For reuse, look for messages such as `Restoring deflation space`,
 `Preserving deflation space`, `Shifting eigenvalues`, or `Resetting eigenvalues`, as
-applicable.
+applicable. From MILC `d17e9559` the application side adds `Loading deflation spaces into
+QUDA` and `Time to load deflation space = ...` before the first solve, and one
+`Solving for <n> source(s) with|without deflation for parity <p>` line per call.
 
 Record:
 
@@ -243,9 +259,10 @@ Inspect per-source QUDA summaries when diagnosing one member of a block.
 
 ## Limitations and version sensitivity
 
-The standard observed MILC call site deflates only the even-parity CG call. Its
-`QudaEigensolverArgs_t` size is also checked across the interface, so a QUDA/MILC header
-mismatch fails deliberately rather than remaining ABI-compatible by accident.
+Through `6b9b8a06` the MILC call site deflated only the even-parity CG call; from `d17e9559`
+it deflates every parity the propagator asks for. Its `QudaEigensolverArgs_t` size is checked
+across the interface, so a QUDA/MILC header mismatch fails deliberately rather than remaining
+ABI-compatible by accident.
 
 Parity reconstruction, mass-shift caching, cleanup, and the repeated-deflation trigger
 are exact-current behaviors. Re-audit them when either repository changes. This page

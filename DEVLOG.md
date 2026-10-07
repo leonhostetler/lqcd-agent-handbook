@@ -4911,3 +4911,72 @@ stacks at `6b9b8a06` still carry the defect and still need the rank-count divisi
 amplitudes scale with the rank count before `6bd16fc`": *amended* to name the merge.
 `tools/milc-compare-fnal-correlators.py`: *confirmed*, it compares files and makes no
 normalization claim. No stack record restates the baryon normalization.
+
+## 2026-10-07 — MILC PR #99: exact current, a rewritten deflation flow, and three build changes
+
+PR #99 (`feature/quda-exact-current`, merge `d17e9559`, 2026-10-06) is the largest of the six
+merges. Everything below was read from the tip `a5f8f9fa` and QUDA `00c7ef33d`; nothing was
+compiled or run.
+
+What changed, and where it landed:
+- The Gaussian-origin fix `9683296c` is on `develop`. `quark-source-types.md` is rescoped; the
+  scalar and legacy loops still lack the guard.
+- The QUDA CG wrapper now wraps the multi-source entry, deflates every parity a propagator asks
+  for, disables deflation under a relative-residual request, and builds the space up front at
+  mass zero through `load_evecs_quda`. `staggered-deflated-cg.md`, `staggered-inverter-types.md`
+  and `milc-deflation-space.md` carry the before/after.
+- Neither application cleans the QUDA deflation space between input sets, and QUDA's
+  deflatable inverter restores an existing space with no link check, so a second gauge
+  configuration in one process reuses the first one's eigenvectors. Recorded as a source-read
+  hazard in the deflation-space leaf and both application guides; worth an upstream issue.
+- The Makefile no longer forces `WANT_EIG_GPU` from `WANT_FN_CG_GPU`. Both `ks_spectrum`
+  profiles now set it explicitly, which reproduces what the validated stacks compiled; five
+  leaves restating the forcing were rescoped. `WANT_CURRENT_GPU` is new in `project.yaml`.
+- `libraries/Make_vanilla` forces `CC = mpicc` after its `COMPILER` mapping, through merge
+  `87e4529d`, and the application never passes `CC` to it. `build.md` records it; worth an
+  upstream issue, since Cray environments lack the wrapper.
+- `LDFLAGS += ${OPT}` joins the complete-LDFLAGS rule in `build.md`.
+- `ks_measure` grammar: fat/long-link reload directives, `deflate` per mass set,
+  `eigensolver_prec` on reload; the five-mass current writers add a strange-mass record.
+- Debug output left in: per-rank lines around every GPU contraction, QIO debug verbosity during
+  the eigenvector load. Both in `ks-spectrum.md` and `quda-host-helpers.md`.
+- A single-precision build with host eigenvectors mismatches `double` declarations against
+  `Real` APIs; recorded in `ks-spectrum.md` as read, not compiled.
+
+Reviewed and not admitted: the `STAGE_EIG_TMP` define that copies eigenvector partfiles to
+`/tmp` (no profile uses it); the stderr positional-argument fix in `remap_stdio_from_args.c`
+(no leaf documents the positional arguments, and a new leaf is not owed by this review); the
+partfile-directory name detection added to the serial gauge open and the `reload_serial` hint
+on a failed parallel open (the dispatch asymmetry `gauge-read-dispatch.md` records is unchanged);
+the Grid build script; the QIO serial/parallel argument added to the color-matrix reader.
+
+**Reconciliation (obligation 11).**
+- `software/milc/project.yaml`, `WANT_FN_CG_GPU` and `WANT_EIG_GPU`: *amended*;
+  `WANT_CURRENT_GPU`: *added*; every other `WANT_*` meaning: *confirmed* at `a5f8f9fa`.
+- `software/milc/build-profiles.yaml`, both forcing notes: *amended*; `WANT_EIG_GPU: true`:
+  *added* to both profiles.
+- `software/quda/build-profiles.yaml`, the forcing note: *amended*.
+- `software/quda/solvers/staggered-deflated-cg.md`, even-parity-only (twice) and "build logic
+  forces eigensolver support": *amended*; runtime-confirmation list: *amended* with the new
+  lines; memory model "optionally both even- and odd-parity preserved spaces": *confirmed*, and
+  now the ordinary case for a deflated odd solve.
+- `software/quda/internals/milc-deflation-space.md`, `finalize_quda` and the lifecycle
+  boundary: *amended*; exact-current preconditions: *confirmed*, with the MILC caller named.
+- `software/milc/internals/staggered-inverter-types.md`, deflation interaction: *amended*;
+  the four-inverter table: *confirmed*.
+- `software/quda/solvers/eigensolver.md`, "MILC's non-multigrid deflation path is a third
+  convention": *confirmed*; the unprefixed struct members are unchanged.
+- `software/milc/applications/ks-spectrum.md`, the `u0` exception: *amended*; `total_iters`
+  not an acceptance signal: *confirmed* (`solve_ksprop` untouched); output section: *amended*.
+- `software/milc/applications/ks-measure.md`, input structure items 1, 2, 4 and the timing
+  paragraph: *amended*; "no named `ks_measure` profile": *confirmed*.
+- `software/milc/quda-host-helpers.md`, `static` helpers, `finalize_quda`, CGPU rule, local
+  declaration copies: *amended*; the copies themselves still match QUDA's header: *confirmed*.
+- `software/quda/interface-layers.md`, the forcing and the missing caller: *amended*; the
+  adapter-debt list naming `qudaExactCurrent`: *confirmed*.
+- `software/milc/build.md`, complete-LDFLAGS rule: *amended*; library section: *added*.
+- `software/milc/internals/gauge-read-dispatch.md`: *confirmed*, no change.
+- `software/quda/internals/milc-shift-interface.md`, consumer reachability through
+  `f_meas_current.c`: *confirmed*.
+- `tools/quda-mg-observables.py`, `CONGRAD5` regex: *confirmed* to tolerate the new `srcs`
+  field.

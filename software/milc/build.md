@@ -6,15 +6,18 @@ load_when: Compiling, linking, or validating any MILC application.
 evidence: source
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/libraries/Make_vanilla#L29-L49
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/Make_template#L276-L280
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L1436-L1445
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_measure/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_imp_rhmc/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/Make_template
-observed: "2026-08-20"
+observed: "2026-10-07"
 observed_on:
   software:
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
 ---
 
@@ -76,6 +79,21 @@ does not tell you: `-fopenmp -lgomp` for GCC; `-fopenmp` alone for Intel `icx`, 
 `-lgomp` links a second OpenMP runtime (see the
 [Aurora stack notes](../../machines/aurora/stacks/milc-sycl-quda-ks-spectrum-2026q4/notes.md)).
 After linking, `readelf -d` must list exactly one of `libgomp`, `libiomp5` or `libomp`.
+From `d17e9559` (PR #99, 2026-10-06) the Makefile also appends `${OPT}` to `LDFLAGS`, so a
+command-line `LDFLAGS` drops the optimization flags from the link line as well; put them in the
+stack's value when they matter at link time.
+
+## The library makefile forces its own compiler from `d17e9559`
+
+`libraries/Make_vanilla` maps `COMPILER` to a C compiler and then, from `d17e9559`, overrides
+it unconditionally with `CC = mpicc` (an uncommented line that entered through merge
+`87e4529d`). The application's `libmake` rule passes `APP_CC`, `PRECISION`, `ARCH` and
+`COMPILER` to it, never `CC`, and `Make_vanilla` reads `APP_CC` nowhere. Every `su3` library
+build at that revision therefore compiles with `mpicc` whatever `COMPILER` names, and on a
+system without that wrapper the library step fails before any application object compiles.
+Confirm the compiler on the library compile lines of the build log, and expect to override it
+(an edit to `Make_vanilla`, or building the libraries directly with `CC` on the make command
+line) until upstream restores the mapping. Read from source, not built.
 
 For example, this profile fragment:
 
