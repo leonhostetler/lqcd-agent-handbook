@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Run the upstream-drift triage under an interpreter that carries PyYAML.
+# It reads leaf frontmatter and YAML fact files, so it is a developer tool in the sense
+# of ARCHITECTURE.md's runtime-data section: it may import PyYAML, and it therefore
+# resolves its interpreter through the shared dispatcher rather than a bare python3.
+set -eu
+
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+here="$(cd -- "$here" && pwd)"
+
+exec "${BASH:-bash}" "$here/select-python" \
+    --label "the upstream-drift triage" \
+    --allow-module-load \
+    --require yaml \
+    -- "$here/upstream-drift.py" "$@"

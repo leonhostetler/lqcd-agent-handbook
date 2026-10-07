@@ -23,7 +23,7 @@ belongs in `ARCHITECTURE.md`; this document never restates a decision, only its 
 | 4 | modes, benchmarking, the prediction loop | **in progress** |
 | 5 | software-local solvers and ensembles | partly landed; acceptance pending |
 | 6 | performance analysis | accepted 2026-09-15, three checks |
-| 7 | automation and enforcement | partly landed — submission guard 2026-09-24 |
+| 7 | automation and enforcement | partly landed — submission guard 2026-09-24, drift triage 2026-10-07 |
 
 `handbook.yaml` owns `phase`, which stays `bootstrap` until Slice 5 is accepted. Machines
 after Frontier are onboarded as needed rather than as slices; the order and its reasoning are
@@ -79,6 +79,7 @@ it inside 4.1 rather than beside it keeps one canonical reader of MILC timing ou
 | 7.1 | **Landed at submit time, 2026-09-24:** `tools/submission-guard.py` intercepts the surface's submit command and refuses it without a clean checker run and a current receipt from `tools/dry-run-batch-script.py` (offer-only installer for Claude Code and Codex; Codex enforces once the operator trusts the handler in `/hooks`). **Still owed:** the guard before a batch-script *write* lands, and the enforcement half of the authoring-time input-proofread rule (`conventions/batch-scripts.md` step 3), which the lint can only advise |
 | 7.2 | Knowledge-capture hooks |
 | 7.3 | User-mode write guard |
+| 7.4 | **Landed 2026-10-07:** `tools/upstream-drift.py` (runner `run-upstream-drift`), the per-leaf drift triage against a checkout in both directions, with its per-merge rollup; `playbooks/start-session.md` step 6 runs it when a checkout is present and `modes/developer.md` works its rollup one merge per commit. **Still owed:** draining its first backlog — at MILC `a5f8f9fa` and QUDA `00c7ef33d` it flagged 72 of 114 leaves, nearly all QUDA leaves observed on `b6998853` — per merge, bumping `observed_on` as leaves are confirmed |
 
 All three need frontend-specific offer-only installers, not repo files: hooks and subagents
 are not activated merely by adding the handbook
@@ -293,7 +294,10 @@ that writes the receipt the guard demands (7.1, submit-time half). It was built 
 launcher that had followed the handbook's own recipe died ten seconds into a two-day queue wait —
 the episode is in `DEVLOG.md`. What remains is itemised in [§open-obligations](#open-obligations):
 the write-time guard, knowledge-capture hooks, and the user-mode write guard. Invoked by hand,
-`tools/check-batch-script.py` stays advisory; at the submit command it now enforces.
+`tools/check-batch-script.py` stays advisory; at the submit command it now enforces. The second
+landing, 2026-10-07, is the upstream-drift triage (7.4): the day's review of six MILC merges
+had derived its worklist by hand from the leaves' `sources`, which is exactly the procedure
+[§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool) says to ship as a script.
 
 <a id="open-questions"></a>
 ## 4. Open questions for the operator
@@ -358,5 +362,6 @@ each is in [`DEVLOG.md`](DEVLOG.md).
 | **rocpd host-sample symbol resolution** | **Deliberately not implemented.** A join written from the schema alone would emit plausible symbol names nothing could verify; the tool returns `None` so the caller says "not implemented for this format", which is a different statement from "no samples" |
 | **A validator check for files named in the directory tree but absent** | **Not added.** A guard firing on legitimate future additions is the noisy guard [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s counterweight warns against |
 | **A note that bash `RANDOM` sequences depend on the bash version** (its generator changed in bash 5.1), from a generator that draws source positions with it | **Not admitted 2026-10-07.** General shell behaviour, not LQCD knowledge, and its consequence — the final generated input, not its generator, is the record of what ran — already follows from treating that input as the artifact source in the `ks_spectrum` guide |
+| **Reviewing the handbook on every upstream merge of a tracked software** | **Reshaped 2026-10-07** into a triage on drift: `tools/upstream-drift.py` lists the leaves a checkout has moved away from, per merge and in both directions, and reviews follow its rollup or precede a stack rebuild at a newer commit. A review of every merge was rejected because QUDA's `develop` merges many times a week on files no leaf cites, and [§staleness](ARCHITECTURE.md#staleness) already rules out calendar triggers |
 
 ---

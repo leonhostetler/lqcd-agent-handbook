@@ -4980,3 +4980,36 @@ the Grid build script; the QIO serial/parallel argument added to the color-matri
   `f_meas_current.c`: *confirmed*.
 - `tools/quda-mg-observables.py`, `CONGRAD5` regex: *confirmed* to tolerate the new `srcs`
   field.
+
+## 2026-10-07 — The upstream-drift triage: reviews on drift, per merge, both directions
+
+The operator proposed reviewing the handbook whenever a tracked software's `develop` moves.
+The day's review of six MILC merges had cost most of its time reading diffs and re-verifying
+claims; the worklist itself had come mechanically from the leaves' `sources`. So the review
+became a triage tool and the cadence became "on drift", not "on every merge":
+`tools/upstream-drift.py` compares each leaf's cited files, lines, commits, and pull requests
+with a checkout's HEAD, measured from the leaf's `observed_on` when the citation is older,
+and rolls the flagged leaves up per merge. The other direction — a cited feature-branch
+commit or pull request becoming an ancestor of HEAD, the trigger several roadmap rows write
+in prose — is checked the same way.
+
+First live run, MILC `a5f8f9fa` and QUDA `00c7ef33d`, 15 s: 114 leaves, 617 citations, 72
+leaves to review, 0 unresolvable. The MILC side is exactly the leaves this morning's review
+did not re-observe (the two application guides, `timing.md`, `wilson-flow.md`, the gauge I/O
+internals, `README.md`, `development.md`, `quda-linkage.md`), which is the honest state: they
+were read against the merges but not re-pinned. The QUDA side is the backlog since
+`b6998853`, led by PR #1446 (35 leaves) and #1651 (18), and is now obligation 7.4.
+
+A first version measured drift from the cited revision and flagged every leaf re-observed
+today, because their older blob citations name files that changed before the re-observation.
+Measuring from `observed_on` removed those and left the worklist above. The test suite's
+perturbation control disables the hunk-overlap check and expects the finer "cited lines
+changed" status to vanish; it did. The test's fake Git identity first carried an
+e-mail-shaped string, which the deny-list caught in the validator — the privacy check
+reading the suite is what it is for.
+
+**Reconciliation (obligation 11).** `ARCHITECTURE.md` §staleness "once per load": *confirmed*
+and extended with the per-file mechanism; `playbooks/start-session.md` step 6: *amended*;
+`modes/developer.md` while-editing list: *amended*; `ROADMAP.md` deferred rows whose triggers
+read "the pull request merges": *confirmed*, now mechanically checkable. No leaf restates a
+review cadence.

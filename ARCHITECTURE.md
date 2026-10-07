@@ -339,6 +339,8 @@ lqcd-agent-handbook/
 │   ├── select-python, run-*       # interpreter dispatcher and its runners
 │   ├── setup-tool-python, requirements.txt, tool-python-location.sh
 │   │                              #   offer-only per-user tool Python (§session-logging)
+│   ├── upstream-drift.py          # per-leaf drift of cited files and merge status against a
+│   │                              #   checkout, both directions (§staleness)
 │   ├── extract-milc-timings.py
 │   ├── milc-compare-fnal-correlators.py # FNAL correlator structure checks and comparison
 │   ├── summarize-slurm-job.py
@@ -1464,6 +1466,21 @@ so once. A per-claim diff would cost more attention than it saves, and for softw
 it is ill-defined anyway — every checkout differs from every other. The meaningful version
 of that comparison is [§version-lifetimes](#version-lifetimes)'s relationship to the nearest validated stack, which already exists
 and is already reported at session start.
+
+**Per cited file, the comparison is mechanical, and a tool makes it.** A leaf's `sources`
+name the files and lines it was read from, at a commit, and `observed_on` names the commit
+it was judged at. `tools/upstream-drift.py` compares both with a checkout's HEAD and lists,
+per leaf, the cited files that changed since observation, whether the cited lines moved, and
+the merges that touched them — and, in the other direction, a cited feature-branch commit or
+pull request that has since become an ancestor of HEAD, which is the trigger
+[§deferred-decisions](ROADMAP.md#deferred-decisions) keeps writing in prose. It rolls the
+findings up per merge, because a review is cheapest done one merge at a time. It is a triage
+and says so: it names candidates and judges no claim, and it reports what it checked rather
+than "passed" ([§validator-not-clearance](#validator-not-clearance)). Reviews are therefore
+triggered by drift the tool reports, before a stack is rebuilt at a newer commit, never by a
+calendar or by every upstream merge — a merge touching nothing a leaf cites is not a review.
+After a leaf's claims are confirmed at the new commit, `observed_on` is bumped, because that
+is the mark the tool measures from.
 
 <a id="validator-checks"></a>
 ### 5.3. Validator contract

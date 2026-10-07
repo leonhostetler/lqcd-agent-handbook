@@ -143,6 +143,12 @@ Only after the current work mode is stated:
   detected software and environment. Do not inspect stacks for any other machine, and load
   only the nearest matching `stack.yaml` when one exists. Otherwise report
   `no matching validated stack`.
+- when a detected software has a Git checkout in the working directory and a
+  `software/<name>/project.yaml`, run
+  `"$LQCD_HANDBOOK/tools/run-upstream-drift" --checkout <name>=<checkout>` and report its
+  final summary line; in developer mode also report its per-merge rollup. It names the leaves
+  whose cited files, lines, or merge status moved since they were observed and judges no
+  claim. If no interpreter carries PyYAML, report that the drift check did not run.
 - when a candidate stack records `superseded_by`, report the supersession — successor and
   covered work — whenever that candidate is nearest or tied for nearest. For the covered
   work, prefer a listed successor whose `validated_on` includes the resolved node type, even

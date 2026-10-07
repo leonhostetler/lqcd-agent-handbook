@@ -42,6 +42,14 @@ start; open it by name only when you need the evidence behind a decision.
 - Keep each commit to one fact class so a faulty import can be reverted cleanly.
 - Record an episode in `DEVLOG.md`, never in `ARCHITECTURE.md` or `ROADMAP.md`. When a
   decision changes, rewrite the rule in place rather than appending a dated amendment.
+- **Upstream drift is reviewed per merge, from the tool's rollup.** Before amending a leaf
+  whose software checkout is newer than its `observed_on`, run
+  `tools/run-upstream-drift --checkout <name>=<checkout>` and work the merges it lists, one
+  merge per commit. Version-scope what changed ("through `<old>`, from merge `<new>`") rather
+  than overwriting it while a validated stack is still pinned on the old side. Bump
+  `observed_on` only for a leaf whose claims were confirmed at the new commit, because the
+  tool measures drift from it: a leaf left at its old commit stays on the worklist, which is
+  the honest state for one that was only partly re-read.
 - **An edit made against an incident must reconcile with what the leaf already says.** Before
   writing, list every existing statement in that leaf — and in any other leaf the domain index
   routes to for the same task — about the object the incident concerns: the variable, option,
