@@ -4840,3 +4840,30 @@ already fitted "double precise, half sloppy", so the handbook contradicted itsel
 - `software/milc/applications/ks-spectrum.md`, tadpole note naming `ks_multicg_offset_quda.c`:
   *confirmed*; it concerns the tadpole argument, which PR #93 does not touch.
 - No validated stack record restates the sloppy precision.
+
+## 2026-10-07 — MILC PR #95: a CMake build beside Make
+
+PR #95 (merge `d2fd151f`, 2026-10-06) extends MILC's CMake build to most application
+directories and documents it in `README_CMAKE.md`. The handbook keeps building MILC through
+Make and no profile changes; `software/milc/project.yaml` now lists CMake as a build system,
+links the README, and records the one thing a reader switching between them must know: the
+GPU switches are spelled `GPU_*` there, not `WANT_*_GPU`.
+
+The README's "known issues inherited from Make" table was checked against the Makefile path
+for the one item that touches the handbook's profiles. It holds, and it held at `6b9b8a06`:
+`WANTQUDA=true` drops `-DDBLSTORE_FN`, and a staggered target with no accelerated, Grid, or
+QPhiX CG switch still selects `dslash_fn_dblstore.o`, whose first lines refuse to compile
+without the define. Read from source, not compiled.
+
+**Reconciliation (obligation 11).** `project.yaml` `WANTQUDA`: *amended*. `software/milc/build.md`
+(Make invocation contract): *confirmed*, it makes no build-system claim. No other leaf names
+the CMake build.
+
+## 2026-10-07 — MILC PR #98: layout coordinates, no handbook change
+
+PR #98 (merge `641f9253`) makes `setup_layout` take a rank's machine coordinates from QMP's
+logical topology under `HAVE_QMP`, as `get_even_sites_on_node` and `io_node` already did;
+before it, `setup_layout` used the lexicographic map. No handbook statement depends on the
+rank-to-coordinate map, and no stack launcher passes QMP map options, so nothing changes.
+Recorded so the next reader of `generic/layout_hyper_prime.c` citations knows the three
+functions now agree.
