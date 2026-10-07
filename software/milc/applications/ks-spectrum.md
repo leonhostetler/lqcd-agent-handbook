@@ -343,7 +343,9 @@ count times the true sum. The factor is exact, so effective masses are unaffecte
 amplitudes from runs with different rank counts disagree. Mesons and the `GB_BARYON` path reduce
 once and are unaffected. The second sum arrived with merge `08b263db` (2023-08-23); it is present
 at the observed revision and at `6b9b8a0`, the tested commit of the validated `ks_spectrum`
-stacks, and `6bd16fc` on `develop` removes it. For a build without that commit, divide the
+stacks, and `6bd16fc` removes it; that commit reached `develop` as PR #101 (merge `bcab3de7`,
+2026-10-06), so every `develop` checkout from there on is free of it. For a build without that
+commit, divide the
 baryon correlators by the run's rank count, or confirm with a one-rank and a two-rank run of the
 same input: the baryon ratio is exactly 2 and the mesons agree. Reproduced at one, two and four
 ranks on one input.

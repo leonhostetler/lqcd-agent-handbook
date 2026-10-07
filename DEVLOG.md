@@ -4897,3 +4897,17 @@ PR changes other statements in the same files.
 - `software/quda/solvers/staggered-memory.md` and `software/quda/internals/milc-gauge-reconstruct.md`,
   "a thin update pays nothing": *confirmed*; neither says which set types can request one.
 - `DEVLOG.md` 2026-09 entries describing the defect: episodes, left as written.
+
+## 2026-10-07 — MILC PR #101: the baryon double reduction fix is on develop
+
+PR #101 (merge `bcab3de7`, 2026-10-06) merges `6bd16fce`, which the `ks_spectrum` guide
+already cited from the operator's rank-count comparison: it removes the second per-timeslice
+`g_complexsum` in `spectrum_ks_print_baryon`, so `NUCLEON` and `DELTA` amplitudes no longer
+scale with the rank count. The guide's statement needed only its version scope sharpened: the
+fix is now an ancestor of every later `develop` checkout, while the validated `ks_spectrum`
+stacks at `6b9b8a06` still carry the defect and still need the rank-count division.
+
+**Reconciliation (obligation 11).** `software/milc/applications/ks-spectrum.md`, "Baryon
+amplitudes scale with the rank count before `6bd16fc`": *amended* to name the merge.
+`tools/milc-compare-fnal-correlators.py`: *confirmed*, it compares files and makes no
+normalization claim. No stack record restates the baryon normalization.
