@@ -18,8 +18,9 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/interface_quda.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface_internal.cpp
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/CMakeLists.txt
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/CMakeLists.txt#L34-L48
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/CMakeLists.txt#L207-L269
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2405-L2434
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/interface_quda.cpp#L2957-L3058
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L72-L197
@@ -31,9 +32,9 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L185
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L745-L780
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/coarse_op_mma_launch.h#L338-L356
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c#L619-L653
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L583-L601
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L809-L827
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L619-L664
+  - https://github.com/milc-qcd/milc_qcd/commit/db6adc7d7bdc58910b58ff6fbca10e055a86c216
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L559-L578
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L748-L826
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L645-L656
 observed: "2026-10-07"
@@ -43,7 +44,7 @@ observed_on:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
 ---
 
@@ -257,8 +258,10 @@ QUDA_MULTIGRID=ON
 ```
 
 MILC must link QUDA, enable its improved-staggered GPU CG backend, and define the MG
-path (`HAVE_QUDA`, `USE_CG_GPU`, and `MULTIGRID` in the observed source; corresponding
-CMake controls are `WANTQUDA`, `WANT_FN_CG_GPU`, and `WANT_MULTIGRID`).
+path (`HAVE_QUDA`, `USE_CG_GPU`, and `MULTIGRID` in the observed source). The Makefile
+switches are `WANTQUDA`, `WANT_FN_CG_GPU`, and `WANT_MULTIGRID`, and the CMake build at
+`6b9b8a06` used the same names; from `d2fd151f` (PR #95, 2026-10-06) CMake spells them
+`WANTQUDA`, `GPU_FN_CG`, and `GPU_MULTIGRID`.
 
 QUDA compiles coarse-color and multi-right-hand-side kernels for configured lists. Every
 requested coarse colour must be represented in `QUDA_MULTIGRID_NVEC_LIST` — `nvec 1` and

@@ -24,7 +24,7 @@ sources:
   - https://github.com/lattice/quda/commit/1757c406e32c5b8aa97a7e38a13627654d651bd8
   - https://github.com/lattice/quda/commit/79af44a6fe6d258de260c1dc0293af524f1c4d7b
   - https://github.com/lattice/quda/pull/1644
-  - https://github.com/lattice/quda/blob/8a6fecc5a64e422d937592bb8cb1c524a5c32e94/include/gauge_backup.h
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/gauge_backup.h
   - operator's screened prior QUDA development records
   - https://github.com/llvm/llvm-project/blob/main/clang/tools/clang-format/git-clang-format
 observed: "2026-10-07"

@@ -10,6 +10,8 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/include/generic_quda.h
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/milc_to_quda_utilities.c#L50-L140
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L1419-L1422
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L604-L619
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/CMakeLists.txt#L207-L217
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_meson_mom_quda.c#L337-L385
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/make_lattice.c#L25-L30
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/make_lattice.c#L67-L71
@@ -155,7 +157,8 @@ Five things about how the switches compose are not visible from any single switc
 2. **Defaults are set inside the `WANTQUDA` block, and they are off.** The `?= #true` lines
    assign empty values, so every GPU switch is off unless the build sets it.
 3. **Some switches turn on others.**
-   - `WANT_FN_CG_GPU` forces `WANT_EIG_GPU`.
+   - `WANT_FN_CG_GPU` forced `WANT_EIG_GPU` through `6b9b8a06`; from `d17e9559` the Makefile rule
+     is commented out, while the CMake build at `a5f8f9fa` still sets `GPU_EIG` from `GPU_FN_CG`.
    - `WANT_CL_BCG_GPU` also defines `USE_GAUGEFIX_OVR_GPU`.
 4. **`-DMULTIGRID` has two sources.** `WANT_MULTIGRID=true` adds it in a `WANTQUDA` build, and so
    does a `KSCGMULTI` value that carries it. Both multigrid solve paths in

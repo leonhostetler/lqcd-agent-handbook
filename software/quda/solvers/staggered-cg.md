@@ -13,13 +13,16 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/dirac_staggered.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/dirac_improved_staggered.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/CMakeLists.txt
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/d_congrad5_fn_quda.c
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/CMakeLists.txt
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp#L879-L914
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/inv_cg_quda.cpp#L76-L83
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/inv_cg_quda.cpp#L438-L830
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/solver.cpp#L400-L421
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L545-L550
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L521-L526
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/CMakeLists.txt#L207-L217
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L604-L619
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L136-L220
   - operator's benchmark records (the L2-breakdown observation)
 observed: "2026-10-07"
 observed_on:
@@ -28,7 +31,7 @@ observed_on:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
 ---
 
@@ -111,10 +114,15 @@ QUDA_DIRAC_STAGGERED=ON
 ```
 
 MILC must link QUDA and compile the improved-staggered CG backend, corresponding to
-`HAVE_QUDA` and `USE_CG_GPU` in the observed source. The current MILC CMake and Makefile
-logic also enables `USE_EIG_GPU` whenever `WANT_FN_CG_GPU` is enabled. That compile-time
-coupling does not turn every solve into a deflated solve: runtime deflation is inactive
-when `n_ev_deflate` is zero and QUDA receives no `eig_param`.
+`HAVE_QUDA` and `USE_CG_GPU` in the observed source. Through MILC `6b9b8a06` both build
+systems also enabled `USE_EIG_GPU` whenever the CG switch was on; from `d17e9559` (PR #99,
+2026-10-06) the Makefile rule is commented out and `WANT_EIG_GPU` must be set explicitly,
+while the CMake build at `a5f8f9fa` still sets `GPU_EIG` from `GPU_FN_CG`. Either way the
+coupling does not turn every solve into a deflated solve: runtime deflation is inactive when
+the deflation count MILC passes is zero. Through `6b9b8a06` a build without `USE_EIG_GPU`
+called the plain inverter; from `d17e9559` every QUDA CG call goes through the deflatable
+entry with `n_ev_deflate` zero unless the set requests deflation and sets no relative
+residual.
 
 Build-option presence proves only that the path was compiled. A machine stack should
 also validate one representative staggered solve at each precision and communication

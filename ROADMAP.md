@@ -72,14 +72,13 @@ it inside 4.1 rather than beside it keeps one canonical reader of MILC timing ou
 | 5.4 | A mechanistic MRHS memory model — observed increments may guide its design but may not be promoted as a transferable capacity formula without allocation-lifetime analysis and validation across MRHS widths |
 | 5.5 | **Fold post-setup phase D into the staggered-MG device maximum, with a pool-retention term.** Since 2026-09-25 `tools/quda-staggered-memory.py` reports `detail.post_setup_phase_D` — the resident four-level hierarchy at steady-state counts plus the width-1 solver workspace — beside the fitted phases A-C and warns when it exceeds the winning phase, but `device_gib` stays the setup-phase maximum. As an inventory D is a lower bound: at the calibration ensemble's own placement it sits well below phase A while the measured run peaked above phase A with the hierarchy resident, because the pool retains every block setup ever allocated. Folding it in changes predicted values, so it is done only in a session with access to the retrospective corpus: model the pool's retained footprint, re-validate the four-phase model with D as a fourth candidate against the measured `Device memory used` counters, refit or annotate the setup-workspace constant that the same observation shows is far above the source-exact workspace, and then fold. The publishability decision on the memory-figure class was given for one campaign on 2026-09-25 |
 
-### Slice 7 — not started
+### Slice 7 — partly landed
 
 | # | Owed |
 |---|---|
 | 7.1 | **Landed at submit time, 2026-09-24:** `tools/submission-guard.py` intercepts the surface's submit command and refuses it without a clean checker run and a current receipt from `tools/dry-run-batch-script.py` (offer-only installer for Claude Code and Codex; Codex enforces once the operator trusts the handler in `/hooks`). **Still owed:** the guard before a batch-script *write* lands, and the enforcement half of the authoring-time input-proofread rule (`conventions/batch-scripts.md` step 3), which the lint can only advise |
 | 7.2 | Knowledge-capture hooks |
 | 7.3 | User-mode write guard |
-| 7.4 | **Landed 2026-10-07:** `tools/upstream-drift.py` (runner `run-upstream-drift`), the per-leaf drift triage against a checkout in both directions, with its per-merge rollup; `playbooks/start-session.md` step 6 runs it when a checkout is present and `modes/developer.md` works its rollup one merge per commit. **Still owed:** draining its first backlog per merge, bumping `observed_on` as leaves are confirmed. At MILC `a5f8f9fa` and QUDA `00c7ef33d` it flagged 72 of 114 leaves, nearly all QUDA leaves observed on `b6998853`; after the PR #1446 review (2026-10-07) and tool 1.1.0, which skips validated-stack records because their citations are pinned to the build they record, 32 remained; the QUDA side was drained the same day through #1651, leaving 15 leaves of MILC-side drift from the 2026-10-06 merges (nine MILC leaves read against those merges but not re-pinned, and six QUDA leaves whose MILC citations moved) plus one permanently flagged branch citation in `software/quda/development.md` |
 
 All three need frontend-specific offer-only installers, not repo files: hooks and subagents
 are not activated merely by adding the handbook
@@ -295,9 +294,10 @@ launcher that had followed the handbook's own recipe died ten seconds into a two
 the episode is in `DEVLOG.md`. What remains is itemised in [§open-obligations](#open-obligations):
 the write-time guard, knowledge-capture hooks, and the user-mode write guard. Invoked by hand,
 `tools/check-batch-script.py` stays advisory; at the submit command it now enforces. The second
-landing, 2026-10-07, is the upstream-drift triage (7.4): the day's review of six MILC merges
-had derived its worklist by hand from the leaves' `sources`, which is exactly the procedure
-[§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool) says to ship as a script.
+landing, 2026-10-07, is the upstream-drift triage, `tools/upstream-drift.py`: the day's review
+of six MILC merges had derived its worklist by hand from the leaves' `sources`, which is exactly
+the procedure [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool) says to ship as a script. Its
+first backlog was drained the same day; the episodes are in `DEVLOG.md`.
 
 <a id="open-questions"></a>
 ## 4. Open questions for the operator

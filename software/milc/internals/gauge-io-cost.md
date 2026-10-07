@@ -5,15 +5,15 @@ scope: [software:milc]
 load_when: Choosing a MILC reload or save keyword for a large lattice, diagnosing slow gauge configuration I/O, or sizing host memory for a run that reads or writes a lattice.
 evidence: experiment
 sources:
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/io_lat4.c
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/io_helpers.c
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/include/milc_datatypes.h
-observed: "2026-09-21"
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat4.c
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_helpers.c
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/include/milc_datatypes.h
+observed: "2026-10-07"
 observed_on:
   machine: perlmutter
   software:
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
 ---
 
@@ -113,7 +113,9 @@ one lattice, one machine, one placement, 8 ranks, single precision, one MILC com
 measurement per arm with no repeats. Carry the scope whenever the number travels, and do not
 turn it into a rule of thumb. What generalises is the mechanism and the sign, not the ratio.
 
-**Read only.** Both timings above are reloads.
+**Read only.** Both timings above are reloads, taken at MILC `6b9b8a06`. The `r_parallel`,
+`r_mpiio` and `w_mpiio` paths are unchanged at `a5f8f9fa`, read 2026-10-07; the timings were not
+repeated there.
 
 **`reload_mpiio` is not a universal replacement.** It does not detect a SciDAC or LIME file and
 will read one as MILC binary — see

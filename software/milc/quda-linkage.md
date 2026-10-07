@@ -5,15 +5,15 @@ scope: [software:milc, software:quda]
 load_when: Keeping more than one QUDA installation, building QUDA with a composed USQCD prefix, redirecting a MILC executable at a different QUDA, or recording which library a MILC run actually used.
 evidence: experiment
 sources:
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Make_template_scidac
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Make_template_scidac
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt#L516-L520
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt#L529-L532
-observed: "2026-09-21"
+observed: "2026-10-07"
 observed_on:
   software:
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
     quda:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
@@ -121,8 +121,10 @@ not describe.
 
 ## Scope
 
-Observed at one MILC revision through the Cray wrappers. The emission of a bare `-Wl,-rpath`
-is a property of MILC's build files and is expected to transfer; **which tag results is a
+The link experiment ran at MILC `6b9b8a06` through the Cray wrappers; the lines that emit the
+flags in `Makefile` and `Make_template_scidac` are unchanged at `a5f8f9fa`, read 2026-10-07.
+The emission of a bare `-Wl,-rpath` is a property of MILC's build files and is expected to
+transfer; **which tag results is a
 linker-default property and is not.**
 
 The binding itself depends on nothing in QUDA — QUDA is simply the library most often swapped,

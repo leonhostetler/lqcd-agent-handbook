@@ -5166,3 +5166,88 @@ citations those merges moved. `development.md` keeps its one branch citation.
 and `staggered-multigrid.md` (`coarse_op.cuh` citations): *confirmed*, formatting and
 indexing only; the eight other re-pinned leaves: *confirmed* against the option addition in
 `CMakeLists.txt` and the recursion guards in the blas and reduction sources.
+
+## 2026-10-07 — MILC-side drift drained: fifteen leaves re-pinned to a5f8f9fa, one branch citation re-pointed
+
+The MILC rollup of `tools/run-upstream-drift` listed 15 leaves after the QUDA drain, every one
+read against the 2026-10-06 merges in the earlier sessions but left at its old pin because its
+cited line ranges had moved. This session re-read each cited range at `a5f8f9fa`, remapped the
+line citations, and bumped `observed_on.milc`. Nothing was compiled or run; QUDA stays at
+`00c7ef33d`.
+
+What the re-read found beyond the earlier reviews:
+- **The CMake build still forces the eigensolver switch.** At `a5f8f9fa` `CMakeLists.txt` sets
+  `GPU_EIG` whenever `GPU_FN_CG` is on, while PR #99 commented the equivalent Makefile rule out.
+  The PR #99 review recorded the Makefile half only. `staggered-cg.md` now carries both build
+  systems version-scoped, and `project.yaml` and `quda-host-helpers.md` are reconciled; the
+  `build-profiles.yaml` and `staggered-deflated-cg.md` statements already said "the Makefile" and
+  stand. The forcing is a reason the explicit `WANT_EIG_GPU` in the profiles matters: a CMake
+  build gets it either way, a Make build only when asked.
+- **`staggered-multigrid.md` named the pre-#95 CMake controls.** `WANT_FN_CG_GPU` and
+  `WANT_MULTIGRID` were CMake options through `6b9b8a06`; from `d2fd151f` they are `GPU_FN_CG`
+  and `GPU_MULTIGRID`. Version-scoped in place.
+- **The GPU spin-taste wrapper honours the refresh flag only with links.** From `d17e9559`
+  `general_spin_taste_op` reads and clears `refresh_links` only when `links` is non-null, so a
+  helper that passes no links never requests a refresh and leaves the flag pending. One sentence
+  in `milc-shift-interface.md`'s resident-gauge section.
+- The `reload_serial` hint PR #99 added to a failed parallel gauge open is printed after
+  `terminate(1)` and never reaches a log. Not admitted (the earlier decision not to admit the
+  hint stands; this is why it would have been wrong to), recorded here as evidence.
+
+Three of the fifteen are `experiment` leaves whose measurements ran at `6b9b8a06`:
+`quda-linkage.md`, `gauge-io-cost.md`, and `qio/parallel-singlefile-writes.md`. Their source
+claims — which lines emit the rpath, which keyword reaches which reader or writer — were
+confirmed unchanged at `a5f8f9fa`, so the pin moved; each now names `6b9b8a06` in prose as the
+commit its numbers were taken at, so the pin says what was judged and the text says what was
+measured.
+
+`software/quda/development.md` cited `include/gauge_backup.h` at `8a6fecc5`, a commit on no
+line of QUDA `develop` and absent from the checkout. The header exists on `develop` at
+`00c7ef33d`, last touched by `6b8491093` (2024-05-30), and its `backup` deep-copies every
+non-aliased field with `new GaugeField(*...)` while `setupGaugeFields` deletes the old precise
+field — the content the leaf's lifetime rule rests on. Re-pointed; the tool no longer flags it.
+
+Line remaps worth recording because the first-line match was ambiguous: `spectrum_ks.c`
+`L1360-L1665` → `L1357-L1662`; `generic_quda.h` `L43-L82` → `L46-L85`; `Makefile` `L916-L939`
+(at `32e18069`) → `L976-L999`; `eigen_stuff_QUDA.c` `L172-L208` → `L407-L442`; `ks_measure/setup.c`
+`L55-L651` → `L58-L628`. Unchanged ranges were re-cited at the tip as they stood.
+
+**Reconciliation (obligation 11).**
+- `software/quda/solvers/staggered-cg.md`, "CMake and Makefile logic also enables `USE_EIG_GPU`":
+  *amended* to both build systems version-scoped; "QUDA receives no `eig_param`": *amended*,
+  every CG call now passes one; maxiter product, zero-norm handling, tadpole `1.0` for HISQ,
+  parity mapping: *confirmed* at `a5f8f9fa`.
+- `software/milc/project.yaml`, `WANT_FN_CG_GPU`: *amended* with the CMake clause;
+  `software/milc/quda-host-helpers.md`, switch-coupling item: *amended*.
+  `software/milc/build-profiles.yaml` (two notes), `software/quda/build-profiles.yaml`,
+  `software/quda/solvers/staggered-deflated-cg.md`, `software/quda/internals/milc-deflation-space.md`,
+  `software/milc/applications/ks-spectrum.md` (`u0` exception): *confirmed*, each already
+  scoped to the Makefile or to the `USE_*` defines.
+- `software/quda/solvers/staggered-multigrid.md`, CMake control names: *amended*; first-solve
+  update, `rebuild_type` grammar, cleanup that does not null the static pointer, undetected
+  `mgparamfile` change: *confirmed*.
+- `software/quda/internals/milc-shift-interface.md`, resident-gauge trap: *amended* with the
+  refresh-flag sentence; build contract (independent switches), selector contract, consumer
+  reachability (`ext_src`, `f_meas_current.c`, `ks_meson_mom*.c`, `flavor_ops2.c`): *confirmed*.
+  No other leaf states the refresh-flag behaviour.
+- `software/milc/applications/ks-spectrum.md`: every "at the observed revision" statement
+  re-read at `a5f8f9fa` — `iseed` truncation, the `continue` gauge-fix no-op, FNAL append mode
+  and the `forget_corr` fallback, the first interval before `setup()`, `total_iters`,
+  `ionode_geometry` check, baryon reduction: *confirmed*; sources remapped.
+- `software/milc/applications/ks-measure.md`: top-level interval before `readin()`, ending save
+  before `RUNNING COMPLETED`, PR #99 grammar items: *confirmed*; sources consolidated at the tip.
+- `software/milc/applications/wilson-flow.md`: coverage sentence *amended* to name both reads;
+  every other claim *confirmed* (the `generic_quda.h` change is `static inline` only).
+- `software/milc/timing.md`: `CTIME` default and the three includes: *confirmed*; the
+  single-source QUDA CG line's `srcs = 1` is already in `ks-spectrum.md`.
+- `software/milc/README.md`, `software/milc/development.md` (one-line difference between the two
+  link-load files, `fermion_links_fn_load_quda.o` bound to both variables, the HISQ file still
+  unreferenced), `software/milc/internals/gauge-read-dispatch.md` (dispatch asymmetry),
+  `software/quda/internals/milc-gauge-reconstruct.md` (seven sample scripts at `13`/`9`),
+  `software/quda/solvers/staggered-solver-selection.md`: *confirmed*, pins only.
+- `software/milc/quda-linkage.md`, `software/milc/internals/gauge-io-cost.md`,
+  `software/qio/parallel-singlefile-writes.md`: source paths *confirmed*; measurement commit
+  *added* in prose.
+- `ROADMAP.md` 7.4: *removed*. The tool and its first drain both exist, so the row had become
+  a log entry; its figures are in the two drift-tool entries above and in this one. The
+  Slice 7 heading in §open-obligations now reads "partly landed", matching the slice table.

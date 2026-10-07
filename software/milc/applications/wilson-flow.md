@@ -5,19 +5,19 @@ scope: [software:milc]
 load_when: Compiling, preparing, tuning, benchmarking, or interpreting a MILC wilson_flow run.
 evidence: source
 sources:
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/setup.c#L48-L203
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/control.c#L25-L113
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/integrate.c#L6-L129
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/integrate.c#L454-L833
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/integrate_quda.c#L9-L119
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/staple.c#L207-L284
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/Make_template#L31-L92
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/Make_template#L116-L205
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/include/generic_quda.h#L43-L82
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/remap_stdio_from_args.c#L89-L105
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L145-L180
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/test/wilson_flow_bbb.symanzik.2.sample-in
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/test/wilson_flow_bbb.symanzik.2.sample-out
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/wilson_flow/setup.c#L48-L203
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/wilson_flow/control.c#L25-L113
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/wilson_flow/integrate.c#L6-L129
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/wilson_flow/integrate.c#L454-L833
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/wilson_flow/integrate_quda.c#L9-L119
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/wilson_flow/staple.c#L207-L284
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/wilson_flow/Make_template#L31-L92
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/wilson_flow/Make_template#L116-L205
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/include/generic_quda.h#L46-L85
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/remap_stdio_from_args.c#L89-L105
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L145-L180
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/wilson_flow/test/wilson_flow_bbb.symanzik.2.sample-in
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/wilson_flow/test/wilson_flow_bbb.symanzik.2.sample-out
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/CMakeLists.txt#L25-L39
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/interface_quda.cpp#L899-L948
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/interface_quda.cpp#L5385-L5481
@@ -25,7 +25,7 @@ observed: "2026-10-07"
 observed_on:
   software:
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
     quda:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
@@ -235,9 +235,9 @@ unit or gauge-configuration workflow, not by the single process-level `RUNNING C
 
 ## Coverage
 
-The CPU and QUDA source claims are scoped to upstream MILC
-`6b9b8a06eec5746187bbfd197eac2629ab8d8e72` on `develop` and QUDA
-`b6998853f6b605e22d67ea2ddfa3cab0d752679a` on `develop`. The DeltaAI stack compiled both
+The CPU and QUDA source claims were read at upstream MILC `6b9b8a06` and re-read at `a5f8f9fa`
+on `develop`, where the cited `wilson_flow` sources are unchanged, and at QUDA `b6998853` and
+`00c7ef33d` on `develop`. The DeltaAI stack compiled both
 `wilson_flow` and `wilson_flow_bbb` and ran one short four-rank `wilson_flow_bbb` workload through
 QUDA with a Wilson action, a QIO reload, two steps, finite output rows, and normal application and
 scheduler completion.

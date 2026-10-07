@@ -10,14 +10,14 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/qio_field.cpp#L93-L113
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/qio_field.cpp#L400-L431
   - https://github.com/usqcd-software/qio/blob/273841537392f9465d229c957228755e923408eb/lib/qio/QIO_open_write.c#L203-L214
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/io_scidac.c#L380-L410
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/io_scidac.c#L494-L500
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/io_lat4.c#L2021-L2043
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/io_lat4.c#L829
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/io_ansi.c#L20-L37
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/com_qmp.c#L483-L490
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/io_helpers_ks.c#L849-L892
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/io_helpers_ks_eigen.c#L367-L373
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_scidac.c#L380-L410
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_scidac.c#L494-L500
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat4.c#L2022-L2044
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat4.c#L829
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_ansi.c#L20-L37
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/com_qmp.c#L483-L490
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/io_helpers_ks.c#L849-L892
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/io_helpers_ks_eigen.c#L373-L379
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/io_test.cpp#L245-L278
   - https://github.com/torvalds/linux/blob/v5.14/fs/nfs/write.c#L1319-L1352
   - https://github.com/torvalds/linux/blob/v5.14/fs/nfs/write.c#L1377-L1380
@@ -36,7 +36,7 @@ observed_on:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
     milc:
-      commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
       branch: develop
   toolchain:
     mpi: openmpi/5.0.9, MPI-IO through ROMIO (the site module sets OMPI_MCA_io=^ompio)
@@ -210,6 +210,10 @@ pass. The gtest summary line is colored; strip escape codes before matching it.
   the file equalled the reader's "Found" value.
 
 ## Not claimed
+
+- A change of behaviour at a later MILC revision. The MILC legs ran at `6b9b8a06`; the keyword
+  dispatch, writers, and reader status handling cited above are unchanged at `a5f8f9fa`, read
+  2026-10-07, and nothing was re-run there.
 
 - Why t-split QIO gauge files show head zeros from the third node on and never at the second; why
   t-split propagator files do not.
