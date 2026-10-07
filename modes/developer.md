@@ -45,7 +45,8 @@ start; open it by name only when you need the evidence behind a decision.
 - **Upstream drift is reviewed per merge, from the tool's rollup.** Before amending a leaf
   whose software checkout is newer than its `observed_on`, run
   `tools/run-upstream-drift --checkout <name>=<checkout>` and work the merges it lists, one
-  merge per commit. Version-scope what changed ("through `<old>`, from merge `<new>`") rather
+  merge per commit. Add `--suggest-remap` for each moved citation's proposed new lines; take
+  the number from the proposal after re-reading the claim, and where it refuses, read the file. Version-scope what changed ("through `<old>`, from merge `<new>`") rather
   than overwriting it while a validated stack is still pinned on the old side. Bump
   `observed_on` only for a leaf whose claims were confirmed at the new commit, because the
   tool measures drift from it: a leaf left at its old commit stays on the worklist, which is

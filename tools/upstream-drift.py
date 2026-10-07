@@ -11,12 +11,19 @@ leaf, what moved. It answers two questions:
 - the other direction: a commit or pull request the leaf cites from a feature branch has
   since become an ancestor of HEAD, so a claim written against "not yet merged" is stale.
 
+With --suggest-remap it also proposes, for each flagged line citation, where those lines sit
+at HEAD, by aligning the cited revision's text with HEAD's. That is a proposal to re-cite
+after the claim has been re-read, never a confirmation of the claim: a range whose lines are
+byte-identical at HEAD is reported as moved, one that partly survives is reported as partial
+with the survivor count, and one with no distinctive surviving line gets no proposal at all.
+
 It is a triage, not a review. It names candidates; whether a diff changes a claim is a
 reading job. It reports what it checked and never says "passed".
 
 Usage:
     upstream-drift.py --checkout milc=/path/to/milc_qcd [--checkout quda=/path/to/quda]
                       [--root HANDBOOK] [--leaf PATH ...] [--json] [--fail-on-drift]
+                      [--suggest-remap]
 
 A checkout name is the handbook's software name; the tool maps it to the repository
 recorded in software/<name>/project.yaml and only considers citations into that repository.
@@ -25,6 +32,7 @@ recorded in software/<name>/project.yaml and only considers citations into that 
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import re
@@ -36,7 +44,7 @@ from typing import Any
 
 import yaml
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 KNOWLEDGE_ROOTS = ("conventions", "machines", "software", "ensembles", "playbooks", "modes")
 
 BLOB_RE = re.compile(
@@ -113,6 +121,89 @@ def hunks_touch(repo: Path, rev: str, head: str, path: str, a: int, b: int) -> b
         if start <= b and end >= a:
             return True
     return False
+
+
+# A cited range is re-anchored only on lines carrying at least this many non-blank
+# characters. A range made of braces, `#endif` and blank lines matches almost anywhere,
+# and a wrong proposal reads exactly like a right one.
+ANCHOR_MIN_CHARS = 8
+
+
+def suggest_remap(repo: Path, rev: str, head: str, path: str, a: int, b: int) -> dict[str, Any]:
+    """Propose where old lines [a, b] of `path` at `rev` sit at HEAD.
+
+    The two texts are aligned with difflib's longest-matching-block algorithm (autojunk
+    off, so repeated short lines are not discarded). Each cited line inside a matching block
+    maps to its counterpart. The proposal is then one of:
+
+    - `unmoved`: every cited line survives, contiguous, at the same numbers;
+    - `moved`: every cited line survives, contiguous, at shifted numbers;
+    - `split`: every cited line survives but lines were inserted inside the range; the
+      proposal spans the insertion, which is what has to be read;
+    - `partial`: some cited lines survive; the range runs between the outermost survivors
+      and the claim must be re-read before it is re-cited;
+    - `elsewhere`: no cited line survives in place, but the range's exact text occurs once
+      elsewhere in the file at HEAD (a function deleted while its twin stayed, say); the
+      proposal names that copy and the surrounding code is a reading job;
+    - `unresolved`: nothing survives, or nothing that survives is distinctive enough to
+      anchor on (ANCHOR_MIN_CHARS), or the text recurs at several places; nothing is
+      proposed.
+
+    A proposal names candidate lines. It does not say the claim still holds there.
+    """
+    old = git(repo, "show", f"{rev}:{path}", check=False).splitlines()
+    new = git(repo, "show", f"{head}:{path}", check=False).splitlines()
+    if not old or b > len(old) or a < 1 or a > b:
+        return {"status": "unresolved", "detail": "cited range is outside the file at the cited revision"}
+    if not new:
+        return {"status": "unresolved", "detail": "cited file is empty or absent at HEAD"}
+
+    def distinctive(line: str) -> bool:
+        return len("".join(line.split())) >= ANCHOR_MIN_CHARS
+
+    n = b - a + 1
+    block = old[a - 1:b]
+    matcher = difflib.SequenceMatcher(None, old, new, autojunk=False)
+    mapping: dict[int, int] = {}
+    for old_start, new_start, size in matcher.get_matching_blocks():
+        for k in range(size):
+            i = old_start + k + 1  # 1-based
+            if a <= i <= b:
+                mapping[i] = new_start + k + 1
+    survivors = sorted(mapping)
+    anchored = [i for i in survivors if distinctive(old[i - 1])]
+    if survivors and anchored:
+        new_a, new_b = mapping[survivors[0]], mapping[survivors[-1]]
+        if len(survivors) == n:
+            if new_b - new_a == b - a:
+                if new_a == a:
+                    return {"status": "unmoved", "lines": [new_a, new_b],
+                            "detail": "cited lines identical at HEAD, same numbers"}
+                return {"status": "moved", "lines": [new_a, new_b],
+                        "detail": f"cited lines identical at HEAD, shifted by {new_a - a:+d}"}
+            inserted = (new_b - new_a) - (b - a)
+            return {"status": "split", "lines": [new_a, new_b],
+                    "detail": f"every cited line survives, but {inserted} line(s) were inserted inside "
+                              f"the range; read them before re-citing"}
+        return {"status": "partial", "lines": [new_a, new_b],
+                "detail": f"{len(survivors)} of {n} cited lines survive; endpoints are the outermost "
+                          f"survivors, so re-read the claim before re-citing"}
+    # Nothing anchors in place. Does the exact text sit somewhere else at HEAD?
+    if any(distinctive(line) for line in block):
+        hits = [j + 1 for j in range(len(new) - n + 1) if new[j:j + n] == block]
+        if len(hits) == 1:
+            return {"status": "elsewhere", "lines": [hits[0], hits[0] + n - 1],
+                    "detail": "the cited lines are gone from where they stood, but their exact text occurs "
+                              "once elsewhere in the file; read the code around that copy before re-citing"}
+        if len(hits) > 1:
+            return {"status": "unresolved",
+                    "detail": f"the cited lines are gone from where they stood and their exact text occurs at "
+                              f"{len(hits)} places in the file; nothing to anchor on"}
+    if not survivors:
+        return {"status": "unresolved", "detail": "no line of the cited range survives at HEAD"}
+    return {"status": "unresolved",
+            "detail": "no distinctive line of the cited range survives at HEAD (braces, blanks and "
+                      "directives alone anchor nothing)"}
 
 
 def merges_touching(repo: Path, rev: str, head: str, path: str | None) -> list[str]:
@@ -228,6 +319,24 @@ class Finding:
     detail: str = ""
     merges: list[str] = field(default_factory=list)
     flag: bool = False
+    remap: dict[str, Any] | None = None
+
+
+# Blob statuses for which a line proposal is meaningful: the file exists at HEAD and the
+# cited lines are numbered at a revision the checkout holds.
+REMAPPABLE_PREFIXES = ("cited lines changed", "file changed outside cited lines", "file changed since")
+
+
+def attach_remaps(report: "LeafReport", repo: Path, head: str) -> None:
+    for f in report.findings:
+        if f.kind != "blob" or not f.flag or not f.status.startswith(REMAPPABLE_PREFIXES):
+            continue
+        m = BLOB_RE.search(f.source)
+        if not m or not m["a"]:
+            continue
+        a = int(m["a"])
+        b = int(m["b"]) if m["b"] else a
+        f.remap = suggest_remap(repo, resolve(repo, m["rev"]) or m["rev"], head, m["path"], a, b)
 
 
 @dataclass
@@ -370,8 +479,18 @@ def parse_checkouts(items: list[str]) -> dict[str, Path]:
     return out
 
 
+def remap_line(f: Finding) -> str:
+    r = f.remap or {}
+    if "lines" in r:
+        a, b = r["lines"]
+        where = f"#L{a}" if a == b else f"#L{a}-L{b}"
+        return f"      remap -> {where}  ({r['status']}: {r['detail']})"
+    return f"      remap: {r.get('status', 'unresolved')} ({r.get('detail', '')})"
+
+
 def render(reports: list[LeafReport], checkouts: dict[str, Path], heads: dict[str, str],
-           counted: int, sources: int, include_stacks: bool = False) -> str:
+           counted: int, sources: int, include_stacks: bool = False,
+           suggest_remap: bool = False) -> str:
     lines: list[str] = []
     for name, repo in checkouts.items():
         branch = git(repo, "rev-parse", "--abbrev-ref", "HEAD", check=False).strip()
@@ -389,6 +508,8 @@ def render(reports: list[LeafReport], checkouts: dict[str, Path], heads: dict[st
                 lines.append(f"      {mline}")
             if len(f.merges) > 6:
                 lines.append(f"      ... {len(f.merges) - 6} more")
+            if f.remap is not None:
+                lines.append(remap_line(f))
     unresolvable = sum(1 for r in reports for f in r.findings if f.status == "unresolvable")
     rollup = by_merge(reports)
     if rollup:
@@ -399,10 +520,15 @@ def render(reports: list[LeafReport], checkouts: dict[str, Path], heads: dict[st
             for leaf in leaves:
                 lines.append(f"      {leaf}")
     lines.append("")
+    remap_note = ""
+    if suggest_remap:
+        proposed = sum(1 for r in reports for f in r.findings if f.remap and "lines" in f.remap)
+        refused = sum(1 for r in reports for f in r.findings if f.remap and "lines" not in f.remap)
+        remap_note = f"re-cite proposed for {proposed} line citations, refused for {refused} · "
     lines.append(
         f"upstream-drift {VERSION}: {counted} leaves with sources read · {sources} citations into "
         f"{len(checkouts)} checkout(s) compared · {len(flagged)} leaves to review · "
-        f"{unresolvable} citations unresolvable · "
+        f"{unresolvable} citations unresolvable · {remap_note}"
         f"{'stack records included' if include_stacks else 'stack records skipped'} · claims NOT judged"
     )
     return "\n".join(lines)
@@ -427,6 +553,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--leaf", action="append", help="limit to this handbook path or directory (repeatable)")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--fail-on-drift", action="store_true", help="exit 1 when any leaf is flagged")
+    parser.add_argument("--suggest-remap", action="store_true",
+                        help="for each flagged line citation, propose where those lines sit at HEAD by aligning "
+                             "the cited revision's text with HEAD's; a proposal to re-cite after re-reading the "
+                             "claim, never a confirmation of it, and refused where no distinctive line survives")
     parser.add_argument("--include-stacks", action="store_true",
                         help="also read validated-stack records under machines/*/stacks/, which are skipped by default "
                              "because their citations are pinned to the build they record")
@@ -450,6 +580,8 @@ def main(argv: list[str] | None = None) -> int:
             report = check_leaf(repo, heads[name], name, repos[name], rel, meta)
             if report is None:
                 continue
+            if args.suggest_remap:
+                attach_remaps(report, repo, heads[name])
             sources += sum(1 for f in report.findings if f.kind != "observed")
             if report.findings or report.observed:
                 reports.append(report)
@@ -464,11 +596,12 @@ def main(argv: list[str] | None = None) -> int:
             "by_merge": [{"software": k[0], "merge": k[1], "leaves": v} for k, v in by_merge(reports)],
             "summary": {"leaves_read": counted, "citations": sources,
                         "leaves_to_review": sum(1 for r in reports if r.flagged),
-                        "stack_records_included": args.include_stacks},
+                        "stack_records_included": args.include_stacks,
+                        "remap_suggested": args.suggest_remap},
         }
         print(json.dumps(payload, indent=2))
     else:
-        print(render(reports, checkouts, heads, counted, sources, args.include_stacks))
+        print(render(reports, checkouts, heads, counted, sources, args.include_stacks, args.suggest_remap))
     if args.fail_on_drift and any(r.flagged for r in reports):
         return 1
     return 0

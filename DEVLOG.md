@@ -5251,3 +5251,43 @@ Line remaps worth recording because the first-line match was ambiguous: `spectru
 - `ROADMAP.md` 7.4: *removed*. The tool and its first drain both exist, so the row had become
   a log entry; its figures are in the two drift-tool entries above and in this one. The
   Slice 7 heading in §open-obligations now reads "partly landed", matching the slice table.
+
+## 2026-10-07 — upstream-drift 1.2.0: the re-cite proposal
+
+The automation checkpoint after the MILC-side drain named one candidate: re-mapping a cited
+line range onto the tip. The drain had done it about thirty times with a shell function that
+matched the range's first and last lines in the new file; five matches landed on an earlier
+identical `#endif`, `IF_OK {` or `}` and had to be corrected by eye, and a wrong range reads
+exactly like a right one. It passed all four tests in `conventions/repeated-work.md`, so it is
+now `--suggest-remap`.
+
+The mode aligns the cited revision's text with HEAD's using difflib's matching blocks with
+autojunk off, maps each cited line inside a block to its counterpart, and reports `moved`
+(all lines identical, contiguous, shifted), `unmoved`, `split` (all survive, lines inserted
+inside the range, and the proposal spans them because they are what to read), `partial` (some
+survive; the range runs between the outermost survivors and the detail says to re-read),
+`elsewhere` (nothing survives in place but the exact text occurs once elsewhere in the file,
+the deleted-twin case), or `unresolved` (nothing survives, nothing distinctive survives — a
+line needs eight non-blank characters to anchor — or the text recurs at several places). It
+proposes and never judges: the summary line still ends in `claims NOT judged`, and `split`,
+`partial` and `elsewhere` are reading jobs by construction.
+
+Exercised as the convention requires. Known-good input: the handbook at `f3cb6ca^`, before
+the drain, against the same two checkouts, thirty line citations. The proposals agreed with
+the hand remaps on twenty-four. On five the hand pass had put an endpoint one line off — the
+`CTIME` block in `Makefile` (`L975-L998`, not `L976-L999`), `ks_measure/setup.c` twice
+(`L59`, not `L58`), `eigen_stuff_QUDA.c` (`L443`, not `L442`), and the per-set `rebuild_type`
+block (`L577`, not `L578`) — and those five citations are corrected in this commit; none
+changes a claim, which is the point: a wrong range reads like a right one. On the thirtieth,
+`d_congrad5_fn_quda.c#L127-L131`, the tool refused where the hand had re-cited `L130-L134`:
+the cited copy of the tadpole block was deleted with its function and the surviving copy is
+the other function's, which is `elsewhere` exactly, and the hand re-cite stands because the
+claim was re-read there. Negative control in the test suite: with the alignment offset removed
+the shifted range collapses to its old numbers, so the test is shown to read the alignment. A
+deleted range and a bare brace are refused, so a refusal is not a no-op path.
+
+**Reconciliation (obligation 11).** `ARCHITECTURE.md` §staleness and the layout comment:
+*amended*; `modes/developer.md` drift bullet: *amended*; `playbooks/start-session.md` step 6:
+*confirmed* unchanged, orientation runs the triage and does not re-cite; the five corrected
+citations: *amended*, claims *confirmed*; the `conventions/repeated-work.md` checkpoint record
+for this candidate lives in the working directory, as the convention says, not here.

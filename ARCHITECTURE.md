@@ -340,7 +340,7 @@ lqcd-agent-handbook/
 │   ├── setup-tool-python, requirements.txt, tool-python-location.sh
 │   │                              #   offer-only per-user tool Python (§session-logging)
 │   ├── upstream-drift.py          # per-leaf drift of cited files and merge status against a
-│   │                              #   checkout, both directions (§staleness)
+│   │                              #   checkout, both directions; proposes re-cites (§staleness)
 │   ├── extract-milc-timings.py
 │   ├── milc-compare-fnal-correlators.py # FNAL correlator structure checks and comparison
 │   ├── summarize-slurm-job.py
@@ -1476,8 +1476,12 @@ pull request that has since become an ancestor of HEAD, which is the trigger
 [§deferred-decisions](ROADMAP.md#deferred-decisions) keeps writing in prose. It rolls the
 findings up per merge, because a review is cheapest done one merge at a time. It skips
 validated-stack records unless asked, since a stack's citations are pinned to the build it
-records and upstream movement is not drift for them ([§stacks](#stacks)). It is a triage
-and says so: it names candidates and judges no claim, and it reports what it checked rather
+records and upstream movement is not drift for them ([§stacks](#stacks)). Asked to, it also
+proposes where a flagged citation's lines sit at HEAD, by aligning the cited revision's text
+with HEAD's and refusing where no distinctive line survives: a thirty-citation drain had
+re-derived those numbers by hand with an anchor of one line, and five of them were wrong on
+the first pass. The proposal is a re-cite after the claim is re-read, never a confirmation of
+it. It is a triage and says so: it names candidates and judges no claim, and it reports what it checked rather
 than "passed" ([§validator-not-clearance](#validator-not-clearance)). Reviews are therefore
 triggered by drift the tool reports, before a stack is rebuilt at a newer commit, never by a
 calendar or by every upstream merge — a merge touching nothing a leaf cites is not a review.

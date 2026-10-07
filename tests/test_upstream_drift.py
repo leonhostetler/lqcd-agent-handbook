@@ -4,6 +4,13 @@ Forward: a cited file changed after the cited revision, and the cited lines move
 Backward: a cited feature-branch commit or pull request became an ancestor of HEAD after
 the leaf's observed commit. And the control: when the hunk-overlap check is disabled, the
 "cited lines changed" status must disappear, so the status is shown to depend on it.
+
+The re-cite proposal (--suggest-remap) has its own cases: a shifted range is proposed at its
+new numbers, a range with an insertion inside it is proposed across the insertion and says
+so, a partly rewritten range is proposed between its outermost survivors and says so, a range
+deleted in place whose exact text survives once elsewhere is proposed there, a deleted range
+and a range of bare braces get no proposal, and the control: with the alignment offset removed
+the shifted range must collapse to its old numbers.
 """
 
 import json
@@ -212,6 +219,136 @@ class UpstreamDriftTests(PerturbationMixin, unittest.TestCase):
         f = self.findings(root)
         self.assertEqual(f[f"{self.repo['c1']}/a.c#L1-L2"]["status"],
                          "file changed outside cited lines since the cited revision")
+
+
+def build_remap_repo(base: Path) -> dict[str, str]:
+    """c1: f.c has fifteen lines, the tenth a bare brace. c2: old lines 11-12 move to the
+    top of the file, three header lines follow them, one line is inserted between old 4 and 5,
+    old line 8 is rewritten, and old lines 13-14 are deleted."""
+    repo = base / "rrepo"
+    repo.mkdir()
+    git(repo, "init", "-q", "-b", "main")
+    words = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota",
+             None, "kappa", "lambda", "mu", "nu", "xi"]
+    old = [f"int {w}_function(void) {{ return {i}; }}" if w else "}" for i, w in enumerate(words, 1)]
+    (repo / "f.c").write_text("\n".join(old) + "\n")
+    git(repo, "add", "."); git(repo, "commit", "-q", "-m", "c1")
+    c1 = git(repo, "rev-parse", "HEAD")
+    new = (old[10:12] + ["#include <a.h>", "#include <b.h>", ""] + old[:4]
+           + ["int inserted_function(void) { return 99; }"] + old[4:7]
+           + ["int THETA_function(void) { return 0; }"] + old[8:10] + old[14:])
+    (repo / "f.c").write_text("\n".join(new) + "\n")
+    git(repo, "commit", "-q", "-am", "c2: move two up, shift, insert one, rewrite one, delete two")
+    return {"repo": str(repo), "c1": c1, "head": git(repo, "rev-parse", "HEAD")}
+
+
+def build_remap_handbook(base: Path, cite: str) -> Path:
+    root = base / "rhandbook"
+    if root.exists():
+        shutil.rmtree(root)
+    (root / "software" / "foo").mkdir(parents=True)
+    (root / "software" / "foo" / "project.yaml").write_text(
+        "schema_version: 2\nname: foo\nrepository: https://github.com/org/rrepo.git\n"
+    )
+    (root / "software" / "foo" / "leaf.md").write_text(textwrap.dedent(f"""\
+        ---
+        title: t
+        summary: s
+        scope: [software:foo]
+        load_when: always
+        evidence: source
+        sources:
+          - https://github.com/org/rrepo/blob/{cite}/f.c#L1-L2
+          - https://github.com/org/rrepo/blob/{cite}/f.c#L4-L6
+          - https://github.com/org/rrepo/blob/{cite}/f.c#L7-L9
+          - https://github.com/org/rrepo/blob/{cite}/f.c#L10
+          - https://github.com/org/rrepo/blob/{cite}/f.c#L11-L12
+          - https://github.com/org/rrepo/blob/{cite}/f.c#L13-L14
+        observed: "2026-01-01"
+        observed_on:
+          software:
+            foo:
+              commit: {cite}
+              branch: main
+        ---
+        body
+        """))
+    return root
+
+
+class SuggestRemapTests(PerturbationMixin, unittest.TestCase):
+    def setUp(self):
+        if shutil.which("git") is None:
+            self.skipTest("git is not installed -- this check DID NOT RUN")
+        self.base = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.base, True)
+        self.repo = build_remap_repo(self.base)
+        self.root = build_remap_handbook(self.base, self.repo["c1"])
+
+    def run_tool(self, *extra: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [interpreter_for("yaml"), str(TOOL), "--root", str(self.root),
+             "--checkout", f"foo={self.repo['repo']}", *extra],
+            capture_output=True, text=True, check=False,
+        )
+
+    def remaps(self, *extra: str) -> dict[str, dict | None]:
+        done = self.run_tool("--json", *extra)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        payload = json.loads(done.stdout)
+        report = {leaf["leaf"]: leaf for leaf in payload["leaves"]}["software/foo/leaf.md"]
+        return {f["source"].split("#")[-1]: f["remap"] for f in report["findings"]}
+
+    def test_a_shifted_range_is_proposed_at_its_new_numbers(self):
+        r = self.remaps("--suggest-remap")
+        self.assertEqual(r["L1-L2"]["status"], "moved")
+        self.assertEqual(r["L1-L2"]["lines"], [6, 7])
+        self.assertIn("+5", r["L1-L2"]["detail"])
+
+    def test_an_insertion_inside_the_range_is_proposed_across_it_and_says_so(self):
+        r = self.remaps("--suggest-remap")
+        self.assertEqual(r["L4-L6"]["status"], "split")
+        self.assertEqual(r["L4-L6"]["lines"], [9, 12])
+        self.assertIn("1 line(s) were inserted", r["L4-L6"]["detail"])
+
+    def test_a_partly_rewritten_range_is_proposed_between_its_survivors_and_says_so(self):
+        r = self.remaps("--suggest-remap")
+        self.assertEqual(r["L7-L9"]["status"], "partial")
+        self.assertEqual(r["L7-L9"]["lines"], [13, 15])
+        self.assertIn("2 of 3", r["L7-L9"]["detail"])
+        self.assertIn("re-read", r["L7-L9"]["detail"])
+
+    def test_a_range_deleted_in_place_whose_text_survives_once_elsewhere_is_proposed_there(self):
+        r = self.remaps("--suggest-remap")
+        self.assertEqual(r["L11-L12"]["status"], "elsewhere")
+        self.assertEqual(r["L11-L12"]["lines"], [1, 2])
+        self.assertIn("read the code around that copy", r["L11-L12"]["detail"])
+
+    def test_a_deleted_range_and_a_bare_brace_get_no_proposal(self):
+        r = self.remaps("--suggest-remap")
+        self.assertEqual(r["L13-L14"]["status"], "unresolved")
+        self.assertNotIn("lines", r["L13-L14"])
+        self.assertEqual(r["L10"]["status"], "unresolved")
+        self.assertNotIn("lines", r["L10"])
+        self.assertIn("distinctive", r["L10"]["detail"])
+
+    def test_without_the_flag_nothing_is_proposed_and_the_summary_says_so_with_it(self):
+        for remap in self.remaps().values():
+            self.assertIsNone(remap)
+        done = self.run_tool("--suggest-remap")
+        last = done.stdout.strip().splitlines()[-1]
+        self.assertIn("re-cite proposed for 4 line citations, refused for 2", last)
+        self.assertIn("claims NOT judged", last)
+        self.assertIn("remap -> #L6-L7  (moved", done.stdout)
+        self.assertIn("remap: unresolved", done.stdout)
+
+    def test_control_the_proposal_depends_on_the_alignment_offset(self):
+        """Map every surviving line to its own old number and the shifted range must be
+        reported unmoved at L1-L2, not moved to L6-L7."""
+        self.perturb(TOOL, "mapping[i] = new_start + k + 1", "mapping[i] = i")
+        r = self.remaps("--suggest-remap")
+        self.assertEqual(r["L1-L2"]["status"], "unmoved")
+        self.assertEqual(r["L1-L2"]["lines"], [1, 2])
 
 
 if __name__ == "__main__":
