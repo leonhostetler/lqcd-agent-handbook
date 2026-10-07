@@ -21,14 +21,14 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/CMakeLists.txt#L25-L39
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/interface_quda.cpp#L899-L948
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/interface_quda.cpp#L5385-L5481
-observed: "2026-08-19"
+observed: "2026-10-07"
 observed_on:
   software:
     milc:
       commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
       branch: develop
     quda:
-      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+      commit: f2df42ac4caa0cd51b96b01006a1c25c8d753425
       branch: develop
 ---
 

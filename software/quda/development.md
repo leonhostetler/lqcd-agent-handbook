@@ -23,14 +23,15 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/quda_fortran.F90
   - https://github.com/lattice/quda/commit/1757c406e32c5b8aa97a7e38a13627654d651bd8
   - https://github.com/lattice/quda/commit/79af44a6fe6d258de260c1dc0293af524f1c4d7b
+  - https://github.com/lattice/quda/pull/1644
   - https://github.com/lattice/quda/blob/8a6fecc5a64e422d937592bb8cb1c524a5c32e94/include/gauge_backup.h
   - operator's screened prior QUDA development records
   - https://github.com/llvm/llvm-project/blob/main/clang/tools/clang-format/git-clang-format
-observed: "2026-08-19"
+observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+      commit: d220bf72d8da62ec10513ec5b38d22d5aafc13ba
       branch: develop
 ---
 
@@ -218,7 +219,13 @@ are in [`interface-layers.md`](interface-layers.md).
   writes, defaults, sentinels, and validators. A legal value must not double as the invalid
   sentinel, and separating colliding values may expose assignments that still collapse the
   states. Test every legal state and affected transition. When `include/enum_quda.h` changes,
-  update the hand-maintained `include/enum_quda_fortran.h` mirror in the same change.
+  update the hand-maintained `include/enum_quda_fortran.h` mirror in the same change. The
+  recorded instance is public history since PR #1644 (merge `d220bf72d`, 2026-08-20):
+  `QUDA_UPDATE_SPLIT_GAUGE_OFF` shared the value 0 with `QUDA_UPDATE_SPLIT_GAUGE_FALSE`, so a
+  request to free the split-gauge buffers read as a request to reuse them, and
+  `use_split_gauge_bkup = false` was rejected as "undefined" because the parameter validator
+  used `FALSE` as its sentinel. The fix moved `OFF` to -1, kept it alive through the update so
+  the epilogue frees the buffers, and made the validator reject only `INVALID`.
 - When `include/quda.h` changes, audit and update the applicable Fortran declarations,
   module structures, and stubs in `include/quda_fortran.h`, `lib/quda_fortran.F90`, and
   `lib/interface_quda.cpp`.

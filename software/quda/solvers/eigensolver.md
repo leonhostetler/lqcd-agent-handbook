@@ -25,11 +25,11 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface_internal.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/quda_milc_interface.h
   - operator's screened tuning records
-observed: "2026-08-18"
+observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+      commit: f2df42ac4caa0cd51b96b01006a1c25c8d753425
       branch: develop
 ---
 

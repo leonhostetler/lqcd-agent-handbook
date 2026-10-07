@@ -5069,3 +5069,27 @@ is passed, says which in its summary line, and the test suite's synthetic handbo
 stack record that must be absent by default and present with the flag. The backlog at QUDA
 `00c7ef33d` / MILC `a5f8f9fa` is 32 leaves. The PR #1446 entry above counted 14 stack
 records for that merge alone; the roadmap row now carries the corrected figure.
+
+## 2026-10-07 — QUDA PR #1644: the split-gauge enum collision, now public history
+
+The first merge after the observed commit, and the smallest: two commits, ten lines. The
+enum `QUDA_UPDATE_SPLIT_GAUGE_OFF` had the value 0, the same as `_FALSE`, so freeing the
+split-gauge buffers was indistinguishable from reusing them; and `check_params.h` used
+`QUDA_BOOLEAN_FALSE` as the "undefined" sentinel for `use_split_gauge_bkup`, so the field
+could not be set false. `development.md`'s rule on enum-value repairs was written from these
+commits while they lived on a branch; the leaf now names the instance, since the citations
+resolve on `develop`. No leaf gains a split-grid fact: the MILC interface does not reach
+`callMultiSrcQuda`'s split path, and the deferred decision on split-grid solver knowledge
+stands. Read from source, not run.
+
+Pins: `development.md` to `d220bf72d`, blocked from going further by #1648; `eigensolver.md`,
+`milc-shift-interface.md`, `staggered-multigrid.md` and the QUDA block of
+`wilson-flow.md` to `f2df42ac4`, since this merge and #1446 are now both reviewed for them
+and #1648 touches none of their citations. QUDA backlog after this entry: 16 leaves, led by
+#1651 (12) and #1645 (8).
+
+**Reconciliation (obligation 11).** `development.md`, enum-repair bullet: *amended* with the
+instance; `interface-layers.md` size-guard paragraph ("`check_params.h` rejects a mismatch"):
+*confirmed*, it concerns `struct_size`, not boolean sentinels. `ROADMAP.md` deferred row on
+split-grid deflation knowledge: *confirmed* as written; whether this fix bears on its open
+correctness question is the operator's call, not a source fact.

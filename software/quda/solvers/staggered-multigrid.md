@@ -36,11 +36,11 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L809-L827
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L748-L826
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L645-L656
-observed: "2026-08-20"
+observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+      commit: f2df42ac4caa0cd51b96b01006a1c25c8d753425
       branch: develop
     milc:
       commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
