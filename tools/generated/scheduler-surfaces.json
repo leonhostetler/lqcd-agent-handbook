@@ -32,6 +32,7 @@
         "submit_dir_variable": "SLURM_SUBMIT_DIR",
         "cpus_per_task_option": "--cpus-per-task",
         "cpus_per_task_option_short": "-c",
+        "cpus_per_task_variable": "SLURM_CPUS_PER_TASK",
         "tasks_per_node_option": "--ntasks-per-node",
         "parallel_launcher": "srun",
         "launcher_overlap_option": "--overlap",

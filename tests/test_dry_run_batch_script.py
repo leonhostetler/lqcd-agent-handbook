@@ -81,12 +81,13 @@ class DryRunHarnessTests(unittest.TestCase):
         script.write_text(body)
         return script
 
-    def run_harness(self, script: Path, *extra: str, negative: bool = False):
+    def run_harness(self, script: Path, *extra: str, negative: bool = False,
+                    timeout: float | None = None):
         argv = [interpreter_for("yaml"), str(HARNESS), str(script), "--machine", "perlmutter",
                 "--rewrite-root", f"{self.scratch_root}=scratch",
                 "--stand-in", f"{self.gauge}:4096", *extra]
         return subprocess.run(argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                              check=False, env=self.env, cwd=self.temp.name)
+                              check=False, env=self.env, cwd=self.temp.name, timeout=timeout)
 
     def receipt(self, script: Path) -> dict:
         return json.loads(script.with_name(script.name + ".dry-run-receipt.json").read_text())
@@ -408,6 +409,81 @@ class StepRefusalTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertIn("NEGATIVE TEST FAILED: 1 launcher step(s) were refused", result.stdout)
         self.assertFalse(self.receipt()["negatives"][-1]["fired"])
+
+
+class HarnessModelGapTests(unittest.TestCase):
+    """Four places where the harness once modelled less than the scheduler: a module query
+    other than the listing, script arguments, a background child that never exits, and the
+    per-task CPU variable a directive makes the scheduler export. Each test fails on 1.5.1."""
+
+    setUp = DryRunHarnessTests.setUp
+    run_harness = DryRunHarnessTests.run_harness
+    receipt = DryRunHarnessTests.receipt
+    write_script = DryRunHarnessTests.write_script
+
+    # Generous: a passing run takes seconds, and the harness's own --timeout is what is tested.
+    LIMIT = 120
+
+    def test_is_loaded_answers_from_the_listing_and_drift_makes_it_fire(self):
+        recipe = PWD_RECIPE + """module load stubmod/1.0
+module is-loaded stubmod/1.0 || {{ echo "FATAL: drift (is-loaded)"; exit 1; }}
+module is-loaded stubmod || {{ echo "FATAL: drift (bare name)"; exit 1; }}
+if module is-loaded notloaded; then echo "FATAL: phantom module"; exit 1; fi
+"""
+        script = self.write_script(recipe)
+        result = self.run_harness(script, timeout=self.LIMIT)
+        self.assertIn("POSITIVE CONTROL PASSED", result.stdout)
+        result = self.run_harness(script, "--module-drift", "stubmod/1.0", timeout=self.LIMIT)
+        self.assertIn("FATAL: drift (is-loaded)", result.stdout)
+        self.assertTrue(self.receipt(script)["negatives"][-1]["fired"])
+
+    def test_script_arguments_reach_the_script_and_the_receipt(self):
+        recipe = PWD_RECIPE + """[ "${{1:-}}" = first ] && [ "${{2:-}}" = "two words" ] || {{ echo "FATAL: args"; exit 1; }}
+"""
+        script = self.write_script(recipe)
+        result = self.run_harness(script, timeout=self.LIMIT)
+        self.assertIn("FATAL: args", result.stdout)
+        result = self.run_harness(script, "--arg", "first", "--arg", "two words", timeout=self.LIMIT)
+        self.assertIn("POSITIVE CONTROL PASSED", result.stdout)
+        self.assertEqual(self.receipt(script)["positive"]["script_args"], ["first", "two words"])
+
+    def test_background_child_without_a_trap_is_reaped_not_waited_on(self):
+        recipe = PWD_RECIPE + """( while true; do sleep 1; done ) &
+"""
+        script = self.write_script(recipe)
+        result = self.run_harness(script, timeout=self.LIMIT)
+        self.assertIn("POSITIVE CONTROL PASSED", result.stdout)
+        self.assertIn("outlived the script and were killed", result.stdout)
+        self.assertGreater(self.receipt(script)["positive"]["leftover_processes"], 0)
+
+    def test_a_script_that_never_exits_fails_and_a_hang_is_not_a_fired_guard(self):
+        recipe = PWD_RECIPE + """grep -q "^mass 0.1$" inputs/job.in || {{ while true; do sleep 1; done; }}
+"""
+        script = self.write_script(recipe)
+        result = self.run_harness(script, "--timeout", "3", timeout=self.LIMIT)
+        self.assertIn("POSITIVE CONTROL PASSED", result.stdout)
+        result = self.run_harness(script, "--timeout", "3", "--negative", "inputs/job.in",
+                                  "s/^mass 0.1$/mass 0.2/", timeout=self.LIMIT)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("had not exited after 3 s", result.stdout)
+        negative = self.receipt(script)["negatives"][-1]
+        self.assertTrue(negative["timed_out"])
+        self.assertFalse(negative["fired"])
+
+    def test_cpus_per_task_variable_follows_the_directive(self):
+        recipe = PWD_RECIPE + """[ "${{SLURM_CPUS_PER_TASK:-unset}}" = 32 ] || {{ echo "FATAL: cpus ${{SLURM_CPUS_PER_TASK:-unset}}"; exit 1; }}
+"""
+        script = self.write_script(recipe)
+        result = self.run_harness(script, timeout=self.LIMIT)
+        self.assertIn("FATAL: cpus unset", result.stdout)  # no directive, so nothing exported
+        script.write_text(script.read_text().replace("#SBATCH -N 1\n",
+                                                     "#SBATCH -N 1\n#SBATCH --cpus-per-task=32\n"))
+        result = self.run_harness(script, timeout=self.LIMIT)
+        self.assertIn("POSITIVE CONTROL PASSED", result.stdout)
+        result = self.run_harness(script, "--negative", "job.sbatch",
+                                  "s/--cpus-per-task=32/--cpus-per-task=16/", timeout=self.LIMIT)
+        self.assertIn("FATAL: cpus 16", result.stdout)
+        self.assertTrue(self.receipt(script)["negatives"][-1]["fired"])
 
 
 if __name__ == "__main__":

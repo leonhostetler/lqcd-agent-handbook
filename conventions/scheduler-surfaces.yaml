@@ -36,6 +36,9 @@ surfaces:
     submit_dir_variable: SLURM_SUBMIT_DIR
     cpus_per_task_option: "--cpus-per-task"
     cpus_per_task_option_short: "-c"
+    # Exported into the batch environment only when the cpus-per-task option is given
+    # (sbatch, OUTPUT ENVIRONMENT VARIABLES), so a script must not assume it is set.
+    cpus_per_task_variable: SLURM_CPUS_PER_TASK
     tasks_per_node_option: "--ntasks-per-node"
     parallel_launcher: srun
     # A step passing this option shares the allocation with steps already running;

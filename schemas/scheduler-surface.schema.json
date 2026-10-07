@@ -188,6 +188,11 @@
             "type": "string",
             "minLength": 1
           },
+          "cpus_per_task_variable": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Variable the scheduler exports with the per-task CPU count when the cpus-per-task option is given."
+          },
           "tasks_per_node_option": {
             "type": "string",
             "minLength": 1

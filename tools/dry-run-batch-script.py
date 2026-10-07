@@ -18,8 +18,9 @@ So the environment model is the point, and it is deliberately unlike the shell i
   * the scheduler's submission-directory variable names a directory that is NOT the job
     directory, because a script is normally submitted by absolute path from elsewhere;
   * the script that runs is a copy in a spool directory, so `$0` resolves there;
-  * the job-id variable is set; nothing else the scheduler exports is, so an undeclared
-    variable aborts here rather than on the machine;
+  * the job-id variable is set, and so is the per-task CPU variable where the surface records
+    one and the script's directive requests a count; nothing else the scheduler exports is, so
+    an undeclared variable aborts here rather than on the machine;
   * the environment is otherwise empty (`env -i`), so a startup file or an exported shell
     function cannot put a real command back ahead of a stub.
 
@@ -43,7 +44,19 @@ and `sleep`. A refused launcher step fails the positive control even when the sc
 tolerates the failed leg and exits 0, because on the machine that step waits for the
 allocation until the walltime runs out. A launcher stub runs nothing; `--launcher-output TEXT` makes every launcher stub
 print TEXT after its log line, for guards that read launched output. Anything else the script
-needs can be stubbed with `--stub NAME=TEXT`, which replaces any stub of that name.
+needs can be stubbed with `--stub NAME=TEXT`, which replaces any stub of that name. The modules
+stub answers `-t list` (on stderr, as Lmod does) and `is-loaded`, both from the same listing,
+so a drift guard written either way can be made to fire.
+
+Arguments the submit command would pass to the script are given with `--arg`, once per
+argument, and each receipt entry records them. The receipt still certifies the script text, not
+an argument list: the guard does not compare them.
+
+The script runs in its own process group with its output in a file. When it exits, anything it
+left running in the background is killed and reported as a note, as the scheduler kills a job's
+processes when its script ends; a background monitor without a trap therefore no longer hangs
+the harness. A script that has not exited after `--timeout` seconds is killed and counts as a
+failed positive control or an unfired negative test: a hang is not a guard firing.
 
 Sparse stand-ins satisfy byte-count guards for inputs that are not checksummed. They are
 CONFINED to the sandbox: a declaration that is relative, contains an unexpanded shell
@@ -77,12 +90,13 @@ import pathlib
 import re
 import shlex
 import shutil
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
 
-VERSION = "1.5.1"
+VERSION = "1.6.0"
 
 # Frontend tooling paths an agent sandbox materialises as unreadable placeholders in whatever
 # directory the session's shell stands in -- including a job directory. They are never job
@@ -151,6 +165,12 @@ def parse_args(argv=None):
     ap.add_argument("--launcher-output", default=None, metavar="TEXT",
                     help="text every launcher stub prints after its log line, for guards that "
                          "read the launched program's output")
+    ap.add_argument("--arg", action="append", default=[], dest="script_args", metavar="VALUE",
+                    help="positional argument passed to the script, as the submit command would; "
+                         "repeat once per argument, in order")
+    ap.add_argument("--timeout", type=float, default=300.0, metavar="SECONDS",
+                    help="kill the script and fail the run if it has not exited after this long "
+                         "(default 300; sleep is stubbed, so a real run takes seconds)")
     ap.add_argument("--allow-sequential-steps", action="store_true",
                     help="let a non-overlapping launcher step proceed after earlier steps")
     kind = ap.add_mutually_exclusive_group()
@@ -267,13 +287,27 @@ def write_stubs(bin_dir: pathlib.Path, surface: dict, vendors: set[str], args,
     modules_text = "\\n".join(args.module)
     drift = args.module_drift or ""
     make_stub(bin_dir, "module", f'''loaded="${{DRYRUN_MODULES:?}}"
+listing() {{ {{ printf '{modules_text}\\n'; cat "$loaded"; }} | sed '/^$/d' | grep -vxF -- "{drift}" || true; }}
+if [ "${{1:-}}" = "is-loaded" ]; then
+  # As Lmod: true only when every name given is loaded, matching NAME or NAME/VERSION.
+  shift; [ "$#" -gt 0 ] || exit 1
+  mods=$(listing)
+  for want in "$@"; do
+    hit=1
+    while IFS= read -r m; do
+      if [ "$m" = "$want" ] || [ "${{m%%/*}}" = "$want" ]; then hit=0; break; fi
+    done <<< "$mods"
+    [ "$hit" = 0 ] || exit 1
+  done
+  exit 0
+fi
 case "${{1:-}}" in
   load|add) shift; for m in "$@"; do printf '%s\\n' "$m" >> "$loaded"; done; exit 0 ;;
   unload|rm|purge|swap|use|reset) exit 0 ;;
 esac
 if [ "${{1:-}}" = "-t" ] && [ "${{2:-}}" = "list" ]; then
   # On STDERR, as Lmod prints it. A launcher capturing only stderr must see the list.
-  {{ printf '{modules_text}\\n'; cat "$loaded"; }} | sed '/^$/d' | grep -vxF -- "{drift}" >&2 || true
+  listing >&2
   exit 0
 fi
 exit 0
@@ -373,6 +407,23 @@ def confined_path(declared: str, rewrites, sandbox_real: pathlib.Path, origin: s
         raise Refusal(f"{origin} {declared!r} resolves to {resolved}, outside the sandbox "
                       f"{sandbox_real}; map its root with --rewrite-root REAL=NAME")
     return resolved
+
+
+def kill_group(pgid: int) -> int:
+    """Kill every process left in the run's process group; return how many there were."""
+    members = 0
+    for entry in pathlib.Path("/proc").glob("[0-9]*/stat"):
+        try:
+            fields = entry.read_text().rpartition(")")[2].split()
+        except OSError:
+            continue
+        if len(fields) > 2 and fields[2] == str(pgid):
+            members += 1
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    return members
 
 
 def snapshot(root: pathlib.Path) -> set[str]:
@@ -524,6 +575,15 @@ def main(argv=None) -> int:
             surface["job_id_variable"]: "999999",
             surface["submit_dir_variable"]: str(submitted_from),
         }
+        # The scheduler exports the per-task CPU count only when a directive requests one, so a
+        # guard that passes when the variable is unset is testable only if this follows the
+        # (possibly perturbed) directive.
+        cpus_variable = surface.get("cpus_per_task_variable")
+        if cpus_variable and surface.get("cpus_per_task_option"):
+            cpus = _CBS.directive_value(directives, surface["cpus_per_task_option"],
+                                        surface.get("cpus_per_task_option_short"))
+            if cpus:
+                env[cpus_variable] = cpus
         for spec in args.env:
             key, _, value = spec.partition("=")
             if not key:
@@ -541,12 +601,27 @@ def main(argv=None) -> int:
               f" {surface['submit_dir_variable']} is not the job directory; $0 is a spool copy;"
               f" {rewritten_files} copied file(s) had roots rewritten")
         print(f"    module env at reset/load: {', '.join(module_env_keys) or 'none'}")
-        proc = subprocess.run(["/usr/bin/env", "-i"] + [f"{k}={v}" for k, v in env.items()]
-                              + ["bash", str(spool_copy)],
-                              cwd=cwd, text=True, capture_output=True)
+        if args.script_args:
+            print(f"    script arguments: {shlex.join(args.script_args)}")
+        # Output goes to a file, not a pipe: a background child the script leaves running would
+        # hold a pipe open and hang the harness after the script itself had exited.
+        out_path = sandbox / "out"
+        timed_out = False
+        with out_path.open("w") as out_handle:
+            proc = subprocess.Popen(["/usr/bin/env", "-i"] + [f"{k}={v}" for k, v in env.items()]
+                                    + ["bash", str(spool_copy), *args.script_args],
+                                    cwd=cwd, stdin=subprocess.DEVNULL, stdout=out_handle,
+                                    stderr=subprocess.STDOUT, start_new_session=True)
+            try:
+                proc.wait(timeout=args.timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+            leftover = kill_group(proc.pid)
+            proc.wait()
         rc = proc.returncode
-        output = proc.stdout + proc.stderr
-        (sandbox / "out").write_text(output)
+        if timed_out:
+            leftover = 0
+        output = out_path.read_text(errors="replace")
 
         lines = output.splitlines()
         print("\n".join(lines[-args.tail:]))
@@ -565,10 +640,19 @@ def main(argv=None) -> int:
         print(f"launcher steps refused: {len(refused)}")
         for i, step in enumerate(refused, 1):
             print(f"  {i}. {step}")
+        if leftover:
+            print(f"note: {leftover} background process(es) outlived the script and were killed, "
+                  "as the scheduler kills a job's processes when its script ends")
         print("-" * 70)
-        print(f"exit code: {rc}")
+        print(f"exit code: {rc}" + (f" (killed after --timeout {args.timeout:g} s)" if timed_out else ""))
 
-        if kind == "positive":
+        if timed_out:
+            passed = False
+            verdict = (f"{'POSITIVE CONTROL' if kind == 'positive' else 'NEGATIVE TEST'} FAILED: the "
+                       f"script had not exited after {args.timeout:g} s and was killed. A hang is "
+                       "neither a completed run nor a guard firing; find what it waits on. Do not "
+                       "submit.")
+        elif kind == "positive":
             passed = rc == 0 and not refused
             if refused:
                 verdict = (f"POSITIVE CONTROL FAILED: {len(refused)} launcher step(s) were refused "
@@ -599,7 +683,8 @@ def main(argv=None) -> int:
             receipt = load_receipt(script, digest)
             entry = {"utc": utc_now(), "kind": kind, "detail": detail, "rc": rc,
                      "machine": args.machine, "step_refusals": len(refused),
-                     "module_env": module_env_keys}
+                     "module_env": module_env_keys, "script_args": args.script_args,
+                     "timed_out": timed_out, "leftover_processes": leftover}
             if kind == "positive":
                 entry["passed"] = passed
                 receipt["positive"] = entry

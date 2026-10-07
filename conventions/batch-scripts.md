@@ -710,10 +710,13 @@ the job.
 - **Present the scheduler's environment, not your shell's.** The working directory is what the
   directive pins, or, where the scheduler has none, where its surface record says an unpinned
   job starts; the submission-directory variable names a directory that is *not* the job
-  directory; `$0` is a spool copy; the job-id variable is set and nothing else the scheduler
-  exports is, so an undeclared variable aborts here rather than on the machine. A harness that
-  inherits the shell's environment tests a case the machine never presents — and every harness
-  before this one did.
+  directory; `$0` is a spool copy; the job-id variable is set, and so is the per-task CPU
+  variable when the script's directive requests a count, as the scheduler sets it only then;
+  nothing else the scheduler exports is, so an undeclared variable aborts here rather than on the
+  machine. A harness that inherits the shell's environment tests a case the machine never
+  presents — and every harness before this one did. Arguments the submit command passes to the
+  script go in with `--arg`, one per argument; the receipt records them, but it certifies the
+  script text, not an argument list.
 - **Stub every external effect**: the parallel launcher and any site launcher the machine
   profile records, the modules system, scheduler queries, compiler or version probes, and any
   sleep. A launcher stub runs nothing, so a guard that reads launched output needs that output
@@ -721,7 +724,9 @@ the job.
   the submission command itself so that it **refuses** — a batch script must never submit
   another job, and the refusal turns that mistake into a visible failure. A stub answers on
   the stream the real command uses: a modules listing that arrives on stdout where the real
-  one arrives on stderr certifies nothing about a guard that reads stderr. It also changes what
+  one arrives on stderr certifies nothing about a guard that reads stderr, and the harness's
+  modules stub answers both the listing and `module is-loaded` from the same record, so a drift
+  guard written either way can be made to fire. A stub also changes what
   the real command changes: `module reset` rebuilds the job shell's library path, so a script
   that runs a real library check after it needs the site's values supplied at the reset
   (`--module-env`), not before it (`--env`).
@@ -741,7 +746,10 @@ the job.
 - **Positive control:** on correct inputs the script must run to completion, and no launcher
   step may be refused along the way. A script that tolerates a failed leg exits 0 past a refused
   step, while on the machine that step waits for the allocation until the walltime ends. If
-  either fails, that is a defect in the script, not in the harness — do not submit. New rig
+  either fails, that is a defect in the script, not in the harness — do not submit. A
+  background process still running when the script ends is killed and reported, as the
+  scheduler kills it at job end; a script that has not ended after `--timeout` fails, and a
+  negative run that hangs is not counted as a guard firing. New rig
   machinery is the part most likely to be wrong, and a second recorded loss was introduced **by
   the fix for the first**. A rig's preamble — directory resolution, input assertions, module
   pinning, placement checks — is independent of node count, so it can be exercised in full on
