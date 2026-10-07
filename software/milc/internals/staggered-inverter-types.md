@@ -21,6 +21,9 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c#L650-L653
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c#L1081-L1084
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/ks_multicg.c#L784-L787
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L748-L826
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L645-L656
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L1087-L1094
 observed: "2026-08-19"
 observed_on:
   software:
@@ -113,27 +116,46 @@ fallback implementation is UML. Without the compiled multigrid path,
 multigrid path compiled the default is `FULL`: the choice lives in a
 zero-initialised global and `FULLREBUILD` is the enum's first value.
 
-### Only a multimass set's `rebuild_type` reaches the solver
+### Which sets' `rebuild_type` reaches the solver depends on the checkout
 
 `[source]` The keyword is read in two places and stored in two different fields.
-For `multisource` and `multicolorsource` sets it is parsed into a **per-set
-array** (`param.mg_rebuild_type[k]`); for `multimass` sets it is parsed, per
-propagator, into the inverter control block (`param.qic[nprop].mg_rebuild_type`).
-`single` sets never read it. The solver reads only the control block. **Nothing
-copies the per-set array into it** — the neighbouring `inv_type[k]` is copied,
-the rebuild choice was left out when the feature was added — so a `multisource`
-or `multicolorsource` set's `rebuild_type THIN` is accepted, echoed, and
-ignored, and the set takes a full update like a `single` set.
+For `multisource` and `multicolorsource` sets it is parsed once per set into a
+**per-set array** (`param.mg_rebuild_type[k]`); for `multimass` sets it is parsed,
+per propagator, into the inverter control block
+(`param.qic[nprop].mg_rebuild_type`). The solver reads only the control block.
 
-The consequence is a recipe: **to obtain a thin update, use `set_type multimass`
+**Through `6b9b8a06`, nothing copied the per-set array into the control block** —
+the neighbouring `inv_type[k]` was copied, the rebuild choice was left out when
+the feature was added — and `single` sets never read the keyword. So a
+`multisource` or `multicolorsource` set's `rebuild_type THIN` was accepted,
+echoed, and ignored, and the set took a full update like a `single` set. The
+recipe for such a checkout: **to obtain a thin update, use `set_type multimass`
 sets of one mass.** A multimass set with at most two masses and no eigenvectors
 dispatches to the single-source inverter for each mass, which reads the control
 block's rebuild choice, takes the single-source MG path, and prints the
 `fn_QUDA_MG` timer label; `block_solver_batch_size` does not apply on that path.
 The multisource restructure that looks equivalent is not, and its failure is
 silent: MILC's own proofreading mode accepts the input, and the only evidence is
-the `full` update line at the first solve. Upstream, the fix is one assignment
-copying the per-set value into the control block.
+the `full` update line at the first solve.
+
+**From merge `db6adc7d` (PR #100, 2026-10-06) the per-set value is copied into
+every propagator's control block**, so the recipe is no longer needed, and
+`single` sets read `rebuild_type` per propagator exactly as `multimass` sets do.
+A `single` MG input written for an earlier checkout therefore fails to parse
+until the line is added after each propagator's inverter controls. Every MG
+propagator now echoes `effective_mg_rebuild_type propagator <n> FULL|THIN|CG`,
+in proofread mode too, so the value that reaches the inverter can be checked
+before submission rather than inferred from the first update line.
+
+The same merge changes the first solve after `qudaMultigridCreate`. Before it,
+the fresh-link signal (`num_iters = -1`) set before the create was still in
+force at the first solve, so that solve invalidated the gauge field and ran an
+MG update, full or thin per the rebuild choice, on the hierarchy just built.
+Now the create consumes the signal and the inverter prints
+`fresh-link signal consumed by hierarchy creation; no first-solve MG update`.
+A later link change still signals, because it does not enter the create branch.
+A before/after comparison of first-solve time or update counts across that merge
+must allow for one fewer update.
 
 Why the thin update matters for memory and when it is exact is owned by
 [`../../quda/solvers/staggered-multigrid.md`](../../quda/solvers/staggered-multigrid.md).

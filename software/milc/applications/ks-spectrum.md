@@ -34,6 +34,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/spectrum_ks.c#L1218-L1250
   - https://github.com/milc-qcd/milc_qcd/commit/08b263db
   - https://github.com/milc-qcd/milc_qcd/commit/6bd16fce292a3bda9d65b426b3d263ee184d3a9a
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L748-L826
   - operator's rank-count comparison (the baryon normalization)
 observed: "2026-08-18"
 observed_on:
@@ -86,7 +87,11 @@ revision its major sections are:
 2. optional eigenpair and chiral-condensate measurements;
 3. base sources and modified sources;
 4. propagator sets, each with a set type, inverter controls, source reference, and one or more
-   propagator definitions;
+   propagator definitions. In a multigrid build, which set types take a `rebuild_type` line,
+   and where, changed at merge `db6adc7d` (2026-10-06): from there a `single` set with the `MG`
+   inverter reads one per propagator, as `multimass` sets always did, and an older input
+   without it fails to parse. [`../internals/staggered-inverter-types.md`](../internals/staggered-inverter-types.md)
+   owns the rule and the echo line that confirms the choice in effect;
 5. derived quarks and sink operators; and
 6. meson pairs, baryon triplets, and build-dependent extended baryon requests.
 

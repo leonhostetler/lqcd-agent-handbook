@@ -4867,3 +4867,33 @@ before it, `setup_layout` used the lexicographic map. No handbook statement depe
 rank-to-coordinate map, and no stack launcher passes QMP map options, so nothing changes.
 Recorded so the next reader of `generic/layout_hyper_prime.c` citations knows the three
 functions now agree.
+
+## 2026-10-07 — MILC PR #100: the rebuild_type defect is fixed, and the grammar moved
+
+PR #100 (merge `db6adc7d`, 2026-10-06) fixes the defect `staggered-inverter-types.md` had
+recorded: the per-set `rebuild_type` of a `multisource` or `multicolorsource` set is now copied
+into every propagator's control block, so `THIN` reaches the solver for every set type. Two
+further changes ride with it. `single` sets with the `MG` inverter now read `rebuild_type` per
+propagator, which an input written for `6b9b8a06` lacks, so such inputs fail to parse. And the
+first solve after `qudaMultigridCreate` no longer runs a redundant MG update: the create
+consumes the fresh-link signal and prints a line saying so. All read from source, not run.
+
+The leaves keep the old behaviour as a version-scoped recipe rather than deleting it: the
+validated `ks_spectrum` MG stack is pinned at `6b9b8a06`, where the recipe still applies.
+`observed_on` stays at `6b9b8a06` in all three leaves; the PR #99 entry bumps it, because that
+PR changes other statements in the same files.
+
+**Reconciliation (obligation 11).**
+- `software/milc/internals/staggered-inverter-types.md`, "Only a multimass set's
+  `rebuild_type` reaches the solver": *amended* into a version-scoped section; the "Multigrid
+  rebuild modes" table above it (`FULL`, `THIN`, `CG`, and the `CGREBUILD` default without
+  `-DMULTIGRID`): *confirmed* at `a5f8f9fa`.
+- `software/quda/solvers/staggered-multigrid.md`, "that signal is sent on the very first solve",
+  "which is the first-solve case", and "a field the input can only set for one set type":
+  *amended*, each scoped to the merge.
+- `software/milc/applications/ks-spectrum.md`, input-structure item 4: *amended* with the
+  grammar change and a pointer; its "Solver-dispatch heads-up" on `multimass` dispatch:
+  *confirmed*.
+- `software/quda/solvers/staggered-memory.md` and `software/quda/internals/milc-gauge-reconstruct.md`,
+  "a thin update pays nothing": *confirmed*; neither says which set types can request one.
+- `DEVLOG.md` 2026-09 entries describing the defect: episodes, left as written.

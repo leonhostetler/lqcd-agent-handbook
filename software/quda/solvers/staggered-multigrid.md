@@ -34,6 +34,8 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/mat_invert.c#L619-L653
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L583-L601
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L809-L827
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L748-L826
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L645-L656
 observed: "2026-08-20"
 observed_on:
   software:
@@ -161,10 +163,13 @@ mean multiple sources, and a batch-width setting does not by itself enable MMA.
 MILC stores the MG object in one static process-global `mg_preconditioner` pointer.
 It creates the hierarchy when notified that fermion links are fresh and the pointer is
 null. An update is issued by `qudaInvertMG` / `qudaInvertMsrcMG` whenever the gauge field is
-invalid, the mass changed, or MILC's fresh-link signal arrived — and **that signal is sent on
-the very first solve after `qudaMultigridCreate`**, by the same code path that created the
-hierarchy, so the first solve after setup always performs an update at unchanged links and
-mass. `[source]` at QUDA `00c7ef33d` / MILC `6b9b8a06`. Which kind is decided by the
+invalid, the mass changed, or MILC's fresh-link signal arrived. **Through MILC `6b9b8a06` that
+signal was still in force on the very first solve after `qudaMultigridCreate`**, sent by the
+same code path that created the hierarchy, so the first solve after setup always performed an
+update at unchanged links and mass. From merge `db6adc7d` (PR #100, 2026-10-06) the create
+consumes the signal and the first solve runs no update, announced by
+`fresh-link signal consumed by hierarchy creation; no first-solve MG update`. `[source]` at
+QUDA `00c7ef33d` / MILC `6b9b8a06` and `a5f8f9fa`. Which kind is decided by the
 `mg_rebuild_type` argument MILC passes, and the two are not a "cheap" and "thorough" version of
 one thing:
 
@@ -173,8 +178,8 @@ one thing:
   `resetStaggeredKD`. It allocates nothing and touches no coarse level. It does **not** rebuild
   the KD inverse — a source to-do at the observed revision — so after a mass change the KD
   inverse and every level below the fine one describe the **old** mass, while the outer solve
-  stays exact. At unchanged links and mass, which is the first-solve case, thin is exact and
-  free;
+  stays exact. At unchanged links and mass, which was the first-solve case before `db6adc7d`,
+  thin is exact and free;
 - a **full** update deletes and recreates the fine Dirac objects and then resets every level:
   re-orthonormalises the existing near-null vectors, re-coarsens each level, rebuilds the KD
   inverse **while the old one and its sloppy copy are still held**, recreates the smoothers and
@@ -186,16 +191,18 @@ one thing:
 [`staggered-memory.md`](staggered-memory.md); it has been observed to be the allocation that fails
 in a run whose setup completed.
 
-**Which update MILC asks for is decided by a field the input can only set for one set type.**
-`ks_spectrum` reads `rebuild_type` for `multisource` and `multicolorsource` sets into a per-set
-array that **nothing copies** into the inverter control block the solver reads, and reads it for
-`multimass` sets into that control block directly; `single` sets never read it. Under a
-multigrid build the control block's default is `FULL` (the enum's zero value in a zero-initialised
-global), so **every `single`, `multisource` and `multicolorsource` set takes a full update on the
-first solve whatever the input says, and only a `multimass` set can request `THIN`**. A `multimass`
-set of one mass takes the single-source MG path, so the recipe for a thin first-solve update at
-this MILC revision is `set_type multimass` sets of one mass each. The set-type dispatch and the
-timer-line consequence are in
+**Which update MILC asks for is decided by a field that, before merge `db6adc7d`, the input
+could only set for one set type.** Through `6b9b8a06`, `ks_spectrum` read `rebuild_type` for
+`multisource` and `multicolorsource` sets into a per-set array that **nothing copied** into the
+inverter control block the solver reads, read it for `multimass` sets into that control block
+directly, and never read it for `single` sets. Under a multigrid build the control block's default
+is `FULL` (the enum's zero value in a zero-initialised global), so at those revisions **every
+`single`, `multisource` and `multicolorsource` set took a full update on the first solve whatever
+the input said, and only a `multimass` set could request `THIN`**; a `multimass` set of one mass
+takes the single-source MG path, so the recipe there was `set_type multimass` sets of one mass
+each. From `db6adc7d` the per-set value reaches the control block, `single` sets read the keyword
+per propagator, and the choice in effect is echoed per propagator. The set-type dispatch, the
+grammar change, and the timer-line consequence are in
 [`../../milc/internals/staggered-inverter-types.md`](../../milc/internals/staggered-inverter-types.md).
 
 The requested rebuild mode is consulted only when an update is required. It does not
