@@ -5058,3 +5058,14 @@ their citations are pinned by design. Follow-up: skip `machines/*/stacks/` by de
 - `conventions/diagnostic-rigs.md`, "a repeat of the same binary reproduces it, bitwise or
   within a measured floor": *confirmed*; the new option is one way to narrow that floor and
   is routed from `project.yaml`, not restated there.
+
+## 2026-10-07 — upstream-drift 1.1.0: stack records are not drift
+
+The first live runs listed validated-stack records among the leaves to review: 34 of the 66
+flagged after the PR #1446 review were `machines/*/stacks/*` files. A stack record cites the
+commit it was built at and never moves, so upstream changes are not drift for it, and
+counting them hid the real backlog. The tool now skips those paths unless `--include-stacks`
+is passed, says which in its summary line, and the test suite's synthetic handbook carries a
+stack record that must be absent by default and present with the flag. The backlog at QUDA
+`00c7ef33d` / MILC `a5f8f9fa` is 32 leaves. The PR #1446 entry above counted 14 stack
+records for that merge alone; the roadmap row now carries the corrected figure.

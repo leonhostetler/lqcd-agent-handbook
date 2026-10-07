@@ -36,7 +36,7 @@ from typing import Any
 
 import yaml
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 KNOWLEDGE_ROOTS = ("conventions", "machines", "software", "ensembles", "playbooks", "modes")
 
 BLOB_RE = re.compile(
@@ -171,7 +171,18 @@ def frontmatter(path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def leaf_records(root: Path, only: list[str] | None) -> list[tuple[Path, dict[str, Any]]]:
+def is_stack_record(root: Path, path: Path) -> bool:
+    """A validated-stack record: machines/<machine>/stacks/<stack>/... .
+
+    Its citations are pinned by design -- it records a build that happened at a commit --
+    so upstream movement is not drift for it, and it is skipped unless asked for.
+    """
+    parts = path.relative_to(root).parts
+    return len(parts) >= 4 and parts[0] == "machines" and parts[2] == "stacks"
+
+
+def leaf_records(root: Path, only: list[str] | None,
+                 include_stacks: bool = False) -> list[tuple[Path, dict[str, Any]]]:
     records: list[tuple[Path, dict[str, Any]]] = []
     for top in KNOWLEDGE_ROOTS:
         base = root / top
@@ -179,6 +190,8 @@ def leaf_records(root: Path, only: list[str] | None) -> list[tuple[Path, dict[st
             continue
         for path in sorted(base.rglob("*")):
             if not path.is_file() or path.name == "INDEX.md":
+                continue
+            if not include_stacks and is_stack_record(root, path):
                 continue
             rel = str(path.relative_to(root))
             if only and not any(rel == o or rel.startswith(o.rstrip("/") + "/") for o in only):
@@ -358,7 +371,7 @@ def parse_checkouts(items: list[str]) -> dict[str, Path]:
 
 
 def render(reports: list[LeafReport], checkouts: dict[str, Path], heads: dict[str, str],
-           counted: int, sources: int) -> str:
+           counted: int, sources: int, include_stacks: bool = False) -> str:
     lines: list[str] = []
     for name, repo in checkouts.items():
         branch = git(repo, "rev-parse", "--abbrev-ref", "HEAD", check=False).strip()
@@ -389,7 +402,8 @@ def render(reports: list[LeafReport], checkouts: dict[str, Path], heads: dict[st
     lines.append(
         f"upstream-drift {VERSION}: {counted} leaves with sources read · {sources} citations into "
         f"{len(checkouts)} checkout(s) compared · {len(flagged)} leaves to review · "
-        f"{unresolvable} citations unresolvable · claims NOT judged"
+        f"{unresolvable} citations unresolvable · "
+        f"{'stack records included' if include_stacks else 'stack records skipped'} · claims NOT judged"
     )
     return "\n".join(lines)
 
@@ -413,6 +427,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--leaf", action="append", help="limit to this handbook path or directory (repeatable)")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--fail-on-drift", action="store_true", help="exit 1 when any leaf is flagged")
+    parser.add_argument("--include-stacks", action="store_true",
+                        help="also read validated-stack records under machines/*/stacks/, which are skipped by default "
+                             "because their citations are pinned to the build they record")
     args = parser.parse_args(argv)
 
     root = Path(args.root).resolve()
@@ -426,7 +443,7 @@ def main(argv: list[str] | None = None) -> int:
     reports: list[LeafReport] = []
     counted = 0
     sources = 0
-    for path, meta in leaf_records(root, args.leaf):
+    for path, meta in leaf_records(root, args.leaf, args.include_stacks):
         counted += 1
         rel = str(path.relative_to(root))
         for name, repo in checkouts.items():
@@ -446,11 +463,12 @@ def main(argv: list[str] | None = None) -> int:
             ],
             "by_merge": [{"software": k[0], "merge": k[1], "leaves": v} for k, v in by_merge(reports)],
             "summary": {"leaves_read": counted, "citations": sources,
-                        "leaves_to_review": sum(1 for r in reports if r.flagged)},
+                        "leaves_to_review": sum(1 for r in reports if r.flagged),
+                        "stack_records_included": args.include_stacks},
         }
         print(json.dumps(payload, indent=2))
     else:
-        print(render(reports, checkouts, heads, counted, sources))
+        print(render(reports, checkouts, heads, counted, sources, args.include_stacks))
     if args.fail_on_drift and any(r.flagged for r in reports):
         return 1
     return 0

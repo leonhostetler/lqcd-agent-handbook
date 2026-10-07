@@ -86,6 +86,10 @@ def build_handbook(base: Path, observed: str, c3: str, cite: str | None = None) 
         body
         """)
     (root / "software" / "foo" / "leaf.md").write_text(leaf)
+    # A validated-stack record citing the same moved file: pinned by design, so not drift.
+    stack = root / "machines" / "box" / "stacks" / "foo-2026q4"
+    stack.mkdir(parents=True)
+    (stack / "notes.md").write_text(leaf.replace("title: t", "title: stack notes"))
     return root
 
 
@@ -168,6 +172,19 @@ class UpstreamDriftTests(PerturbationMixin, unittest.TestCase):
         # a.c is identical between c2 and HEAD, so an old citation is not drift.
         self.assertEqual(f[f"{self.repo['c1']}/a.c#L1-L2"]["status"], "unchanged since observation")
         self.assertFalse(f[f"{self.repo['c1']}/a.c#L1-L2"]["flag"])
+
+    def test_stack_records_are_skipped_unless_asked_for(self):
+        """A stack record's citations are pinned to the build it records; upstream moving is
+        not drift for it, so it is skipped by default and listed only with --include-stacks."""
+        root = build_handbook(self.base, self.repo["c1"], self.repo["c3"])
+        done = self.run_tool(root)
+        leaves = {leaf["leaf"] for leaf in json.loads(done.stdout)["leaves"]}
+        self.assertIn("software/foo/leaf.md", leaves)
+        self.assertNotIn("machines/box/stacks/foo-2026q4/notes.md", leaves)
+        self.assertFalse(json.loads(done.stdout)["summary"]["stack_records_included"])
+        done = self.run_tool(root, "--include-stacks")
+        leaves = {leaf["leaf"] for leaf in json.loads(done.stdout)["leaves"]}
+        self.assertIn("machines/box/stacks/foo-2026q4/notes.md", leaves)
 
     def test_fail_on_drift_exits_nonzero_when_something_moved(self):
         root = build_handbook(self.base, self.repo["c1"], self.repo["c3"])

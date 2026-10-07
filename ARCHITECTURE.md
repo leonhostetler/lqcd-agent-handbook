@@ -1474,7 +1474,9 @@ per leaf, the cited files that changed since observation, whether the cited line
 the merges that touched them — and, in the other direction, a cited feature-branch commit or
 pull request that has since become an ancestor of HEAD, which is the trigger
 [§deferred-decisions](ROADMAP.md#deferred-decisions) keeps writing in prose. It rolls the
-findings up per merge, because a review is cheapest done one merge at a time. It is a triage
+findings up per merge, because a review is cheapest done one merge at a time. It skips
+validated-stack records unless asked, since a stack's citations are pinned to the build it
+records and upstream movement is not drift for them ([§stacks](#stacks)). It is a triage
 and says so: it names candidates and judges no claim, and it reports what it checked rather
 than "passed" ([§validator-not-clearance](#validator-not-clearance)). Reviews are therefore
 triggered by drift the tool reports, before a stack is rebuilt at a newer commit, never by a
