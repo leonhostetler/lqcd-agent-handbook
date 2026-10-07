@@ -31,6 +31,10 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/ks_meson_mom.c#L290-L356
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/generic_ks/ks_baryon.c#L219-L245
   - operator's campaign records (the pre-2024 gauge-fixing comparison)
+  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_spectrum/spectrum_ks.c#L1218-L1250
+  - https://github.com/milc-qcd/milc_qcd/commit/08b263db
+  - https://github.com/milc-qcd/milc_qcd/commit/6bd16fce292a3bda9d65b426b3d263ee184d3a9a
+  - operator's rank-count comparison (the baryon normalization)
 observed: "2026-08-18"
 observed_on:
   software:
@@ -326,6 +330,18 @@ reports numerical differences without judging them unless given `--max-relative-
 Files from different runs carry different `JobID`s — a tested run against its reference
 always does — so give `--job-id` one value per file, in file order, rather than editing the
 files to agree.
+
+**Baryon amplitudes scale with the rank count before `6bd16fc`.** Up to that commit,
+`spectrum_ks_print_baryon` sums each `NUCLEON` and `DELTA` correlator over ranks twice — once
+as a vector, then again per time slice — so the printed and FNAL-written values are the MPI rank
+count times the true sum. The factor is exact, so effective masses are unaffected, but
+amplitudes from runs with different rank counts disagree. Mesons and the `GB_BARYON` path reduce
+once and are unaffected. The second sum arrived with merge `08b263db` (2023-08-23); it is present
+at the observed revision and at `6b9b8a0`, the tested commit of the validated `ks_spectrum`
+stacks, and `6bd16fc` on `develop` removes it. For a build without that commit, divide the
+baryon correlators by the run's rank count, or confirm with a one-rank and a two-rank run of the
+same input: the baryon ratio is exactly 2 and the mesons agree. Reproduced at one, two and four
+ranks on one input.
 
 Apply the same manifest discipline to any other active `ks_spectrum` save directives, including
 saved gauge fields, eigenvectors, sources, propagators, or derived quarks. Their format-specific

@@ -356,5 +356,6 @@ each is in [`DEVLOG.md`](DEVLOG.md).
 | **Requiring an owed item to name what it searched** (`conventions/repeated-work.md`) | **Declined.** One missed search does not carry a convention change |
 | **rocpd host-sample symbol resolution** | **Deliberately not implemented.** A join written from the schema alone would emit plausible symbol names nothing could verify; the tool returns `None` so the caller says "not implemented for this format", which is a different statement from "no samples" |
 | **A validator check for files named in the directory tree but absent** | **Not added.** A guard firing on legitimate future additions is the noisy guard [§prefer-a-tool](ARCHITECTURE.md#prefer-a-tool)'s counterweight warns against |
+| **A note that bash `RANDOM` sequences depend on the bash version** (its generator changed in bash 5.1), from a generator that draws source positions with it | **Not admitted 2026-10-07.** General shell behaviour, not LQCD knowledge, and its consequence — the final generated input, not its generator, is the record of what ran — already follows from treating that input as the artifact source in the `ks_spectrum` guide |
 
 ---
