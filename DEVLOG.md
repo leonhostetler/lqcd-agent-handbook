@@ -5110,3 +5110,32 @@ Frontier stack is a single-architecture build and is unaffected. `autotuning.md`
 `machines/frontier/stacks/quda-rocm7-milc-cg-2026q3/stack.yaml` (`QUDA_GPU_ARCH` single
 value): *confirmed*, a stack record. `internals/milc-gauge-reconstruct.md` on cache
 re-tuning: *confirmed*, it concerns keys, not the header.
+
+## 2026-10-07 — QUDA PR #1645: NVSHMEM 3.7.0, a shared CCCL, and finalization at endQuda
+
+Five commits, five files. NVSHMEM 3.x ships a CMake config package with split host and
+device libraries, and 3.7.0 defers its transport-plugin `dlclose` to an `atexit` handler, so a
+process that never finalized NVSHMEM segfaulted at exit when the progress thread outlived the
+module. The fix finds NVSHMEM as a config package, links it privately (a public link had
+leaked `nvshmem::nvshmem_host` into QUDA's exported targets and broken MILC's CMake
+configure), adds `QUDA_DOWNLOAD_CCCL` so a build can take CCCL from the toolkit and share it
+with NVSHMEM, and calls a new `pool::destroy()` from `endQuda` that finalizes NVSHMEM before
+device teardown; the HIP target's `destroy()` is a stub. `project.yaml` gains the three
+options, two of which predate this merge and were never listed. `build.md`'s network
+paragraph notes the download the option removes. Read from source, not built; no stack here
+builds with NVSHMEM.
+
+Pins: four leaves whose citations nothing later touches go to HEAD; `milc-shift-interface.md`,
+`staggered-multigrid.md`, `development.md`, `project.yaml` and `build.md` to `243bcc71e`
+ahead of #1651; `autotuning.md` to `2c45a60ae` ahead of #1652. `development.md` keeps one
+permanently flagged citation, `include/gauge_backup.h` at `8a6fecc5`, a commit on no line of
+`develop`; the tool is right to say so, and whether to re-cite or drop it is a separate
+decision. QUDA backlog: 12 leaves, all under #1651.
+
+**Reconciliation (obligation 11).** `project.yaml`: options *added*; `build.md` network
+paragraph: *amended*; `internals/device-memory-pool.md`, "the memory is not released until
+the owning field is destroyed ... that is `endQuda`": *confirmed*, `pool::destroy` finalizes
+NVSHMEM and frees nothing; `internals/managed-memory.md` and `solvers/staggered-memory.md`
+(`malloc.cpp` citations): *confirmed*, the file gained only `destroy()`;
+`internals/autotuning.md`, NVSHMEM state in policy keys: *confirmed*;
+`runtime-environment.md`, the `nvshmem=<0|1>` key suffix: *confirmed*.

@@ -7,6 +7,7 @@ evidence: source
 sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/README.md
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt
+  - https://github.com/lattice/quda/blob/2c45a60ae479bf8fbe65528809b4c705ec94082c/lib/targets/cuda/target_cuda.cmake#L531-L545
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/CMakeLists.txt#L527-L530
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/CMakeLists.txt#L22
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/staggered_invert_test.cpp#L574-L577
@@ -14,11 +15,11 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/staggered_invert_test_gtest.hpp#L30
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/dslash_improved_staggered.cpp#L23
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/CMakeLists.txt#L295-L296
-observed: "2026-08-20"
+observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+      commit: 243bcc71ea9b460b16a256df3b8234b3e042fff2
       branch: develop
 ---
 
@@ -56,11 +57,13 @@ produce undefined behavior. Enabling QIO requires QMP.
 dependency, `cmake/CPM.cmake` downloads the CPM package manager from a GitHub release URL, and
 GitHub answers it with a redirect to `release-assets.githubusercontent.com` `[observed]`. The
 dependencies then come from `github.com` — QMP, QIO and CCCL, cloned by repository name — and
-`gitlab.com`, the Eigen archive `[source]`. A sandbox or proxy that allows `github.com` but not
-the release-asset host fails inside `CPM.cmake` with `file DOWNLOAD cannot compute hash on
-failed download` and `HTTP response code said error`, followed by
-`Unknown CMake command "CPMAddPackage"`. That reads like a broken checkout; it is a refused
-redirect.
+`gitlab.com`, the Eigen archive `[source]`. From `2c45a60ae` (PR #1645, 2026-08-31)
+`QUDA_DOWNLOAD_CCCL=OFF` takes CCCL from the CUDA toolkit instead, which removes that one
+download and is what an NVSHMEM 3.x build needs (`project.yaml`). A sandbox or proxy that
+allows `github.com` but not the release-asset host fails inside `CPM.cmake` with
+`file DOWNLOAD cannot compute hash on failed download` and `HTTP response code said error`,
+followed by `Unknown CMake command "CPMAddPackage"`. That reads like a broken checkout; it is
+a refused redirect.
 
 Build and install through CMake, respecting the machine's build-placement and parallelism
 limits:

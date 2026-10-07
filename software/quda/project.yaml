@@ -148,6 +148,27 @@ build_options:
       three, so reduction buffers grow accordingly, and the reduction kernels are different
       kernels from NAIVE's. Read from source, not run.
     type: string
+  QUDA_NVSHMEM:
+    meaning: >-
+      Builds the NVSHMEM communication path for the CUDA target; needs QUDA_NVSHMEM_HOME.
+      From 2c45a60ae (PR #1645, 2026-08-31) NVSHMEM is resolved as a CMake config package in
+      the 3.x layout under QUDA_NVSHMEM_HOME/lib/cmake/nvshmem, its host and device libraries
+      are linked privately so that consumers of QUDA's own package, such as MILC's CMake build,
+      need no nvshmem targets, and endQuda finalizes NVSHMEM before tearing down the device,
+      because NVSHMEM 3.7.0 otherwise dlcloses its transport plugin from an atexit handler
+      while its progress thread is still running and segfaults.
+    type: boolean
+    capabilities:
+      - NVSHMEM communication
+  QUDA_NVSHMEM_HOME:
+    meaning: The NVSHMEM installation prefix; required when QUDA_NVSHMEM is set.
+    type: path
+  QUDA_DOWNLOAD_CCCL:
+    meaning: >-
+      From 2c45a60ae: ON (the default) downloads the pinned CCCL through CPM as before; OFF
+      uses the CUDA toolkit's own CCCL, which an NVSHMEM 3.x build needs so that QUDA and
+      NVSHMEM share one CCCL rather than clashing on libcudacxx and CUB versions.
+    type: boolean
   QUDA_CUDA_NVCC_EXTRA_FLAGS:
     meaning: >-
       From f2df42ac4, advanced: extra flags appended to every nvcc compile line when
@@ -158,7 +179,7 @@ observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: f2df42ac4caa0cd51b96b01006a1c25c8d753425
+      commit: 243bcc71ea9b460b16a256df3b8234b3e042fff2
       branch: develop
 sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/README.md
@@ -168,6 +189,10 @@ sources:
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/include/targets/cuda/reproducible_floating_accumulator.hpp#L1-L20
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/communicator_qmp.cpp#L362-L387
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/targets/cuda/target_cuda.cmake#L282-L289
+  - https://github.com/lattice/quda/blob/2c45a60ae479bf8fbe65528809b4c705ec94082c/lib/targets/cuda/target_cuda.cmake#L531-L545
+  - https://github.com/lattice/quda/blob/2c45a60ae479bf8fbe65528809b4c705ec94082c/lib/targets/cuda/target_cuda.cmake#L596-L660
+  - https://github.com/lattice/quda/blob/2c45a60ae479bf8fbe65528809b4c705ec94082c/lib/targets/cuda/malloc.cpp#L669-L679
+  - https://github.com/lattice/quda/blob/2c45a60ae479bf8fbe65528809b4c705ec94082c/lib/interface_quda.cpp#L1545-L1553
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/staggered_invert_test.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/kernels/dslash_staggered.cuh

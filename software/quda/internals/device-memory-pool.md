@@ -14,11 +14,11 @@ sources:
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/check_params.h
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/interface_quda.cpp
   - operator's screened memory-model records
-observed: "2026-09-17"
+observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: f2df42ac4caa0cd51b96b01006a1c25c8d753425
+      commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
 ---
 
