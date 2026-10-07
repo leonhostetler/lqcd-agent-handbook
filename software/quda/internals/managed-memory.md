@@ -11,10 +11,10 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/quda_milc_interface.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/color_spinor_field.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/gauge_field.cpp
-observed: "2026-09-15"
+observed: "2026-10-07"
 observed_on:
   software:
-    quda: {commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a, branch: develop}
+    quda: {commit: f2df42ac4caa0cd51b96b01006a1c25c8d753425, branch: develop}
 ---
 
 # QUDA managed memory and the prefetch gate

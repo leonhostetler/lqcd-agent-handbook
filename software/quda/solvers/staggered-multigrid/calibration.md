@@ -9,11 +9,11 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/eig_block_trlm.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/transfer.cpp
-observed: "2026-08-20"
+observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+      commit: f2df42ac4caa0cd51b96b01006a1c25c8d753425
       branch: develop
     milc:
       commit: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72

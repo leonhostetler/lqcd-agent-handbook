@@ -11,6 +11,10 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/eigensolve_quda.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/eig_trlm.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/eig_block_trlm.cpp
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_trlm.cpp#L227-L233
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_trlm.cpp#L87-L96
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L100-L120
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L239-L275
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/eig_trlm_3d.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/eig_iram.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/eigensolve_test.cpp
@@ -96,6 +100,13 @@ Additional Lanczos constraints are enforced by the concrete solvers:
   `n_conv`, and must divide both `n_kr` and `n_ev`.
 - TRLM3D requires `n_kr >= n_ev + 6` and supports only spatial splitting with
   `ortho_dim = 3`.
+
+**From `f2df42ac4` (PR #1446, 2026-08-22) scalar TRLM orthogonalizes the new Lanczos vector
+against the Krylov space twice per step**, where it did so once. The source comment gives the
+reason: a single pass is only marginally stable, and on an ill-conditioned operator it loses
+orthogonality and lets the Chebyshev recurrence blow up, which surfaced first in the
+quad-precision build. Each Lanczos step therefore costs one more block Gram-Schmidt pass than
+before; the block variant is unchanged. Read from source, and the cost is not measured here.
 
 If `require_convergence` is true, exhausting `max_restarts` **terminates the job**: both TRLM
 and block TRLM call `errorQuda` with a message ending `Exiting.`, which is the fatal handler,
@@ -192,6 +203,12 @@ variant is silent the restart count must be reconstructed from the `blockLanczos
 sequence, which descends once per restart and so forms a sawtooth — a fallback, not an
 equivalent source. **Prefer `block_size = 1` while diagnosing**, and treat a larger block as
 a later performance choice.
+
+From `f2df42ac4` both variants also print, at `QUDA_DEBUG_VERBOSE` and only during the first
+two restarts, the arrow-matrix coefficients, the first few Ritz values, and the residual
+estimates. That is a debug aid for the opening restarts, not the restart summary the scalar
+variant prints: at `QUDA_VERBOSE` the block variant's silence is unchanged, and the sawtooth
+reconstruction still applies. Read from source.
 
 ## Establishing `a_min` when the spectrum is not yet known
 

@@ -12,10 +12,10 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/tune.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/hisq_paths_force_quda.cu
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multi_blas_quda.cu
-observed: "2026-09-15"
+observed: "2026-10-07"
 observed_on:
   software:
-    quda: {commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a, branch: develop}
+    quda: {commit: f2df42ac4caa0cd51b96b01006a1c25c8d753425, branch: develop}
 ---
 
 # Reading a QUDA kernel in a GPU profile

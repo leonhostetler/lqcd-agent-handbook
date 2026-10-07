@@ -5013,3 +5013,48 @@ and extended with the per-file mechanism; `playbooks/start-session.md` step 6: *
 `modes/developer.md` while-editing list: *amended*; `ROADMAP.md` deferred rows whose triggers
 read "the pull request merges": *confirmed*, now mechanically checkable. No leaf restates a
 review cadence.
+
+## 2026-10-07 — QUDA PR #1446: reproducible reductions, quad scalars, and a TRLM change
+
+The first merge drained from the drift backlog, chosen because it touched the most leaves
+(35). It is 139 commits and 356 files, but filtering the cited files' diffs for pure
+`double`→`real_t` and `Complex`→`complex_t` renames and casts left a short residue: three
+build options for the scalar and reduction types and the reduction algorithm, an advanced
+nvcc-flags option, a second Gram-Schmidt pass per scalar-TRLM step, debug output for the
+first two restarts of both Lanczos variants, and a per-component true-residual copy in the
+block solve path. No `quda.h`, `enum_quda.h`, `check_params.h`, or MILC-interface
+declaration changed. All read from source at the merge, nothing built or run.
+
+What landed: `project.yaml` gains the four options, with the reproducible algorithm's
+mechanism (binned accumulators on the device, bins gathered across ranks) stated as the
+source states it and no claim beyond reductions. `eigensolver.md` records the two-pass
+orthogonalization and the new debug output, version-scoped. Thirteen leaves whose citations
+were touched by no earlier merge are re-pinned to `f2df42ac4`, not to HEAD, because the
+merges after it have not been reviewed.
+
+What the sequencing taught: `observed_on` can only move forward along first-parent history,
+so a leaf also touched by an earlier merge (#1644, #1648) keeps its pin until that merge is
+reviewed, however clean its #1446 residue. Six leaves are in that state. The two commits
+`development.md` cites as "merged since observation" belong to #1644, not here.
+
+Not admitted: the `blocksolve` true-residual fix (no leaf describes that path); the blas
+instantiation cleanup; the CI pipeline rework; the fetched-dependency tag bump in the CUDA
+target. The 14 validated-stack records the tool still lists are a tool defect, not drift:
+their citations are pinned by design. Follow-up: skip `machines/*/stacks/` by default.
+
+**Reconciliation (obligation 11).**
+- `software/quda/project.yaml`: options *added*; every existing option meaning: *confirmed*.
+- `software/quda/solvers/eigensolver.md`: search-space section *amended* (two-pass TRLM);
+  block-silence paragraph *amended* (debug output); `Deflating <N>` forms, `Preserving
+  deflation space of size`, completion-only eigenvalue printing: *confirmed*.
+- `software/quda/solvers/staggered-cg.md`, `staggered-deflated-cg.md`, `staggered-memory.md`,
+  `staggered-solver-selection.md`, the five `staggered-multigrid/` leaves,
+  `internals/milc-deflation-space.md`, `internals/managed-memory.md`, `profiling.md`,
+  `build-profiles.yaml`: *confirmed* at the merge and re-pinned.
+- `software/quda/solvers/staggered-multigrid.md`, `internals/autotuning.md`,
+  `internals/milc-shift-interface.md`, `development.md`,
+  `software/milc/applications/wilson-flow.md`: *confirmed* for this merge's changes, pin
+  unchanged pending #1644.
+- `conventions/diagnostic-rigs.md`, "a repeat of the same binary reproduces it, bitwise or
+  within a measured floor": *confirmed*; the new option is one way to narrow that floor and
+  is routed from `project.yaml`, not restated there.
