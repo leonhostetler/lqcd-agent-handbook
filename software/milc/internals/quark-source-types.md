@@ -13,6 +13,13 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/quark_source.c#L458-L476
   - https://github.com/milc-qcd/milc_qcd/commit/5c6ab6ee
   - operator's comparison against archived pre-2011-11 output
+  - https://github.com/milc-qcd/milc_qcd/commit/c05e59dd
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L1033
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L1262-L1264
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/Make_template#L276-L280
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/libraries/Make_vanilla#L54
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/libraries/rand_ahmat.c#L15
+  - operator's old-generator reproduction build
 observed: "2026-08-19"
 observed_on:
   software:
@@ -169,6 +176,28 @@ For an affected checkout:
    constructs it, before investigating solver kernels; and
 4. do not claim all Gaussian variants are fixed merely because the complex
    feature-branch patch is present.
+
+## Reproducing the pre-2016 random-number generator
+
+MILC replaced its uniform and Gaussian generators in `c05e59dd` (2016-02-15). The old ones
+survive behind `#ifdef OLD_GAUSSRAND`, in files built by two different makefiles:
+
+- `generic/ranstuff.c`, the uniform generator and its seeding, is compiled with the
+  application's flags, so the define goes into the top-level `Makefile`'s `CCOMPAT`, where a
+  commented-out line for it already exists; and
+- `libraries/gaussrand.c`, the Gaussian pairing, and `libraries/rand_ahmat.c` go into the `su3`
+  library, which the application's `libmake` rule builds passing only the compiler,
+  `PRECISION`, `ARCH` and `COMPILER` — not `CCOMPAT`. The define must also go into
+  `libraries/Make_vanilla`'s `OCFLAGS`, again present as a commented-out line.
+
+`double_prn` has the same layout either way, so a define set in only one of the two places
+builds and runs without complaint and draws from a mixed generator that matches neither. Set
+both, rebuild the libraries from clean — make does not rebuild an existing library archive when
+only flags change — and confirm the define on the `ranstuff.c` and `gaussrand.c` compile lines
+of the build log. With both set, a current build reproduced archived pre-2016 random-color-wall
+correlators record by record in one comparison, provided the other paths that changed since,
+such as accelerated gauge fixing, were also matched. The old Gaussian loop carries the
+origin-guard omission described above. Treat such a build as a validation build.
 
 ## Inverter consequence
 
