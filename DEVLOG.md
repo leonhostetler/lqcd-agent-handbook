@@ -5093,3 +5093,20 @@ instance; `interface-layers.md` size-guard paragraph ("`check_params.h` rejects 
 *confirmed*, it concerns `struct_size`, not boolean sentinels. `ROADMAP.md` deferred row on
 split-grid deflation knowledge: *confirmed* as written; whether this fix bears on its open
 correctness question is the operator's call, not a source fact.
+
+## 2026-10-07 — QUDA PR #1648: multi-architecture HIP builds and the tunecache header
+
+One commit, nine lines in `target_hip.cmake`: a HIP build may now name several
+architectures, and the list, joined by `+`, goes into the `QUDA_HASH` `gpu_arch` field and the
+Git descriptor. The consequence for the handbook is the header gate `autotuning.md`
+describes: a multi-architecture build and a single-architecture build of the same source on
+the same device have different headers, so neither accepts the other's cache without
+`QUDA_TUNE_VERSION_CHECK=0`. Recorded in the leaf, version-scoped, read from source; the
+Frontier stack is a single-architecture build and is unaffected. `autotuning.md` moves to
+`f2df42ac4`, three merges reviewed for it. QUDA backlog unchanged at 16 leaves.
+
+**Reconciliation (obligation 11).** `autotuning.md` header paragraph: *amended*;
+"`QUDA_TUNE_VERSION_CHECK=0` disables all three header comparisons together": *confirmed*.
+`machines/frontier/stacks/quda-rocm7-milc-cg-2026q3/stack.yaml` (`QUDA_GPU_ARCH` single
+value): *confirmed*, a stack record. `internals/milc-gauge-reconstruct.md` on cache
+re-tuning: *confirmed*, it concerns keys, not the header.

@@ -11,6 +11,7 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/CMakeLists.txt
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/targets/cuda/target_cuda.cmake
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/targets/hip/target_hip.cmake
+  - https://github.com/lattice/quda/blob/8c9321ed26d35dbfa5b20b1ae1f957648851a865/lib/targets/hip/target_hip.cmake#L94-L104
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/tune_key.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/tune_quda.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/targets/cuda/tunable_kernel.h
@@ -22,11 +23,11 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/dslash.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/dslash_policy.hpp
   - https://github.com/lattice/quda/commit/d96a56f4e04cfe7158a923e06cc706af4e8a36cf
-observed: "2026-08-18"
+observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: b6998853f6b605e22d67ea2ddfa3cab0d752679a
+      commit: f2df42ac4caa0cd51b96b01006a1c25c8d753425
       branch: develop
 ---
 
@@ -68,7 +69,11 @@ not a content hash and does not cover the full CMake configuration, flags, host 
 driver/runtime, communication libraries, or source. The Git descriptor comes from `git describe`
 during CMake configuration. Consequently, a header mismatch can reject a harmless comment-only
 commit, while a matching header cannot prove tuning equivalence after an unrecorded build or
-runtime change.
+runtime change. From `8c9321ed2` (PR #1648, 2026-08-21) a HIP build for several architectures
+writes the whole list, joined by `+`, into both the `gpu_arch` field and the Git descriptor, so
+its header differs from a single-architecture build's even on the same device, and a cache
+tuned by one is rejected by the other unless the version check below is disabled. Read from
+source.
 
 Setting `QUDA_TUNE_VERSION_CHECK=0` disables all three header comparisons together: semantic
 version, Git descriptor, and build descriptor. It does not weaken only the Git check. Use this
