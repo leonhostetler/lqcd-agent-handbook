@@ -72,6 +72,11 @@ single submissions whose exact shape was not recorded. Nothing was submitted, an
 succeeded each time `[observed]`. That message reads as an outage, which is what makes this one
 the most misleading face of the cause; the rule below covers it unchanged.
 
+**The rule is not specific to the accounting client.** `sinfo`, which asks the controller for
+partition state, listed partitions when run bare and failed with the controller-contact message
+when piped into another command `[observed]`. Treat every scheduler client as subject to the
+table until it has been shown otherwise.
+
 **Submission usually still works, and assuming otherwise is expensive.** Because the bare command
 is exempt, an agent that has authority to submit can normally submit — so a misdiagnosis here does
 not merely mislabel a fault, it reaches for the no-authority fallback in
@@ -123,7 +128,7 @@ has no way to distinguish *unavailable* from *empty*, so the fetch belongs outsi
 
 A denied path can be **materialised as a placeholder** — a character device, or an unreadable
 empty file — rather than left missing. It therefore exists, and fails on use rather than on a
-existence check. Two consequences seen in practice:
+existence check. Three consequences seen in practice:
 
 - **A recursive copy of a repository dies** with a permission error on the placeholder, not on
   anything the copy was about. Copy routines need an ignore list covering the tooling paths,
@@ -134,6 +139,12 @@ existence check. Two consequences seen in practice:
   produces an error about being unable to take a lock, which reads as a stale lock rather than
   as a denied write. `playbooks/start-session.md` carries the specific retry this handbook
   uses for its own freshness check.
+- **The sandbox itself can fail to start.** With the shell standing in a project directory that
+  already held placeholders, commands intermittently failed before running anything, the
+  sandbox reporting that it could not create the parents of a placeholder path, a
+  `.gitconfig` or `.claude` entry in that directory, on a read-only file system. The same
+  command preceded by a change to a scratch directory ran `[observed]`. An error from the
+  sandbox's own setup is not an error from the command.
 
 ## A full home filesystem stops every command
 
