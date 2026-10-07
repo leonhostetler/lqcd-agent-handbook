@@ -169,6 +169,16 @@ build_options:
       uses the CUDA toolkit's own CCCL, which an NVSHMEM 3.x build needs so that QUDA and
       NVSHMEM share one CCCL rather than clashing on libcudacxx and CUB versions.
     type: boolean
+  QUDA_64BIT_INDEXING:
+    meaning: >-
+      From 00c7ef33d (PR #1651, 2026-09-04), advanced: the width of the index arithmetic in
+      QUDA's native field accessors, 32-bit unsigned by default and 64-bit when ON. It replaces
+      the per-accessor huge-allocation template choice the accessors carried before, so the
+      width is one global build property. The merge is the hotfix for an index overflow in the
+      cached-load path at large local volumes; whether a 32-bit build refuses or silently
+      overflows an oversized local field was not established here, so a per-rank volume near
+      the 32-bit limit is a build with the option on, read from source.
+    type: boolean
   QUDA_CUDA_NVCC_EXTRA_FLAGS:
     meaning: >-
       From f2df42ac4, advanced: extra flags appended to every nvcc compile line when
@@ -179,7 +189,7 @@ observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: 243bcc71ea9b460b16a256df3b8234b3e042fff2
+      commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
 sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/README.md
@@ -193,6 +203,8 @@ sources:
   - https://github.com/lattice/quda/blob/2c45a60ae479bf8fbe65528809b4c705ec94082c/lib/targets/cuda/target_cuda.cmake#L596-L660
   - https://github.com/lattice/quda/blob/2c45a60ae479bf8fbe65528809b4c705ec94082c/lib/targets/cuda/malloc.cpp#L669-L679
   - https://github.com/lattice/quda/blob/2c45a60ae479bf8fbe65528809b4c705ec94082c/lib/interface_quda.cpp#L1545-L1553
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt#L229
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/register_traits.h#L263-L270
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/tests/staggered_invert_test.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/kernels/dslash_staggered.cuh

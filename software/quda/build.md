@@ -19,7 +19,7 @@ observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: 243bcc71ea9b460b16a256df3b8234b3e042fff2
+      commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
 ---
 

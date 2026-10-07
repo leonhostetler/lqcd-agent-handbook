@@ -12,6 +12,7 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/targets/cuda/target_cuda.cmake
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/targets/hip/target_hip.cmake
   - https://github.com/lattice/quda/blob/8c9321ed26d35dbfa5b20b1ae1f957648851a865/lib/targets/hip/target_hip.cmake#L94-L104
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/coarse_op.cuh#L792-L820
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/tune_key.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/tune_quda.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/targets/cuda/tunable_kernel.h
@@ -27,7 +28,7 @@ observed: "2026-10-07"
 observed_on:
   software:
     quda:
-      commit: 2c45a60ae479bf8fbe65528809b4c705ec94082c
+      commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
 ---
 
@@ -359,8 +360,13 @@ revision supplies a supported selective replacement mechanism.
 6. Remove diagnostic tracing, freeze the warmed cache and environment, and verify that the
    measured series performs no autotuning. Keep tuning enabled: at the observed revision,
    `QUDA_ENABLE_TUNING=0` skips cache loading and uses default launch parameters rather than
-   reusing a complete cache. Use application timers or a current-run profiler for benchmark
-   evidence. If any compatibility question remains open, stop and build a fresh cache.
+   reusing a complete cache. Those defaults are not always legal: before `00c7ef33d` (PR
+   #1651, 2026-09-04) the coarse-operator construction kernels that swap their coarse-colour
+   grid into the launch's y dimension could exceed the device grid limit at a large coarse
+   volume when untuned, and from that merge the default launch grows its block until the
+   grid fits or fails with a message naming the limit. Read from source. Use application
+   timers or a current-run profiler for benchmark evidence. If any compatibility question
+   remains open, stop and build a fresh cache.
 
 If a cross-build cache gains even one new row, QUDA writes the entire combined map with the
 current header. Old rows then appear beneath the new build identity even though they were

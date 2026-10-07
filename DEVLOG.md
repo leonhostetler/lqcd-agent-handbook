@@ -5139,3 +5139,30 @@ NVSHMEM and frees nothing; `internals/managed-memory.md` and `solvers/staggered-
 (`malloc.cpp` citations): *confirmed*, the file gained only `destroy()`;
 `internals/autotuning.md`, NVSHMEM state in policy keys: *confirmed*;
 `runtime-environment.md`, the `nvshmem=<0|1>` key suffix: *confirmed*.
+
+## 2026-10-07 — QUDA PRs #1652 and #1651: indexing width, a legal untuned launch, the tip reached
+
+PR #1652 (merge `243bcc71e`) drops a hard-coded hipfft include path from the HIP target and
+changes no claim; it is folded in here. PR #1651 (`hotfix/prefetch_overflow`, merge
+`00c7ef33d`, 2026-09-04) is the QUDA tip the stacks and leaves now compare against. Of its
+46 files, the cited ones change by index-type widening (`int` to a global `index_t`),
+clang-format reflow, and no-op guards that keep a build with no spin component enabled from
+recursing; the two facts admitted are the `QUDA_64BIT_INDEXING` option, which makes the
+accessor index width one build property in place of the old per-accessor huge-allocation
+template, and the coarse-operator default launch that now grows its block until the
+coarse-colour-wave grid fits the device limit when tuning is disabled. Also in the merge, not
+admitted: the direct-load template parameters removed from the staggered dslash mappers,
+which change those kernels' demangled names between revisions as `profiling.md`'s standing
+rule already allows for; a 16-byte per-site host RNG for the tests' large-volume cases; a
+`json.hpp` refresh. Read from source, not built.
+
+With this entry the QUDA rollup is empty. What remains flagged is MILC-side: the nine MILC
+leaves read against the 2026-10-06 merges but not re-pinned, and six QUDA leaves whose MILC
+citations those merges moved. `development.md` keeps its one branch citation.
+
+**Reconciliation (obligation 11).** `project.yaml`: option *added*; `autotuning.md` step 6:
+*amended*; `profiling.md`, "read the enumeration in the revision that built the binary":
+*confirmed*, and it now also covers the dropped mapper parameters; `staggered-multigrid/tuning.md`
+and `staggered-multigrid.md` (`coarse_op.cuh` citations): *confirmed*, formatting and
+indexing only; the eight other re-pinned leaves: *confirmed* against the option addition in
+`CMakeLists.txt` and the recursion guards in the blas and reduction sources.
