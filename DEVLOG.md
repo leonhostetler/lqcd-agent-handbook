@@ -4815,3 +4815,28 @@ unaffected: it did carry `-DMULTIGRID`.
   helpers): *confirmed*. Those helpers are live.
 - `software/milc/project.yaml`, the existing `WANT_*` meanings: *amended* to name each define.
   The "QUDA ..." wording became "accelerated ...", because Grid reads some of the same switches.
+
+## 2026-10-07 — MILC PR #93: multi-shift mixed precision, and a wrong precision claim
+
+MILC `develop` merged six pull requests on 2026-10-06; the handbook's MILC leaves were observed
+on `6b9b8a06`, the parent of the first merge. This entry covers PR #93 (`a5f8f9fa`), which
+makes the QUDA multi-shift solver pass `mixed_precision 2` under `MAX_MIXED` when the zeroth
+residual exceeds 3e-5 and the shifted residuals' min/max ratio exceeds 4e-3, and 1 otherwise.
+Before the merge it passed 1 under either setting. Read from source, not run.
+
+Checking what `2` means found a claim wrong since the profiles were written:
+`software/milc/project.yaml` said `WANT_MIXED_PRECISION_GPU` value 2 is "double-single", and
+both `ks_spectrum` profiles claimed "double with double-single QUDA solves". The Makefile
+maps 2 to `-DMAX_MIXED`, the CG call sites pass that as `mixed_precision 2`, and QUDA's MILC
+interface maps 2 to half-precision sloppy fields (QUDA `00c7ef33d`,
+`lib/milc_interface.cpp`). Value 2 is double-half. `software/quda/solvers/staggered-memory.md`
+already fitted "double precise, half sloppy", so the handbook contradicted itself.
+
+**Reconciliation (obligation 11).**
+- `software/milc/project.yaml`, `WANT_MIXED_PRECISION_GPU`: *amended* as above, with the
+  multi-shift exception version-scoped to the merge.
+- `software/milc/build-profiles.yaml`, both `precision` capabilities: *amended* to double-half.
+- `software/quda/solvers/staggered-memory.md`, "double precise, half sloppy": *confirmed*.
+- `software/milc/applications/ks-spectrum.md`, tadpole note naming `ks_multicg_offset_quda.c`:
+  *confirmed*; it concerns the tadpole argument, which PR #93 does not touch.
+- No validated stack record restates the sloppy precision.

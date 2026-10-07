@@ -25,7 +25,7 @@ profiles:
     capabilities:
       applications: [ks_spectrum_hisq]
       fermion_actions: [hisq]
-      precision: [double with double-single QUDA solves]
+      precision: [double with double-half QUDA solves]
       parallelism: [qmp, openmp]
       quda_paths:
         - staggered-cg
@@ -73,7 +73,7 @@ profiles:
     capabilities:
       applications: [ks_spectrum_hisq]
       fermion_actions: [hisq]
-      precision: [double with double-single QUDA solves]
+      precision: [double with double-half QUDA solves]
       parallelism: [qmp, openmp]
       quda_paths:
         - staggered-cg
@@ -145,6 +145,7 @@ observed_on:
       branch: develop
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L1112-L1122
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Frontier/compile_ks_spectrum_hisq.sh
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/integrate_quda.c
