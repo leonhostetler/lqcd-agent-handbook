@@ -15,6 +15,12 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/CMakeLists.txt
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/d_congrad5_fn_quda.c
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface.cpp#L879-L914
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/inv_cg_quda.cpp#L76-L83
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/inv_cg_quda.cpp#L438-L830
+  - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/solver.cpp#L400-L421
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/setup.c#L545-L550
+  - operator's benchmark records (the L2-breakdown observation)
 observed: "2026-08-19"
 observed_on:
   software:
@@ -161,6 +167,44 @@ Keep these invariants explicit:
   some advanced features. Deflation is an error on that path.
 - Convergence of the iterated residual is not a substitute for the post-solve true
   residual when `compute_true_res` is enabled.
+
+## Heavy-quark residual target
+
+MILC's `rel_error_for_propagator` is not a looser alternative to `error_for_propagator`. On
+this path they are two targets the solve must satisfy together, and setting the second changes
+how the solve runs.
+
+- `setInvertParams` in `lib/milc_interface.cpp` maps MILC's L2 target to `tol` and its
+  relative (Fermilab heavy-quark) target to `tol_hq`, and enables the L2 and heavy-quark residual
+  types for whichever target is nonzero. A zero target switches that criterion off.
+- **A nonzero heavy-quark target also switches off mixed precision.** The same routine sets the
+  sloppy precision equal to the precise one whenever the heavy-quark check is on, so the whole
+  solve runs at the precise precision whatever sloppy precision the input requests.
+- Any heavy-quark target sends the solve to `CG::hqsolve` in `lib/inv_cg_quda.cpp`, whatever
+  the right-hand-side count. It stops only when the heavy-quark target is met just after a
+  reliable update **and** the L2 target is either met or abandoned. It abandons L2 at "L2
+  breakdown", logged as a warning of that name: at a reliable update where the residual has
+  risen, either the residual norm is below 100 times the precise unit roundoff or the count of
+  such increases has passed its cap.
+
+**An L2 target below what the precision can reach therefore does not mean "heavy-quark only".**
+Every solve first grinds the L2 residual to the precision floor, and only then does the
+heavy-quark test decide it. In one production-scale benchmark, on an earlier QUDA `develop`
+revision with an L2 target of 1e-16, every heavy-quark solve logged `L2 breakdown` and ended
+near the double-precision floor. To stop on the heavy-quark criterion alone, set
+`error_for_propagator 0`. Which to use is a precision decision, not an error to fix: treat
+`L2 breakdown` on such solves as expected, and judge them by their final heavy-quark and true
+residuals.
+
+**A block solve with a heavy-quark target is steered by its first right-hand side.** In
+`hqsolve`, the reliable-update baselines, the L2-breakdown decision and the stall check read
+only the first right-hand side's residuals, while the final convergence test covers all of
+them. In a MILC `multisource` or `multicolorsource` set with a heavy-quark target, the other
+right-hand sides therefore stop pursuing L2 when the first one breaks down, and their L2 floor
+is not guaranteed to match a single-source solve; the MILC interface reports only the last
+source's residuals (see below). This is source-derived and has not been exercised: before
+relying on such a block solve, check every right-hand side's final residual in QUDA's output and
+compare the results against single-source solves.
 
 ## Memory model
 
