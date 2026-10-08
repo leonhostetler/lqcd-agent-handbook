@@ -5679,3 +5679,75 @@ purpose before the tool was trusted: removing the true-residual check, the MILC-
 incomplete-set check or the dummy-inversion count each failed it. A first mutation that bypassed
 the dummy handling changed nothing the tests exercise, because the dummy is consumed at the
 deflation-load line before any `CONGRAD5`; it was replaced by one on the code that does the work.
+
+## 2026-10-08 — errorQuda's exit path: the mechanism, and the incident becomes an internals leaf
+
+The 2026-10-05 incident recorded the glibc heap error after `errorQuda` with no mechanism known.
+A debugging session on DeltaAI read the abort path at QUDA `develop` `ba501e4f8` and predicted a
+static-destruction-order fault before running anything. The prediction rested on three things:
+the QMP backend's abort reaches `exit()`; `endQuda` is the only thing that empties QUDA's static
+field owners; and in the built `libquda.so`, `malloc.cpp`'s static constructors run after
+`field_cache.cpp`'s (`.init_array` order), so the allocation-tracking maps are destroyed first.
+
+One single-node interactive job then tested it. It had three legs of
+`staggered_eigensolve_test`:
+- a four-rank control without a debugger, which reproduced the heap error;
+- four ranks with every rank under `gdb -batch`;
+- one rank under gdb.
+
+The gdb command file was first checked on a login-node toy with the same shape. It had to record
+a post-exit free and not a pre-exit one, and to catch the SIGABRT from a double free.
+
+Both gdb legs showed the predicted chain:
+
+```text
+errorQuda_ -> comm_abort -> QMP_abort -> MPI_Abort -> exit -> _dl_fini -> __cxa_finalize
+-> FieldTmp<ColorSpinorField>::cache destructor -> ~ColorSpinorField -> host_free_
+-> track_free -> free -> malloc_printerr
+```
+
+Three findings went against the prediction or added to it:
+- `exit()` is called by Cray MPICH's `MPI_Abort` itself: through `PMI2_Abort` under the launcher,
+  through `MPL_exit` as a singleton. QMP's own fallback `exit()` is never reached.
+- The `host_free_` breakpoint was capped at 20 recorded calls. All 20 came from the test
+  executable's own `GaugeField` statics, which were destroyed harmlessly before libquda's
+  teardown.
+- At one rank the TRLM case converged, and the run aborted at BLOCK TRLM instead. That gave a
+  third `errorQuda` site.
+
+The rig's scoring gated on the TRLM message and labelled that leg indeterminate. The leaf's
+advice to match any `ERROR:` line comes from that mislabelling.
+
+Not confirmed:
+- the destruction of `alloc[]` itself was not observed; it is inferred from the init order and
+  the crash inside `track_free`;
+- the hang variant was not reproduced; its explanation (a second `errorQuda` from the
+  invalid-pointer branch, re-saving through an already-destroyed `static std::string`, then
+  re-entering `MPI_Abort`) is read from source and labelled `inferred` in the leaf.
+
+**Placement.** With a mechanism, the file no longer meets the `incidents/` definition (an
+unexplained occurrence). It moves to `software/quda/internals/error-exit-teardown.md`, graded
+`reproduced` with 22 observations: the incident's 13, plus 9 aborts at `ba501e4f8`, 8 of which
+printed the heap error. The incident file is deleted rather than kept beside it, so that the
+handbook has one home for this fact.
+
+**Reconciliation (obligation 11).**
+- `software/quda/incidents/2026-10-01-errorquda-exit-heap-corruption.md`: *deleted*, superseded
+  by the internals leaf. All of its guidance is carried over: read the first `ERROR` line; expect
+  a hang and set a step time limit; a garbage-named tunecache file is evidence; report the
+  `ERROR` line and the exit-path message together.
+- `conventions/batch-scripts.md`, "a library's error path can hang instead of exiting" and the
+  per-step time limit: *confirmed*. The leaf now names the mechanism behind that hang.
+- `software/quda/solvers/eigensolver.md`, exhausting `max_restarts` with `require_convergence`
+  terminates the job through `errorQuda`: *confirmed*.
+- `machines/deltaai/stacks/quda-cuda12-milc-cg-2026q4/notes.md`, the eigensolver gtest's
+  `errorQuda` aborts every rank: *confirmed*.
+- `software/quda/solvers/staggered-memory.md`, a silent abort with no error text is a device
+  out-of-memory: *confirmed*, different object — it concerns aborts with no `ERROR` line.
+- `modes/debugging.md` rule 16, an error path that is itself what dies: *confirmed*, and this is
+  an instance.
+- `ROADMAP.md`, the float-float deferral row listing "the `errorQuda` exit incident" as landed:
+  *amended* to name the leaf, since the incident file no longer exists.
+
+The fix is proposed upstream as the never-destroyed-owner idiom for the field cache, the other
+static field owners, the tracking and pool maps, and the resource path. It was not built.
