@@ -26,7 +26,14 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_action_paths_hisq.c#L106-L114
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/imp_actions/hisq/hisq_u3_action.h
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L130-L134
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_QUDA.c#L407-L443
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_multicg_offset_quda.c#L207-L211
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/dslash_fn.c#L333-L337
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_QUDA.c#L400-L443
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/milc_interface.cpp#L971-L1004
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/gauge_field_order.h#L1039-L1050
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/gauge_field_order.h#L1276-L1347
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/gauge_field_order.h#L1507-L1579
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/gauge_field.cpp#L915-L940
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L1062-L1074
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_meson_mom.c#L290-L356
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_baryon.c#L219-L245
@@ -46,6 +53,9 @@ observed_on:
   software:
     milc:
       commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      branch: develop
+    quda:
+      commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
       branch: develop
 ---
 
@@ -138,19 +148,30 @@ labelled otherwise.
   corner sources in later sets of the same input, by an amount that grows set by set — observed
   once against archived pre-2024 output. An input meant to run under both
   should say `no_gauge_fix` on its `continue` sets.
-- **The tadpole factor `u0` does not reach a HISQ solve on the QUDA path.** HISQ path
-  coefficients are divided by `u0` only under `TADPOLE_IMPROVE`
-  (`generic_ks/ks_action_paths_hisq.c`), which `hisq/hisq_u3_action.h`, the action header the
-  `ks_spectrum_hisq` target builds with, does not define. The QUDA CG, multi-shift and Dslash
-  calls pass `tadpole = 1.0` for HISQ (`generic_ks/d_congrad5_fn_quda.c`,
-  `ks_multicg_offset_quda.c`, `dslash_fn.c`), and QUDA derives the long-link scale from that
-  value. A wrong `u0` is therefore inert for HISQ spectroscopy on this path. **One unguarded
-  exception:** `ks_eigensolve_QUDA` (`generic_ks/eigen_stuff_QUDA.c`) sets the tadpole
-  coefficient, and the long-link scale from it, to `u0` with no HISQ condition. Through
-  `6b9b8a06` a QUDA-deflation build reached it; from `d17e9559` that build loads the space
-  through `load_evecs_quda`, which passes `1.0` for HISQ, and the exception remains only for a
-  build with `USE_EIG_GPU` and neither `USE_CG_GPU` nor `USE_CURRENT_GPU`. Whether it
-  mis-scales the long links when `u0 ≠ 1` has not been run.
+- **The tadpole factor `u0` does not reach a HISQ solve on the QUDA path, and `1.0` is the
+  correct value there.** HISQ path coefficients are divided by `u0` only under
+  `TADPOLE_IMPROVE` (`generic_ks/ks_action_paths_hisq.c`), which
+  `generic_ks/imp_actions/hisq/hisq_u3_action.h`, the action header the `ks_spectrum_hisq`
+  target builds with, does not define, so the long links MILC hands QUDA carry the Naik
+  coefficient −(1+ε)/24 with no `u0`. The QUDA CG, multi-shift and Dslash calls pass
+  `tadpole = 1.0` for HISQ and `u0` otherwise (`generic_ks/d_congrad5_fn_quda.c`,
+  `ks_multicg_offset_quda.c`, `dslash_fn.c`). QUDA's MILC interface turns that value into the
+  long-link scale −(1+ε)/(24·tadpole²), and QUDA's native compressed formats depend on it:
+  reconstruct 13 and 9 rebuild the rows they drop using that scale, while the native
+  reconstruct-18 format does not read it (`lib/milc_interface.cpp`,
+  `include/gauge_field_order.h`). Passing `u0` for HISQ would therefore mis-scale the rebuilt
+  rows of every long link whenever the long links are compressed; how that is selected is in
+  [`milc-gauge-reconstruct.md`](../../quda/internals/milc-gauge-reconstruct.md). A wrong `u0`
+  is inert for HISQ spectroscopy on this path. **One unguarded exception:**
+  `ks_eigensolve_QUDA` (`generic_ks/eigen_stuff_QUDA.c`) sets the tadpole coefficient, and the
+  long-link scale from it, to `u0` with no HISQ condition. Through `6b9b8a06` a QUDA-deflation
+  build reached it; from `d17e9559` that build loads the space through `load_evecs_quda`,
+  which passes `1.0` for HISQ, and the exception remains only for a build with `USE_EIG_GPU`
+  and neither `USE_CG_GPU` nor `USE_CURRENT_GPU`. That function loads every link field with
+  reconstruct 18, so read from source the mis-set scale reaches no solver arithmetic and the
+  exception is latent: it would take effect if that load moved to a compressed reconstruct.
+  The field still records `u0` as its tadpole, which QUDA compares only when checking one
+  gauge field against another. It has not been run with `u0 ≠ 1`.
 - **From `d17e9559`, one gauge configuration per process when eigenvectors are QUDA-resident.**
   Each input set reloads or recomputes the deflation space through QUDA, and QUDA restores the
   space it already holds without checking that the links changed, so a later input set deflates

@@ -5503,3 +5503,36 @@ correctness run on a random field; the run's iteration counts and timings.
   `QUDA_DIRAC_COVDEV=ON`", "set `QUDA_DIRAC_COVDEV=ON` explicitly when `QUDA_DIRAC_DEFAULT_OFF=ON`":
   *confirmed*, untouched; it states the same requirement for the shift and spin-taste paths.
 - `ROADMAP.md` X.14: the `ks_measure` item *deleted*; three items remain.
+
+## 2026-10-08 — Why HISQ passes tadpole 1.0 to QUDA, and the eigensolver exception is latent
+
+A debugging session asked whether MILC's QUDA path dropping `u0` for HISQ solves is a bug. Read
+from source at MILC `a5f8f9fa` and QUDA `ba501e4f8`; nothing was built or run.
+
+It is not a bug. QUDA's MILC interface uses the tadpole argument to form the long-link scale
+−(1+ε)/(24·tadpole²), and the native compressed formats (reconstruct 13 and 9) rebuild their
+dropped rows with it, so the argument must equal the normalization MILC actually built into the
+long links. Asqtad defines `TADPOLE_IMPROVE` and divides the Naik coefficient by u0², so it passes
+`u0`; the HISQ action header does not, so it passes `1.0`. Every staggered `QudaInvertArgs_t` site
+in MILC follows that rule (`d_congrad5_fn_quda.c`, `ks_multicg_offset_quda.c`, `dslash_fn.c`,
+`mat_invert.c` twice, `f_meas_current.c`, `eigen_stuff_QUDA.c`'s `load_evecs_quda`). The
+smearing path's `tadpole = 0` in QUDA passes no long links and never forms the scale.
+
+New: the one exception the leaf already named, `ks_eigensolve_QUDA` setting `tadpole_coeff = u0`,
+loads every link field with reconstruct 18, which does not read the scale, so it is latent rather
+than live. Still not run with `u0 ≠ 1`. The leaf's action-header path was also corrected to the
+full `generic_ks/imp_actions/hisq/hisq_u3_action.h`, and it gained QUDA citations and a QUDA
+`observed_on`, following `wilson-flow.md`.
+
+**Reconciliation (obligation 11).** Searched every leaf for `tadpole` and `u0`.
+- `software/milc/applications/ks-spectrum.md`, the `u0` bullet: *amended* as above.
+- `software/milc/applications/ks-spectrum.md`, input section listing the tadpole factor, and
+  "What it does not cover … A wrong tadpole factor": *confirmed*, untouched.
+- `software/milc/applications/ks-measure.md`, "What it does not cover … A wrong tadpole factor":
+  *confirmed*, untouched.
+- `software/milc/applications/ks-imp-rhmc.md`, input section listing the tadpole factor:
+  *confirmed*, untouched.
+- `ensembles/milc-hisq.yaml`, gauge action "tadpole improved": *confirmed*; consistent, since for
+  HISQ `u0` belongs to the gauge action.
+- `software/quda/internals/milc-gauge-reconstruct.md`: no statement about the scale or tadpole;
+  now linked from the bullet for how long-link compression is selected.
