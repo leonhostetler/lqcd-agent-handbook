@@ -1,0 +1,187 @@
+schema_version: 1
+machine: deltaai
+software: quda
+profile: milc-cg
+validated_on:
+  - gpu-gh200
+tested_software:
+  quda:
+    commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
+    branch: develop
+reference_sources:
+  milc_deltaai_compile_script:
+    commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+    branch: develop
+  milc_deltaai_submission_script:
+    commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+  eigen:
+    version: 3.4.0
+    requested_revision: 3.4.0
+  cccl:
+    commit: 413d2efd811ebb2ca0333a281d04a2de838ecad6
+    requested_revision: v3.3.4
+    branch_context: Tag selected by QUDA; no branch asserted.
+tested_toolchain:
+  programming_environment: PrgEnv-gnu/8.6.0
+  host_compiler:
+    module: gcc-native/14
+    version: 14.2.0
+    wrappers:
+      c: cc
+      cxx: CC
+  craype: craype/2.7.35
+  cuda:
+    module: cudatoolkit/25.5_12.9
+    compiler_version: 12.9.41
+    runtime_version: 12.9
+  driver: 595.71.05
+  mpi:
+    module: cray-mpich/9.0.1
+  target_module: craype-accel-nvidia90
+  cmake: 3.28.3
+build:
+  type: RELEASE
+  target: CUDA
+  gpu_arch: sm_90
+  generator: Unix Makefiles
+  install_layout: <build-dir>/usqcd
+  profile_options_from: software/quda/build-profiles.yaml#milc-cg
+  machine_options:
+    CMAKE_C_COMPILER: cc
+    CMAKE_CXX_COMPILER: CC
+    CMAKE_INSTALL_LIBDIR: lib
+    QUDA_TARGET_TYPE: CUDA
+    QUDA_GPU_ARCH: sm_90
+    CRAY_ACCEL_TARGET: nvidia90
+  dependency_acquisition:
+    mode: QUDA CMake downloads
+    network_required_at_configure: true
+  cost:
+    where: login
+    command: cmake --build <build-dir> --target install --parallel 6
+    parallelism: 6
+    wallclock: 14m15.45s
+    timing_scope: Clean build and install of the complete test suite after a fresh configure in a fresh build directory.
+    maximum_reported_rss_kib: 1529856
+    memory_scope: Maximum RSS reported by GNU time for the command, not aggregate build-process memory.
+validation:
+  date: "2026-10-07"
+  submitted_by: agent
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 1
+    mpi_ranks: 4
+    cpus_per_rank: 16
+    gpus_per_rank: 1
+    visible_gpu_devices: 4
+    accelerator: NVIDIA GH200 120GB
+    accelerator_memory_mib: 97871
+    compute_capability: 9.0
+    partition: ghx4-interactive
+    exclusive: true
+    requested_walltime: 30m
+    scheduler_elapsed: 1m09s
+    rank_grid: [1, 1, 1, 4]
+  runtime:
+    communication: QMP over Cray MPICH
+    QUDA_ENABLE_GDR: 1
+    QUDA_ENABLE_P2P: deliberately unset
+    QUDA_DETERMINISTIC_REDUCE: deliberately unset
+    QUDA_MILC_HISQ_RECONSTRUCT: 13
+    QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY: 9
+    MPICH_GPU_SUPPORT_ENABLED: 1
+    MPICH_RDMA_ENABLED_CUDA: 1
+    MPICH_NEMESIS_ASYNC_PROGRESS: 1
+    MPICH_SMP_SINGLE_COPY_MODE_requested: XPMEM
+    MPICH_SMP_SINGLE_COPY_MODE_reported: CMA
+    MPICH_ASYNC_PROGRESS_reported: 0
+    MPICH_ENV_DISPLAY: 1
+    MPICH_OFI_NIC_VERBOSE: 2
+    OMP_NUM_THREADS: 16
+    OMP_PROC_BIND: spread
+    gpu_binding: Slurm binding disabled so every rank could see all four devices and QUDA could select by local rank.
+    cpu_binding: Sixteen cores per rank through Slurm core binding; no NUMA map was captured.
+    peer_to_peer: QUDA enabled peer access between neighboring ranks in the T-decomposed grid.
+    gdr_evidence: Tunecache policy keys carry p2p=7,gdr=1.
+    resource_path: Fresh writable directory per test for gpu-gh200.
+  tests:
+    - name: accelerator_telemetry_and_visibility
+      devices: 4
+      accelerator: NVIDIA GH200 120GB
+      compute_capability: 9.0
+      result: pass
+    - name: staggered_dslash_test
+      filter: StaggeredDslashTest.verify
+      operator: asqtad MatPC
+      precision: single
+      lattice: [4, 4, 4, 8]
+      l2_relative_deviation: -5.207530e-10
+      maximum_deviation: 9.577120e-6
+      failures_at_1e-6: 0
+      result: pass
+    - name: staggered_invert_test
+      filter: EvenOdd/StaggeredInvertTest.verify/cg_mat_pc_direct_pc_double_l2
+      operator: asqtad
+      solver: cg
+      precision: double
+      lattice: [6, 6, 6, 8]
+      iterations: 180
+      requested_l2_relative_residual: 1.0e-6
+      true_l2_relative_residual: 9.760883e-7
+      result: pass
+    - name: io_test
+      filter: Gauge/GaugeIOTest.*
+      lattice: [4, 4, 4, 8]
+      precisions: [double, single]
+      qio_write_status: 0
+      qio_read_status: 0
+      result: pass
+    - name: staggered_invert_test_deflated
+      filter: EvenOdd/StaggeredInvertTest.verify/cg_mat_pc_direct_pc_double_l2
+      options: --inv-deflate true --eig-n-ev 16 --eig-n-kr 32 --eig-n-conv 16 --eig-tol 1e-8 --eig-max-restarts 200
+      operator: asqtad
+      solver: deflated cg
+      precision: double
+      lattice: [6, 6, 6, 8]
+      eigensolver: TRLM, 16 vectors converged in 22 restarts
+      iterations: 179
+      requested_l2_relative_residual: 1.0e-6
+      true_l2_relative_residual: 9.751698e-7
+      result: pass
+  scope_limits:
+    - The MILC interface was compiled here; the composed MILC executable is validated separately by milc-cuda12-quda-ks-spectrum-2026q4.
+    - The deflated inverter case exercised QUDA's eigensolve and deflated CG once, on a random 6x6x6x8 field where deflating 16 modes saved one iteration against the undeflated case; it is path evidence, not evidence that deflation accelerates a solve.
+    - The eigensolver gtest suite (staggered_eigensolve_test --enable-testing true) passed its first case and then aborted the suite when the smallest-real case did not converge in 1000 restarts without polynomial acceleration, which the suite disables; its result is indeterminate and it is not part of this validation.
+    - The selected inverter cases checked the L2 residual; their heavy-quark tolerance was inactive.
+    - Validation covers one gpu-gh200 node; no multi-node path was exercised.
+    - Each test populated a fresh tunecache, so this is not benchmark evidence.
+    - CPU core binding was exercised, but NUMA placement was not captured or validated.
+evidence: experiment
+observed: "2026-10-07"
+observed_on:
+  machine: deltaai
+  node_type: gpu-gh200
+  software:
+    quda:
+      commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
+      branch: develop
+  toolchain:
+    cuda: 12.9.41
+    host_compiler: GNU 14.2.0 through Cray wrappers
+sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/systems/DeltaAI/compile_quda.sh
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/systems/DeltaAI/submit.sbatch
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/tests/staggered_invert_test.cpp
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/tests/staggered_dslash_test_utils.h
+  - agent-submitted validation run reviewed in the working directory; raw scheduler output is not committed

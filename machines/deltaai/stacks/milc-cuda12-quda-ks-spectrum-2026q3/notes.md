@@ -1,6 +1,6 @@
 ---
 title: MILC CUDA 12 QUDA ks_spectrum stack on DeltaAI
-summary: Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack.
+summary: Superseded for new builds and work at or past MILC d17e9559 by milc-cuda12-quda-ks-spectrum-2026q4, because its recorded link flags no longer link. Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack.
 scope: [machine:deltaai, software:milc, software:quda]
 load_when: Rebuilding or validating the DeltaAI MILC ks_spectrum_hisq stack with QUDA.
 evidence: experiment

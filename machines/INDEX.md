@@ -15,9 +15,11 @@ Entries are grouped by scoped machine.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
-| [MILC CUDA 12 QUDA ks_spectrum stack on DeltaAI](deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q3/notes.md) | Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack. | Rebuilding or validating the DeltaAI MILC ks_spectrum_hisq stack with QUDA. |
+| [MILC CUDA 12 QUDA ks_spectrum stack on DeltaAI](deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q3/notes.md) | Superseded for new builds and work at or past MILC d17e9559 by milc-cuda12-quda-ks-spectrum-2026q4, because its recorded link flags no longer link. Reproduction notes for the validated one-node QUDA-enabled MILC ks_spectrum_hisq application stack. | Rebuilding or validating the DeltaAI MILC ks_spectrum_hisq stack with QUDA. |
+| [MILC CUDA 12 QUDA ks_spectrum stack on DeltaAI at MILC a5f8f9fa](deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q4/notes.md) | Reproduction notes for ks_spectrum_hisq at MILC a5f8f9fa on QUDA ba501e4f8, the OpenMP link flags it needs, and its one-gauge-configuration-per-process deflation limit. | Rebuilding or validating the DeltaAI MILC ks_spectrum_hisq stack with QUDA at or past MILC d17e9559, or deflating with QUDA-resident eigenvectors in it. |
 | [MILC CUDA 12 QUDA wilson_flow stack on DeltaAI](deltaai/stacks/milc-cuda12-quda-wilson-flow-2026q3/notes.md) | Reproduction notes for the validated one-node QUDA-enabled MILC wilson_flow application stack. | Rebuilding or validating the DeltaAI MILC wilson_flow stack with QUDA. |
 | [QUDA CUDA 12 milc-cg stack on DeltaAI](deltaai/stacks/quda-cuda12-milc-cg-2026q3/notes.md) | Reproduction commands and GH200 runtime safeguards for the validated DeltaAI CUDA stack. | Rebuilding or validating the quda-cuda12-milc-cg-2026q3 stack on DeltaAI. |
+| [QUDA CUDA 12 milc-cg stack on DeltaAI at QUDA ba501e4f8](deltaai/stacks/quda-cuda12-milc-cg-2026q4/notes.md) | Reproduction notes for the DeltaAI milc-cg QUDA build at ba501e4f8 with its complete test suite, and the focused validation including one deflated-CG case. | Rebuilding or validating the quda-cuda12-milc-cg-2026q4 stack on DeltaAI, or composing a MILC application against it. |
 | [Working on DeltaAI](deltaai/notes.md) | Compute-target resolution and Grace Hopper build and run prerequisites for DeltaAI. | Building software or preparing a job on DeltaAI. |
 
 ## frontier

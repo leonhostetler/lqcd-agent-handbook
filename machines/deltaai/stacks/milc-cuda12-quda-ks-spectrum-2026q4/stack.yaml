@@ -1,0 +1,196 @@
+schema_version: 1
+machine: deltaai
+software: milc
+profile: ks-spectrum-hisq-quda
+validated_on:
+  - gpu-gh200
+tested_software:
+  milc:
+    commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+    branch: develop
+  quda:
+    commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
+    branch: develop
+reference_sources:
+  milc_deltaai_compile_script:
+    commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+    branch: develop
+  milc_deltaai_submission_script:
+    commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+tested_toolchain:
+  programming_environment: PrgEnv-gnu/8.6.0
+  host_compiler:
+    module: gcc-native/14
+    version: 14.2.0
+    wrappers:
+      c: cc
+      cxx: CC
+  craype: craype/2.7.35
+  cuda:
+    module: cudatoolkit/25.5_12.9
+    compiler_version: 12.9.41
+    runtime_version: 12.9
+  driver: 595.71.05
+  mpi:
+    module: cray-mpich/9.0.1
+  target_module: craype-accel-nvidia90
+build:
+  type: optimized double precision with debug information
+  target: CUDA
+  gpu_arch: sm_90
+  generator: GNU Make
+  install_layout: <install-prefix>/bin/ks_spectrum_hisq
+  profile_options_from: software/milc/build-profiles.yaml#ks-spectrum-hisq-quda
+  portable_recipe: software/milc/applications/ks-spectrum.md
+  machine_options:
+    OFFLOAD: CUDA
+    MY_CC: cc
+    MY_CXX: CC
+    COMPILER: gnu
+    ARCH: ""
+    GPU_ARCH: nvidia
+    OPT: -O3 -Ofast -g
+    LDFLAGS: -O3 -Ofast -g -fopenmp -lgomp
+    CUDA_HOME: <cuda-toolkit-prefix>
+    CUDA_MATH: <cuda-toolkit-prefix>
+    CUDA_COMP: <cuda-toolkit-prefix>
+    CUDA_NVML: <cuda-toolkit-prefix>
+    QUDA_HOME: <quda-install-prefix>
+    QMPPAR: <quda-install-prefix>
+    QIOPAR: <quda-install-prefix>
+    CRAY_ACCEL_TARGET: nvidia90
+  dependency_acquisition:
+    mode: existing validated QUDA stack installation
+    composed_profile: software/quda/build-profiles.yaml#milc-cg
+    validated_stack: machines/deltaai/stacks/quda-cuda12-milc-cg-2026q4/stack.yaml
+    network_required: false
+  cost:
+    where: login
+    command: make -j1 ks_spectrum_hisq
+    parallelism: 1
+    wallclock: 40.69s
+    timing_scope: Fresh worktree; libraries, application objects, and a final link that failed on OpenMP symbols under the earlier LDFLAGS, plus a 1.49s relink with the recorded LDFLAGS.
+    maximum_reported_rss_kib: 110592
+    memory_scope: Maximum RSS reported by GNU time for the make command, not aggregate build-process memory.
+validation:
+  date: "2026-10-07"
+  submitted_by: agent
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 1
+    mpi_ranks: 4
+    cpus_per_rank: 16
+    gpus_per_rank: 1
+    visible_gpu_devices: 4
+    accelerator: NVIDIA GH200 120GB
+    accelerator_memory_mib: 97871
+    compute_capability: 9.0
+    partition: ghx4-interactive
+    exclusive: true
+    requested_walltime: 30m
+    global_lattice: [16, 16, 16, 32]
+    rank_grid: [1, 1, 2, 2]
+    local_lattice_per_rank: [16, 16, 8, 16]
+  runtime:
+    communication: QMP over Cray MPICH
+    QUDA_ENABLE_GDR: 1
+    QUDA_ENABLE_P2P: deliberately unset
+    QUDA_DETERMINISTIC_REDUCE: deliberately unset
+    QUDA_MILC_HISQ_RECONSTRUCT: 13
+    QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY: 9
+    MPICH_GPU_SUPPORT_ENABLED: 1
+    MPICH_RDMA_ENABLED_CUDA: 1
+    MPICH_NEMESIS_ASYNC_PROGRESS: 1
+    MPICH_SMP_SINGLE_COPY_MODE_requested: XPMEM
+    MPICH_SMP_SINGLE_COPY_MODE_reported: CMA
+    MPICH_ASYNC_PROGRESS_reported: 0
+    MPICH_ENV_DISPLAY: 1
+    MPICH_OFI_NIC_VERBOSE: 2
+    OMP_NUM_THREADS: 16
+    OMP_PROC_BIND: spread
+    gpu_binding: Disabled so every rank retained all four devices for QUDA local-rank mapping.
+    cpu_binding: Sixteen cores per rank through Slurm core binding; no NUMA map was captured.
+    quda_resource_path: Fresh writable tunecache directory per leg for gpu-gh200.
+    gdr_evidence: Tunecache policy keys carry p2p=7,gdr=1.
+    linked_quda: DT_RPATH resolves libquda.so from the composed install prefix; the install and build-tree copies share one GNU Build ID.
+    openmp_runtime: libgomp.so.1, the only OpenMP runtime linked.
+  tests:
+    - name: accelerator_telemetry_and_visibility
+      devices: 4
+      accelerator: NVIDIA GH200 120GB
+      compute_capability: 9.0
+      visible_devices_per_rank: 4
+      result: pass
+    - name: application_completion
+      input: upstream systems/DeltaAI/sample.in, unchanged
+      terminal_marker: RUNNING COMPLETED
+      payload_exit_code: 0
+      result: pass
+    - name: hisq_fermion_link_construction
+      implementation_marker: "FLTIME: time = ... (HISQ QUDA D)"
+      result: pass
+    - name: quda_cg_convergence
+      solves: 24
+      requested_true_residual: 1.0e-8
+      maximum_true_residual: 9.992731e-9
+      minimum_iterations: 73
+      maximum_iterations: 4266
+      total_reported_quda_iterations: 42510
+      convergence_markers: 24
+      result: pass
+    - name: correlator_output_structure
+      correlator_records: 12
+      time_slices_per_record: 32
+      data_rows: 384
+      result: pass
+    - name: quda_eigensolve_and_deflated_cg_first_input_set
+      input: two warm input sets, 32 fresh QUDA eigenpairs each, deflated UML multimass at masses 0.002 and 0.001, tolerance 1e-8
+      eigensolver: TRLM, 32 vectors, Chebyshev_alpha 1e-4, Chebyshev_beta 0 (QUDA estimate)
+      first_input_set_solves_converged: 12 of 12
+      first_input_set_maximum_true_residual: 9.98707e-9
+      result: pass
+  scope_limits:
+    - Deflation was exercised only for the first input set of a process. The second input set reused the first set's QUDA-resident deflation space without a fresh eigensolve, and 6 of its 12 deflated solves ended with true residuals between 1 and 3e4 while the run reported completion and exited 0; a build adding qudaCleanUpDeflationSpace() before each load_evecs_quda converged all 12. Run one gauge configuration per process when eigenvectors are QUDA-resident; software/quda/internals/milc-deflation-space.md owns the mechanism.
+    - The deflation runs used a warm (random) gauge field, whose lowest 32 eigenvalues lie between 1e-9 and 6.2e-6; Chebyshev_alpha 1, 3, and 10 did not converge on it. The eigensolver parameters are a test choice, not a recommendation for a physical ensemble.
+    - LDFLAGS names the GCC OpenMP runtime explicitly. The 2026q3 stack's recorded LDFLAGS of -g did not link on DeltaAI on 2026-10-07, at either MILC commit and against either QUDA commit, with 625 undefined OpenMP references.
+    - The build ran at -j1; at -j4 objects compiled before the target recipe generated quark_action.h and failed.
+    - QIO was linked, but neither input exercised QIO file read or write through the MILC application.
+    - Gaussian smearing, gauge-force, and fermion-force paths were compiled but not exercised.
+    - The gauge-fixing path executed in sample.in, but acceptance did not assert that its final reported delta met the configured tolerance.
+    - Correlator validation checked structure and completeness for sample.in, not agreement with reference correlator values.
+    - Validation covers one gpu-gh200 node and the P2P-enabled default path; no multi-node communication or GDR path was demonstrated.
+    - Every leg populated a fresh tunecache and is not benchmark evidence.
+    - CPU core binding was exercised, but NUMA placement was not captured or validated.
+evidence: experiment
+observed: "2026-10-07"
+observed_on:
+  machine: deltaai
+  node_type: gpu-gh200
+  software:
+    milc:
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      branch: develop
+    quda:
+      commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
+      branch: develop
+  toolchain:
+    cuda: 12.9.41
+    host_compiler: GNU 14.2.0 through Cray wrappers
+sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/systems/DeltaAI/compile_ks_spectrum_hisq.sh
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/systems/DeltaAI/sample.in
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/systems/DeltaAI/submit.sbatch
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/control.c#L280-L385
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/solver.cpp#L276-L300
+  - agent-submitted validation runs reviewed in the working directory; raw scheduler output is not committed
