@@ -45,7 +45,7 @@ not when a session reports it done.
 
 | # | Owed | Note |
 |---|---|---|
-| 4.1 | `tools/extract-milc-timings.py` | carries the untraced-control comparison (below) |
+| 4.1 | `tools/extract-milc-timings.py` | **solve accounting landed 2026-10-08** (`solves`: per-set convergence by true residual and MILC status, dummy inversions excluded); still owed: the timing series under the first-solve rule, which carries the untraced-control comparison (below) |
 | 4.2 | `tools/summarize-slurm-job.py` | |
 | 4.3 | `tools/collect-environment.sh` | |
 | 4.4 | `schemas/prediction.schema.json` | |

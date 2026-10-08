@@ -250,6 +250,8 @@ default, count `TRLM computed the requested` lines, one per fresh eigensolve; in
 `ks_spectrum` run that reused the first set's space there was exactly one `[observed]`. From MILC `d17e9559` the application side adds `Loading deflation spaces into
 QUDA` and `Time to load deflation space = ...` before the first solve, and one
 `Solving for <n> source(s) with|without deflation for parity <p>` line per call.
+`tools/extract-milc-timings.py solves` counts these markers per input set and judges every
+deflated solve by its true residual and MILC's status line rather than by a `Convergence at` line.
 
 Record:
 

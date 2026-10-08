@@ -289,7 +289,11 @@ With the corresponding component instrumentation:
 - `CONGRAD5` records identify the executed inverter family and report implementation-dependent
   time, iteration, mass, right-hand-side, precision, and throughput fields;
 - backend convergence and true-residual records establish whether the requested numerical path
-  completed;
+  completed. `tools/extract-milc-timings.py solves`, run through `tools/run-extract-milc-timings`,
+  accounts for them per input set and parity: it
+  judges each right-hand side by its true residual and by MILC's status line, reports any
+  disagreement between the two, and excludes the zero-iteration dummy inversion of each
+  deflation-space load;
 - meson, baryon, smearing, link, and I/O timers provide child costs inside application phases;
   and
 - backend tuning and memory records describe accelerator state, not `ks_spectrum` work units.

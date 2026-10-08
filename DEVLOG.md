@@ -5652,3 +5652,30 @@ preserved or stale deflation spaces, and `load_evecs_quda`.
   *confirmed*, untouched.
 - `ROADMAP.md` X.14, the upstream-fixes clause: *amended* to name the pull request, the leaves to
   version-scope at its merge, and the measurement to admit then.
+
+## 2026-10-08 — `extract-milc-timings.py solves`: the first part of obligation 4.1
+
+An automation checkpoint (`conventions/repeated-work.md`) at the close of a debugging phase found
+MILC solve summaries derived by hand about six times in one day, and wrong twice in the same way:
+the zero-iteration dummy inversion that `load_evecs_quda` runs to trigger an eigensolve was
+counted as a failed solve, once in a job's own results block. That is the quiet failure the
+convention says to automate, and 4.1 already owed the one reader of MILC output, so the summary
+landed there rather than as a second tool.
+
+Version 1.0.0 implements the `solves` subcommand only. A solve is a `CONGRAD5` record; it is
+judged by both convergence signals the output prints, QUDA's per-right-hand-side true residual
+against its requested residual and MILC's `OK`/`NOT converged` status, and a disagreement between
+them is reported. Input sets are delimited by `RUNNING COMPLETED`. The record formats were read
+from `ks_spectrum` and `ks_measure` output at MILC `a5f8f9fa` (and a branch on it) with QUDA
+`ba501e4f8`: single-source QUDA solves, 16-source `ks_measure` solves, CPU solves with no QUDA
+lines, and a run that aborted mid-set. On those logs it reproduced the hand tallies of the
+stale-deflation A/B: 6 of 12 and 16 of 32 second-set right-hand sides above tolerance, the crashed
+run's incomplete set, `ERROR` line and missing exit record, and clean fixed runs. The timing series
+under the first-solve rule and the untraced-control comparison are not implemented, and the
+tool's output says so.
+
+The suite, `tests/test_extract_milc_timings.py`, uses synthetic logs only. It was made to fail on
+purpose before the tool was trusted: removing the true-residual check, the MILC-status check, the
+incomplete-set check or the dummy-inversion count each failed it. A first mutation that bypassed
+the dummy handling changed nothing the tests exercise, because the dummy is consumed at the
+deflation-load line before any `CONGRAD5`; it was replaced by one on the code that does the work.

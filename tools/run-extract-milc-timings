@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Run the MILC output extractor under an interpreter the shared dispatcher selects.
+# The extractor imports only the standard library but needs Python 3.10+, which a bare
+# python3 on PATH does not guarantee.
+set -eu
+
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+here="$(cd -- "$here" && pwd)"
+
+exec "${BASH:-bash}" "$here/select-python" \
+    --label "the MILC output extractor" \
+    --allow-module-load \
+    -- "$here/extract-milc-timings.py" "$@"
