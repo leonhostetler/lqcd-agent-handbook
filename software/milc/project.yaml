@@ -104,7 +104,8 @@ build_options:
       From d17e9559: routes ks_measure's exact low-mode current through qudaExactCurrent and
       its low-mode source projection through qudaProject; defines USE_CURRENT_GPU, added
       through OCFLAGS rather than CGPU. Needs a QUDA-resident deflation space of both
-      parities, which ks_measure loads at start-up when eigenpairs are requested.
+      parities, which ks_measure loads at start-up when eigenpairs are requested, and a QUDA
+      built with QUDA_DIRAC_COVDEV, which the quda milc-cg profile does not enable.
     type: boolean
     capabilities: [QUDA exact current]
   WANT_KS_CONT_GPU:

@@ -52,7 +52,12 @@ build_options:
       - staggered
       - improved-staggered
   QUDA_DIRAC_COVDEV:
-    meaning: Builds the covariant-derivative operator used by shift and spin-taste interface paths.
+    meaning: >-
+      Builds the covariant-derivative operator used by the MILC interface's shift and
+      spin-taste paths and, from MILC d17e9559, by qudaExactCurrent for ks_measure's exact
+      low-mode current. A build without it still compiles and links those entry points; the
+      first covariant-derivative application then stops in errorQuda with "Covariant
+      derivative kernels have not been built" (read from source at ba501e4f8).
     type: boolean
     capabilities:
       - covariant derivative
@@ -213,3 +218,5 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/CMakeLists.txt#L105
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/CMakeLists.txt#L633-L635
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/instantiate.h#L52
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/covariant_derivative.cu#L162-L170
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/milc_interface.cpp#L1614-L1625

@@ -37,6 +37,7 @@ profiles:
       - multigrid
     notes:
       - QDP remains enabled because the native staggered dslash and inverter tests construct QDP-ordered host gauge fields.
+      - QUDA_DIRAC_DEFAULT_OFF leaves QUDA_DIRAC_COVDEV off, so this profile does not serve MILC's WANT_CURRENT_GPU exact current, nor the shift and spin-taste paths; those need QUDA_DIRAC_COVDEV=ON added (software/quda/project.yaml). A ks_measure exact-current run against such a build is a different option set from this profile.
       - QMP and QIO are dependencies of this MILC-facing build, not separate profile-name components.
       - Deflated CG needs no additional QUDA profile switch at the observed revision; the composed MILC profile sets WANT_EIG_GPU explicitly (MILC's Makefile forced it from WANT_FN_CG_GPU through 6b9b8a06 and stopped at d17e9559). Runtime validation remains stack-owned.
       - The all-tests options implement the default in playbooks/build-lqcd-stack.md; only an explicit operator instruction may override them for a build.

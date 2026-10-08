@@ -82,11 +82,13 @@ start-up; with the accelerated eigensolver as well, the host eigenvector arrays 
 The same merge makes the five-mass current writers emit a separate strange-mass record in both
 the low-mode and the high-mode output, so the expected record count changes across it. Each
 input set reloads the space through QUDA, and QUDA restores a space it already holds without
-checking that the links changed, so hold one gauge configuration per process; see
+checking that the links changed, so hold one gauge configuration per process. Measured at
+`a5f8f9fa`: on the second gauge configuration of a process the exact current came out wrong by
+orders of magnitude and a block of deflated stochastic solves diverged, while the run reported
+`RUNNING COMPLETED` and exited 0; mechanism, measurement and the one-call remedy are in
 [`../../quda/internals/milc-deflation-space.md`](../../quda/internals/milc-deflation-space.md).
-Read from source, not run here. The same reuse, measured in `ks_spectrum`, silently produced
-unconverged deflated solves on the second gauge configuration, so do not read its absence
-from this application's logs as evidence that the current is safe.
+The exact current also needs a QUDA built with `QUDA_DIRAC_COVDEV`, which the QUDA `milc-cg`
+profile leaves off; against such a build it stops at run time, not at link time.
 
 ### Proofread the input before submitting, not at run time
 

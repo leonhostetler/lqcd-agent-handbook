@@ -20,6 +20,7 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2015-L2030
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/solver.cpp#L276-L300
   - agent-run A/B validation on DeltaAI reviewed in the working directory; raw output is not committed
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/covariant_derivative.cu#L162-L170
 observed: "2026-10-07"
 observed_on:
   software:
@@ -171,7 +172,19 @@ iteration limit, while QUDA printed its usual `Convergence at` line, MILC report
 about 7e5 times their scale. The control ran two eigensolves and converged all 12. So the reuse
 corrupts propagators, not only the exact current, and the corruption is silent: judge each
 deflated solve by its true residual. The cleanup call is a demonstrated remedy for
-`ks_spectrum`; `ks_measure`'s exact-current path was not run.
+`ks_spectrum`.
+
+`[experiment]` The same A/B in `ks_measure_current_hisq` with `WANT_CURRENT_GPU`, on the same
+machine and commits against a QUDA that also enables `QUDA_DIRAC_COVDEV`: two random input sets,
+32 fresh eigenpairs each, one mass, two 16-source stochastic blocks per set. The unmodified build
+ran one eigensolve; its second set's space "loaded" in 2 ms against tens of seconds for a fresh
+one. The first set's exact low-mode current matched the control's to 1.4e-4 of its scale. In the
+second set the exact current differed from the control's by about 1.5e4 times its scale, the
+stochastic high-mode part by about 2e8 times, and one 16-source block of deflated solves diverged,
+15 of its 16 ending above the requested 1e-8 (worst true residual 3e9). The run reported
+completion and exited 0, and the control converged every solve. So the exact current is wrong,
+silently, from the second gauge configuration of a process; the cleanup call removes it here
+too. Both measurements used debugging builds, not validated stacks.
 
 ## Exact-current preconditions
 
@@ -179,9 +192,11 @@ At the observed revision, `qudaExactCurrent` requires:
 
 - both even and odd preserved deflation spaces;
 - both parity mass tags to be exactly zero;
-- at least the requested `eigargs.n_ev` vectors; and
+- at least the requested `eigargs.n_ev` vectors;
 - gauge and covariant-derivative operators compatible with the eigenvector
-  storage precision.
+  storage precision; and
+- a QUDA built with `QUDA_DIRAC_COVDEV`. Without it the call is still linked, and stops in
+  `errorQuda` at its first covariant-derivative application `[source]`.
 
 Having a zero-mass snapshot is not a substitute for those first two
 conditions: the actual parity spaces must be loaded and tagged at mass zero
@@ -212,5 +227,6 @@ When reuse is unexpected or residuals change:
    assuming the cached zero-mass snapshot is sufficient.
 
 See [`../solvers/eigensolver.md`](../solvers/eigensolver.md) for native
-eigensolver algorithm and search-space invariants. This page documents source
-behavior, not a validated machine-specific exact-current build.
+eigensolver algorithm and search-space invariants. Apart from the two labelled
+measurements above, this page documents source behavior; no validated stack yet covers the
+exact-current path.

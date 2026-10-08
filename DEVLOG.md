@@ -5455,3 +5455,51 @@ conditional on no interpreter carrying the packages: *confirmed*. The `tests/sup
 banner, printed only when no interpreter carries a requirement: *confirmed*. The previous entry's
 sentence that the startup check reports only whether the optional environment exists described
 the tool before this change, and is superseded here rather than edited.
+
+## 2026-10-07 — X.14, first item: ks_measure's exact current is wrong from the second gauge configuration
+
+X.14 named `ks_measure` with `WANT_CURRENT_GPU` as the one item DeltaAI could settle. It ran the
+same A/B as the `ks_spectrum` deflation test: `ks_measure_current_hisq`, two random-field input
+sets with 32 fresh QUDA eigenpairs each, unmodified MILC `a5f8f9fa` against the same build with
+`qudaCleanUpDeflationSpace()` before each `load_evecs_quda(fn, 1)`. QUDA was `ba501e4f8`. One
+one-node job, about a tenth of a node-hour. The evidence is the operator's working-directory
+campaign record; nothing raw is committed.
+
+Two things had to be settled before the run, and both are now leaf facts. **No `ks_measure` build
+profile exists**, so the binaries are a debugging option set (the `ks_spectrum` profile plus
+`WANT_CURRENT_GPU`), recorded in the working directory and deliberately not proposed as a profile.
+And **the exact current needs QUDA's covariant derivative**: `qudaExactCurrent` constructs a
+`GaugeCovDev`, which the `milc-cg` profile, with `QUDA_DIRAC_DEFAULT_OFF` and no
+`QUDA_DIRAC_COVDEV`, does not compile. Such a build links the entry point and would stop in
+`errorQuda` at the first application. That failure is read from source, not run; the test used a
+second QUDA build, identical apart from `QUDA_DIRAC_COVDEV=ON`.
+
+Result. The prediction from source held: the unmodified build ran one eigensolve, and its second
+set's space "loaded" in 2 ms. The first set agreed between the builds (exact current within 1.4e-4
+of scale, every solve near 1e-8). In the second set the exact low-mode current was wrong by about
+1.5e4 times its scale, the stochastic part by about 2e8 times, and one 16-source block of deflated
+solves diverged, 15 of 16 above tolerance, worst true residual 3e9. The run reported completion and
+exited 0. The control converged everything. The same cleanup call is now a measured remedy in both
+applications, and the upstream report carries both A/Bs.
+
+Not admitted: the debugging option set as a `ks_measure` profile, which would rest on one
+correctness run on a random field; the run's iteration counts and timings.
+
+**Reconciliation (obligation 11).**
+- `software/milc/applications/ks-measure.md`, "Read from source, not run here … do not read its
+  absence from this application's logs as evidence": *amended* to the measured result, with the
+  `QUDA_DIRAC_COVDEV` requirement added; "no named `ks_measure` build profile": *confirmed*,
+  untouched.
+- `software/quda/internals/milc-deflation-space.md`, "`ks_measure`'s exact-current path was not
+  run": *amended* to the second `[experiment]` paragraph; exact-current preconditions: *amended*
+  with the covariant-derivative build requirement; "not a validated machine-specific exact-current
+  build": *amended*, still true that no stack covers the path; checklist item 7: *confirmed*.
+- `software/quda/project.yaml`, `QUDA_DIRAC_COVDEV` "used by shift and spin-taste interface paths":
+  *amended* with the exact-current consumer and the run-time failure mode.
+- `software/quda/build-profiles.yaml`, `milc-cg`: capability list *confirmed*, untouched (it never
+  claimed the exact current); a note *added* that the profile leaves the covariant derivative off.
+- `software/milc/project.yaml`, `WANT_CURRENT_GPU`: *amended* with the QUDA build requirement.
+- `software/quda/internals/milc-shift-interface.md`, "`QUDA_INTERFACE_MILC=ON` and
+  `QUDA_DIRAC_COVDEV=ON`", "set `QUDA_DIRAC_COVDEV=ON` explicitly when `QUDA_DIRAC_DEFAULT_OFF=ON`":
+  *confirmed*, untouched; it states the same requirement for the shift and spin-taste paths.
+- `ROADMAP.md` X.14: the `ks_measure` item *deleted*; three items remain.
