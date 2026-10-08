@@ -159,6 +159,10 @@ Five things about how the switches compose are not visible from any single switc
 3. **Some switches turn on others.**
    - `WANT_FN_CG_GPU` forced `WANT_EIG_GPU` through `6b9b8a06`; from `d17e9559` the Makefile rule
      is commented out, while the CMake build at `a5f8f9fa` still sets `GPU_EIG` from `GPU_FN_CG`.
+     The Make half is not a free choice: at `a5f8f9fa` `load_quda_default_eig_args`, defined in
+     `milc_to_quda_utilities.c`, reads eigensolver-only fields of `ks_eigen_param`, so a Make
+     build with `WANT_FN_CG_GPU` and without `WANT_EIG_GPU` does not compile `[observed]`. Guard
+     any new reader of those fields on `USE_EIG_GPU`.
    - `WANT_CL_BCG_GPU` also defines `USE_GAUGEFIX_OVR_GPU`.
 4. **`-DMULTIGRID` has two sources.** `WANT_MULTIGRID=true` adds it in a `WANTQUDA` build, and so
    does a `KSCGMULTI` value that carries it. Both multigrid solve paths in

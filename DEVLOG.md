@@ -5291,3 +5291,98 @@ deleted range and a bare brace are refused, so a refusal is not a no-op path.
 *confirmed* unchanged, orientation runs the triage and does not re-cite; the five corrected
 citations: *amended*, claims *confirmed*; the `conventions/repeated-work.md` checkpoint record
 for this candidate lives in the working directory, as the convention says, not here.
+
+## 2026-10-07 — X.13 settled on DeltaAI: the rebuild past d17e9559, and what it overturned
+
+ROADMAP X.13 asked the first rebuild past MILC `d17e9559` to settle the claims the 2026-10-06
+merge review had read from source. It ran on DeltaAI `gpu-gh200` against fresh `develop` clones,
+MILC `a5f8f9fa` and QUDA `ba501e4f8` (one merge past the reviewed `00c7ef33d`: PR #1660, a
+peer-to-peer handle `sizeof` fix in `comm_target.cpp` that no leaf cites). Builds ran on the login
+node; four one-node jobs on `ghx4-interactive` used under half a node-hour of a five-node-hour
+campaign grant. The evidence is the operator's working-directory record of the campaign; nothing
+raw is committed.
+
+What the runs established:
+- **The forced `mpicc` (claim 1): confirmed.** Every `su3` library compile line used `mpicc`
+  although `APP_CC=cc` was passed. DeltaAI ships an `mpicc` wrapping plain `gcc`, so the library
+  built there; the outright failure on a system without one remains source-only.
+- **The explicit `WANT_EIG_GPU` (claim 2): the leaf consequence was wrong.** The leaves said a
+  build without it would terminate at input on a fresh-eigenvector request and could deflate only
+  with MILC-supplied host eigenvectors. At `a5f8f9fa` such a build does not compile:
+  `load_quda_default_eig_args` reads eigensolver-only `ks_eigen_param` fields unguarded (the
+  `eigPrec` use from `3ff7a96e`, reached `develop` via PR #99). Neither path the leaves described
+  is reachable from Make.
+- **The stale deflation space (claim 3): confirmed, and worse than recorded.** An A/B on two
+  random-field input sets, moving only a `qudaCleanUpDeflationSpace()` call before each
+  `load_evecs_quda`: the unmodified build ran one eigensolve where the control ran two, as
+  predicted from source by counting `TRLM computed the requested` lines; the first set agreed
+  between builds; in the second, 6 of 12 deflated solves stalled at true residuals of 1 to 3e4
+  while the run reported completion and exited 0, and its correlators were wrong. The leaves had
+  said this costs `ks_spectrum` convergence only.
+- **The single-precision type mismatch (claim 4): confirmed** with GCC 14.2, in `control.c` and
+  also in `mat_invert.c`, which the review had not listed. The matched `PRECISION=2` build compiles.
+- **CMake forcing `GPU_EIG` (claim 5): confirmed.** An explicit `-DGPU_EIG=OFF` is cached and then
+  shadowed by a normal variable. Given claim 2, the forcing is what keeps CMake building today.
+
+Found along the way and admitted: a non-QIO `ks_spectrum_hisq` does not compile at `a5f8f9fa`
+(unguarded QIO constants in `io_lat_utils.c`, from PR #99); a parallel `make` races on the
+generated `quark_action.h`; `Restoring deflation space` never prints at MILC's default QUDA
+verbosity; and the DeltaAI `2026q3` MILC stack's recorded `LDFLAGS=-g` no longer links. That last
+one was bisected by control rather than by reading: the stack's own MILC and QUDA commits, rebuilt
+the same day, failed identically (625 undefined OpenMP references), and neither `libquda.so` lists
+`libgomp`, so it is no source change in either project. Whether the site toolchain moved or the
+recorded value never matched the link that worked is undetermined; the new record names the
+runtime. New stack records: `quda-cuda12-milc-cg-2026q4` (the `2026q3` contract plus one deflated
+inverter case, the first QUDA-native deflated solve any stack has run) and
+`milc-cuda12-quda-ks-spectrum-2026q4`, which supersedes the `2026q3` MILC record.
+
+Not admitted: the Chebyshev window that converged on the random test field (its lowest 32
+eigenvalues lie between 1e-9 and 6.2e-6; `Chebyshev_alpha` 1 to 10 never converged), because it
+is a property of an unphysical field and would read as guidance for an ensemble — it stays in the
+stack record as a test choice only; QUDA's eigensolver gtest suite, whose smallest-real case did
+not converge without polynomial acceleration and whose `errorQuda` then aborted the rest of the
+suite; a `double free or corruption` seen once on rank 0 after `errorQuda`, secondary to an
+intended abort and not investigated.
+
+X.13 leaves the list; X.14 carries what this machine could not reach. 5.1 is amended: the DeltaAI
+`2026q4` stacks are the first to exercise a deflated solve.
+
+**Reconciliation (obligation 11).**
+- `software/milc/project.yaml`, `WANT_FN_CG_GPU` "a build without it can deflate only with
+  eigenvectors MILC reads … or computes on the host": *amended* to the compile failure; its CMake
+  clause: *confirmed* and amended with the observed override of an explicit OFF. `WANT_EIG_GPU`
+  "MILC supplies host eigenvectors to it (unset)": *amended*, that branch is unreachable from
+  Make. `WANTQUDA` (the dblstore constraint and the CMake spelling): *confirmed*, untouched.
+- `software/milc/build-profiles.yaml`, `ks-spectrum-hisq-quda` note "without it a
+  fresh-eigenvector request terminates at input": *amended*; the `ks-spectrum-hisq-quda-mg` note
+  ("explicit here for the same reason"): *confirmed*, it points at the amended one.
+- `software/quda/build-profiles.yaml`, `milc-cg` note (the Makefile forcing through `6b9b8a06`,
+  stopped at `d17e9559`): *confirmed*.
+- `software/quda/solvers/staggered-deflated-cg.md`, "a build without `USE_EIG_GPU` can deflate only
+  with eigenvectors MILC reads … a fresh-eigenvector request then terminating at input":
+  *amended*; "for reuse, look for messages such as `Restoring deflation space`": *amended* with
+  the verbosity condition and the eigensolve count to use instead; the mass-shift and
+  `load_evecs_quda` paragraphs: *confirmed*.
+- `software/quda/solvers/staggered-cg.md`, "`WANT_EIG_GPU` must be set explicitly": *amended* with
+  the compile failure; runtime deflation inactive at zero count: *confirmed*.
+- `software/milc/quda-host-helpers.md`, switch-coupling item: *amended* with the compile failure
+  and a guard rule for new readers; the other four items: *confirmed*.
+- `software/quda/internals/milc-deflation-space.md`, "Read from source, not run: hold one gauge
+  configuration per process": *amended* to the measured A/B; the cleanup and exact-current
+  sections: *confirmed*; the debugging checklist item on cleanup: *confirmed*.
+- `software/milc/applications/ks-spectrum.md`, the one-configuration rule: *amended* to measured;
+  the `PRECISION=1` bullet "Read from source, not compiled": *amended* to compiled, with the
+  `mat_invert.c` errors; the `d17e9559` output paragraph: *amended*, its `srcs`, load and
+  per-solve deflation lines now observed, the QIO-debug and contraction lines still source; the
+  `u0` exception for a `USE_EIG_GPU`-only build: *confirmed*, untouched.
+- `software/milc/applications/ks-measure.md`, the one-configuration rule: *confirmed* as
+  source-only for `ks_measure`, with the `ks_spectrum` measurement added.
+- `software/milc/build.md`, the `mpicc` section "Read from source, not built": *amended* to
+  observed on DeltaAI, the failure half kept source-only; the OpenMP `LDFLAGS` paragraph:
+  *confirmed* and amended with the DeltaAI wrapper observation; new section on serial builds and
+  non-QIO builds: *added*. No other leaf states the `make -j` or non-QIO constraints;
+  `machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md` treats
+  `quark_action.h` as a copy step for reproduction, a different fact: *confirmed*, untouched.
+- `machines/deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q3/notes.md`, "call the
+  site-recommended Cray `cc` and `CC` wrappers directly instead of the interception-layer `mpicc`":
+  *confirmed* for the application, and the `2026q4` notes record that the library step ignores it.

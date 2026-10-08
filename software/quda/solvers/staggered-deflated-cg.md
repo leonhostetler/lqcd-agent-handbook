@@ -152,9 +152,11 @@ QUDA_DIRAC_STAGGERED=ON
 
 MILC must compile with QUDA CG and eigensolver support (`HAVE_QUDA`, `USE_CG_GPU`, and
 `USE_EIG_GPU`). Through `6b9b8a06` MILC's Makefile forced `WANT_EIG_GPU` on with
-`WANT_FN_CG_GPU`; from `d17e9559` it does not, and a build without `USE_EIG_GPU` can deflate
-only with eigenvectors MILC reads from its own files or computes on the host and hands to QUDA
-(`QUDA_MILC_EIG_LOAD`), a fresh-eigenvector request then terminating at input. The selected
+`WANT_FN_CG_GPU`; from `d17e9559` it does not, and the switch must be set. The source keeps a
+branch for a build without `USE_EIG_GPU`, in which MILC reads or computes host eigenvectors and
+hands them to QUDA (`QUDA_MILC_EIG_LOAD`), but at `a5f8f9fa` a Make build with `USE_CG_GPU` and
+without `USE_EIG_GPU` does not compile, so that branch is unreachable there `[observed]`; see
+`../../milc/project.yaml`. The selected
 QUDA revision, precision set, communication backend, eigenvector I/O path, and intended
 block-TRLM settings still require stack validation.
 
@@ -239,7 +241,10 @@ projection, and a representative solve rather than sampling only steady-state CG
 For a fresh space, confirm that output shows an eigensolver construction and convergence
 before CG. For reuse, look for messages such as `Restoring deflation space`,
 `Preserving deflation space`, `Shifting eigenvalues`, or `Resetting eigenvalues`, as
-applicable. From MILC `d17e9559` the application side adds `Loading deflation spaces into
+applicable, but only at `QUDA_VERBOSE` or above: they are logged at that level, and MILC's
+default QUDA verbosity is `SUMMARIZE`, at which a restore prints nothing `[source]`. At the
+default, count `TRLM computed the requested` lines, one per fresh eigensolve; in a two-set
+`ks_spectrum` run that reused the first set's space there was exactly one `[observed]`. From MILC `d17e9559` the application side adds `Loading deflation spaces into
 QUDA` and `Time to load deflation space = ...` before the first solve, and one
 `Solving for <n> source(s) with|without deflation for parity <p>` line per call.
 

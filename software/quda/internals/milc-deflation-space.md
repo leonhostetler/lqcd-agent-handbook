@@ -18,6 +18,8 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_QUDA.c#L112-L255
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/f_meas_current.c#L1572-L1604
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2015-L2030
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/solver.cpp#L276-L300
+  - agent-run A/B validation on DeltaAI reviewed in the working directory; raw output is not committed
 observed: "2026-10-07"
 observed_on:
   software:
@@ -154,8 +156,22 @@ application takes it: each input set calls `load_evecs_quda`, whose
 restores an existing parity space instead of computing one, with no check that
 the links changed. A second gauge configuration in one process therefore
 deflates, and for the exact current projects, with the first gauge configuration's
-eigenvectors. Read from source, not run: hold one gauge configuration per
-process when the space is QUDA-resident, or add the cleanup between input sets.
+eigenvectors. Hold one gauge configuration per process when the space is
+QUDA-resident, or add the cleanup between input sets.
+
+`[experiment]` Measured in `ks_spectrum` at MILC `a5f8f9fa` with QUDA `ba501e4f8` on one
+DeltaAI node: two input sets, each a different random (`warm`) gauge field with 32 fresh QUDA
+eigenpairs and deflated two-mass solves, against the same build with
+`qudaCleanUpDeflationSpace()` added before each `load_evecs_quda` — the one variable moved.
+The unmodified build ran one eigensolve, not two. Its first input set matched the control's
+(same eigenvalues; correlators within 1.4e-7 of scale). In the second, 6 of 12 deflated solves
+ended with true residuals between 1 and 3e4 against a requested 1e-8, five of them at the
+iteration limit, while QUDA printed its usual `Convergence at` line, MILC reported
+`RUNNING COMPLETED`, and the job exited 0; that set's correlators differ from the control's by
+about 7e5 times their scale. The control ran two eigensolves and converged all 12. So the reuse
+corrupts propagators, not only the exact current, and the corruption is silent: judge each
+deflated solve by its true residual. The cleanup call is a demonstrated remedy for
+`ks_spectrum`; `ks_measure`'s exact-current path was not run.
 
 ## Exact-current preconditions
 

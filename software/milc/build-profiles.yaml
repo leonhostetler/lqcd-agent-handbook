@@ -48,7 +48,7 @@ profiles:
           io: [qio]
     notes:
       - Capabilities describe compiled paths; each stack records which paths its runtime validation actually exercised.
-      - WANT_EIG_GPU is explicit. Through 6b9b8a06 the Makefile forced it on with WANT_FN_CG_GPU, so the validated stacks compiled with it; from d17e9559 the Makefile does not, and without it a fresh-eigenvector request terminates at input. Either way the native-CG deflation path is compiled even when a run supplies no eigenspace.
+      - WANT_EIG_GPU is explicit. Through 6b9b8a06 the Makefile forced it on with WANT_FN_CG_GPU, so the validated stacks compiled with it; from d17e9559 the Makefile does not, and at a5f8f9fa a QUDA CG build without it does not compile (generic/milc_to_quda_utilities.c reads eigensolver-only parameter fields), so the explicit setting is required. Either way the native-CG deflation path is compiled even when a run supplies no eigenspace.
       - QMP and QIO are supplied by the composed QUDA installation in the validated Frontier stack.
   ks-spectrum-hisq-quda-mg:
     summary: Double-precision, multi-rank ks_spectrum_hisq application with HISQ links and QUDA staggered multigrid, built with the MILC MULTIGRID and MULTISOURCE dispatch defines.

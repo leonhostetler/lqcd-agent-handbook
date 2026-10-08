@@ -116,7 +116,8 @@ QUDA_DIRAC_STAGGERED=ON
 MILC must link QUDA and compile the improved-staggered CG backend, corresponding to
 `HAVE_QUDA` and `USE_CG_GPU` in the observed source. Through MILC `6b9b8a06` both build
 systems also enabled `USE_EIG_GPU` whenever the CG switch was on; from `d17e9559` (PR #99,
-2026-10-06) the Makefile rule is commented out and `WANT_EIG_GPU` must be set explicitly,
+2026-10-06) the Makefile rule is commented out and `WANT_EIG_GPU` must be set explicitly (at
+`a5f8f9fa` a Make build with the CG switch and without it does not compile `[observed]`),
 while the CMake build at `a5f8f9fa` still sets `GPU_EIG` from `GPU_FN_CG`. Either way the
 coupling does not turn every solve into a deflated solve: runtime deflation is inactive when
 the deflation count MILC passes is zero. Through `6b9b8a06` a build without `USE_EIG_GPU`

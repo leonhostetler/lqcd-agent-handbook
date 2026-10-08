@@ -9,6 +9,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/libraries/Make_vanilla#L29-L49
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/Make_template#L276-L280
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L1436-L1445
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat_utils.c#L1752-L1798
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_measure/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_imp_rhmc/Make_template
@@ -74,7 +75,9 @@ variable is appended to. So a stack's `LDFLAGS` is the complete link value, not 
 `OMP=true` and `COMPILER=gnu` the Makefile appends `-fopenmp ... -lgomp` to `LDFLAGS` while the
 objects still compile with `-fopenmp`, so `LDFLAGS=-g` on the command line compiles and then
 fails at the final link on unresolved OpenMP symbols, unless the compiler wrapper supplies
-OpenMP itself. Name the runtime of the compiler actually behind the wrapper, which `COMPILER`
+OpenMP itself; the DeltaAI Cray wrappers do not (observed 2026-10-07, see
+[the DeltaAI stack notes](../../machines/deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q4/notes.md)).
+Name the runtime of the compiler actually behind the wrapper, which `COMPILER`
 does not tell you: `-fopenmp -lgomp` for GCC; `-fopenmp` alone for Intel `icx`, where adding
 `-lgomp` links a second OpenMP runtime (see the
 [Aurora stack notes](../../machines/aurora/stacks/milc-sycl-quda-ks-spectrum-2026q4/notes.md)).
@@ -93,7 +96,11 @@ build at that revision therefore compiles with `mpicc` whatever `COMPILER` names
 system without that wrapper the library step fails before any application object compiles.
 Confirm the compiler on the library compile lines of the build log, and expect to override it
 (an edit to `Make_vanilla`, or building the libraries directly with `CC` on the make command
-line) until upstream restores the mapping. Read from source, not built.
+line) until upstream restores the mapping. `[observed]` on DeltaAI at `a5f8f9fa`: with
+`APP_CC=cc` passed, every library compile line used `mpicc` and every application object `cc`.
+DeltaAI's Cray MPICH provides an `mpicc` that wraps plain `gcc`, so there the library builds,
+with that wrapper rather than the Cray one; the failure on a system with no `mpicc` has not
+been run.
 
 For example, this profile fragment:
 
@@ -145,6 +152,18 @@ Populate `profile_args` exactly from the selected named profile and `machine_arg
 current-machine stack. Do not copy another machine's compiler, accelerator, link, or filesystem
 values. Do not run a broad clean merely to obtain a first build; preserve existing artifacts and
 let the target-specific MILC dependency rules rebuild what the resolved configuration requires.
+
+## Two more build constraints at `a5f8f9fa`
+
+- **Build serially from a clean tree.** The target recipe generates the application's
+  `quark_action.h`; with `MILC_BUILD_JOBS` above 1, objects that include it compile first and
+  fail with `quark_action.h: No such file or directory` `[observed]`. The validated stacks build
+  at `-j1`.
+- **A build without QIO does not compile.** From `d17e9559` `generic/io_lat_utils.c` uses
+  `QIO_SINGLEFILE`, `QIO_PARTFILE`, `QIO_PARTFILE_DIR` and `QIO_UNKNOWN` in
+  `open_scidac_detect_volume_format` with no `HAVE_QIO` guard, so a `ks_spectrum_hisq` build
+  with `WANTQIO=false` fails at either precision `[observed]`. Keep `WANTQIO=true`, as the
+  profiles do.
 
 ## Preserve timing and linkage evidence
 

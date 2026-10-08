@@ -84,7 +84,9 @@ the low-mode and the high-mode output, so the expected record count changes acro
 input set reloads the space through QUDA, and QUDA restores a space it already holds without
 checking that the links changed, so hold one gauge configuration per process; see
 [`../../quda/internals/milc-deflation-space.md`](../../quda/internals/milc-deflation-space.md).
-Read from source, not run.
+Read from source, not run here. The same reuse, measured in `ks_spectrum`, silently produced
+unconverged deflated solves on the second gauge configuration, so do not read its absence
+from this application's logs as evidence that the current is safe.
 
 ### Proofread the input before submitting, not at run time
 

@@ -154,15 +154,19 @@ labelled otherwise.
 - **From `d17e9559`, one gauge configuration per process when eigenvectors are QUDA-resident.**
   Each input set reloads or recomputes the deflation space through QUDA, and QUDA restores the
   space it already holds without checking that the links changed, so a later input set deflates
-  with the earlier gauge configuration's eigenvectors. Mechanism and remedy are in
+  with the earlier gauge configuration's eigenvectors. Measured at `a5f8f9fa`, the later set ran
+  no eigensolve and half its deflated solves stalled far above tolerance while the run still
+  reported `RUNNING COMPLETED` and exited 0, so its correlators were wrong. Mechanism,
+  measurement and remedy are in
   [`../../quda/internals/milc-deflation-space.md`](../../quda/internals/milc-deflation-space.md).
-  Read from source, not run.
 - **At `a5f8f9fa` a single-precision build with host eigenvectors is type-mismatched.**
   `lattice.h` declares `eigVal` as `double *` and `eigVec` as double-precision vectors, while
   the eigensolver and residual-check routines take `Real *` and `su3_vector **`, which at
   `PRECISION=1` are single. GCC 14 and later reject the call; older compilers warn and then
   misread the eigenvalues. The profiles here build `PRECISION=2`, where the types coincide.
-  Read from source, not compiled.
+  Compiled on DeltaAI with GCC 14.2 and no QUDA: 15 incompatible-pointer errors in
+  `control.c` and 4 more in `generic_ks/mat_invert.c`, where the deflation projection reads
+  `eigVec`; the same build at `PRECISION=2` compiles. Not tried with QUDA.
 - **Meson correlator normalization factors are echoed with `%g`.** The log shows six significant
   digits while the run uses the full value, so an input reconstructed from a log is not the
   input that ran. Take numeric values from the input file.
@@ -267,11 +271,12 @@ With the corresponding component instrumentation:
   and
 - backend tuning and memory records describe accelerator state, not `ks_spectrum` work units.
 
-From `d17e9559` a QUDA-accelerated build also emits, read from source: `srcs = <n>` on every
-`CONGRAD5` line from the QUDA CG path, including single-source solves, because that entry now
-wraps the multi-source one; `Loading deflation spaces into QUDA`, `Time to load deflation
-space = ...`, and one `Solving for <n> source(s) with|without deflation for parity <p>` line per
-solve when eigenpairs are requested; QIO debug-level output during the eigenvector load, which
+From `d17e9559` a QUDA-accelerated build also emits `srcs = <n>` on every `CONGRAD5` line from
+the QUDA CG path, including single-source solves, because that entry now wraps the multi-source
+one; and, when eigenpairs are requested, `Loading deflation spaces into QUDA` and `Time to load
+deflation space = ...` once per input set and one `Solving for <n> source(s) with|without
+deflation for parity <p>` line per solve. Those are observed at `a5f8f9fa`; the rest of this
+paragraph is read from source: QIO debug-level output during the eigenvector load, which
 the application switches on just before it and the next MILC SciDAC call switches off; and, in
 a `WANT_KS_CONT_GPU` build, several lines from every rank around each contraction call. Saved
 eigenvector files from that revision are written at `eigensolver_prec` (single unless it is 2),
