@@ -60,16 +60,20 @@ leaves the tree clean.
 
 ## 3. Check user-wide session logging
 
-First run `"$LQCD_HANDBOOK/tools/setup-tool-python" --check` and record its state. It reports
-the per-user environment carrying the packages the developer tools import — the validator, the
-index builders, the change-proposal harness and the test suite. The checks below and every
-other operational tool need only Python 3.10+, so a user-mode session reports this state in
-one line and makes no offer. In developer mode, when it is `missing`, `stale`, or `broken`,
-include one non-blocking offer: "The tool Python is <state>. Say \"set up the tool Python\" to
-build it for this user account." The handbook mode is settled in step 5, so make the offer in
-the final report, or when developer mode is declared later in the session. On explicit
-acceptance run `"$LQCD_HANDBOOK/tools/setup-tool-python"`, which needs access to the Python
-package index.
+First run `"$LQCD_HANDBOOK/tools/setup-tool-python" --check` and record its state. The developer
+tools — the validator, the index builders, the change-proposal harness and the test suite — need
+an interpreter carrying the packages in `tools/requirements.txt`; the checks below and every
+other operational tool need only Python 3.10+. The check reports `ready` when the per-user tool
+Python is built and current, and `not needed`, naming the interpreter, when the dispatcher
+already selects another interpreter that carries those packages. That is the default, and it is
+never a reason to offer the build. A user-mode session reports the state in one line and makes no
+offer. In developer mode, only when it is `missing`, `stale`, or `broken` — no interpreter
+carries the packages — include one non-blocking offer: "The tool Python is <state>. Say \"set up
+the tool Python\" to build it for this user account." If a developer tool later fails for want of
+a package on the interpreter it selected, make the same offer then. The handbook mode is settled
+in step 5, so make the offer in the final report, or when developer mode is declared later in the
+session. On explicit acceptance run `"$LQCD_HANDBOOK/tools/setup-tool-python"`, which needs
+access to the Python package index.
 
 Run `"$LQCD_HANDBOOK/tools/run-session-logging-python"
 "$LQCD_HANDBOOK/tools/check-session-logging.py" --frontend

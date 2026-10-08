@@ -3,11 +3,12 @@
 # the packages pinned in tools/requirements.txt, which tools/select-python probes before any
 # other interpreter (§session-logging).
 #
-#   setup-tool-python --check   report ready | missing | stale | broken, change nothing
+#   setup-tool-python --check   report ready | not needed | missing | stale | broken, change nothing
 #   setup-tool-python           build it, or rebuild one this tool built earlier
 #
-# Offer-only, like every installer: startup runs --check, and the build runs only after the
-# operator accepts, because it downloads packages and writes outside the repository.
+# Offer-only, like every installer: startup runs --check and offers the build only when it
+# reports missing, stale or broken, and the build runs only after the operator accepts,
+# because it downloads packages and writes outside the repository.
 set -euo pipefail
 
 usage() {
@@ -77,7 +78,21 @@ state() {  # sets state and reason for the environment at $dir
 
 state
 if [[ "$mode" == check ]]; then
-    say "$state — $reason"
+    # The environment is optional. When it is not ready, ask the dispatcher whether any
+    # interpreter it would select already carries the developer tools' packages; only when
+    # none does is a build worth offering. A stale environment that still imports cleanly is
+    # such an interpreter, and is named as one.
+    if [[ "$state" != ready ]] && found="$("${BASH:-bash}" "$here/select-python" \
+            --label "the developer tools" \
+            --allow-module-load \
+            --require yaml \
+            --require jsonschema \
+            --require-any tomllib,tomli \
+            -- -c 'import sys; print(sys.executable)' </dev/null 2>/dev/null)"; then
+        say "not needed — $found carries the developer tools' packages; per-user environment $state: $reason"
+    else
+        say "$state — $reason"
+    fi
     exit 0
 fi
 

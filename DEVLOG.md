@@ -5418,3 +5418,40 @@ comment, message or commit message in a software change may reference: none exis
 message: *confirmed*, consistent with the new rule. `software/quda/development.md` "Prepare a
 reviewable diff": *confirmed*, pointer added. `software/milc/development.md`: *confirmed*, a
 pointer section added.
+
+## 2026-10-07 — The tool Python is offered only when no interpreter qualifies
+
+The operator reported that sessions repeatedly offered to build the tool Python although the
+system interpreter worked. This session reproduced it on DeltaAI. `setup-tool-python --check`
+reported `missing` and startup made the offer, while the system `python3.11` carried exactly the
+pinned PyYAML and jsonschema. The dispatcher selected it for the validator, and the
+change-proposal harness and all 650 tests ran on it. The check asked whether the optional
+per-user environment existed, never whether the developer tools could run, and the dispatcher
+that answers the second question was not consulted.
+
+`--check` now asks it. When the per-user environment is not `ready`, the check runs
+`select-python` with the developer tools' requirements (PyYAML, jsonschema, and `tomllib` or
+`tomli`, the same set as the tool's own import probe) and `--allow-module-load`, as the
+developer-tool runners do. If an interpreter qualifies, the state is `not needed`, naming it and
+the environment's own state. Otherwise the environment state stands, and only `missing`,
+`stale` or `broken` produce the developer-mode offer. A stale environment that still imports
+cleanly qualifies, so `stale` is normally reported as `not needed`, which is correct: the tools
+run. A developer tool that later fails for want of a package on the interpreter it selected is
+the remaining trigger for the offer.
+
+Exercised as `conventions/repeated-work.md` asks of any new check. Against the unmodified tool,
+the three tests that encode the new behaviour (absent environment with a qualifying `PATH`,
+broken environment with a qualifying `PATH`, and stale) failed, while their controls (the same
+cases with a `PATH` whose only `python3` fails) passed. All fourteen pass after the change. The
+check tests strip exported `BASH_FUNC_*` functions, so a site `module` function cannot supply an
+interpreter outside the `PATH` the test controls.
+
+**Reconciliation (obligation 11).** `ARCHITECTURE.md` decision row "Session start" and
+§session-logging's setup paragraph: *amended*. `playbooks/start-session.md` step 3: *amended*.
+`tools/setup-tool-python` header and check branch: *amended*. `ARCHITECTURE.md` "Interpreter
+selection" row, built on request: *confirmed*. `tools/select-python`'s failure message, which
+names the setup tool only when nothing qualified: *confirmed*. `CONTRIBUTING.md` item 7, already
+conditional on no interpreter carrying the packages: *confirmed*. The `tests/support.py` skip
+banner, printed only when no interpreter carries a requirement: *confirmed*. The previous entry's
+sentence that the startup check reports only whether the optional environment exists described
+the tool before this change, and is superseded here rather than edited.

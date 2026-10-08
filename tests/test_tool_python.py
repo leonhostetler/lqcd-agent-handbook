@@ -118,11 +118,36 @@ class SelectPythonToolPythonTests(unittest.TestCase):
             self.assertIn("tools/setup-tool-python builds one", result.stderr)
 
 
+def no_qualifying_path(temp: Path) -> str:
+    """A PATH whose only python3 fails every probe."""
+    stubs = temp / "no-python"
+    stubs.mkdir()
+    generic = stubs / "python3"
+    generic.write_text("#!/bin/sh\nexit 1\n")
+    generic.chmod(0o700)
+    return str(stubs)
+
+
+def qualifying_path(temp: Path) -> tuple[str, str]:
+    """A PATH whose python3.11 carries the developer tools' packages, and its target."""
+    target = interpreter_for("yaml", "jsonschema", "tomllib")
+    stubs = temp / "with-python"
+    stubs.mkdir()
+    (stubs / "python3.11").symlink_to(target)
+    return str(stubs), str(stubs / "python3.11")
+
+
 class SetupToolPythonCheckTests(unittest.TestCase):
-    def check(self, tool_dir: Path) -> str:
+    def check(self, tool_dir: Path, path: str | None = None) -> str:
+        env = environment(tool_dir, path=path)
+        if path is not None:
+            # An exported site `module` function would let the dispatcher find an
+            # interpreter outside the PATH this test controls.
+            for key in [k for k in env if k.startswith("BASH_FUNC_")]:
+                del env[key]
         result = subprocess.run(
             ["/bin/bash", str(SETUP), "--check"],
-            env=environment(tool_dir), text=True, capture_output=True, check=False,
+            env=env, text=True, capture_output=True, check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
@@ -134,7 +159,20 @@ class SetupToolPythonCheckTests(unittest.TestCase):
 
     def test_missing(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            self.assertIn("tool python: missing", self.check(Path(temp_dir) / "absent"))
+            temp = Path(temp_dir)
+            out = self.check(temp / "absent", path=no_qualifying_path(temp))
+            self.assertIn("tool python: missing", out)
+
+    def test_not_needed_when_an_interpreter_qualifies(self):
+        # The control for test_missing: the same absent environment, and the only change
+        # is an interpreter on PATH that carries the packages.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            path, interpreter = qualifying_path(temp)
+            out = self.check(temp / "absent", path=path)
+            self.assertIn("tool python: not needed", out)
+            self.assertIn(interpreter, out)
+            self.assertIn("per-user environment missing", out)
 
     def test_ready_then_stale_when_requirements_move(self):
         target = interpreter_for("yaml", "jsonschema")
@@ -143,13 +181,29 @@ class SetupToolPythonCheckTests(unittest.TestCase):
             self.managed(tool_dir, target)
             self.assertIn("tool python: ready", self.check(tool_dir))
             (tool_dir / MARKER).write_text("0" * 64 + "\n")
-            self.assertIn("tool python: stale", self.check(tool_dir))
+            # A stale environment that still imports cleanly is a usable interpreter.
+            out = self.check(tool_dir)
+            self.assertIn("tool python: not needed", out)
+            self.assertIn("per-user environment stale", out)
 
     def test_broken_when_the_packages_do_not_import(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            tool_dir = Path(temp_dir) / "tool-python"
+            temp = Path(temp_dir)
+            tool_dir = temp / "tool-python"
             self.managed(tool_dir, "/bin/false")
-            self.assertIn("tool python: broken", self.check(tool_dir))
+            out = self.check(tool_dir, path=no_qualifying_path(temp))
+            self.assertIn("tool python: broken", out)
+
+    def test_broken_but_not_needed_when_an_interpreter_qualifies(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            tool_dir = temp / "tool-python"
+            self.managed(tool_dir, "/bin/false")
+            path, interpreter = qualifying_path(temp)
+            out = self.check(tool_dir, path=path)
+            self.assertIn("tool python: not needed", out)
+            self.assertIn(interpreter, out)
+            self.assertIn("per-user environment broken", out)
 
     def test_a_directory_it_did_not_build_is_reported_and_never_replaced(self):
         with tempfile.TemporaryDirectory() as temp_dir:

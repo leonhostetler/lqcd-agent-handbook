@@ -87,7 +87,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Trial shape versus production workload** | A tuning or benchmarking trial runs few solves by design: it prices one-time and recurring cost cheaply so production can be costed at counts it never ran. Its own solve count is an instrument setting, and any share, ratio, ranking or winner derived from it carries the count it holds at. **Not a mandatory declaration** — where the production count is unknown the deliverable is `C(N) = I + N·R` and the crossover, so an exploratory campaign discovers its regimes instead of declaring them ([§trial-is-an-instrument](#trial-is-an-instrument)) | An objective appears whose ranking is genuinely solve-count-independent, or the crossover form proves unusable for a real decision |
 | **Engineering work mode** | A sixth work mode for changing software on purpose — a capability, a restructuring, an interface, a port, or the review and validation of another author's change — accepted on correctness against a stated contract. **Debugging** owns defects in code that already existed and **tuning** owns a source change kept because it measured better, and software-specific code-change rules stay in `software/<name>/development.md`. Named *engineering*, not *development*, because a near-homonym of developer mode would let a work-mode declaration be read as a grant of handbook write access ([§work-modes](#work-modes), [§handbook-modes](#handbook-modes)) | A session cannot classify a source change as engineering or tuning from its immediate decision, or the mode proves to carry no method beyond `software/<name>/development.md` |
 | **Performance and tuning boundary** | Performance **diagnoses**: it ingests a profile and produces a ranked, evidenced hypothesis list. Tuning **searches**: it applies a change, rebuilds, remeasures and selects. A profile-driven optimisation loop crosses the boundary and is declared at the crossing, never one mode doing both ([§work-modes](#work-modes), [§profile-analysis](#profile-analysis)) | A diagnosis phase proves to carry no decision content distinct from the search that follows it |
-| **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; a session logger or submission guard that is not ready produces a non-blocking offer in the orientation report, and so does a tool Python that is not ready, in developer mode only ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
+| **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; a session logger or submission guard that is not ready produces a non-blocking offer in the orientation report, and in developer mode so does the tool Python, but only when no interpreter the dispatcher selects already carries the developer tools' packages ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
 | **Privacy-screening boundary** | Screen only the exact material crossing into the handbook: a user-mode inbox entry or a direct developer-mode change. Handbook privacy rules never mandate scanning, redacting, or rewriting the working project that holds source evidence ([§privacy-screening](#privacy-screening), [§handbook-modes](#handbook-modes)) | The repository's publication boundary changes |
 | **Concurrency** | Unique filenames for every user-mode write; `base_handbook_commit` on proposals. No branches, no PRs, no curator ([§freshness-model](#freshness-model)) | The handbook gains contributors beyond the operator |
@@ -1226,11 +1226,17 @@ overrides, and the dispatcher probes it before `PATH` under the same requirement
 reject-on-output rules as any other candidate. The location is per-user and never inside a
 clone, for the reason below that a global hook may not point into `$LQCD_HANDBOOK`; guard
 and logger hooks already resolve through the dispatcher, so none of them records the path.
-Setup follows the installer contract: startup reports `ready`, `missing`, `stale` or
-`broken`, and in developer mode offers the build without asking a second question — a
-user-mode session runs nothing that needs it, so it gets the state as one line and no offer.
-The build runs only on consent, refuses to replace a directory it did not create, restores
-the previous environment when a rebuild fails, and installs prebuilt packages only.
+Setup follows the installer contract, with one difference: the environment is optional, so the
+check reports whether it is needed. Startup reports `ready` when it is built and current, and
+`not needed`, naming the interpreter, when the dispatcher already selects another interpreter
+that carries the developer tools' packages. Only `missing`, `stale` or `broken`, meaning no
+interpreter carries them, produce an offer, and only in developer mode. A user-mode session runs
+nothing that needs them, so it gets the state as one line and no offer. Offering the build
+whenever the per-user environment was absent asked operators to install packages their system
+interpreter already carried. A developer tool that later fails for want of a package on the
+interpreter it selected demonstrates the need the check missed, and the offer is made then. The
+build runs only on consent, refuses to replace a directory it did not create, restores the
+previous environment when a rebuild fails, and installs prebuilt packages only.
 
 **The no-module rule is scoped to the session-logging path, not to every caller.** Its
 reason is output integrity: this checker's stdout is parsed as JSON, so an interpreter that
