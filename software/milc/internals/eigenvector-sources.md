@@ -142,6 +142,12 @@ a two-mass UML solve on both parities was run deflated and undeflated:
 
 Reading the eigenpack is serial, one file per vector, and dominated the run's wall time.
 
+Several gauge configurations in one process on this route also need QUDA's preserved deflation
+space cleared between input sets: without it a later set's opposite-parity solves deflate with the
+earlier gauge configuration's reconstructed space, and diverged when measured. Mechanism and
+remedy are in
+[`../../quda/internals/milc-deflation-space.md`](../../quda/internals/milc-deflation-space.md).
+
 ## What this does not cover
 
 - How Grid's own CG uses a Grid-computed eigenspace (row 3 with Grid's CG) was not traced.

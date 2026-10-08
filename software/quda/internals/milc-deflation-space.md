@@ -19,6 +19,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/f_meas_current.c#L1572-L1604
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2015-L2030
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/solver.cpp#L276-L300
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/milc_interface.cpp#L1462-L1548
   - agent-run A/B validation on DeltaAI reviewed in the working directory; raw output is not committed
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/covariant_derivative.cu#L162-L170
 observed: "2026-10-07"
@@ -157,8 +158,21 @@ application takes it: each input set calls `load_evecs_quda`, whose
 restores an existing parity space instead of computing one, with no check that
 the links changed. A second gauge configuration in one process therefore
 deflates, and for the exact current projects, with the first gauge configuration's
-eigenvectors. Hold one gauge configuration per process when the space is
-QUDA-resident, or add the cleanup between input sets.
+eigenvectors.
+
+The host-eigenvector path, a build without `USE_EIG_GPU`, is exposed too once it compiles, which
+at `a5f8f9fa` needs `load_quda_default_eig_args`'s eigensolver-only reads guarded (see
+[`../../milc/internals/eigenvector-sources.md`](../../milc/internals/eigenvector-sources.md)).
+`QUDA_MILC_EIG_LOAD` replaces only the parity it loads, so the opposite parity a deflated solve
+reconstructed during the earlier input set, and the zero-mass snapshot, survive into the next one
+`[source]`. `[observed]` In such a build from `a5f8f9fa` plus that guard, with QUDA `ba501e4f8`,
+set 1 a physical 16³×48 HISQ gauge configuration with an externally computed eigenpack and set 2 a
+`warm` field reloading the same eigenpack, the second set's even-parity solves diverged to NaN and
+the process aborted in `errorQuda`; clearing the space before the second set's load let all of its
+solves converge. Neither `QUDA_MILC_EIG_LOAD` nor `QUDA_MILC_EIG_FROM_OTHER_PARITY` frees the
+space it replaces: each assigns the parity's pointer over the old one, so repeated loads without
+cleanup also leak device memory `[source]`. Hold one gauge configuration per process when the
+space is QUDA-resident, or clear the space whenever a new one is loaded.
 
 `[experiment]` Measured in `ks_spectrum` at MILC `a5f8f9fa` with QUDA `ba501e4f8` on one
 DeltaAI node: two input sets, each a different random (`warm`) gauge field with 32 fresh QUDA
@@ -227,6 +241,6 @@ When reuse is unexpected or residuals change:
    assuming the cached zero-mass snapshot is sufficient.
 
 See [`../solvers/eigensolver.md`](../solvers/eigensolver.md) for native
-eigensolver algorithm and search-space invariants. Apart from the two labelled
+eigensolver algorithm and search-space invariants. Apart from the three labelled
 measurements above, this page documents source behavior; no validated stack yet covers the
 exact-current path.

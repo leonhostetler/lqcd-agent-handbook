@@ -5602,3 +5602,53 @@ version omitted.
 **Reconciliation.** The statements listed in the previous entry were re-checked against this run:
 none is contradicted. `software/quda/solvers/staggered-deflated-cg.md` still says the branch is
 unreachable at `a5f8f9fa`, which remains true of `develop`.
+
+## 2026-10-08 — The stale deflation space: the host-eigenvector mode, and a cleanup awaiting merge
+
+The upstream fix for the stale QUDA deflation space was moved from the two applications'
+`control.c` files to the start of `load_evecs_quda` and measured on DeltaAI, each case against the
+same MILC branch without it: `milc-qcd/milc_qcd` branch `misc-patches`, commit `e476b8bf`, forked
+from `develop` `a5f8f9fa`, with QUDA `ba501e4f8`. Three A/B pairs ran in one job.
+
+- `ks_spectrum`, QUDA eigensolver, two `warm` sets: one eigensolve and 6 of 12 second-set solves
+  above tolerance without the fix; two eigensolves and all converged with it.
+- `ks_measure_current_hisq`, two `warm` sets: 16 of 32 second-set solves above tolerance without;
+  all converged with.
+- `ks_spectrum` without `USE_EIG_GPU` (the operator's design: set 1 a physical gauge configuration
+  with an externally computed eigenpack, set 2 a `warm` field reloading the same eigenpack): the
+  second set diverged to NaN and aborted without the fix; all converged with it.
+
+First-set correlators agreed within each pair to solver precision. `load_evecs_quda` loads every
+parity it is asked for in one call, and each application calls it once per input set, so the
+cleanup there removes nothing the same set loaded. A `continue` input set now recomputes its
+space; the operator accepted that cost.
+
+**What was admitted, and what waits.** The branch is unmerged and its commits may be squashed, so
+the leaves cite none of them. Admitted now: the QUDA source facts at `ba501e4f8`
+(`QUDA_MILC_EIG_LOAD` replaces only its own parity; both load modes overwrite the preserved space
+without freeing it), the host-eigenvector exposure stated conditionally on the mode compiling, and
+the general advice to clear the space whenever a new one is loaded. The measurement of the
+cleanup's placement, and the version-scoping of every leaf the pull request affects, wait for the
+merge under `ROADMAP.md` X.14. Iteration counts and timings stay in the working directory.
+
+**Reconciliation (obligation 11).** Searched every leaf and record for
+`qudaCleanUpDeflationSpace`, `one gauge configuration per process`, `Restoring deflation space`,
+preserved or stale deflation spaces, and `load_evecs_quda`.
+- `software/quda/internals/milc-deflation-space.md`, the invalidation paragraph: *amended* with the
+  host-eigenvector exposure, its observation and the unfreed spaces; the closing count of labelled
+  measurements *amended* to three.
+- `software/milc/applications/ks-spectrum.md`, the one-configuration-per-process bullet: *amended*
+  with the host-eigenvector exposure.
+- `software/milc/internals/eigenvector-sources.md`, the Grid route: *amended* with a pointer.
+- `software/milc/applications/ks-measure.md`, the one-configuration-per-process sentence:
+  *confirmed*, untouched.
+- `machines/deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q4/notes.md` and its `stack.yaml`
+  scope limit: *confirmed*, untouched; they record `a5f8f9fa`.
+- `software/quda/solvers/staggered-deflated-cg.md`, the reuse messages and `TRLM` counting:
+  *confirmed*, untouched.
+- `software/quda/interface-layers.md`, the in-band link signal and adapter state: *confirmed*,
+  untouched; the signal invalidates the resident gauge, not the deflation space.
+- `software/quda/internals/device-memory-pool.md`, the preserved space's oversized array:
+  *confirmed*, untouched.
+- `ROADMAP.md` X.14, the upstream-fixes clause: *amended* to name the pull request, the leaves to
+  version-scope at its merge, and the measurement to admit then.

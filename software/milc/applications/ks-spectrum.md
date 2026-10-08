@@ -177,7 +177,9 @@ labelled otherwise.
   space it already holds without checking that the links changed, so a later input set deflates
   with the earlier gauge configuration's eigenvectors. Measured at `a5f8f9fa`, the later set ran
   no eigensolve and half its deflated solves stalled far above tolerance while the run still
-  reported `RUNNING COMPLETED` and exited 0, so its correlators were wrong. Mechanism,
+  reported `RUNNING COMPLETED` and exited 0, so its correlators were wrong. The host-eigenvector
+  mode of a build without `USE_EIG_GPU`, which compiles only once `load_quda_default_eig_args` is
+  guarded, is exposed as well, and there the later set's solves diverged. Mechanism,
   measurement and remedy are in
   [`../../quda/internals/milc-deflation-space.md`](../../quda/internals/milc-deflation-space.md).
 - **At `a5f8f9fa` a single-precision build with host eigenvectors is type-mismatched.**
