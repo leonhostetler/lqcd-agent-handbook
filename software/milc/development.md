@@ -102,3 +102,9 @@ has to fit into — `generic_quda.h`, QUDA start-up and shutdown, the pinned sit
 For what the QUDA side of such a call costs and when it is worth making, see
 [`../quda/internals/device-memory-pool.md`](../quda/internals/device-memory-pool.md); for the rules
 governing a change to QUDA itself, see [`../quda/development.md`](../quda/development.md).
+
+## Keep references durable and public
+
+A comment, message, or test may cite durable public sources, but never working-directory notes,
+local paths, or the handbook. [`conventions/code-changes.md`](../../conventions/code-changes.md)
+owns the rule.

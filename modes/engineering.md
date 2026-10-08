@@ -112,6 +112,9 @@ Load [`conventions/batch-scripts.md`](../conventions/batch-scripts.md) before wr
 modifying, or reviewing any batch script or preparing a submit command. A validation matrix is
 many builds and runs, and each one is a submission.
 
+Load [`conventions/code-changes.md`](../conventions/code-changes.md) before writing or reviewing
+a source change; what its comments, messages, and tests may reference is defined there.
+
 Load [`conventions/diagnostic-rigs.md`](../conventions/diagnostic-rigs.md) before designing,
 scoring, or interpreting a validation run made of several legs, and
 [`conventions/running.md`](../conventions/running.md) to reconcile each run's outcome.

@@ -5386,3 +5386,35 @@ X.13 leaves the list; X.14 carries what this machine could not reach. 5.1 is ame
 - `machines/deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q3/notes.md`, "call the
   site-recommended Cray `cc` and `CC` wrappers directly instead of the interception-layer `mpicc`":
   *confirmed* for the application, and the `2026q4` notes record that the library step ignores it.
+
+## 2026-10-07 — References in software changes must be durable and public
+
+An operator correction during a MILC change: the comment above a new function named a design
+note kept in the working directory, which would never be committed, so the reference would
+have dangled for every other reader of the code. The first draft of the rule forbade any
+reference outside the repository's history; the operator narrowed it before approval. Durable
+public sources (a published paper, DOI or arXiv identifier, an upstream issue, pull request or
+commit, public documentation) remain allowed. Working-directory notes, plans, validation or run
+directories, local paths, and the handbook do not. The test the leaf states is reachability by
+every later reader.
+
+The rule is software-independent, so it is a new universal leaf, `conventions/code-changes.md`,
+not a paragraph in each software's `development.md`. Following the batch-script lesson that a
+correctly indexed leaf does not fire on its own, it is pointed at from both `development.md`
+files and from the routing sections of the three work modes that change source: engineering,
+debugging and tuning. There is no tool: one occurrence is below the threshold in
+`conventions/repeated-work.md`. A diff check for working-directory filenames is the candidate if
+it recurs.
+
+The session ran the change-proposal harness on the system `python3.11`, which carries the pinned
+PyYAML and jsonschema. The per-user tool Python was not needed: the startup check reports only
+whether that optional environment exists, not whether a usable interpreter does.
+
+**Reconciliation (obligation 11).** Searched `conventions/`, both `software/*/development.md`,
+`software/quda/interface-layers.md`, `modes/` and `AGENTS.md` for statements about what a
+comment, message or commit message in a software change may reference: none existed.
+`software/quda/interface-layers.md` cites a code comment as evidence, a different fact:
+*confirmed*, untouched. `modes/engineering.md` on review comments and the suggested commit
+message: *confirmed*, consistent with the new rule. `software/quda/development.md` "Prepare a
+reviewable diff": *confirmed*, pointer added. `software/milc/development.md`: *confirmed*, a
+pointer section added.

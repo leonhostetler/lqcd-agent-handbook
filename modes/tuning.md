@@ -199,6 +199,9 @@ writing, modifying, or reviewing any batch script or preparing a submit command,
 reorganising a multi-study campaign against an allocation, and the shared
 prediction record for every trial.
 
+Load [`conventions/code-changes.md`](../conventions/code-changes.md) before a trial changes
+source.
+
 When a trial tests a hypothesis from performance mode, check the record with
 `tools/hypothesis-record.py` before acting on it — a speedup bound that was asserted rather
 than derived makes the comparison meaningless — and compare captures with

@@ -176,6 +176,9 @@ Load `conventions/batch-scripts.md` before writing, modifying, or reviewing any 
 preparing a submit command. A diagnostic rerun is still a submission, and debugging is where a
 script is most likely to be edited quickly under pressure.
 
+Load [`conventions/code-changes.md`](../conventions/code-changes.md) before writing a fix; what
+its comments, messages, and tests may reference is defined there.
+
 Load [`conventions/diagnostic-rigs.md`](../conventions/diagnostic-rigs.md) before designing,
 scoring, or interpreting a diagnostic run made of several legs. Debugging is where rigs are built,
 and a rig that is broken reports success — the evidence that would have contradicted it is the

@@ -51,6 +51,10 @@ Before formatting or final validation, compare the complete change against the c
 intended target. Keep the diff limited to the requested change; leave unrelated refactoring
 and repository-wide formatting out of it.
 
+A comment, message, or test may cite durable public sources, but never working-directory notes,
+local paths, or the handbook. [`conventions/code-changes.md`](../../conventions/code-changes.md)
+owns the rule.
+
 ## Format only changed lines
 
 Use `$LQCD_HANDBOOK/tools/clang-format-quda.py`. It requires `clang-format` and
