@@ -153,10 +153,13 @@ QUDA_DIRAC_STAGGERED=ON
 MILC must compile with QUDA CG and eigensolver support (`HAVE_QUDA`, `USE_CG_GPU`, and
 `USE_EIG_GPU`). Through `6b9b8a06` MILC's Makefile forced `WANT_EIG_GPU` on with
 `WANT_FN_CG_GPU`; from `d17e9559` it does not, and the switch must be set. The source keeps a
-branch for a build without `USE_EIG_GPU`, in which MILC reads or computes host eigenvectors and
-hands them to QUDA (`QUDA_MILC_EIG_LOAD`), but at `a5f8f9fa` a Make build with `USE_CG_GPU` and
+branch for a build without `USE_EIG_GPU`, in which MILC reads host eigenvectors, a Grid eigenpack
+among them, and hands them to QUDA (`QUDA_MILC_EIG_LOAD`); that build refuses a fresh eigensolve.
+At `a5f8f9fa` a Make build with `USE_CG_GPU` and
 without `USE_EIG_GPU` does not compile, so that branch is unreachable there `[observed]`; see
-`../../milc/project.yaml`. The selected
+`../../milc/project.yaml`, and
+[`../../milc/internals/eigenvector-sources.md`](../../milc/internals/eigenvector-sources.md) for
+which eigensolver and eigenvector files each build selects. The selected
 QUDA revision, precision set, communication backend, eigenvector I/O path, and intended
 block-TRLM settings still require stack validation.
 

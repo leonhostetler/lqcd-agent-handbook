@@ -5536,3 +5536,69 @@ full `generic_ks/imp_actions/hisq/hisq_u3_action.h`, and it gained QUDA citation
   HISQ `u0` belongs to the gauge action.
 - `software/quda/internals/milc-gauge-reconstruct.md`: no statement about the scale or tadpole;
   now linked from the bullet for how long-link compression is selected.
+
+## 2026-10-08 — Eigenvector ownership and Grid eigenpacks across MILC build switches
+
+A debugging session preparing an upstream fix for the `WANT_EIG_GPU=false` QUDA build asked what
+`USE_EIG_GPU` is for, whether that build is meant to work, and how `HAVE_GRID` fits in — in
+particular whether a Grid eigenpack can deflate a QUDA solve. Read from source at MILC `a5f8f9fa`
+and QUDA `ba501e4f8`; nothing was run.
+
+Established, and landed as `software/milc/internals/eigenvector-sources.md`:
+- `ks_eigen_param`, `ks_eigensolve` and `read_eigen_param.c` are chosen by one precedence chain —
+  PRIMME, ARPACK, Grid with `USE_EIG_GPU`, QUDA with `USE_EIG_GPU`, QDP, Kalkreuter-Ritz — and only
+  the QUDA row carries the fields `load_quda_default_eig_args` reads.
+- In any QIO build `reload_ks_eigen` reads a directory argument as a Grid multi-file eigenpack and
+  sets odd parity; the reader needs no Grid library. QUDA's `vec_infile` reader is QIO only.
+- So the one route from a Grid eigenpack to QUDA deflation is the QUDA CG build without
+  `USE_EIG_GPU`, which `QUDA_MILC_EIG_LOAD` serves — the build that does not compile at
+  `a5f8f9fa`. The fix under preparation guards those reads on `USE_EIG_GPU`, compiled on DeltaAI in
+  both settings of `WANT_EIG_GPU`; it is not on `develop`, so the leaf states the requirement
+  rather than citing it.
+- Grid plus QUDA plus `WANT_EIG_GPU` selects Grid's struct while the QUDA readers still compile, so
+  it is expected not to build. Inferred, not built.
+- The precision the fix falls back to without `USE_EIG_GPU` is MILC's own: `load_evecs_quda`
+  already forces it there, and it was the function's default from `52d6ac0a` until `9fdf5b57`,
+  which tied it to `eigensolver_prec` for loading eigenvectors from file.
+
+**Reconciliation.** Searched every leaf and record for `USE_EIG_GPU`, `WANT_EIG_GPU`, `GPU_EIG`,
+`EIG_LOAD`, `eigenpack`, the eigen reload keywords, `HAVE_GRID`, `WANTGRID` and `ks_eigen_param`.
+- `software/milc/project.yaml`, `WANT_FN_CG_GPU` and `WANT_EIG_GPU`: *confirmed*, untouched; the
+  new leaf points to them for the compile observation.
+- `software/milc/build-profiles.yaml`, the explicit `WANT_EIG_GPU` notes: *confirmed*, untouched.
+- `software/milc/quda-host-helpers.md`, the forcing bullet and "guard any new reader on
+  `USE_EIG_GPU`": *confirmed*; the new leaf adds that the guard is insufficient when PRIMME,
+  ARPACK or Grid also matches.
+- `software/quda/solvers/staggered-cg.md`, the explicit-switch paragraph: *confirmed*, untouched.
+- `software/quda/internals/milc-deflation-space.md`, the load-mode table: *confirmed*, untouched;
+  linked from the new leaf.
+- `software/quda/solvers/staggered-deflated-cg.md`, "MILC reads or computes host eigenvectors":
+  *amended* — that build refuses a fresh eigensolve, so MILC only reads them — and linked to the
+  new leaf.
+- `software/milc/applications/ks-spectrum.md`, the `USE_EIG_GPU` tadpole exception: *confirmed*,
+  unrelated.
+
+## 2026-10-08 — The Grid eigenpack route to QUDA deflation, run once
+
+The route `software/milc/internals/eigenvector-sources.md` described from source was run on
+DeltaAI the same day: one rank on one GH200, `ks_spectrum_hisq` built from the
+`ks-spectrum-hisq-quda` profile with `WANT_EIG_GPU=false` from MILC `a5f8f9fa` plus the
+`load_quda_default_eig_args` guard (no other change to the eigenvector path), QUDA `ba501e4f8`,
+and a 500-vector Grid multi-file eigenpack for one gauge configuration of a public 16³×48 HISQ ensemble.
+A deflated and an undeflated leg ran the same two-mass UML solve.
+
+- MILC read all 500 vectors as odd parity. Its host check of that parity and QUDA's Rayleigh
+  quotients at load matched the stored eigenvalues, with one uniform residual across the pack.
+- MILC's host check of the rebuilt even parity was far off for the lowest modes; source shows the
+  rebuild normalizes by √λ, which amplifies the stored residual there.
+- Every solve on both parities converged under the requested true residual; deflation cut the
+  even-parity iteration counts several-fold. The pion correlators agreed to solver precision.
+- Reading the pack, serial and one file per vector, took most of the run.
+
+Measured iteration counts and timings stay in the working directory; the leaf states only the
+qualitative result. The leaf also gained `eigensolver_prec` in the reload row, which the first
+version omitted.
+
+**Reconciliation.** The statements listed in the previous entry were re-checked against this run:
+none is contradicted. `software/quda/solvers/staggered-deflated-cg.md` still says the branch is
+unreachable at `a5f8f9fa`, which remains true of `develop`.
