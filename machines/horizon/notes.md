@@ -11,9 +11,11 @@ sources:
   - Horizon Lmod module listing and live Slurm partition and node records, read from a login node 2026-09-28
   - the site's installed ibrun script, read 2026-09-28
   - operator-submitted build, validation and diagnostic jobs on gpu-gb200 nodes, 2026-09-29, reviewed in the working directory
+  - operator-submitted spectroscopy jobs on gpu-gb200 nodes and their scheduler records, 2026-10-09, reviewed in the working directory
+  - live Slurm partition, node and job records, read from a login node 2026-10-09
   - https://github.com/usqcd-software/qio/issues/19
   - https://github.com/lattice/quda/issues/1655
-observed: "2026-09-29"
+observed: "2026-10-09"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -75,6 +77,14 @@ and `lscpu` 34 NUMA nodes, of which only 0 and 1 hold CPUs. GPU memory exposed a
 would account for the excess over the documented LPDDR, but that was not verified, so the
 host memory behind each socket remains unresolved. Do not budget host memory from `free`.
 
+**The scheduler's figures point to about 950 GiB of host memory per board** `[observed]`, live
+records read 2026-10-09. `sinfo` reports at least 979,732 MiB (≈957 GiB) of configured memory
+per board. 1692 GiB from `free` less the four GPUs' 740 GiB is about 952 GiB, which fits GPU
+memory exposed as NUMA memory but does not prove it. A whole-node job requesting `--mem=0` is
+nonetheless granted 1562.5 GiB, and TACC's submit filter attaches 200000 MiB per GPU. So the
+grant is not the board's host memory either. Budget a board at the `sinfo` figure until
+`numactl -H` inside a job settles where the rest lives.
+
 **Do not write `$WORK` into a script.** The shell sets it during early access, but the
 directory does not exist. The profile therefore declares no variable for it.
 
@@ -94,6 +104,9 @@ Batch submission works from a login node `[reproduced]`. Give the project name e
 `/usr/local/etc/taccinfo` prints it: TACC's submit filter matches it case-sensitively and
 rejects any other spelling as an unknown project, even when it names the right allocation
 `[observed]`.
+
+A job may request its GPUs as `--gpus-per-node 4`. The submit filter accepted it, and the job
+record shows `gres/gpu:nvidia_gb200:4` `[reproduced ×6]`.
 
 ## Set the OpenMP thread count
 
@@ -118,8 +131,13 @@ from the allocation and written under `$HOME/.slurm`. It forwards the environmen
 passes no step-sharing option, and clears `PRTE_MCA_plm_slurm_args`, the one variable that
 could add one. `[source]`: the site's installed script. This is the same launch path as on
 Vista, where each multi-node `ibrun` call creates one Slurm step that claims its nodes.
-`[inferred]` to hold here; not yet observed on Horizon. Until it has been, never background
-an `ibrun` while later legs launch.
+On Horizon the step covers only the nodes other than the batch node `[reproduced ×6]`:
+accounting records of two two-node and four one-node jobs. A two-node `ibrun` created one step,
+named `prted`, on the second node. The batch node's ranks ran inside the batch step, and a
+one-node `ibrun` created no step at all. Two consequences follow. Concurrent multi-node launches
+have not been tried, so never background an `ibrun` while later legs launch. And read a job's
+host memory per node from the batch step for the batch node and from the `prted` step for the
+others: a one-node job's whole application appears under the batch step.
 
 The profile records `ibrun` as `scheduler.site_launcher`, and the batch-script dry-run
 harness stubs it from that record.

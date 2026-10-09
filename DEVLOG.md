@@ -5778,3 +5778,59 @@ are unpublished measurements and stay in the operator's working project.
   restructuring as a candidate.
 - `conventions/measurement.md`, reporting two comparisons when a constraint bars a placement:
   *confirmed*, no conflict.
+
+## 2026-10-09 — Horizon: ibrun creates a step only for the nodes beyond the batch node
+
+Six spectroscopy jobs on Horizon gpu-gb200, all launched with ibrun at four ranks per node:
+two two-node jobs and four one-node jobs. Their accounting records showed a `prted` step on the
+second node of each two-node job, the batch node's ranks inside the batch step, and no step for
+the one-node jobs. This replaces the notes' "[inferred], not yet observed on Horizon".
+
+**Reconciliation (obligation 11).**
+- `machines/horizon/notes.md`, the inferred step claim: *amended*. The background rule is kept,
+  because concurrent launches were not tested.
+- `conventions/batch-scripts.md`, the teardown accounting record as a per-step maximum reported
+  against its node: *confirmed*. The new note says which step holds which node on Horizon.
+- `conventions/running.md`, host-memory attribution per node: *confirmed*.
+
+## 2026-10-09 — Horizon: scheduler-configured host memory per board
+
+Read from the live scheduler on 2026-10-09: `sinfo` configured memory per board, the
+`--mem=0` grant and per-GPU memory in a job record, and the GPU request accepted on six jobs.
+These are site configuration, not campaign measurements. The board's physical host memory is
+still not settled: no `numactl -H` was run in a job.
+
+**Reconciliation (obligation 11).**
+- `machines/horizon/notes.md`, "Do not budget host memory from `free`": *confirmed*, and
+  extended with the figure to budget against.
+- `machines/horizon/machine.yaml`, host memory omitted from `sizing`: *confirmed*. The profile
+  holds documented values, and the guide is still ambiguous.
+- `ROADMAP.md` X.9, reconcile the ambiguous GB host memory when early access ends: *confirmed*,
+  unchanged.
+
+## 2026-10-09 — MILC: what the CONGRAD5 mflops field measures
+
+Read from source at MILC `a5f8f9fa` while comparing per-GPU solver throughput across two
+machines at different rank counts. The figure divides by the number of ranks, and its flop
+constants are nominal. Admitted as `source` to `software/milc/timing.md`. The cross-machine
+throughput figures themselves are campaign measurements and were not admitted.
+
+**Reconciliation (obligation 11).**
+- `software/milc/timing.md`, timing layer 5 (component timers characterize individual
+  implementations): *confirmed*.
+- The universal example "`mflops` is not comparable across solvers" in the scope-level table:
+  *confirmed*. The new section gives the source reason.
+
+## 2026-10-09 — ks_spectrum: first-run autotuning shows in the link and gauge-fix phases
+
+Six cold/warm pairs, from three spectroscopy workflows on Horizon (MILC a5f8f9fa, QUDA
+ba501e4f) and DeltaAI (MILC 6bd16fce, QUDA 00c7ef33). In every cold run the excess sat mainly
+in fermion-link creation and gauge fixing, not in the solves. The mechanism is inferred, not
+traced. The per-phase seconds are campaign measurements and were not admitted.
+
+**Reconciliation (obligation 11).**
+- `ks-spectrum.md`, "Exclude or include first-use cost according to the declared warm-state
+  contract": *confirmed*. The new paragraph says where that cost appears.
+- `modes/benchmarking.md`, excluding the first solve by default in a steady-state solver
+  series: *confirmed*. That rule concerns a solver series; this paragraph concerns workflow
+  phases, and neither changes the other.
