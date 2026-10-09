@@ -55,6 +55,9 @@ re-deriving them. This gates starting the search; the handoff rule below gates p
 1. Establish a correct baseline with isolated outputs and a recorded environment. If the
    baseline cannot complete or fit in memory, treat feasibility as a constraint and find the
    minimum viable resource setup before optimizing performance.
+   When resident state rather than compute sets that minimum, a workflow that holds less at
+   once, such as one divided into more of an application's input units, is a candidate too.
+   The application guide owns whether that can be done without repeating work.
 2. Choose each trial to answer one decision. Prefer changing one variable at a time. When a
    coupled change is unavoidable, label the bundle and do not attribute its effect to one member
    without an independent comparison.

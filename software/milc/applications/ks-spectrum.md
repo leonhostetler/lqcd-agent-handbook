@@ -22,6 +22,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L121-L126
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_helpers.c#L843-L853
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/control.c#L131-L134
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/quark_source.c#L462-L472
   - https://github.com/milc-qcd/milc_qcd/commit/45e0ec0e
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_action_paths_hisq.c#L106-L114
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/imp_actions/hisq/hisq_u3_action.h
@@ -445,6 +446,43 @@ For workflow-cost estimation:
 If gauge-field loading is a non-negligible fraction of the production-shaped workflow, treat the
 gauge reload method, file format, and storage path as candidate tuning dimensions and measure the
 gauge-load phase separately.
+
+### Host memory is held per input set, and a separable set can be split
+
+At the observed revision, in a build without the compile-time `KS_LEAN` path, an input set's
+propagator and quark fields are host-resident together, and they are the part of host memory a
+workflow can restructure. `control.c` allocates and solves every propagator of every set before
+any sink operator runs. Each quark is a new field, and a propagator is freed only once no later
+quark derives from it. Every quark then stays resident through the meson and baryon phases and is
+freed only after `RUNNING COMPLETED`. Between input sets only the lattice, gauge field and fermion
+links survive. A propagator or quark with `nc` colours holds `nc` colour vectors per site: 144
+bytes per site for three colours in a double-precision build.
+
+**A host-memory limit that forces extra nodes can sometimes be met by splitting an input set
+instead.** An input set can be divided into several for the same gauge configuration, with no
+solve repeated, exactly when its meson pairs and baryon triplets partition into groups whose
+quarks derive from disjoint propagators. Each group becomes its own input set starting from
+`continue`. A request that combines quarks from two groups forces both groups' propagators into
+one set; splitting it anyway means re-solving, or saving and rereading propagators. Before
+adopting a split:
+
+- **Keep random sources identical.** A random source such as `random_color_wall` draws from the
+  per-site generator when it is created, and deterministic walls draw nothing. So the split must
+  create the generator-consuming sources in their original order. Otherwise every random source,
+  and every correlator built on one, changes.
+- **Expect less than the field ratio.** Gauge and link fields and an accelerated backend's
+  page-locked host buffers are held per rank and do not shrink with the split `[inferred]`.
+  Measure the per-set peak on the target rather than scaling the old one.
+- **Expect the same work, not less.** Solves and contractions are unchanged, so a split mainly
+  buys a smaller node count. Whether that saves node-hours depends on how the solve and host
+  phases scale on fewer ranks `[inferred]`.
+- **Check what consumes the output.** Records that shared a correlator file arrive in a different
+  order.
+
+The `KS_LEAN` path, which the Makefile build does not define, takes the other route. It frees a
+propagator or quark whose save flag is not `forget` and rereads it from file when needed, trading
+host memory for file I/O. Multi-rank single-file writes on NFS-mounted filesystems are unsafe; see
+[`../../qio/parallel-singlefile-writes.md`](../../qio/parallel-singlefile-writes.md).
 
 Requested input labels are not runtime evidence. Confirm the emitted solver/backend token,
 batch or mass cardinality, precision, iterations, convergence, and residuals. At the observed

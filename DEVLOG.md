@@ -5751,3 +5751,30 @@ handbook has one home for this fact.
 
 The fix is proposed upstream as the never-destroyed-owner idiom for the field cache, the other
 static field owners, the tracking and pool maps, and the resource path. It was not built.
+
+## 2026-10-09 — ks_spectrum host memory is per input set; splitting a separable set
+
+A Horizon tuning session asked whether a host-memory-bound `ks_spectrum` workflow could run on
+fewer nodes by dividing its input sets. The operator declined the change for their campaign,
+because the reordered correlator records would cost analysis changes, and asked that the option
+be recorded as tuning knowledge.
+
+Read from source at MILC `a5f8f9fa`: propagator allocation and solve before any sink operator,
+quark creation and scan-ahead propagator freeing, quark lifetime to the end of the input set, the
+`KS_LEAN` save-and-reread path (no Makefile or header defines it), and `random_color_wall`'s draw
+from the per-site generator. Admitted as `source` into the `ks_spectrum` guide, with the two
+scaling consequences labelled `[inferred]`. Tuning mode gained one software-independent sentence.
+
+Not admitted: the campaign's memory figures and its estimate of node-hours on fewer nodes. Those
+are unpublished measurements and stay in the operator's working project.
+
+**Reconciliation (obligation 11).**
+- `ks-spectrum.md`, "a workflow may split different sources or source times for the same gauge
+  configuration across several input sets": *confirmed*. The new subsection states when such a
+  split repeats no solve.
+- `ks-spectrum.md`, "`coulomb_gauge_fix` on an input set that starts with `continue` is a
+  no-op": *confirmed*. A split set starting from `continue` inherits the already-fixed field.
+- `modes/tuning.md`, method item 1, minimum viable resource setup: *amended*, to name workflow
+  restructuring as a candidate.
+- `conventions/measurement.md`, reporting two comparisons when a constraint bars a placement:
+  *confirmed*, no conflict.
