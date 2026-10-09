@@ -554,6 +554,17 @@ exits with a status describing the teardown rather than the run, so the failure 
 something it was not. Guard such assignments explicitly, or accept a failing status with `|| true`
 where absence is legitimate, and never let the last records depend on a file that may not exist.
 
+**An unbound variable inside a pipeline does not stop the script.** Under `set -u` a reference to
+an unset variable aborts a non-interactive shell, except inside a pipeline stage. Bash runs each
+stage in a subshell, so only that stage dies: the message goes to stderr and the script carries
+on. `pipefail` does not catch it unless the pipeline's status is tested. A record line such as
+`echo "UCX_TLS=$UCX_TLS" | tee -a "$log"` therefore turns the one line that would have exposed a
+missing variable into a stray line of stderr. `[observed]`: a trial script exported a variable
+that a later line of its inherited template unset. It passed its dry-run positive control; the
+defect surfaced only in a sibling script where an unrelated error followed. Write record lines
+as plain commands, one `echo ... >> "$log"` per destination, so an unbound reference stops the
+job.
+
 ### The script's own directory is not `$0`, and modules resolve at start time
 
 Two things a batch script believes about its own environment are established when the job
@@ -735,7 +746,12 @@ the job.
   nothing. A command invoked by absolute path bypasses every stub, and a program the script runs
   can hold such a path that the script never wrote: a test driver may record its launcher at
   configure time and call the real one from inside the dry run. Launch those cases from the script
-  through a `PATH`-resolved launcher instead.
+  through a `PATH`-resolved launcher instead. The script can do the same to itself: an environment
+  file it sources may prepend its own `bin` to `PATH`, putting the real launcher in front of the
+  stub, and the dry run then executes it. An MPI distribution's init script is the usual case.
+  `[observed]`: HPC-X's `hpcx_load` did this, and a dry run invoked the real `mpirun` on a login
+  node; it refused to launch, so nothing ran. Where a script sources such a file, look for the
+  launcher's stub line in the dry-run log and treat its absence as an unstubbed launch.
 - **Do not fake anything verified by checksum.** No stand-in satisfies a hash, and those
   inputs are read-only, so leave them at their real paths. A guard that checks only a *size*
   can be satisfied by a sparse file, so even a very large input costs no space — but **confine

@@ -12,7 +12,11 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/tune.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/hisq_paths_force_quda.cu
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multi_blas_quda.cu
-observed: "2026-10-07"
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/interface_quda.cpp#L6196-L6286
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/timer.cpp#L42
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/timer.h#L142
+  - operator's screened QUDA-contraction runs and timer accounting (Horizon, 2026-10-09)
+observed: "2026-10-09"
 observed_on:
   software:
     quda: {commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc, branch: develop}
@@ -219,3 +223,20 @@ memory by two routes and only one of them can be prefetched. The discriminator i
 already — unified-memory migration events lying *inside* the slow copies' intervals — so group
 transfers by size **and** by enclosing annotation range before concluding anything from a
 rate.
+
+## An interface timer's categories are host time, not kernel time
+
+At `endQuda`, QUDA prints a `<function> Total time` block per interface function, split into
+categories. The categories time host code around the kernels, not the kernels.
+
+`[source]` In `contractFTQuda` (`lib/interface_quda.cpp`):
+- `download` (`QUDA_PROFILE_H2D`) wraps the host-to-device assignment of the two fields,
+  including the layout conversion;
+- `compute` brackets the per-momentum loop, which holds the kernel launch, the copy-back of the
+  per-timeslice result, and a blocking `comm_allreduce_sum`.
+
+A rank that reaches that sum first records its wait for the slowest rank as `compute`. In an
+observed MILC run, `compute` per call exceeded the contraction kernel's tuned time by two orders
+of magnitude `[observed]`. Compare a category with the kernel rows of the tunecache profile
+(`profile_0.tsv`) before attributing it. In the runs observed, both were written for rank 0
+only, so skew between ranks is not visible from them.

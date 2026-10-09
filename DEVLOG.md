@@ -5985,3 +5985,91 @@ raw is committed.
   measurement is admitted. The `mpicc` failure on a system without the wrapper is confined to
   `d17e9559`–`a5f8f9fa` and stays source-only in `build.md`. A `PRECISION=1` build with QUDA now
   compiles; running one is not owed.
+
+## 2026-10-09 — batch scripts: pipelines hide unbound variables; sourced PATH prepends defeat stubs
+
+Two defects from a Horizon MPI trial, both caught by dry runs before submission. A record line
+`echo ... | tee` hid an unbound `UCX_TLS`: the campaign template's deliberate `unset` followed
+the trial's export, and the error killed only the pipeline stage, so the positive control
+passed. And a script that sourced HPC-X's `hpcx_load` put the real `mpirun` ahead of the
+harness stub; the dry run executed it on a login node, which refused to launch. ROADMAP X.17
+records the harness-side detection.
+
+**Reconciliation (obligation 11).**
+- `batch-scripts.md`, `set -uo pipefail` unconditionally: *confirmed*. The new paragraph
+  states the gap in `-u`.
+- `batch-scripts.md`, command substitution and teardown: *confirmed*, a different mechanism.
+- `batch-scripts.md`, "Make sure the stubs win": *amended*.
+
+## 2026-10-09 — Horizon: nsys fails on GB nodes; UCX device defaults; the HPC-X stack's traps
+
+nsys: a capture job and an eight-leg probe failed identically, including a lone process
+with `-t cuda`, while `nsys status -e` reported OK on the node. Device and UCX facts come from
+the login shell, the jobs' recorded environments, `ucx_info -c`, and `nvidia-smi topo -m` in a
+colleague's job logs. HPC-X: the module's Tcl `exec` fails under the sandbox; the init script
+fails under `set -u`; the library resolution follows `LD_LIBRARY_PATH` over the run path,
+confirmed by `ldd` in both environments and by a negative dry-run test. Not admitted: the
+trial's timings, including a probable but unconfirmed two-node solve slowdown with
+`UCX_TLS=^dc,dc_mlx5` and `CUDA_NIC_INTEROP=1` on TACC's stack (one run, network placement
+confounded).
+
+**Reconciliation (obligation 11).**
+- `notes.md` "Launch MPI deliberately": *confirmed*; it covers `ibrun` and Open MPI from TACC
+  only.
+- `notes.md` "Place builds deliberately", unload `xalt` in a sandbox: *confirmed*; it applied to
+  this build too.
+- `machine.yaml` `site_launcher`: *confirmed*, unchanged; HPC-X's `mpirun` is not the site
+  launcher.
+- `conventions/profile-capture.md`, validate the artifact: *confirmed*.
+
+## 2026-10-09 — QUDA: what QUDA_ENABLE_TUNING_SHARED_CARVE_OUT adds
+
+Read from source at QUDA 00c7ef33 (identical at ba501e4f8) and tested once on Horizon
+(one-board spectroscopy run, tune leg plus measure leg): 7 non-dslash keys chose carve-out 100; the BLAS keys
+were swept, taking twice their tuning time, and kept 0. The solve showed no measurable change.
+The variable came from a colleague's scaling template. The leaf's `observed` date moves to
+2026-10-09; its `observed_on` revisions are unchanged.
+
+**Reconciliation (obligation 11).**
+- `runtime-environment.md`, the defaults table: *amended* (new row).
+- `internals/autotuning.md` L55, the carve-out as a tuned parameter: *confirmed*.
+- `profiling.md` L151, the carve-out absent from kernel names: *confirmed*.
+
+## 2026-10-09 — ks_spectrum: the QUDA contraction path's per-call costs
+
+Read from `generic_ks/ks_meson_mom_quda.c` at MILC a5f8f9fa and ab5011f5, and from QUDA's
+`qudaContractFT` and `contractFTQuda` at 00c7ef33. Tested on Horizon at a5f8f9fa against a CPU
+baseline on the same gauge configuration: a vector-current-heavy workload slower, a pion5-only
+one modestly faster. QUDA's `contractFTQuda` timer attributed most
+of the phase to host-side work and the per-call sum (`perf_kscont.md` in the operator's
+project). The per-rank prints are version-scoped to the PR #102 merge, which removed them
+between drafting and applying this change; the per-call allocation, re-upload and global sum
+remain at ab5011f5. Not admitted: the per-call times and percentages, which are campaign
+measurements.
+
+**Reconciliation (obligation 11).**
+- `ks-spectrum.md`, "through `a5f8f9fa`, in a `WANT_KS_CONT_GPU` build, several lines from every
+  rank around each contraction call, which `ab5011f5` removes": *confirmed*; the new subsection
+  scopes its print bullet the same way.
+- `quda-host-helpers.md`, `USE_KS_CONT_GPU` read by no source and the swap at link time:
+  *confirmed*.
+- `project.yaml` `WANT_KS_CONT_GPU`: *confirmed*, unchanged.
+
+## 2026-10-09 — QUDA: interface-timer categories are host time
+
+From `contractFTQuda` at 00c7ef33 (identical at ba501e4f8) and two QUDA-contraction
+spectroscopy runs on Horizon. In both, the `compute` category was dominated by time outside
+the kernel. Admitted as the reading rule only; the figures stay in the operator's project.
+
+**Reconciliation (obligation 11).**
+- `profiling.md`, the sections on kernel names and the cold tunecache: *confirmed*; the new
+  section concerns host-side timers.
+- `conventions/profile-metrics.md`: *confirmed*, no conflict (no trace was involved).
+
+## 2026-10-09 — ROADMAP: X.15–X.17 from the Horizon tuning campaign
+
+Two tools past the hand-use threshold (correlator directory comparison, four uses; QUDA
+interface-timer extraction, three) and one harness gap (a sourced `PATH` prepend defeating the
+stubs) recorded as obligations. X.14 was closed by the PR #102 entry above; its number is not
+reused.
+

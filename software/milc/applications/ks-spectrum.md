@@ -57,6 +57,10 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/ks_meson_mom_quda.c#L337-L369
   - operator's DeltaAI build and A/B records for the PR #102 branch
   - operator's rank-count comparison (the baryon normalization)
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/ks_meson_mom_quda.c#L306-L371
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2227-L2266
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/interface_quda.cpp#L6196-L6286
+  - operator's screened GPU-contraction trial and timer accounting (Horizon, 2026-10-09)
 observed: "2026-10-09"
 observed_on:
   software:
@@ -514,6 +518,28 @@ The `KS_LEAN` path, which the Makefile build does not define, takes the other ro
 propagator or quark whose save flag is not `forget` and rereads it from file when needed, trading
 host memory for file I/O. Multi-rank single-file writes on NFS-mounted filesystems are unsafe; see
 [`../../qio/parallel-singlefile-writes.md`](../../qio/parallel-singlefile-writes.md).
+
+### The QUDA meson-contraction path pays per call, not per byte
+
+A `WANT_KS_CONT_GPU` build replaces the CPU contraction with `ks_meson_mom_quda.c`. Its cost
+structure differs from what moving a contraction to the GPU suggests. At the observed revisions,
+for every sink spin-taste group of every meson pair, it:
+
+- allocates a fresh host colour-vector field;
+- applies the sink operator to it on the host, as the CPU path also does;
+- calls QUDA's `qudaContractFT` once per field combination. Each call uploads **both** quark
+  fields again, even one unchanged since the previous group, and ends in a blocking global sum.
+- through `a5f8f9fa`, prints and flushes several lines from every rank around every call;
+  `ab5011f5` removes them.
+
+The kernel and the uploads are the small part. In one Horizon spectroscopy run at `a5f8f9fa`
+they were a small fraction of the phase; the rest was host-side work and waiting at the
+per-call sum `[observed]`. So the path can be slower than the CPU contraction it replaces. It
+was, for a workload dominated by vector-current (`rho`) sink operators, and modestly faster for
+one with only `pion5` sinks `[observed, one run each]`. Measure the contraction phase against
+the CPU build on the same gauge configuration before adopting it.
+[`../../quda/profiling.md`](../../quda/profiling.md) explains how to read QUDA's own timer for
+these calls.
 
 Requested input labels are not runtime evidence. Confirm the emitted solver/backend token,
 batch or mass cardinality, precision, iterations, convergence, and residuals. At the observed

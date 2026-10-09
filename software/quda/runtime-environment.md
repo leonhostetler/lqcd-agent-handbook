@@ -15,7 +15,12 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/dslash_policy.hpp#L2038-L2041
   - operator's screened runtime and launcher records
   - operator's screened diagnostic-rig records (UCX protocol tables, Vista)
-observed: "2026-09-25"
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/tune.cpp#L727-L747
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/dslash.h#L102-L115
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/blas_quda.cu#L20
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/tune_quda.h#L334
+  - operator's screened carve-out tuning trial (Horizon, 2026-10-09)
+observed: "2026-10-09"
 observed_on:
   software:
     quda:
@@ -47,6 +52,7 @@ otherwise for a run, a MILC-driven QUDA job sets:
 | `QUDA_ENABLE_P2P` | **leave unset** | QUDA then chooses its best peer-to-peer arrangement: `[source]` copy engines and direct load/store both enabled, and with GDR on the non-peer-to-peer policies disabled as well. **State explicitly that unset is the deliberate choice**, not an omission. Machine exception: the validated Frontier stacks set `QUDA_ENABLE_P2P=0`, because the cited MILC notes report incorrect halo exchange and crashes with peer-to-peer enabled on the ROCm versions tested there; that value is part of those stacks' validated environment and is not a default elsewhere |
 | `OMP_NUM_THREADS` | `16` | `[operator]` Provided **more than** `16` CPUs are requested per rank, which leaves headroom for system processes. In one recent controlled observation, performance dropped materially when the requested CPUs per rank **equalled** `OMP_NUM_THREADS` and recovered when the CPU request per rank was raised above it. This is a **distinct rule from the binding arithmetic** in [`../../conventions/batch-scripts.md`](../../conventions/batch-scripts.md), which concerns the wrapper's CPU indices and the hardware-thread multiplier; both bind. The magnitude is unquantified and must not be quoted as a number |
 | `QUDA_DETERMINISTIC_REDUCE` | **leave unset** | `[source]` Read once; `1` selects deterministic reductions. A debugging option with a negative performance effect. Set it only for a declared determinism check, and record it either way |
+| `QUDA_ENABLE_TUNING_SHARED_CARVE_OUT` | **leave unset** | `[source]` Read once in `Tunable::tuneSharedCarveOut()`; `1` adds the shared-memory/L1 carve-out (0 or 100 %) to the autotuner's sweep for **non-dslash kernels only**. Dslash kernels already sweep it by default wherever the device supports it, through `QUDA_ENABLE_TUNING_SHARED_CARVE_OUT_DSLASH`, which only `0` turns off. The BLAS kernels use no shared memory and keep carve-out 0, which prefers L1. Setting it roughly doubles those keys' tuning time, and on one Horizon spectroscopy trial it made no measurable difference to CG time `[experiment]`. It is not a lever for the solve |
 | `MPICH_ENV_DISPLAY=1` | on, in MPICH environments | `[operator]` Logging practice, not a performance setting: Cray MPICH then prints the MPICH environment settings in force at initialisation into the job's own output, which is what makes a variable inherited from a site module — `MPICH_GPU_SUPPORT_ENABLED` above being the usual one — visible in the run's record rather than only in the module it came from |
 | `MPICH_OFI_NIC_VERBOSE=2` | on, in MPICH environments | `[operator]` Logging practice: Cray MPICH prints its per-rank network-interface selection, so the interface binding the launch wrapper requested can be confirmed from the log rather than assumed. Costs a few lines of output per rank at start-up and nothing thereafter |
 

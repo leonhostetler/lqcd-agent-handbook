@@ -15,6 +15,7 @@ sources:
   - live Slurm partition, node and job records, read from a login node 2026-10-09
   - https://github.com/usqcd-software/qio/issues/19
   - https://github.com/lattice/quda/issues/1655
+  - colleague's world-readable Horizon job logs (nvidia-smi topo -m), read 2026-10-09
 observed: "2026-10-09"
 observed_on:
   machine: horizon
@@ -155,6 +156,57 @@ each rank then holds the 36 cores beside its GPU `[reproduced]`, recorded by a p
 the GPUs: a four-rank MILC run spent about 13 ms per multi-GPU dslash instead of about 40 us
 `[experiment]`. Set `OMP_PROC_BIND=false` for a subset launch, or use the whole allocation.
 [`../../conventions/batch-scripts.md`](../../conventions/batch-scripts.md) owns the mechanism.
+
+## Nsight Systems does not run on the GB compute nodes
+
+`[reproduced ×2]`, 2026-10-09: two jobs on gpu-gb200 nodes, one an eight-leg probe. `nsys
+profile` from the `nvidia/26.9` module (Nsight Systems 2026.4.1) aborts every target within
+seconds and writes no report, with:
+
+    terminate called after throwing an instance of 'boost::wrapexcept<QuadDCommon::LogicException>'
+    Failed to probe the process (sync). Timeout: 2 sec
+
+It fails alone on `sleep 3` with only `-t cuda`, and equally under `ibrun` with any combination
+of `osrt`, `mpi`, `nvtx` and process-tree sampling. On the same compute node `nsys status -e`
+reports every check OK, including system-wide sampling at `perf_event_paranoid` 0, so the
+readiness check does not predict the failure.
+
+The cause is unknown. The login node's Yama `ptrace_scope` is 2, which forbids even a parent
+from tracing its own child without `CAP_SYS_PTRACE`. The compute nodes' value was not recorded
+`[inferred]`. Before booking a capture, run `nsys profile -t cuda -o /tmp/probe sleep 3` once
+inside a short job and require a `.nsys-rep`.
+[`../../conventions/profile-capture.md`](../../conventions/profile-capture.md) owns the rule that
+a capture is validated by its artifact.
+
+## UCX devices, and the HPC-X alternative
+
+**TACC's default environment already sets
+`UCX_NET_DEVICES=mlx5_0:1,mlx5_1:1,mlx5_4:1,mlx5_5:1`** `[observed]`, 2026-10-09. It is present
+in a login shell and in every batch job's recorded environment, although `module show
+ucx/1.22.0` sets only `TACC_UCX_*`. A launcher that "adds" this list changes nothing.
+
+GB200 compute nodes carry `mlx5_0`–`mlx5_5`. `nvidia-smi topo -m` places `mlx5_0`–`mlx5_3` on
+the NUMA side of GPUs 0–1 and `mlx5_4`–`mlx5_5` on the other. The login node has only `mlx5_0`,
+so a script that checks for these devices fails there and passes on a compute node. UCX 1.22's
+own default `UCX_MAX_RNDV_RAILS` is already 2 (`ucx_info -c`).
+
+**NVIDIA's HPC-X stack is an alternative MPI with its own traps** `[observed]`:
+- **What it is.** After `module use /home1/apps/nvidia/modulefiles`, the module is
+  `nvhpc-hpcx-cuda13/26.9`: HPC-X 2.50, with Open MPI `5.0.10rc2`, UCX 1.21 and HCOLL.
+  HPC-X's `libmpi` carries the run path `$ORIGIN/../../ucx/mt/lib`, so the ranks it launches
+  load UCX's multi-threaded build.
+- **Loading it in a sandbox.** The modulefile is Tcl and calls `exec uname`; inside an agent
+  sandbox `module load` silently loads nothing. HPC-X's own `hpcx-init.sh` plus `hpcx_load`
+  sets up the same environment, but it reads unset variables, so source it with `set -u`
+  relaxed. [`../../conventions/agent-sandbox.md`](../../conventions/agent-sandbox.md) owns the
+  class.
+- **The wrong MPI loads without any error.** An executable built against HPC-X records HPC-X in
+  its run path, but `LD_LIBRARY_PATH` outranks a run path, and both stacks ship `libmpi.so.40`
+  and `libucp.so.0`. With TACC's `openmpi` or `ucx` module loaded, the HPC-X executable loads
+  TACC's libraries. Check `ldd` inside the job and refuse to run when either library resolves
+  outside HPC-X.
+- **No measured gain.** MILC and QUDA rebuilt against it at the same commits gave no measurable
+  speed-up over the TACC stack, for a one-board and a two-node spectroscopy run, one run each.
 
 ## Place builds deliberately
 
