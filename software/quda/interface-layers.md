@@ -18,20 +18,20 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/CMakeLists.txt#L678-L680
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/instantiate.h#L52-L58
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/include/generic_quda.h#L7-L12
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/milc_to_quda_utilities.c#L13-L58
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic/milc_to_quda_utilities.c#L13-L48
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/d_congrad5_fn_quda.c#L115-L150
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L591-L629
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/f_meas_current.c#L1572-L1604
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L604-L619
   - upstream QUDA maintainer guidance on the interface boundary, relayed by the operator
-observed: "2026-10-07"
+observed: "2026-10-09"
 observed_on:
   software:
     quda:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
     milc:
-      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
 ---
 
@@ -114,7 +114,8 @@ adapter.
   `initialize_quda()` in `generic/milc_to_quda_utilities.c` is lazy and idempotent, and the
   QUDA-calling routines invoke it first. Makefile `WANT_*_GPU` switches become `USE_*_GPU`
   defines; `WANT_FN_CG_GPU`, for example, becomes `USE_CG_GPU`. Through MILC `6b9b8a06` enabling
-  QUDA CG also forced the eigensolver switch on; from `d17e9559` it does not. The header's
+  QUDA CG also forced the eigensolver switch on; from `d17e9559` the Makefile does not, and from
+`ab5011f5` neither does CMake. The header's
   helpers, the pinned site lattice, and how the switches compose are in
   [`../milc/quda-host-helpers.md`](../milc/quda-host-helpers.md).
 - **Some state is signalled in band.** MILC sets `num_iters = -1` before a solve to tell the

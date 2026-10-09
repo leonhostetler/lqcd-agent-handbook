@@ -5883,3 +5883,105 @@ right. On the session's logs the tool reproduced the hand tables exactly.
   still owed.
 - `tests/test_extract_milc_timings.py`: one overlong docstring line from the 1.1.0 change,
   *reflowed*.
+
+## 2026-10-09 — MILC PR #102 merged: the misc-patches fixes version-scoped, X.14 closed
+
+PR #102 (`milc-qcd/milc_qcd` branch `misc-patches`, merge `ab5011f5`, 2026-10-09) is the one merge
+on `develop` past `a5f8f9fa`. Its tree is identical to the branch commit `e476b8bf` that the
+2026-10-08 A/B measured, and the `load_quda_default_eig_args` guard is the patch the Grid
+eigenpack route ran with, so the branch evidence holds for the merge. The branch was merged
+unsquashed, so its commits now resolve on `develop`; the leaves still cite the merge.
+
+`tools/upstream-drift.py` against a fresh `develop` clone listed 19 leaves for the merge. Each
+was worked from the full `a5f8f9fa..ab5011f5` diff, which is small enough to read whole. Every
+flagged leaf but one was observed at `a5f8f9fa`, so a claim that touches no hunk is confirmed at
+`ab5011f5`. `ks-imp-rhmc.md` was observed at `32e18069`, and its cited files other than
+`Make_template` are unchanged from there to the merge. Every flagged citation was re-cited at
+`ab5011f5`, or kept at `a5f8f9fa` beside a new one where it evidences a "through `a5f8f9fa`"
+claim. `observed_on` moved to `ab5011f5` in all 19 leaves. Afterwards the tool reported 0 leaves
+to review.
+
+What the merge changes, and how each fact is now scoped:
+- `load_evecs_quda` clears QUDA's preserved deflation space at every call. The
+  one-gauge-configuration-per-process rule is now "through `a5f8f9fa`". The measurement of this
+  placement is admitted as a fourth labelled measurement in `milc-deflation-space.md`: three A/B
+  pairs, merged tree against its parent commit. Their iteration counts and timings stay in the
+  working directory.
+- `load_quda_default_eig_args` guards its eigensolver-only reads on `USE_EIG_GPU`, so the Make
+  QUDA CG build without `WANT_EIG_GPU` compiles. The host-eigenvector mode is reachable from
+  `develop`.
+- CMake honours `GPU_EIG` and links `eigen_stuff_QUDA.c` into every QUDA build.
+- `libraries/Make_vanilla` no longer forces `mpicc`.
+- The application `make -j` races are fixed in 31 `Make_template`s. Nine legacy applications are
+  not covered. Stacks still record `-j1`.
+- Non-QIO builds compile (CPU `ks_spectrum_hisq`, compiled not run).
+- The eigenpair globals are back at build precision, and `PRECISION=1` builds compile, with QUDA
+  too. Nothing at single precision was run.
+- `ks_meson_mom_quda.c` loses its per-rank debug prints.
+
+Admitted alongside, read from source at `ab5011f5`: PRIMME and ARPACK define `double *eigVal`
+against the `Real *` prototype, so their `PRECISION=1` builds are still expected to fail. Not
+compiled.
+
+Reviewed, not admitted: `r_serial_i` now stops on a failed gauge-file open instead of failing
+later. The `reload_serial` hint now prints before `terminate`; it was already declined in
+the PR #99 review. CMake no longer links `must_specify_HAVE_QUDA_or_HAVE_GRID.c` for an eigensolver
+request with neither back end. No leaf states the old behaviour of any of the three.
+
+The evidence is the operator's working-directory record of the PR and its DeltaAI runs. Nothing
+raw is committed.
+
+**Reconciliation (obligation 11).** Searched every leaf and record for `WANT_EIG_GPU`,
+`USE_EIG_GPU`, `GPU_EIG`, `load_quda_default_eig_args`, `load_evecs_quda`,
+`qudaCleanUpDeflationSpace`, `one gauge configuration`, `Restoring deflation space`, `mpicc`,
+`make -j`, `-j1`, `quark_action.h`, `libmake`, `HAVE_QIO`, `QIO_verbose`, `eigVal`, `eigVec`,
+`PRECISION=1`, `qudaContractFT` and `r_serial_i`.
+- `software/milc/project.yaml`, `WANT_FN_CG_GPU` compile failure and CMake forcing: *amended*,
+  version-scoped. `WANT_EIG_GPU` "unset branch unreachable": *amended*. `WANTQUDA` CMake
+  spellings: *confirmed*.
+- `software/milc/build-profiles.yaml`, `ks-spectrum-hisq-quda` explicit-switch note: *amended*.
+  `ks-spectrum-hisq-quda-mg` note: *confirmed*, points at it.
+- `software/quda/build-profiles.yaml`, `milc-cg` note on the Makefile forcing: *confirmed*,
+  untouched.
+- `software/milc/build.md`, the `mpicc` section: *amended*, rewritten as the `COMPILER` rule with
+  the `d17e9559`–`a5f8f9fa` exception. Serial-build and non-QIO bullets: *amended*,
+  version-scoped. The shared `make -j "$jobs"` invocation: *confirmed*.
+- `software/milc/quda-host-helpers.md`, switch-coupling item 3: *amended*. Per-rank contraction
+  prints: *amended*. The other items and the pinned-lattice order: *confirmed*.
+- `software/milc/internals/eigenvector-sources.md`, "At `a5f8f9fa` this build does not compile":
+  *amended*. The Grid route run: *confirmed*, with the guard identified as the merged one. The
+  several-configurations paragraph: *amended*. The fresh-eigensolve refusal and the precision
+  row: *confirmed*.
+- `software/milc/applications/ks-spectrum.md`, the one-configuration bullet: *amended*. The
+  `PRECISION=1` bullet: *amended*, with the PRIMME/ARPACK source note added. The `d17e9559` output
+  paragraph, contraction prints: *amended*. QIO debug lines and saved-file precision: *confirmed*.
+  The `u0` exception: *confirmed*.
+- `software/milc/applications/ks-measure.md`, the one-configuration sentence: *amended*. The
+  `QUDA_DIRAC_COVDEV` requirement: *confirmed*.
+- `software/quda/internals/milc-deflation-space.md`, "at `d17e9559` neither application takes
+  it": *amended*, with the merged cleanup added. The host-eigenvector paragraph and "hold one
+  gauge configuration per process": *amended*. The two `[experiment]` paragraphs: *confirmed*. The
+  placement measurement: *added*. The closing count of labelled measurements: *amended* to four.
+  The debugging checklist: *confirmed*.
+- `software/quda/solvers/staggered-cg.md`, the explicit-switch paragraph: *amended*.
+- `software/quda/solvers/staggered-deflated-cg.md`, "the switch must be set" and "unreachable
+  there": *amended*. The single-eigensolve count in a two-set run: *amended*, scoped to
+  `a5f8f9fa`. The reuse messages: *confirmed*.
+- `software/quda/interface-layers.md`, "from `d17e9559` it does not": *amended* to name both
+  build systems.
+- `software/quda/solvers/staggered-multigrid.md`, `software/quda/internals/milc-shift-interface.md`,
+  `software/milc/applications/ks-imp-rhmc.md`, `wilson-flow.md`,
+  `software/milc/internals/gauge-io-cost.md`, `gauge-read-dispatch.md`, `quark-source-types.md`,
+  `software/qio/parallel-singlefile-writes.md`: no claim touches a hunk. Each is *confirmed* and
+  re-cited.
+- `machines/deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q4/notes.md`, "Build serially" and the
+  `mpicc` paragraph: *confirmed*, pinned to `a5f8f9fa`, with a pointer *added* that the merge
+  removes both. Its `stack.yaml` scope limits (`-j1`, first-set-only deflation): *confirmed*,
+  untouched. The other stacks' `make -j1` commands and `mpicc` compilers: *confirmed*, records of
+  their builds.
+- `machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md`, `quark_action.h`
+  as a copy step: *confirmed*, untouched.
+- `ROADMAP.md` X.14: *deleted*. The fixes merged and are version-scoped, and the placement
+  measurement is admitted. The `mpicc` failure on a system without the wrapper is confined to
+  `d17e9559`–`a5f8f9fa` and stays source-only in `build.md`. A `PRECISION=1` build with QUDA now
+  compiles; running one is not owed.

@@ -5,17 +5,17 @@ scope: [software:milc]
 load_when: Compiling, preparing, tuning, benchmarking, or interpreting a ks_imp_rhmc run.
 evidence: source
 sources:
-  - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/Make_template
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_imp_rhmc/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/setup.c#L108-L700
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/control.c#L27-L195
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/ks_imp_includes.h#L37-L43
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/test/su3_rhmc_hisq.1.sample-in
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/test/su3_rhmc_hisq.1.sample-out
-observed: "2026-08-18"
+observed: "2026-10-09"
 observed_on:
   software:
     milc:
-      commit: 32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
 ---
 

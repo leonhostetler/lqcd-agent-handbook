@@ -5,10 +5,10 @@ scope: [software:milc]
 load_when: Compiling, preparing, tuning, benchmarking, or interpreting a ks_spectrum-family run.
 evidence: source
 sources:
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/Make_template
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L78-L264
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L993-L1389
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/control.c#L76-L1132
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/control.c#L76-L1134
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/make_prop.c#L286-L333
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/spectrum_ks.c#L644-L1252
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/spectrum_ks.c#L1357-L1662
@@ -21,7 +21,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/test/ks_spectrum_hisq.fpi.2.sample-out
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L121-L126
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_helpers.c#L843-L853
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/control.c#L131-L134
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/control.c#L131-L134
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/quark_source.c#L462-L472
   - operator's screened cold- and warm-tunecache spectroscopy runs on Horizon (MILC a5f8f9fa) and DeltaAI (MILC 6bd16fce), 2026-10
   - https://github.com/milc-qcd/milc_qcd/commit/45e0ec0e
@@ -30,7 +30,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L130-L134
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_multicg_offset_quda.c#L207-L211
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/dslash_fn.c#L333-L337
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_QUDA.c#L400-L443
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/eigen_stuff_QUDA.c#L405-L448
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/milc_interface.cpp#L971-L1004
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/gauge_field_order.h#L1039-L1050
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/gauge_field_order.h#L1276-L1347
@@ -46,15 +46,22 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L748-L826
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/control.c#L280-L385
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/lattice.h#L143-L148
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_QUDA.c#L112-L255
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/control.c#L280-L387
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/lattice.h#L143-L148
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/eigen_stuff_QUDA.c#L112-L260
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/eigen_stuff_PRIMME.c#L125
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/eigen_stuff_ARPACK.c#L761
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/include/imp_ferm_links.h#L402-L408
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L136-L220
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_meson_mom_quda.c#L337-L385
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/ks_meson_mom_quda.c#L337-L369
+  - operator's DeltaAI build and A/B records for the PR #102 branch
   - operator's rank-count comparison (the baryon normalization)
-observed: "2026-10-07"
+observed: "2026-10-09"
 observed_on:
   software:
     milc:
-      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
     quda:
       commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
@@ -174,24 +181,35 @@ labelled otherwise.
   exception is latent: it would take effect if that load moved to a compressed reconstruct.
   The field still records `u0` as its tadpole, which QUDA compares only when checking one
   gauge field against another. It has not been run with `u0 ≠ 1`.
-- **From `d17e9559`, one gauge configuration per process when eigenvectors are QUDA-resident.**
-  Each input set reloads or recomputes the deflation space through QUDA, and QUDA restores the
-  space it already holds without checking that the links changed, so a later input set deflates
-  with the earlier gauge configuration's eigenvectors. Measured at `a5f8f9fa`, the later set ran
-  no eigensolve and half its deflated solves stalled far above tolerance while the run still
-  reported `RUNNING COMPLETED` and exited 0, so its correlators were wrong. The host-eigenvector
-  mode of a build without `USE_EIG_GPU`, which compiles only once `load_quda_default_eig_args` is
-  guarded, is exposed as well, and there the later set's solves diverged. Mechanism,
-  measurement and remedy are in
+- **From `d17e9559` through `a5f8f9fa`, one gauge configuration per process when eigenvectors
+  are QUDA-resident.** Each input set reloads or recomputes the deflation space through QUDA, and
+  QUDA restores the space it already holds without checking that the links changed, so a later
+  input set deflates with the earlier gauge configuration's eigenvectors. Measured at
+  `a5f8f9fa`, the later set ran no eigensolve and half its deflated solves stalled far above
+  tolerance while the run still reported `RUNNING COMPLETED` and exited 0, so its correlators
+  were wrong. The host-eigenvector mode of a build without `USE_EIG_GPU` is exposed as well
+  once it compiles, and there the later set's solves diverged. **From `ab5011f5` (PR #102)
+  `load_evecs_quda` clears QUDA's preserved space at the start of every call**, so each input
+  set computes or loads its own; measured, every later-set solve then converged and first-set
+  correlators were unchanged. A `continue` input set that requests eigenpairs now pays a fresh
+  eigensolve or load: the earlier reuse was accidental, and wrong whenever the set changed
+  `time_bc` or `coordinate_origin`. Mechanism and measurements are in
   [`../../quda/internals/milc-deflation-space.md`](../../quda/internals/milc-deflation-space.md).
-- **At `a5f8f9fa` a single-precision build with host eigenvectors is type-mismatched.**
-  `lattice.h` declares `eigVal` as `double *` and `eigVec` as double-precision vectors, while
-  the eigensolver and residual-check routines take `Real *` and `su3_vector **`, which at
-  `PRECISION=1` are single. GCC 14 and later reject the call; older compilers warn and then
-  misread the eigenvalues. The profiles here build `PRECISION=2`, where the types coincide.
-  Compiled on DeltaAI with GCC 14.2 and no QUDA: 15 incompatible-pointer errors in
-  `control.c` and 4 more in `generic_ks/mat_invert.c`, where the deflation projection reads
-  `eigVec`; the same build at `PRECISION=2` compiles. Not tried with QUDA.
+- **Through `a5f8f9fa` a single-precision build with host eigenvectors is type-mismatched.**
+  From `d17e9559` `lattice.h` declares `eigVal` as `double *` and `eigVec` as double-precision
+  vectors, while the eigensolver and residual-check routines take `Real *` and
+  `su3_vector **`, which at `PRECISION=1` are single. GCC 14 and later reject the call; older
+  compilers warn and then misread the eigenvalues. Compiled on DeltaAI with GCC 14.2 and no
+  QUDA: 15 incompatible-pointer errors in `control.c` and 4 more in `generic_ks/mat_invert.c`,
+  where the deflation projection reads `eigVec`; the same build at `PRECISION=2` compiles.
+  **From `ab5011f5` the globals are declared at build precision again**, in `ks_measure` too.
+  At `PRECISION=1` the CPU `ks_spectrum_hisq`, `ks_measure_hisq` and `ks_measure_current_hisq`
+  then build, and so does `ks_spectrum_hisq` from the `ks-spectrum-hisq-quda` options with and
+  without `WANT_EIG_GPU`; compiled, not run. No single-precision run with eigenpairs, and no
+  single-precision QUDA deflation, has been run. The profiles here build `PRECISION=2`. Read
+  from source and not compiled: the PRIMME and ARPACK eigensolvers define `double *eigVal`
+  against the `Real *` prototype in `include/imp_ferm_links.h`, so a `PRECISION=1` build that
+  selects either is still expected to fail.
 - **Meson correlator normalization factors are echoed with `%g`.** The log shows six significant
   digits while the run uses the full value, so an input reconstructed from a log is not the
   input that ran. Take numeric values from the input file.
@@ -308,10 +326,11 @@ one; and, when eigenpairs are requested, `Loading deflation spaces into QUDA` an
 deflation space = ...` once per input set and one `Solving for <n> source(s) with|without
 deflation for parity <p>` line per solve. Those are observed at `a5f8f9fa`; the rest of this
 paragraph is read from source: QIO debug-level output during the eigenvector load, which
-the application switches on just before it and the next MILC SciDAC call switches off; and, in
-a `WANT_KS_CONT_GPU` build, several lines from every rank around each contraction call. Saved
-eigenvector files from that revision are written at `eigensolver_prec` (single unless it is 2),
-not at the build precision.
+the application switches on just before it and the next MILC SciDAC call switches off; and,
+through `a5f8f9fa`, in a `WANT_KS_CONT_GPU` build, several lines from every rank around each
+contraction call, which `ab5011f5` removes. Saved eigenvector files from a build with
+`USE_EIG_GPU` are written at `eigensolver_prec` (single unless it is 2), not at the build
+precision.
 
 Do not add `Aggregate time to compute propagators` to its constituent `CONGRAD5` times. Use the
 parent for workflow accounting and the child records for solver attribution, then report any

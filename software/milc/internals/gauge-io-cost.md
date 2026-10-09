@@ -5,15 +5,15 @@ scope: [software:milc]
 load_when: Choosing a MILC reload or save keyword for a large lattice, diagnosing slow gauge configuration I/O, or sizing host memory for a run that reads or writes a lattice.
 evidence: experiment
 sources:
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat4.c
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic/io_lat4.c
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_helpers.c
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/include/milc_datatypes.h
-observed: "2026-10-07"
+observed: "2026-10-09"
 observed_on:
   machine: perlmutter
   software:
     milc:
-      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
 ---
 

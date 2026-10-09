@@ -5,14 +5,14 @@ scope: [software:milc]
 load_when: Choosing or auditing a MILC reload keyword, reading a SciDAC or ILDG gauge configuration, or writing a launcher guard over a gauge input.
 evidence: source
 sources:
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat4.c
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat_utils.c
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic/io_lat4.c
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic/io_lat_utils.c
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/include/file_types.h
-observed: "2026-10-07"
+observed: "2026-10-09"
 observed_on:
   software:
     milc:
-      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
 ---
 

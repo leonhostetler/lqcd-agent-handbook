@@ -57,6 +57,11 @@ At this MILC revision `libraries/Make_vanilla` overrides the library compiler wi
 `su3` library builds, but with that wrapper rather than the Cray `cc` named in `MY_CC`; check the
 library compile lines of the build log.
 
+MILC PR #102 (merge `ab5011f5`) removes both quirks: the `make -j` races and the `mpicc`
+override. This record's commit precedes it, so the serial build and the wrapper observation stand
+for reproducing it. A build past that merge is not validated by this record;
+`software/milc/build.md` states what changed.
+
 Confirm `DT_RPATH` names the composed install prefix and that the install and build-tree
 `libquda.so` share one GNU Build ID, per `software/milc/quda-linkage.md`.
 

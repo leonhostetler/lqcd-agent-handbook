@@ -12,8 +12,8 @@ sources:
   - https://github.com/usqcd-software/qio/blob/273841537392f9465d229c957228755e923408eb/lib/qio/QIO_open_write.c#L203-L214
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_scidac.c#L380-L410
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_scidac.c#L494-L500
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat4.c#L2022-L2044
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat4.c#L829
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic/io_lat4.c#L2023-L2045
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic/io_lat4.c#L829
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_ansi.c#L20-L37
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/com_qmp.c#L483-L490
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/io_helpers_ks.c#L849-L892
@@ -24,7 +24,7 @@ sources:
   - https://github.com/torvalds/linux/blob/v5.14/fs/nfs/file.c#L352-L380
   - https://vastnfs.vastdata.com/version/4.0.34/source/vastnfs-4.0.34.tar.xz
   - operator's screened diagnostic-rig records
-observed: "2026-09-30"
+observed: "2026-10-09"
 observed_on:
   machine: vista
   node_type: gpu-gh200
@@ -36,7 +36,7 @@ observed_on:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
     milc:
-      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
   toolchain:
     mpi: openmpi/5.0.9, MPI-IO through ROMIO (the site module sets OMPI_MCA_io=^ompio)

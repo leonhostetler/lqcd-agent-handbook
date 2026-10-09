@@ -6,16 +6,18 @@ load_when: Adding or changing MILC code that calls QUDA, allocates host memory f
 evidence: source
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/include/generic_quda.h
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/milc_to_quda_utilities.c#L13-L58
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic/milc_to_quda_utilities.c#L13-L62
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/include/generic_quda.h
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/milc_to_quda_utilities.c#L50-L140
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic/milc_to_quda_utilities.c#L50-L151
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L1419-L1422
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L604-L619
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/CMakeLists.txt#L207-L217
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/CMakeLists.txt#L207-L265
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_meson_mom_quda.c#L337-L385
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/make_lattice.c#L25-L30
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/make_lattice.c#L67-L71
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/control.c#L1197-L1200
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/control.c#L1132-L1135
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_imp_rhmc/lattice.h#L31
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_imp_rhmc/update_rhmc.c#L150-L156
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/ranmom.c#L42-L46
@@ -26,7 +28,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic/gauge_stuff.c#L257
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile#L1161-L1164
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Make_template_combos#L121-L128
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/ks_meson_mom_quda.c#L68-L113
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/ks_meson_mom_quda.c#L68-L113
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/contraction_cpu.c#L205-L231
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/quda_milc_interface.h#L169-L176
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/quda_milc_interface.h#L1333-L1334
@@ -36,11 +38,11 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/quda_milc_interface.h#L15-L19
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/quda_define.h.in#L9-L14
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L396-L407
-observed: "2026-10-07"
+observed: "2026-10-09"
 observed_on:
   software:
     milc:
-      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
     quda:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
@@ -158,11 +160,13 @@ Five things about how the switches compose are not visible from any single switc
    assign empty values, so every GPU switch is off unless the build sets it.
 3. **Some switches turn on others.**
    - `WANT_FN_CG_GPU` forced `WANT_EIG_GPU` through `6b9b8a06`; from `d17e9559` the Makefile rule
-     is commented out, while the CMake build at `a5f8f9fa` still sets `GPU_EIG` from `GPU_FN_CG`.
-     The Make half is not a free choice: at `a5f8f9fa` `load_quda_default_eig_args`, defined in
-     `milc_to_quda_utilities.c`, reads eigensolver-only fields of `ks_eigen_param`, so a Make
-     build with `WANT_FN_CG_GPU` and without `WANT_EIG_GPU` does not compile `[observed]`. Guard
-     any new reader of those fields on `USE_EIG_GPU`.
+     is commented out, while the CMake build sets `GPU_EIG` from `GPU_FN_CG` through `a5f8f9fa`
+     and stops from `ab5011f5` (PR #102, 2026-10-09). Through `a5f8f9fa` the Make half is not a
+     free choice: `load_quda_default_eig_args`, defined in `milc_to_quda_utilities.c`, reads
+     eigensolver-only fields of `ks_eigen_param` unguarded, so a Make build with
+     `WANT_FN_CG_GPU` and without `WANT_EIG_GPU` does not compile `[observed]`. From `ab5011f5`
+     those reads are guarded on `USE_EIG_GPU`, with MILC's own precision as the fallback, and
+     the build compiles. Guard any new reader of those fields on `USE_EIG_GPU` the same way.
    - `WANT_CL_BCG_GPU` also defines `USE_GAUGEFIX_OVR_GPU`.
 4. **`-DMULTIGRID` has two sources.** `WANT_MULTIGRID=true` adds it in a `WANTQUDA` build, and so
    does a `KSCGMULTI` value that carries it. Both multigrid solve paths in
@@ -189,6 +193,7 @@ When changing a QUDA declaration that MILC uses, search MILC for local re-declar
 name, not only for `#include <quda_milc_interface.h>`. A new MILC-side call includes
 `generic_quda.h` rather than copying the declaration.
 
-From `d17e9559` the same file prints a line on every rank before and after each
-`qudaContractFT` call and around the spin-taste and accumulation steps, so a `WANT_KS_CONT_GPU`
-build writes several lines per rank per contraction.
+From `d17e9559` through `a5f8f9fa` the same file prints a line on every rank before and after
+each `qudaContractFT` call and around the spin-taste and accumulation steps, so a
+`WANT_KS_CONT_GPU` build writes several lines per rank per contraction; `ab5011f5` removes
+them.

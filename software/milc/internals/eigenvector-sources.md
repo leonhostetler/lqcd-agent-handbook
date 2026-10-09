@@ -8,22 +8,24 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/include/imp_ferm_links.h#L313-L394
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/read_eigen_param.c#L11-L71
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L278-L318
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/control.c#L301-L362
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_QUDA.c#L148-L227
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/control.c#L301-L364
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/eigen_stuff_QUDA.c#L153-L232
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/io_helpers_ks_eigen.c#L193-L283
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/milc_to_quda_utilities.c#L103-L172
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic/milc_to_quda_utilities.c#L103-L184
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/eigen_stuff_QUDA.c#L131-L134
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_helpers.c#L577-L625
   - operator's screened DeltaAI run records for the Grid eigenpack route
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Make_template_combos#L171-L198
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Make_template_combos#L330-L340
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L771-L787
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/vector_io.cpp#L40-L75
-observed: "2026-10-08"
+observed: "2026-10-09"
 observed_on:
   machine: deltaai
   software:
     milc:
-      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
     quda:
       commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
@@ -116,13 +118,14 @@ The only route is MILC-owned eigenvectors: a QUDA CG build with QIO and **withou
 `reload_*_ks_eigen` keyword. MILC reads the odd-parity vectors, and QUDA receives them through
 `QUDA_MILC_EIG_LOAD` and reconstructs the even parity when an even-parity solve needs it.
 
-**At `a5f8f9fa` this build does not compile**, because `load_quda_default_eig_args` reads the
-row-4 fields unguarded; the observation is recorded in [`../project.yaml`](../project.yaml) under
-`WANT_FN_CG_GPU`. The route therefore needs those reads guarded on `USE_EIG_GPU`.
+**Through `a5f8f9fa` this build does not compile**, because `load_quda_default_eig_args` reads
+the row-4 fields unguarded; the observation is recorded in [`../project.yaml`](../project.yaml)
+under `WANT_FN_CG_GPU`. From PR #102 (merge `ab5011f5`, 2026-10-09) those reads are guarded on
+`USE_EIG_GPU` and the build compiles; use a revision at or after that merge.
 
 **With the guard the route works** `[observed]`, once, on DeltaAI: one rank, one GH200, a
-`ks-spectrum-hisq-quda` build with `WANT_EIG_GPU=false` from `a5f8f9fa` plus that guard and no other
-change to the eigenvector path, against QUDA `ba501e4f8`. A 500-vector Grid eigenpack for one gauge
+`ks-spectrum-hisq-quda` build with `WANT_EIG_GPU=false` from `a5f8f9fa` plus that guard, the form
+`ab5011f5` merged, and no other change to the eigenvector path, against QUDA `ba501e4f8`. A 500-vector Grid eigenpack for one gauge
 configuration of a public 16³×48 HISQ ensemble was read from its directory and loaded into QUDA, and
 a two-mass UML solve on both parities was run deflated and undeflated:
 
@@ -142,10 +145,11 @@ a two-mass UML solve on both parities was run deflated and undeflated:
 
 Reading the eigenpack is serial, one file per vector, and dominated the run's wall time.
 
-Several gauge configurations in one process on this route also need QUDA's preserved deflation
-space cleared between input sets: without it a later set's opposite-parity solves deflate with the
-earlier gauge configuration's reconstructed space, and diverged when measured. Mechanism and
-remedy are in
+Several gauge configurations in one process on this route need QUDA's preserved deflation space
+cleared between input sets: without it a later set's opposite-parity solves deflate with the
+earlier gauge configuration's reconstructed space, and diverged when measured. From `ab5011f5`
+`load_evecs_quda` clears it at the start of every load; at an earlier revision clear it yourself
+or hold one gauge configuration per process. Mechanism and measurements are in
 [`../../quda/internals/milc-deflation-space.md`](../../quda/internals/milc-deflation-space.md).
 
 ## What this does not cover

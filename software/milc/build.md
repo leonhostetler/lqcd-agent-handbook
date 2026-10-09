@@ -7,18 +7,24 @@ evidence: source
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/libraries/Make_vanilla#L29-L49
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/Make_template#L276-L280
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/libraries/Make_vanilla#L29-L48
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/Make_template#L280-L284
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L1436-L1445
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat_utils.c#L1752-L1798
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_spectrum/Make_template
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_measure/Make_template
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/ks_imp_rhmc/Make_template
-  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/wilson_flow/Make_template
-observed: "2026-10-07"
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic/io_lat_utils.c#L1754-L1810
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/Make_template#L79-L82
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/Make_template#L116-L119
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/control.c#L361-L363
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/Make_template
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_measure/Make_template
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_imp_rhmc/Make_template
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/wilson_flow/Make_template
+  - operator's DeltaAI build records for the PR #102 branch
+observed: "2026-10-09"
 observed_on:
   software:
     milc:
-      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
 ---
 
@@ -86,21 +92,24 @@ From `d17e9559` (PR #99, 2026-10-06) the Makefile also appends `${OPT}` to `LDFL
 command-line `LDFLAGS` drops the optimization flags from the link line as well; put them in the
 stack's value when they matter at link time.
 
-## The library makefile forces its own compiler from `d17e9559`
+## The library compiler follows `COMPILER`, except from `d17e9559` through `a5f8f9fa`
 
-`libraries/Make_vanilla` maps `COMPILER` to a C compiler and then, from `d17e9559`, overrides
-it unconditionally with `CC = mpicc` (an uncommented line that entered through merge
-`87e4529d`). The application's `libmake` rule passes `APP_CC`, `PRECISION`, `ARCH` and
-`COMPILER` to it, never `CC`, and `Make_vanilla` reads `APP_CC` nowhere. Every `su3` library
-build at that revision therefore compiles with `mpicc` whatever `COMPILER` names, and on a
-system without that wrapper the library step fails before any application object compiles.
-Confirm the compiler on the library compile lines of the build log, and expect to override it
-(an edit to `Make_vanilla`, or building the libraries directly with `CC` on the make command
-line) until upstream restores the mapping. `[observed]` on DeltaAI at `a5f8f9fa`: with
-`APP_CC=cc` passed, every library compile line used `mpicc` and every application object `cc`.
-DeltaAI's Cray MPICH provides an `mpicc` that wraps plain `gcc`, so there the library builds,
-with that wrapper rather than the Cray one; the failure on a system with no `mpicc` has not
-been run.
+`libraries/Make_vanilla` maps `COMPILER` to a C compiler. The application's `libmake` rule
+passes `APP_CC`, `PRECISION`, `ARCH` and `COMPILER` to it, never `CC`, and `Make_vanilla` reads
+`APP_CC` nowhere, so the `COMPILER` mapping alone selects the library compiler, whatever the
+application compiler is. Confirm it on the library compile lines of the build log.
+
+From `d17e9559` through `a5f8f9fa` an uncommented `CC = mpicc` (which entered through merge
+`87e4529d`) overrides the mapping, so every `su3` library build at those revisions compiles with
+`mpicc` whatever `COMPILER` names, and on a system without that wrapper the library step fails
+before any application object compiles. At those revisions expect to override it (an edit to
+`Make_vanilla`, or building the libraries directly with `CC` on the make command line).
+`[observed]` on DeltaAI at `a5f8f9fa`: with `APP_CC=cc` passed, every library compile line used
+`mpicc` and every application object `cc`. DeltaAI's Cray MPICH provides an `mpicc` that wraps
+plain `gcc`, so there the library builds, with that wrapper rather than the Cray one; the failure
+on a system with no `mpicc` has not been run. PR #102 (merge `ab5011f5`, 2026-10-09) deletes the
+override; with it, the same DeltaAI build compiled every library object with `gcc`, the mapping
+for `COMPILER=gnu` `[observed]`.
 
 For example, this profile fragment:
 
@@ -153,17 +162,29 @@ current-machine stack. Do not copy another machine's compiler, accelerator, link
 values. Do not run a broad clean merely to obtain a first build; preserve existing artifacts and
 let the target-specific MILC dependency rules rebuild what the resolved configuration requires.
 
-## Two more build constraints at `a5f8f9fa`
+## Two build constraints through `a5f8f9fa`, lifted from `ab5011f5`
 
-- **Build serially from a clean tree.** The target recipe generates the application's
-  `quark_action.h`; with `MILC_BUILD_JOBS` above 1, objects that include it compile first and
-  fail with `quark_action.h: No such file or directory` `[observed]`. The validated stacks build
-  at `-j1`.
-- **A build without QIO does not compile.** From `d17e9559` `generic/io_lat_utils.c` uses
-  `QIO_SINGLEFILE`, `QIO_PARTFILE`, `QIO_PARTFILE_DIR` and `QIO_UNKNOWN` in
-  `open_scidac_detect_volume_format` with no `HAVE_QIO` guard, so a `ks_spectrum_hisq` build
-  with `WANTQIO=false` fails at either precision `[observed]`. Keep `WANTQIO=true`, as the
-  profiles do.
+- **Through `a5f8f9fa`, build serially from a clean tree.** The target recipe generates the
+  application's `quark_action.h`; with `MILC_BUILD_JOBS` above 1, objects that include it
+  compile first and fail with `quark_action.h: No such file or directory` `[observed]`, and the
+  application can also race ahead of the `su3` and `complex` libraries that `libmake` builds.
+  From PR #102 (merge `ab5011f5`) the application `Make_template`s make the libraries wait for
+  `libmake` and re-copy the action headers after `${LASTMAKE}` cleans the tree. On DeltaAI
+  `ks_spectrum_hisq` then built from a clean tree at `-j16` every time, the
+  `ks-spectrum-hisq-quda` profile's target included, and each of the 31 applications that
+  change ended a clean build the same way at `-j16` as at `-j1` `[observed]`; some of them fail
+  both ways, on errors unrelated to the race. Nine legacy applications whose
+  `Make_template` names unsuffixed `su3.a` and `complex.a` are not covered; they do not link
+  serially either. The validated stacks still record `-j1` builds, so parallel builds are not
+  yet part of any stack's validation.
+- **Through `a5f8f9fa`, a build without QIO does not compile.** From `d17e9559`
+  `generic/io_lat_utils.c` uses `QIO_SINGLEFILE`, `QIO_PARTFILE`, `QIO_PARTFILE_DIR` and
+  `QIO_UNKNOWN` in `open_scidac_detect_volume_format` with no `HAVE_QIO` guard, so a
+  `ks_spectrum_hisq` build with `WANTQIO=false` fails at either precision `[observed]`. From
+  `ab5011f5` those uses, and `ks_spectrum`'s `QIO_verbose` call before the QUDA eigenvector
+  load, are guarded on `HAVE_QIO`, and without QIO the function opens the file as a plain MILC
+  file. A CPU `ks_spectrum_hisq` with `WANTQIO=false` then compiles and links, compiled and not
+  run. The profiles keep `WANTQIO=true`.
 
 ## Preserve timing and linkage evidence
 

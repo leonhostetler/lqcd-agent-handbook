@@ -5,24 +5,25 @@ scope: [software:milc]
 load_when: Compiling, preparing, tuning, benchmarking, or interpreting a ks_measure-family run.
 evidence: source
 sources:
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/Make_template
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_measure/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/setup.c#L59-L628
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/control.c#L39-L320
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_measure/control.c#L39-L320
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/ks_measure_includes.h#L25-L31
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/test/ks_measure_hisq.2.sample-in
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/test/ks_measure_hisq.2.sample-out
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/setup.c#L184-L200
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/setup.c#L205-L262
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/setup.c#L375-L460
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/control.c#L82-L170
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_measure/control.c#L82-L170
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/eigen_stuff_QUDA.c#L131-L134
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_helpers.c#L565-L665
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/f_meas_current.c#L1572-L1900
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/f_meas_current.c#L2030-L2060
-observed: "2026-10-07"
+observed: "2026-10-09"
 observed_on:
   software:
     milc:
-      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
 ---
 
@@ -81,11 +82,13 @@ both from a deflation space of both parities that the application loads at mass 
 start-up; with the accelerated eigensolver as well, the host eigenvector arrays stay empty.
 The same merge makes the five-mass current writers emit a separate strange-mass record in both
 the low-mode and the high-mode output, so the expected record count changes across it. Each
-input set reloads the space through QUDA, and QUDA restores a space it already holds without
-checking that the links changed, so hold one gauge configuration per process. Measured at
-`a5f8f9fa`: on the second gauge configuration of a process the exact current came out wrong by
-orders of magnitude and a block of deflated stochastic solves diverged, while the run reported
-`RUNNING COMPLETED` and exited 0; mechanism, measurement and the one-call remedy are in
+input set reloads the space through QUDA, and through `a5f8f9fa` QUDA restores a space it
+already holds without checking that the links changed, so at those revisions hold one gauge
+configuration per process. Measured at `a5f8f9fa`: on the second gauge configuration of a
+process the exact current came out wrong by orders of magnitude and a block of deflated
+stochastic solves diverged, while the run reported `RUNNING COMPLETED` and exited 0. From
+`ab5011f5` (PR #102) `load_evecs_quda` clears the preserved space at the start of every call,
+and the same two-set run then converged every solve. Mechanism and measurements are in
 [`../../quda/internals/milc-deflation-space.md`](../../quda/internals/milc-deflation-space.md).
 The exact current also needs a QUDA built with `QUDA_DIRAC_COVDEV`, which the QUDA `milc-cg`
 profile leaves off; against such a build it stops at run time, not at link time.

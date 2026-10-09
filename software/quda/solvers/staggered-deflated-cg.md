@@ -16,15 +16,17 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/d_congrad5_fn_quda.c
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L136-L160
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/eigen_stuff_QUDA.c#L112-L255
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/eigen_stuff_QUDA.c#L112-L260
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/CMakeLists.txt#L207-L265
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L604-L619
-observed: "2026-10-07"
+observed: "2026-10-09"
 observed_on:
   software:
     quda:
       commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
       branch: develop
     milc:
-      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      commit: ab5011f5722dd423c9c459dea312ad0b6d565f45
       branch: develop
 ---
 
@@ -152,11 +154,13 @@ QUDA_DIRAC_STAGGERED=ON
 
 MILC must compile with QUDA CG and eigensolver support (`HAVE_QUDA`, `USE_CG_GPU`, and
 `USE_EIG_GPU`). Through `6b9b8a06` MILC's Makefile forced `WANT_EIG_GPU` on with
-`WANT_FN_CG_GPU`; from `d17e9559` it does not, and the switch must be set. The source keeps a
+`WANT_FN_CG_GPU`; from `d17e9559` it does not, and the switch must be set; the CMake build forces
+`GPU_EIG` through `a5f8f9fa` and honours it from `ab5011f5`. The source keeps a
 branch for a build without `USE_EIG_GPU`, in which MILC reads host eigenvectors, a Grid eigenpack
 among them, and hands them to QUDA (`QUDA_MILC_EIG_LOAD`); that build refuses a fresh eigensolve.
-At `a5f8f9fa` a Make build with `USE_CG_GPU` and
-without `USE_EIG_GPU` does not compile, so that branch is unreachable there `[observed]`; see
+Through `a5f8f9fa` a Make build with `USE_CG_GPU`
+and without `USE_EIG_GPU` does not compile, so that branch is unreachable there `[observed]`;
+from PR #102 (merge `ab5011f5`, 2026-10-09) it compiles and has run on DeltaAI; see
 `../../milc/project.yaml`, and
 [`../../milc/internals/eigenvector-sources.md`](../../milc/internals/eigenvector-sources.md) for
 which eigensolver and eigenvector files each build selects. The selected
@@ -247,7 +251,9 @@ before CG. For reuse, look for messages such as `Restoring deflation space`,
 applicable, but only at `QUDA_VERBOSE` or above: they are logged at that level, and MILC's
 default QUDA verbosity is `SUMMARIZE`, at which a restore prints nothing `[source]`. At the
 default, count `TRLM computed the requested` lines, one per fresh eigensolve; in a two-set
-`ks_spectrum` run that reused the first set's space there was exactly one `[observed]`. From MILC `d17e9559` the application side adds `Loading deflation spaces into
+`ks_spectrum` run at `a5f8f9fa` that reused the first set's space there was exactly one
+`[observed]`. From `ab5011f5` MILC clears the space at each `load_evecs_quda`, so expect one
+per input set that requests a fresh eigensolve. From MILC `d17e9559` the application side adds `Loading deflation spaces into
 QUDA` and `Time to load deflation space = ...` before the first solve, and one
 `Solving for <n> source(s) with|without deflation for parity <p>` line per call.
 `tools/extract-milc-timings.py solves` counts these markers per input set and judges every
