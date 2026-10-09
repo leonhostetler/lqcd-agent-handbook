@@ -23,6 +23,7 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_helpers.c#L843-L853
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/control.c#L131-L134
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/quark_source.c#L462-L472
+  - operator's screened cold- and warm-tunecache spectroscopy runs on Horizon (MILC a5f8f9fa) and DeltaAI (MILC 6bd16fce), 2026-10
   - https://github.com/milc-qcd/milc_qcd/commit/45e0ec0e
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_action_paths_hisq.c#L106-L114
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/imp_actions/hisq/hisq_u3_action.h
@@ -424,6 +425,15 @@ precision, set type, masses, right-hand-side shape, source parity/color structur
 and decomposition. A later occurrence can be the first use of a new kernel family even when it
 is not literally the first solve in the file. Exclude or include first-use cost according to the
 declared warm-state contract in benchmarking mode.
+
+**First-use autotuning lands mostly outside the solves.** With a QUDA build starting from an
+empty tunecache, a cold run's extra time sat mainly in `Aggregate time to create fermion links`
+and `Aggregate time to gauge fix`, with a smaller share in `compute propagators`. A warm run of
+the same workflow carried almost none of it `[reproduced ×6]`: cold and warm runs of three
+spectroscopy workflows on each of two machines. QUDA tuning its link-fattening and
+gauge-fixing kernels on their first calls would explain this `[inferred]`. So a cold-versus-warm
+comparison, or a warm-state accounting, examines those phases rather than assuming the cost
+lands on the first solve. The `CONGRAD5` records alone understate it.
 
 **Solver-work heads-up:** treat single-right-hand-side and block or multi-right-hand-side paths
 as different warm-state classes unless runtime and tunecache evidence establishes otherwise. At
