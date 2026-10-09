@@ -14,6 +14,10 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_measure/setup.c#L59-L79
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_imp_rhmc/setup.c#L162-L182
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/com_mpi.c#L612-L626
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L49
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L207-L211
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_multicg_offset_quda.c#L53
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/ks_multicg_offset_quda.c#L253-L257
 observed: "2026-10-07"
 observed_on:
   software:
@@ -93,6 +97,25 @@ Top-level timing boundaries differ among MILC applications and sometimes between
 later input sets. Load the relevant application guide before deciding whether a `Time` record
 includes setup, gauge-field I/O, ending-lattice output, or work inherited from an adjacent input
 set.
+
+## Reading the `CONGRAD5` throughput field
+
+At the observed revision the QUDA-path `CONGRAD5` records compute `mflops` as a nominal flop
+count per site, times the global volume, times the iterations, times the right-hand sides where
+the record has them, divided by the solve time and by the number of ranks. Three consequences:
+
+- **It is a per-rank rate.** A job's aggregate is the figure times its rank count. Two runs at
+  different rank counts therefore compare per-rank throughput, not per-job throughput.
+- **The per-site constants are nominal.** They are 1187 for the single-mass CG, which the source
+  itself marks `FIXME Wrong flops`, and 1205 plus 15 per shift for the multi-shift solver. The
+  figure ranks runs of the same solver and right-hand-side shape. It never ranks solvers against
+  each other.
+- **It ignores precision.** Sloppy iterations of a mixed-precision solve count at the same
+  nominal cost, so the figure is not a hardware rate. Compare it against a bandwidth roofline
+  only as an approximation.
+
+Summarise a series by weighting each record's figure by its solve time, so a short solve does
+not count as much as a long one.
 
 ## Whole-application timestamps
 
