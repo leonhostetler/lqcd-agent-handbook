@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """extract-milc-timings.py solves must account for every solve in MILC output: pass a clean
 run, and fail each defect it exists to catch -- a right-hand side above its requested residual,
-a MILC NOT converged status, a disagreement between the two, an incomplete input set, an ERROR
-line, a missing exit record. It must not count load_evecs_quda's zero-iteration dummy inversion
-as a solve. Every negative test first proves its perturbation changed the log. The logs are
+a heavy-quark residual above its request, a MILC NOT converged status, a disagreement between
+the two, an incomplete input set, an ERROR line, a missing exit record. It must accept a
+heavy-quark solve that QUDA's own rule accepts, and must not count load_evecs_quda's
+zero-iteration dummy inversion as a solve. Every negative test first proves its perturbation changed the log. The logs are
 synthetic, written here in the record formats of MILC a5f8f9fa with QUDA ba501e4f8."""
 from __future__ import annotations
 
@@ -22,10 +23,20 @@ ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "extract-milc-timings.py"
 
 
-def conv(iters: int, true: float, n: int | None = None, requested: float = 1e-8) -> str:
+def conv(iters: int, true: float, n: int | None = None, requested: float = 1e-8,
+         hq: float | None = None, hq_requested: float = 1e-7) -> str:
     tag = f", n = {n}" if n is not None else ""
+    tail = f", heavy-quark residual = {hq:e} (requested = {hq_requested:e})" if hq is not None else ""
     return (f"CG: Convergence at {iters} iterations{tag}, L2 relative residual: "
-            f"iterated = {true:e}, true = {true:e} (requested = {requested:e})")
+            f"iterated = {true:e}, true = {true:e} (requested = {requested:e}){tail}")
+
+
+def heavy_solve(true: float, hq: float, status: str = "OK") -> list[str]:
+    """One heavy-quark UML solve: an unreachable L2 request of 1e-16 beside a heavy-quark request."""
+    return ["Solving for 1 source(s) without deflation for parity 2",
+            conv(460, true, requested=1e-16, hq=hq),
+            "CONGRAD5: time = 1.9e+00 (fn_QUDA D) masses = 1 srcs = 1 iters = 460 mflops = 2.6e+06",
+            f" {status} converged final_rsq= 1.3e-31 (cf 1e-32) rel = 3.7e-15 (cf 1e-14) restarts = 0 iters= 460 "]
 
 
 def solve(parity: int, iters: int, true: float, status: str = "OK") -> list[str]:
@@ -69,7 +80,7 @@ class SolveAccountingTests(unittest.TestCase):
     def test_clean_run_passes_and_excludes_dummy_inversions(self):
         result = self.run_tool(self.clean)
         self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertIn("extract-milc-timings 1.0.0", result.stdout)
+        self.assertIn("extract-milc-timings 1.1.0", result.stdout)
         self.assertIn("NOT implemented", result.stdout)
         self.assertEqual(result.stdout.count("2 solve record(s), 2 right-hand side(s)"), 2, result.stdout)
         self.assertEqual(result.stdout.count("dummy inversions excluded: 1"), 2, result.stdout)
@@ -112,6 +123,30 @@ class SolveAccountingTests(unittest.TestCase):
         self.assertIn("1 solve record(s), 16 right-hand side(s)", result.stdout)
         self.assertIn("above requested: 1 rhs", result.stdout)
 
+    def test_a_heavy_quark_solve_met_by_its_heavy_quark_residual_passes(self):
+        log = self.perturbed("hq.out", "\n".join(
+            input_set() + heavy_solve(3.6e-16, 6.1e-8) + ["RUNNING COMPLETED", "exit: x"]) + "\n")
+        result = self.run_tool(log)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("above requested: 0 rhs; met by heavy-quark residual only: 1 rhs", result.stdout)
+        self.assertNotIn("disagree", result.stdout)
+
+    def test_a_heavy_quark_residual_above_its_request_fails(self):
+        log = self.perturbed("hq-above.out", "\n".join(
+            input_set() + heavy_solve(3.6e-16, 2.0e-7) + ["RUNNING COMPLETED", "exit: x"]) + "\n")
+        result = self.run_tool(log)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("set 2: 1 right-hand side(s) above the requested residual", result.stdout)
+        self.assertIn("disagree", result.stdout)
+
+    def test_both_residuals_must_hold_when_l2_is_met(self):
+        log = self.perturbed("hq-l2-met.out", "\n".join(
+            input_set() + heavy_solve(5.0e-17, 2.0e-7, status="NOT") + ["RUNNING COMPLETED", "exit: x"]) + "\n")
+        result = self.run_tool(log)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("above requested: 1 rhs; met by heavy-quark residual only: 0 rhs", result.stdout)
+        self.assertNotIn("disagree", result.stdout)
+
     def test_cpu_output_is_judged_by_milc_status_alone(self):
         cpu = ["CONGRAD5: time = 5.3e-02 (fn D) masses = 1 iters = 99 mflops = 9.0e+03",
                " OK converged final_rsq= 7.9e-17 (cf 1e-16) rel = 1 (cf 0) restarts = 1 iters= 99",
@@ -127,7 +162,7 @@ class SolveAccountingTests(unittest.TestCase):
         result = self.run_tool(self.clean, extra=["--json"])
         self.assertEqual(result.returncode, 0, result.stdout)
         data = json.loads(result.stdout)
-        self.assertEqual(data["version"], "1.0.0")
+        self.assertEqual(data["version"], "1.1.0")
         self.assertIn("NOT implemented", data["not_implemented"])
         self.assertEqual(len(data["runs"][0]["sets"]), 2)
 

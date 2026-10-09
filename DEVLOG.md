@@ -5834,3 +5834,21 @@ traced. The per-phase seconds are campaign measurements and were not admitted.
 - `modes/benchmarking.md`, excluding the first solve by default in a steady-state solver
   series: *confirmed*. That rule concerns a solver series; this paragraph concerns workflow
   phases, and neither changes the other.
+
+## 2026-10-09 — extract-milc-timings 1.1.0: heavy-quark solves judged by QUDA's own rule
+
+`solves` 1.0.0 judged each right-hand side by its L2 true residual alone. A `ks_spectrum` run
+with heavy-quark propagators requests an L2 residual of 1e-16, which is unreachable, and a
+heavy-quark residual of 1e-7. Every such solve was therefore reported as above its request and
+inconsistent with MILC's OK status: 96 false PROBLEM lines per input set in one fpi log. QUDA
+`ba501e4f8` requires both residuals, but switches to the heavy-quark residual alone after an L2
+breakdown (`Solver::convergence`; `inv_cg_quda.cpp`, `L2breakdown`). The tool now parses the
+heavy-quark pair and applies that rule. It counts right-hand sides met by the heavy-quark
+residual alone separately, and it now catches a heavy-quark residual above its request, which
+1.0.0 could not see. One positive control and two negative tests were added.
+
+**Reconciliation (obligation 11).**
+- `software/milc/applications/ks-spectrum.md`, the tool's verdict: *amended*.
+- `software/quda/solvers/staggered-deflated-cg.md`, the tool judges deflated solves by true
+  residual and MILC status: *confirmed*. Deflated light solves carry no heavy-quark request.
+- `ROADMAP.md` 4.1, solve accounting landed: *confirmed*, unchanged.

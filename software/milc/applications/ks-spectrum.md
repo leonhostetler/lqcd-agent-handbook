@@ -295,7 +295,9 @@ With the corresponding component instrumentation:
   accounts for them per input set and parity: it
   judges each right-hand side by its true residual and by MILC's status line, reports any
   disagreement between the two, and excludes the zero-iteration dummy inversion of each
-  deflation-space load;
+  deflation-space load. Where a heavy-quark residual was requested, it applies QUDA's own rule:
+  both residuals met, or the heavy-quark residual alone once the L2 norm has stalled at its
+  precision floor, which it counts separately;
 - meson, baryon, smearing, link, and I/O timers provide child costs inside application phases;
   and
 - backend tuning and memory records describe accelerator state, not `ks_spectrum` work units.

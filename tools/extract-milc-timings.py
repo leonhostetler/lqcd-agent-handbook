@@ -15,8 +15,13 @@ A solve is one `CONGRAD5` record. Its convergence is judged by two signals that 
 prints independently, and the tool reports both:
 
   - the QUDA path's `CG: Convergence at <n> iterations[, n = <k>], ... true = <t> (requested = <r>)`
-    lines, one per right-hand side, judged true <= requested. QUDA prints this line for a solve
-    that stopped at its iteration limit too, so its presence is not convergence;
+    lines, one per right-hand side. QUDA prints this line for a solve that stopped at its
+    iteration limit too, so its presence is not convergence. A right-hand side meets its request
+    when true <= requested. Where the line also carries `heavy-quark residual = <h> (requested =
+    <q>)`, QUDA's own rule applies (QUDA ba501e4f8, lib/solver.cpp Solver::convergence and
+    lib/inv_cg_quda.cpp L2breakdown): both residuals met, or the heavy-quark residual alone once
+    the L2 norm has stalled at its precision floor. A right-hand side met that second way is
+    counted separately, never folded into the clean count;
   - MILC's status line after each record, ` OK converged final_rsq= ...` or ` NOT converged ...`.
 
 A disagreement between them is reported as an inconsistency. A QUDA convergence line that no
@@ -42,14 +47,15 @@ import re
 import statistics
 import sys
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 NOT_IMPLEMENTED = "timing series under the first-solve rule and the untraced-control comparison: NOT implemented"
 
 PARITY = {"1": "odd", "2": "even", "3": "evenandodd"}
 RE_SOLVING = re.compile(r"^Solving for (\d+) source\(s\) (with|without) deflation for parity (\d+)")
 RE_QUDA_CONV = re.compile(
     r"^CG: Convergence at (\d+) iterations(?:, n = (\d+))?, L2 relative residual: "
-    r"iterated = (\S+), true = (\S+) \(requested = (\S+)\)")
+    r"iterated = (\S+), true = (\S+) \(requested = (\S+)\)"
+    r"(?:, heavy-quark residual = (\S+) \(requested = (\S+)\))?")
 RE_CONGRAD5 = re.compile(r"^CONGRAD5: time = (\S+) .*?iters = (\d+)")
 RE_SRCS = re.compile(r"\bsrcs = (\d+)")
 RE_STATUS = re.compile(r"^\s*(OK|NOT) converged final_rsq= (\S+) \(cf (\S+)\)")
@@ -93,7 +99,9 @@ def parse(path: str) -> dict:
                        "parity": PARITY.get(m.group(3), m.group(3))}
         elif (m := RE_QUDA_CONV.match(line)):
             pending.append({"iterations": int(m.group(1)), "true": number(m.group(4)),
-                            "requested": number(m.group(5))})
+                            "requested": number(m.group(5)),
+                            "hq": number(m.group(6)) if m.group(6) else None,
+                            "hq_requested": number(m.group(7)) if m.group(7) else None})
         elif (m := RE_CONGRAD5.match(line)):
             s = RE_SRCS.search(line)
             rhs = [p for p in pending if p["iterations"] != 0] or pending
@@ -103,6 +111,8 @@ def parse(path: str) -> dict:
                      "deflation": solving["deflation"] if solving else "unlabelled",
                      "quda_true": [p["true"] for p in rhs],
                      "quda_requested": [p["requested"] for p in rhs],
+                     "quda_hq": [p["hq"] for p in rhs],
+                     "quda_hq_requested": [p["hq_requested"] for p in rhs],
                      "milc_status": None}
             cur["dummy_inversions"] += sum(1 for p in pending if p not in rhs and p["iterations"] == 0)
             pending, solving = [], None
@@ -139,17 +149,32 @@ def parse(path: str) -> dict:
     return {"log": path, "sets": sets, "errors": errors, "exit_record": exit_record}
 
 
+def verdict(true: float, requested: float, hq: float | None, hq_requested: float | None) -> str:
+    """One right-hand side: 'met', 'heavy-quark' (met by the heavy-quark residual alone after the
+    L2 norm stalled), or 'above'."""
+    hq_met = hq is None or hq <= hq_requested
+    if true <= requested and hq_met:
+        return "met"
+    return "heavy-quark" if hq is not None and hq_met else "above"
+
+
+def verdicts(solve: dict) -> list[str]:
+    return [verdict(*v) for v in zip(solve["quda_true"], solve["quda_requested"],
+                                     solve["quda_hq"], solve["quda_hq_requested"])]
+
+
 def judge(run: dict) -> list[str]:
     """Annotate each set with its summary; return the run's problems."""
     problems: list[str] = []
     for i, st in enumerate(run["sets"], 1):
         solves = st["solves"]
-        above = sum(1 for s in solves for t, r in zip(s["quda_true"], s["quda_requested"]) if t > r)
+        above = sum(v == "above" for s in solves for v in verdicts(s))
+        by_hq = sum(v == "heavy-quark" for s in solves for v in verdicts(s))
         not_conv = sum(1 for s in solves if s["milc_status"] == "NOT")
         no_status = sum(1 for s in solves if s["milc_status"] is None)
         inconsistent = sum(
             1 for s in solves if s["quda_true"] and s["milc_status"] is not None
-            and (any(t > r for t, r in zip(s["quda_true"], s["quda_requested"])) != (s["milc_status"] == "NOT")))
+            and (("above" in verdicts(s)) != (s["milc_status"] == "NOT")))
         trues = [t for s in solves for t in s["quda_true"]]
         groups: dict[str, dict] = {}
         for s in solves:
@@ -164,7 +189,8 @@ def judge(run: dict) -> list[str]:
                            "iterations_max": max(v["iterations"])} for k, v in groups.items()},
             "congrad5_time_s": sum(s["time_s"] for s in solves),
             "worst_true_residual": max(trues) if trues else None,
-            "rhs_above_requested": above, "milc_not_converged": not_conv,
+            "rhs_above_requested": above, "rhs_met_by_heavy_quark_only": by_hq,
+            "milc_not_converged": not_conv,
             "milc_status_missing": no_status, "inconsistent_records": inconsistent}
         tag = f"set {i}"
         if not st["completed"]:
@@ -201,6 +227,7 @@ def report(run: dict, problems: list[str]) -> str:
             out.append(f"    parity/deflation {key}: {g['records']} record(s), {g['rhs']} rhs, iterations "
                        f"min {g['iterations_min']} median {g['iterations_median']:g} max {g['iterations_max']}")
         out.append(f"    true residual: worst {worst}; above requested: {sm['rhs_above_requested']} rhs; "
+                   f"met by heavy-quark residual only: {sm['rhs_met_by_heavy_quark_only']} rhs; "
                    f"MILC NOT converged: {sm['milc_not_converged']}; status missing: {sm['milc_status_missing']}; "
                    f"inconsistent: {sm['inconsistent_records']}")
         out.append(f"    deflation loads: {loads}; fresh TRLM eigensolves: {st['trlm_eigensolves']}; "
