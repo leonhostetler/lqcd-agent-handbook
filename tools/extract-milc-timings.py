@@ -1,15 +1,31 @@
 #!/usr/bin/env python3
-"""Read MILC staggered-application output (ks_spectrum, ks_measure) and account for every solve.
+"""Read MILC staggered-application output (ks_spectrum, ks_measure): account for every solve, and sum its phases.
 
     extract-milc-timings.py solves LOG [LOG ...] [--json]
+    extract-milc-timings.py phases LOG [LOG ...] [--json]
 
 Run it through tools/run-extract-milc-timings, which selects a Python 3.10+ interpreter; a bare
 python3 on PATH may be older and cannot parse this file.
 
-One reader of MILC run output, so that a solve is never counted by an ad-hoc grep. This version
-implements solve accounting only. The timing series under conventions/measurement.md's
-first-solve rule, and the untraced-control comparison, are not implemented yet, and the report
-says so.
+One reader of MILC run output, so that a solve or a phase is never counted by an ad-hoc grep.
+This version implements solve accounting and per-phase timing. The timing series under
+conventions/measurement.md's first-solve rule, and the untraced-control comparison, are not
+implemented yet, and the report says so.
+
+`phases` sums the PRTIME records `Aggregate time to <phase> <seconds>` over the input sets of a
+log (MILC a5f8f9fa, ks_spectrum/ks_spectrum_includes.h ENDTIME; ks_imp_rhmc prints the same
+form). Each such record closes one interval of a single caller-owned timer, so phases do not
+overlap and may be added. The report gives each phase's total and record count; the sum of the
+top-level `Time =` records; their remainder over the phases, labelled as time outside named
+phases, which holds inter-set cleanup and any component timer no phase encloses; and the
+`exit:` minus `start:` envelope. `Time to <name>` component timers are listed with their totals
+and never added to anything, because whether one nests inside a phase depends on the
+application and revision (software/milc/timing.md). ks_measure prints its phases as `Time to`
+records, which this version does not separate from component timers; a log with no
+`Aggregate time to` record is reported as a problem rather than as zero cost. `CONGRAD5` records
+are summarised by count, time, and their `mflops` field weighted by solve time; that field is a
+per-rank nominal rate, so the aggregate is given only when the log's `Machine = ..., with <n>
+nodes` line names the rank count. Given several logs, a table puts their phases side by side.
 
 A solve is one `CONGRAD5` record. Its convergence is judged by two signals that the output
 prints independently, and the tool reports both:
@@ -35,19 +51,22 @@ right-hand sides by parity and deflation, iteration minimum, median and maximum,
 eigensolves, other-parity reconstructions, and the set's `Time =` record. Parity is MILC's code:
 2 even, 1 odd, 3 even and odd.
 
-Exit status: 0 when every solve converged by both signals, every set completed and the run
-printed its `exit:` record; 1 otherwise; 2 on a usage error or an unreadable log. The standard
-library only.
+Exit status for `solves`: 0 when every solve converged by both signals, every set completed and
+the run printed its `exit:` record. For `phases`: 0 when every set completed, the run printed its
+`exit:` record, and at least one phase record was found. Otherwise 1; 2 on a usage error or an
+unreadable log. The standard library only.
 """
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import re
 import statistics
 import sys
+from pathlib import Path
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 NOT_IMPLEMENTED = "timing series under the first-solve rule and the untraced-control comparison: NOT implemented"
 
 PARITY = {"1": "odd", "2": "even", "3": "evenandodd"}
@@ -62,6 +81,11 @@ RE_STATUS = re.compile(r"^\s*(OK|NOT) converged final_rsq= (\S+) \(cf (\S+)\)")
 RE_SET_TIME = re.compile(r"^Time = (\S+) seconds")
 RE_LOAD_TIME = re.compile(r"^Time to load deflation space = (\S+) s")
 RE_OTHER_PARITY = re.compile(r"^Time to reconstruct other parity eigenvectors = (\S+) s")
+RE_PHASE = re.compile(r"^Aggregate time to (.+?) (\S+)\s*$")
+RE_COMPONENT = re.compile(r"^Time to (.+?)(?: =)? ([-+0-9.eE]+)(?: (?:sec|s))?\s*$")
+RE_MFLOPS = re.compile(r"\bmflops = (\S+)")
+RE_MACHINE = re.compile(r"^Machine = .*, with (\d+) nodes")
+RE_STAMP = re.compile(r"^(start|exit): (.+?)\s*$")
 
 
 def number(text: str) -> float:
@@ -213,6 +237,134 @@ def judge(run: dict) -> list[str]:
     return problems
 
 
+def parse_phases(path: str) -> dict:
+    with open(path, errors="replace") as handle:
+        lines = handle.read().splitlines()
+    phases: dict[str, dict] = {}
+    pending: dict[str, dict] = {}      # phase records of the input set not yet closed by `Time =`
+    components: dict[str, dict] = {}
+    times: list[float] = []
+    completed = 0
+    stamps: dict[str, str] = {}
+    ranks = None
+    cg = {"records": 0, "time_s": 0.0, "mflops_time": 0.0}
+    for line in lines:
+        if (m := RE_PHASE.match(line)):
+            ph = pending.setdefault(m.group(1), {"seconds": 0.0, "records": 0})
+            ph["seconds"] += number(m.group(2))
+            ph["records"] += 1
+        elif (m := RE_SET_TIME.match(line)):
+            times.append(number(m.group(1)))
+            for name, ph in pending.items():
+                total = phases.setdefault(name, {"seconds": 0.0, "records": 0})
+                total["seconds"] += ph["seconds"]
+                total["records"] += ph["records"]
+            pending = {}
+        elif line.startswith("RUNNING COMPLETED"):
+            completed += 1
+        elif (m := RE_CONGRAD5.match(line)):
+            t = number(m.group(1))
+            cg["records"] += 1
+            cg["time_s"] += t
+            if (f := RE_MFLOPS.search(line)):
+                cg["mflops_time"] += t * number(f.group(1))
+        elif (m := RE_COMPONENT.match(line)):
+            c = components.setdefault(m.group(1), {"seconds": 0.0, "records": 0})
+            c["seconds"] += number(m.group(2))
+            c["records"] += 1
+        elif (m := RE_MACHINE.match(line)) and ranks is None:
+            ranks = int(m.group(1))
+        elif (m := RE_STAMP.match(line)):
+            stamps.setdefault(m.group(1), m.group(2))
+    envelope = None
+    if "start" in stamps and "exit" in stamps:
+        try:
+            fmt = "%a %b %d %H:%M:%S %Y"
+            envelope = (datetime.datetime.strptime(stamps["exit"], fmt)
+                        - datetime.datetime.strptime(stamps["start"], fmt)).total_seconds()
+        except ValueError:
+            envelope = None
+    total = sum(times)
+    phase_sum = sum(p["seconds"] for p in phases.values())
+    per_rank = cg["mflops_time"] / cg["time_s"] / 1e3 if cg["time_s"] else None
+    return {"log": path, "ranks": ranks, "input_sets_completed": completed, "time_records": len(times),
+            "phases": phases, "phase_sum_s": phase_sum, "time_total_s": total,
+            "unclosed_set_phases": pending,
+            "outside_named_phases_s": total - phase_sum if times else None,
+            "components": components, "start": stamps.get("start"), "exit": stamps.get("exit"),
+            "exit_minus_start_s": envelope,
+            "congrad5": {"records": cg["records"], "time_s": cg["time_s"],
+                         "gflops_per_rank_time_weighted": per_rank,
+                         "gflops_aggregate": per_rank * ranks if per_rank is not None and ranks else None}}
+
+
+def judge_phases(run: dict) -> list[str]:
+    problems = []
+    if not run["phases"]:
+        problems.append("no `Aggregate time to` phase records (a build without PRTIME, or an application "
+                        "such as ks_measure that prints its phases as `Time to`)")
+    if run["input_sets_completed"] == 0 or run["time_records"] != run["input_sets_completed"]:
+        problems.append(f"{run['input_sets_completed']} RUNNING COMPLETED marker(s) against "
+                        f"{run['time_records']} `Time =` record(s): an input set is incomplete")
+    if run["unclosed_set_phases"]:
+        problems.append(f"{len(run['unclosed_set_phases'])} phase(s) recorded after the last `Time =` record: "
+                        "a trailing input set did not finish, and its phases are not in the totals")
+    if run["outside_named_phases_s"] is not None and run["outside_named_phases_s"] < 0:
+        problems.append("the phases exceed the `Time =` total: a phase record is duplicated or misattributed")
+    if run["exit"] is None:
+        problems.append("no exit: record (the run did not finish)")
+    return problems
+
+
+def report_phases(run: dict, problems: list[str]) -> str:
+    total = run["time_total_s"]
+    share = lambda s: f"{100 * s / total:5.1f} %" if total else "    n/a"
+    out = [f"== {run['log']}",
+           f"ranks {run['ranks'] if run['ranks'] is not None else 'unknown (no Machine line)'}; "
+           f"input sets completed {run['input_sets_completed']}"]
+    out.append(f"    {'phase (Aggregate time to ...)':38s} {'seconds':>10s} {'records':>8s}  share of Time")
+    for name, p in run["phases"].items():
+        out.append(f"    {name:38s} {p['seconds']:10.1f} {p['records']:8d}  {share(p['seconds'])}")
+    out.append(f"    {'sum of phases':38s} {run['phase_sum_s']:10.1f}")
+    if run["outside_named_phases_s"] is not None:
+        out.append(f"    {'outside named phases':38s} {run['outside_named_phases_s']:10.1f}           "
+                   f"{share(run['outside_named_phases_s'])}  (Time total less the phases)")
+    out.append(f"    {'Time total (sum of Time = records)':38s} {total:10.1f}")
+    env = run["exit_minus_start_s"]
+    out.append(f"    {'exit - start':38s} {env:10.0f}" if env is not None else "    exit - start: n/a")
+    if run["components"]:
+        out.append("    component timers (Time to ..., listed only, never added):")
+        for name, c in run["components"].items():
+            out.append(f"      {name:36s} {c['seconds']:10.1f} {c['records']:8d}")
+    cg = run["congrad5"]
+    if cg["records"]:
+        rate = cg["gflops_per_rank_time_weighted"]
+        agg = cg["gflops_aggregate"]
+        out.append(f"    CONGRAD5: {cg['records']} record(s), {cg['time_s']:.1f} s; nominal GFLOP/s per rank, "
+                   f"solve-time weighted: {rate:.1f}" if rate is not None else
+                   f"    CONGRAD5: {cg['records']} record(s), {cg['time_s']:.1f} s; no mflops field")
+        if agg is not None:
+            out[-1] += f"; x {run['ranks']} ranks = {agg:.1f}"
+    out += [f"PROBLEM: {p}" for p in problems] or ["no problems found"]
+    return "\n".join(out)
+
+
+def compare_phases(runs: list[dict]) -> str:
+    names: list[str] = []
+    for run in runs:
+        names += [n for n in run["phases"] if n not in names]
+    labels = [Path(r["log"]).name for r in runs]
+    width = max(12, *(len(x) for x in labels))
+    out = ["== phase seconds by log", f"    {'phase':38s}" + "".join(f" {x:>{width}s}" for x in labels)]
+    for n in names:
+        cells = [f"{r['phases'][n]['seconds']:.1f}" if n in r["phases"] else "-" for r in runs]
+        out.append(f"    {n:38s}" + "".join(f" {c:>{width}s}" for c in cells))
+    for label, key in (("outside named phases", "outside_named_phases_s"), ("Time total", "time_total_s")):
+        cells = [f"{r[key]:.1f}" if r[key] is not None else "-" for r in runs]
+        out.append(f"    {label:38s}" + "".join(f" {c:>{width}s}" for c in cells))
+    return "\n".join(out)
+
+
 def report(run: dict, problems: list[str]) -> str:
     out = [f"== {run['log']}"]
     for i, st in enumerate(run["sets"], 1):
@@ -246,25 +398,33 @@ def main(argv: list[str]) -> int:
     sv = sub.add_parser("solves", help="account for every solve in one or more MILC output logs")
     sv.add_argument("logs", nargs="+")
     sv.add_argument("--json", action="store_true", help="emit the full per-solve record as JSON")
+    ph = sub.add_parser("phases", help="sum the per-phase timing records in one or more MILC output logs")
+    ph.add_argument("logs", nargs="+")
+    ph.add_argument("--json", action="store_true", help="emit the full per-log record as JSON")
     args = parser.parse_args(argv)
 
+    reader, judger, writer = ((parse, judge, report) if args.command == "solves"
+                              else (parse_phases, judge_phases, report_phases))
     runs, failed = [], False
     for path in args.logs:
         try:
-            run = parse(path)
+            run = reader(path)
         except OSError as exc:
             print(f"cannot read {path}: {exc}", file=sys.stderr)
             return 2
-        problems = judge(run)
+        problems = judger(run)
         failed |= bool(problems)
         runs.append((run, problems))
     if args.json:
-        print(json.dumps({"tool": "extract-milc-timings", "version": VERSION, "not_implemented": NOT_IMPLEMENTED,
+        print(json.dumps({"tool": "extract-milc-timings", "version": VERSION, "command": args.command,
+                          "not_implemented": NOT_IMPLEMENTED,
                           "runs": [dict(r, problems=p) for r, p in runs]}, indent=1))
     else:
-        print(f"extract-milc-timings {VERSION} solves · {NOT_IMPLEMENTED}")
+        print(f"extract-milc-timings {VERSION} {args.command} · {NOT_IMPLEMENTED}")
         for run, problems in runs:
-            print(report(run, problems))
+            print(writer(run, problems))
+        if args.command == "phases" and len(runs) > 1:
+            print(compare_phases([r for r, _ in runs]))
     return 1 if failed else 0
 
 

@@ -98,6 +98,13 @@ later input sets. Load the relevant application guide before deciding whether a 
 includes setup, gauge-field I/O, ending-lattice output, or work inherited from an adjacent input
 set.
 
+`tools/extract-milc-timings.py phases`, run through `tools/run-extract-milc-timings`, applies
+these rules to `Aggregate time to` records. It sums each phase over a log's input sets and
+reports the remainder of the `Time =` records as time outside named phases. It lists `Time to`
+component timers without adding them, and leaves out of the totals a trailing input set that
+never printed its `Time =` record. This version does not separate `ks_measure`'s `Time to`
+phases from component timers, and says so.
+
 ## Reading the `CONGRAD5` throughput field
 
 At the observed revision the QUDA-path `CONGRAD5` records compute `mflops` as a nominal flop

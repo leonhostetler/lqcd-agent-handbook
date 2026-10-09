@@ -5852,3 +5852,34 @@ residual alone separately, and it now catches a heavy-quark residual above its r
 - `software/quda/solvers/staggered-deflated-cg.md`, the tool judges deflated solves by true
   residual and MILC status: *confirmed*. Deflated light solves carry no heavy-quark request.
 - `ROADMAP.md` 4.1, solve accounting landed: *confirmed*, unchanged.
+
+## 2026-10-09 — extract-milc-timings 1.2.0: `phases`, the per-phase timing summary
+
+A benchmarking and tuning session aggregated `ks_spectrum` phase records by hand four times,
+across six Horizon and sixty DeltaAI logs, to build phase-by-phase cost tables. That is past the
+by-hand threshold, so the aggregation ships as a `phases` subcommand of the existing MILC reader.
+It stays one canonical reader, as obligation 4.1 asks.
+
+Read from MILC `a5f8f9fa`: `ks_spectrum` and `ks_imp_rhmc` print PRTIME phases as `Aggregate
+time to <phase> <s>`, each closing one interval of a single timer, so they add. `ks_measure`
+prints them as `Time to <phase>`, the same prefix as component timers. This version reports that
+case as a problem instead of guessing. `Machine = ..., with <n> nodes` (`ks_spectrum/setup.c`)
+supplies the rank count for the aggregate `CONGRAD5` rate.
+
+A draft caught by its own negative test: it added the phases of a crashed trailing input set,
+which had no `Time =` record, to the totals. That made the remainder negative, and the
+incomplete set went unreported. Phase records are now held until their set's `Time =` record
+closes them. An unclosed set is reported, and a negative remainder is a problem in its own
+right. On the session's logs the tool reproduced the hand tables exactly.
+
+**Reconciliation (obligation 11).**
+- `software/milc/timing.md`, "never add a parent phase to its child component timers" and
+  "report the residual as unaccounted time only after confirming compatible boundaries":
+  *confirmed*. The tool never adds `Time to` records and labels the remainder as time outside
+  named phases, not as unaccounted cost.
+- `software/milc/timing.md`, the `CONGRAD5` throughput section's weighting rule: *confirmed*.
+  The tool implements it.
+- `ROADMAP.md` 4.1: *amended*, the phase summary has landed and the first-solve series is
+  still owed.
+- `tests/test_extract_milc_timings.py`: one overlong docstring line from the 1.1.0 change,
+  *reflowed*.

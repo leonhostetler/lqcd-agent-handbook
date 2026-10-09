@@ -4,8 +4,15 @@ run, and fail each defect it exists to catch -- a right-hand side above its requ
 a heavy-quark residual above its request, a MILC NOT converged status, a disagreement between
 the two, an incomplete input set, an ERROR line, a missing exit record. It must accept a
 heavy-quark solve that QUDA's own rule accepts, and must not count load_evecs_quda's
-zero-iteration dummy inversion as a solve. Every negative test first proves its perturbation changed the log. The logs are
-synthetic, written here in the record formats of MILC a5f8f9fa with QUDA ba501e4f8."""
+zero-iteration dummy inversion as a solve.
+
+extract-milc-timings.py phases must sum the `Aggregate time to` phase records across input sets,
+report the remainder of the `Time =` records over them, list `Time to` component timers without
+adding them, weight CONGRAD5 throughput by solve time, and fail a log with no phase records, an
+incomplete input set, or no exit record.
+
+Every negative test first proves its perturbation changed the log. The logs are synthetic,
+written here in the record formats of MILC a5f8f9fa with QUDA ba501e4f8."""
 from __future__ import annotations
 
 import json
@@ -80,7 +87,7 @@ class SolveAccountingTests(unittest.TestCase):
     def test_clean_run_passes_and_excludes_dummy_inversions(self):
         result = self.run_tool(self.clean)
         self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertIn("extract-milc-timings 1.1.0", result.stdout)
+        self.assertIn("extract-milc-timings 1.2.0 solves", result.stdout)
         self.assertIn("NOT implemented", result.stdout)
         self.assertEqual(result.stdout.count("2 solve record(s), 2 right-hand side(s)"), 2, result.stdout)
         self.assertEqual(result.stdout.count("dummy inversions excluded: 1"), 2, result.stdout)
@@ -162,13 +169,111 @@ class SolveAccountingTests(unittest.TestCase):
         result = self.run_tool(self.clean, extra=["--json"])
         self.assertEqual(result.returncode, 0, result.stdout)
         data = json.loads(result.stdout)
-        self.assertEqual(data["version"], "1.1.0")
+        self.assertEqual(data["version"], "1.2.0")
         self.assertIn("NOT implemented", data["not_implemented"])
         self.assertEqual(len(data["runs"][0]["sets"]), 2)
 
     def test_an_unreadable_log_is_a_usage_error(self):
         result = self.run_tool(self.dir / "absent.out")
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+
+
+def phase_set(first: bool) -> list[str]:
+    out = ["Aggregate time to setup 1.0e+01"] if first else []
+    out += ["Aggregate time to read lattice 2.0e+00" if first else "Aggregate time to read lattice 1.0e+00",
+            "Time to reload gauge configuration = 1.5e+00",
+            "Time to APE smear 3.0e-01 sec",
+            "CONGRAD5: time = 1.0e+00 (fn_QUDA D) masses = 1 srcs = 1 iters = 10 mflops = 1.0e+06",
+            "CONGRAD5: time = 3.0e+00 (fn_QUDA D) masses = 1 srcs = 1 iters = 30 mflops = 2.0e+06",
+            "Aggregate time to compute propagators 5.0e+01",
+            "RUNNING COMPLETED", "Time = 7.0e+01 seconds" if first else "Time = 5.5e+01 seconds"]
+    return out
+
+
+def phase_log(sets: list[list[str]] | None = None, machine: bool = True, finished: bool = True) -> str:
+    head = (["Machine = QMP (portable), with 4 nodes"] if machine else []) + ["start: Thu Oct  8 15:00:00 2026"]
+    body = sets if sets is not None else [phase_set(True), phase_set(False)]
+    tail = ["exit: Thu Oct  8 15:02:05 2026"] if finished else []
+    return "\n".join(head + [line for st in body for line in st] + tail) + "\n"
+
+
+class PhaseTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.dir = Path(self.temp.name)
+        self.clean = self.dir / "clean.out"
+        self.clean.write_text(phase_log())
+
+    def run_tool(self, *logs: Path, extra=()):
+        return subprocess.run([interpreter_for(), str(TOOL), "phases", *extra, *map(str, logs)],
+                              text=True, capture_output=True, check=False)
+
+    def perturbed(self, name: str, text: str) -> Path:
+        path = self.dir / name
+        path.write_text(text)
+        self.assertNotEqual(path.read_text(), self.clean.read_text(), "vacuous perturbation")
+        return path
+
+    def json_run(self, path: Path) -> dict:
+        result = self.run_tool(path, extra=["--json"])
+        data = json.loads(result.stdout)
+        self.assertEqual(data["command"], "phases")
+        return data["runs"][0]
+
+    def test_clean_log_sums_phases_and_never_adds_component_timers(self):
+        result = self.run_tool(self.clean)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("extract-milc-timings 1.2.0 phases", result.stdout)
+        self.assertIn("no problems found", result.stdout)
+        run = self.json_run(self.clean)
+        self.assertEqual(run["phases"]["compute propagators"], {"seconds": 100.0, "records": 2})
+        self.assertEqual(run["phases"]["read lattice"], {"seconds": 3.0, "records": 2})
+        self.assertEqual(run["phase_sum_s"], 113.0)
+        self.assertEqual(run["time_total_s"], 125.0)
+        self.assertEqual(run["outside_named_phases_s"], 12.0)
+        self.assertEqual(run["components"]["reload gauge configuration"], {"seconds": 3.0, "records": 2})
+        self.assertAlmostEqual(run["components"]["APE smear"]["seconds"], 0.6)
+        self.assertEqual(run["exit_minus_start_s"], 125.0)
+
+    def test_congrad5_throughput_is_solve_time_weighted_and_scaled_by_ranks(self):
+        run = self.json_run(self.clean)
+        self.assertEqual(run["ranks"], 4)
+        self.assertEqual(run["congrad5"]["records"], 4)
+        self.assertAlmostEqual(run["congrad5"]["gflops_per_rank_time_weighted"], 1750.0)
+        self.assertAlmostEqual(run["congrad5"]["gflops_aggregate"], 7000.0)
+        log = self.perturbed("nomachine.out", phase_log(machine=False))
+        run = self.json_run(log)
+        self.assertIsNone(run["ranks"])
+        self.assertIsNone(run["congrad5"]["gflops_aggregate"])
+        self.assertIn("ranks unknown", self.run_tool(log).stdout)
+
+    def test_a_log_without_phase_records_fails(self):
+        measure = [[line.replace("Aggregate time to", "Time to") for line in st]
+                   for st in (phase_set(True), phase_set(False))]
+        log = self.perturbed("measure.out", phase_log(measure))
+        result = self.run_tool(log)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("no `Aggregate time to` phase records", result.stdout)
+
+    def test_an_incomplete_set_and_a_missing_exit_fail(self):
+        crashed = phase_set(False)[:-2]
+        log = self.perturbed("crash.out", phase_log([phase_set(True), crashed], finished=False))
+        result = self.run_tool(log)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("a trailing input set did not finish", result.stdout)
+        self.assertIn("no exit: record", result.stdout)
+        run = self.json_run(log)
+        self.assertEqual(run["phases"]["compute propagators"], {"seconds": 50.0, "records": 1})
+        self.assertEqual(run["outside_named_phases_s"], 8.0)
+
+    def test_several_logs_are_compared_side_by_side(self):
+        other = self.perturbed("other.out", phase_log([phase_set(True)]))
+        result = self.run_tool(self.clean, other)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("== phase seconds by log", result.stdout)
+        row = [line for line in result.stdout.splitlines() if line.strip().startswith("compute propagators")][-1]
+        self.assertEqual(row.split()[-2:], ["100.0", "50.0"])
 
 
 if __name__ == "__main__":
