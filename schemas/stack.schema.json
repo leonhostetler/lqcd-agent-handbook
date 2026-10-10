@@ -242,14 +242,21 @@
               "minimum": 1
             },
             "wallclock": {
-              "type": "string"
+              "description": "The measured elapsed time, or 'not measured' when the build was not timed; never an estimate from file times.",
+              "anyOf": [
+                {"const": "not measured"},
+                {"type": "string", "pattern": "^[0-9]"}
+              ]
             },
             "timing_scope": {
               "type": "string"
             },
             "maximum_reported_rss_kib": {
-              "type": "integer",
-              "minimum": 1
+              "description": "The measured maximum resident set of any one build process, or 'not measured'.",
+              "anyOf": [
+                {"const": "not measured"},
+                {"type": "integer", "minimum": 1}
+              ]
             },
             "memory_scope": {
               "type": "string"

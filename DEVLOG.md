@@ -6690,3 +6690,18 @@ reach GitHub.
 - `software/qmp/README.md`: *amended*, a pointer added.
 - `software/milc/internals/gauge-io-cost.md`, "Both verified their checksums": *confirmed*; those
   are file checksums, not the NERSC sum.
+
+## 2026-10-10 — Stacks: a build cost may be "not measured"
+
+The Horizon production build that the probe run validated was neither timed nor measured, and the
+stack schema required both a wall time and a peak per-process memory. File modification times
+bound the wall time only loosely and can be moved by a later copy or install, so the operator
+chose to allow `not measured` rather than an estimate. `schemas/stack.schema.json` now accepts
+`not measured` for `build.cost.wallclock` and `build.cost.maximum_reported_rss_kib`, and otherwise
+requires a wall time that starts with a number (every recorded stack's does) and a positive
+integer memory. A new case in `tests/test_slice2.py` accepts the unmeasured cost and rejects an
+estimate in words, an empty time, memory in words and zero.
+
+**Reconciliation.** `ARCHITECTURE.md` §build-profiles, "The stack records the cost": *amended*,
+the unmeasured case added. `playbooks/build-lqcd-stack.md` step 5, "Capture ... elapsed build time
+... and carefully labelled memory measurement": *confirmed*; it still asks for the measurement.

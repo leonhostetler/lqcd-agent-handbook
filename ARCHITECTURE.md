@@ -892,7 +892,9 @@ and is the kind of thing rediscovered painfully once per machine.
 wallclock, `-j` parallelism, peak host memory, and where it ran. Host memory earns its place
 — parallel `nvcc` template instantiation is memory-hungry, and `-j` × per-job footprint
 overrunning a shared login node is a routine way to get a build killed, or to get a polite
-note from the site.
+note from the site. A build that was not timed or measured records `not measured` for that
+field, never an estimate from file modification times, which a later copy, install or touch can
+move.
 
 **A compute-node build is a job.** If MG must be built under `salloc` or `sbatch`, it
 consumes allocation and therefore falls under [§budget-rule](#budget-rule) — a stated ceiling, a ledger debit, the

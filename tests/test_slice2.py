@@ -94,6 +94,27 @@ class SliceTwoStackTests(unittest.TestCase):
         resolved = dict(check, undecided=2, resolution="both read from the build log by hand")
         self.assertEqual(problems(record_checks=[resolved]), [])
 
+    def test_schema_accepts_an_unmeasured_build_cost_and_no_estimate(self):
+        validator = Draft202012Validator(self.schema, format_checker=FormatChecker())
+        stack = yaml.safe_load(
+            (ROOT / "machines/horizon/stacks/quda-cuda13-milc-cg-2026q3/stack.yaml").read_text()
+        )
+
+        def problems(**cost_fields):
+            candidate = json.loads(json.dumps(stack))
+            candidate["build"]["cost"].update(cost_fields)
+            return list(validator.iter_errors(candidate))
+
+        self.assertEqual(problems(wallclock="not measured", maximum_reported_rss_kib="not measured"), [])
+        for label, fields in {
+            "an estimated time": {"wallclock": "about 13 min from file times"},
+            "an empty time": {"wallclock": ""},
+            "memory in words": {"maximum_reported_rss_kib": "about 3 GB"},
+            "zero memory": {"maximum_reported_rss_kib": 0},
+        }.items():
+            with self.subTest(case=label):
+                self.assertNotEqual(problems(**fields), [])
+
     def test_schema_uses_values_not_vendor_specific_structure(self):
         stacks = [yaml.safe_load(path.read_text()) for path in self.stack_paths]
         self.assertEqual({stack["build"]["target"] for stack in stacks}, {"CUDA", "HIP", "SYCL"})
