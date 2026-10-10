@@ -1,6 +1,6 @@
 ---
 title: The staggered-CG throughput probe
-summary: A portable probe of staggered CG throughput on one device, one node, two and four nodes, with a MILC leg and QUDA's own tests at every point, so a machine's stacks compare across machines and a drop localizes; its parameters live in tools/milc-quda-cg-probe.py.
+summary: A portable probe of staggered CG throughput on one device, one node, two and four nodes, with a MILC leg and QUDA's own invert test at every point, so a machine's stacks compare across machines and a drop localizes; its parameters live in tools/milc-quda-cg-probe.py.
 scope: [software:milc, software:quda]
 load_when: Measuring, comparing or checking solver throughput on a machine, preparing or analyzing a probe run, or writing performance.yaml probe rows.
 evidence: source
@@ -19,7 +19,11 @@ sources:
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/tests/staggered_invert_test.cpp#L279
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/tests/staggered_invert_test.cpp#L404-L428
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/timer.cpp#L297-L298
-  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/tests/staggered_dslash_test_utils.h#L478-L495
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/tests/staggered_dslash_test_utils.h#L349-L476
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/nersc_cksum.c#L28-L55
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/com_qmp.c#L611-L620
+  - https://github.com/usqcd-software/qmp/blob/3010fef5b5784b3e6eeec9fff38cb9954a28ad42/lib/mpi/QMP_comm_mpi.c#L295-L327
+  - operator's screened Horizon probe run and dslash-iteration trial, 2026-10-10
 observed: "2026-10-10"
 observed_on:
   software:
@@ -43,11 +47,25 @@ frozen value (volumes, seed, sets, right-hand-side counts, precision, reconstruc
 counts, the ladder and the statistic); this page explains them and restates none. Changing any
 of them makes a new probe version, and rows of different versions are never compared.
 
-**Status: version 1.0.0, frozen.** The mass was chosen by one calibration on a GB200, as tuning
+**Status: version 1.1.0, frozen.** The mass was chosen by one calibration on a GB200, as tuning
 work: the scanned mass whose single-RHS solves on one device took closest to 2000 iterations within
 1000–3000. The tolerance is the light-quark residual of the campaigns the probe was built beside,
 fixed on that reasoning rather than measured. A tool whose mass is unset is an unfrozen probe, and
 then `inputs` writes only calibration inputs and `analyze` drafts no rows.
+
+**1.1.0 removed the QUDA dslash legs; nothing else changed.** `staggered_dslash_test` times its
+calls as one interval after a single untimed call (`staggered_dslash_test_utils.h` L349–L476), and
+on a GB200 its rate rose with the call count: 1,400 GFLOPS over 100 calls, 2,600 over 1,000, 3,650
+over 10,000, and the slowest windows ran with the SM clock at its maximum. The cause was not found, no count gave a
+figure that held its repeats within 2 % at both one device and one node, and a figure that depends
+on how long it is timed cannot be compared across machines `[observed]`. The invert test, whose
+solves each run thousands of iterations, repeats within 0.2 %.
+
+**A version that only removes legs still analyzes runs of the version before it.** The tool lists
+such versions, and `analyze` admits one of their runs only after regenerating every remaining
+input — each MILC input file the run read, each QUDA command line — and finding it identical; it
+then reports the run as the current version and ignores the removed legs. A version that changes
+a remaining leg needs new runs.
 
 ## What it holds fixed, and why
 
@@ -98,27 +116,35 @@ to print the row-major line.
 |---|---|---|
 | MILC throughput | `ks_spectrum_hisq`, the local volume per rank | `CONGRAD5` mflops, per rank; the number the campaigns report |
 | QUDA invert | `staggered_invert_test`, `--dslash-type hisq` (which builds HISQ links from the test's random field, L529) | Gflops ÷ ranks: QUDA sums the solver's flops over ranks (`timer.cpp` L297–L298) |
-| QUDA dslash | `staggered_dslash_test` | `GFLOPS` and `GBYTES`, per rank: the counters are per process (`staggered_dslash_test_utils.h` L478–L495) |
 | MILC consistency | `ks_spectrum_hisq`, one fixed global volume | correctness only |
 
 The QUDA 12-RHS invert runs with `--nsrc-tile 12`. Without a tile above 1 the test loops its
 sources one at a time (`staggered_invert_test.cpp` L279); with it, each block goes through
 `invertMultiSrcQuda` (L404–L428), the entry the MILC interface uses.
 
-**Reading a drop across the legs.** QUDA's dslash slower on one device points at the device or
-its node; one device fine and one node slower, at on-node links, peer-to-peer or binding; one
-node fine and two or four slower, at the network or the MPI transport; QUDA fine and MILC's
+**Reading a drop across the legs.** Both legs slower on one device points at the device or its
+node; one device fine and one node slower, at on-node links, peer-to-peer or binding; one node
+fine and two or four slower, at the network or the MPI transport; QUDA's invert fine and MILC's
 `CONGRAD5` slower, at the MILC side — host work, layout, launch, or the interface's copies.
 
 ## Correctness
 
 Under weak scaling each point has its own global lattice and so its own field, which is why a
 **consistency leg** runs one fixed global volume with the same seed at every point. MILC prints the
-field's `CHECK PLAQ` and NERSC checksum after a warm start too (`io_helpers.c` L232–L250). **The
-checksum, computed over the links' bits, must be identical at every point; the plaquette, a
-floating-point sum whose order is not fixed, is compared to a relative limit.** Two runs of one
-input on one rank have given the same checksum and plaquettes differing in the last digit. Each
-meson's correlator file must agree with the first point's, within the probe's limit, through
+field's `CHECK PLAQ` after a warm start too (`io_helpers.c` L232–L250). **The plaquette, a
+floating-point sum whose order is not fixed, is compared to a relative limit**: two runs of one
+input on one rank have given plaquettes differing in the last digit.
+
+**MILC's NERSC checksum is not compared, and cannot be on a QMP build.** It is the unsigned sum
+of the links' bits (`nersc_cksum.c` L28–L55), reduced over ranks by `g_uint32sum`, which with QMP
+calls `QMP_binary_reduction` (`com_qmp.c` L611–L620). QMP does that as `MPI_Allreduce` of 4
+`MPI_BYTE` with a user operation that ignores the length it is given (`QMP_comm_mpi.c`
+L295–L327). Open MPI 5.0 on Horizon handed that operation 2 bytes at a time on 2 ranks and 1 byte
+on 4, and the sum of one word came out wrong in 488 of 1,000 trials and in all 1,000
+respectively `[observed]`. The probe's consistency leg printed four different checksums at its
+four points for one field whose plaquette, link trace and correlators agreed.
+
+Each meson's correlator file must agree with the first point's, within the probe's limit, through
 `tools/milc-compare-fnal-correlators.py`. Each meson writes its own file: the
 pions share source, operator and mass labels, so in one file their keys would collide. The QUDA
 legs verify against the host on one device only, because host verification at the probe volume
@@ -135,7 +161,8 @@ is slow.
    reconstruction settings the manifest lists, and binds each rank beside its device.
 3. `tools/milc-quda-cg-probe.py analyze --manifest … --outputs DIR` checks completion,
    convergence, solve counts, rank order, the consistency leg and every artifact, and reports
-   each point's figures. For a frozen probe, given `--stack`, the loaded-library file and the
+   each point's figures. Keep the inputs beside the manifest: for a run of an earlier version,
+   the identity check reads them there. For a frozen probe, given `--stack`, the loaded-library file and the
    install prefix, it also prints draft `performance.yaml` rows whose device, binding, date and
    source still need filling in.
 

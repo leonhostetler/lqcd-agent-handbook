@@ -19,9 +19,11 @@ Subcommands:
 
   analyze   --manifest FILE --outputs DIR [--stack PATH --install-prefix DIR]
             Check every output against the manifest — completion, convergence, solve counts,
-            the QUDA tests' rank order, and the consistency leg's field fingerprint and
-            correlators — and report each point's throughput. Draft performance.yaml rows are
-            printed only for a frozen probe, a stack, and loaded-library hashes from the run.
+            the QUDA tests' rank order, and the consistency leg's plaquette and correlators —
+            and report each point's throughput. Draft performance.yaml rows are printed only
+            for a frozen probe, a stack, and loaded-library hashes from the run. A run of an
+            earlier version this one only removed legs from is analyzed as this version, once
+            every remaining leg's inputs are shown identical to what this version writes.
 
 The geometry ladder puts one device, every device of one node, two nodes and four nodes in
 four points. A node's ranks fill the fastest-varying dimensions, because QMP numbers ranks
@@ -43,7 +45,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 ROOT = Path(__file__).resolve().parents[1]
 COMPARE = ROOT / "tools" / "milc-compare-fnal-correlators.py"
 
@@ -54,10 +56,11 @@ COMPARE = ROOT / "tools" / "milc-compare-fnal-correlators.py"
 # footprint, not a model's estimate, fits a 40 GB A100. The tolerance is the campaigns' light-quark
 # residual, and the correlator limit sits an order of magnitude above the largest cross-build
 # difference those campaigns recorded. A mass or tolerance of None marks an unfrozen probe, for
-# which `inputs` writes only calibration inputs.
+# which `inputs` writes only calibration inputs. 1.1.0 removed the QUDA dslash legs: the test's
+# rate rises with its call count for a reason not found, so no count gives a stable figure.
 PROBE: dict[str, Any] = {
     "name": "staggered-cg-throughput",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "mass": 0.01,
     "tolerance": 1e-8,
     "consistency_max_relative_difference": 1e-5,
@@ -80,11 +83,9 @@ PROBE: dict[str, Any] = {
     },
     "quda": {
         "invert": "staggered_invert_test",
-        "dslash": "staggered_dslash_test",
         "single_sources": 6,
         "block_sources": 48,
         "block_tile": 12,
-        "dslash_iterations": 100,
         "precision": "double",
         "sloppy_precision": "half",
         "reconstruct": 13,
@@ -97,6 +98,12 @@ PROBE: dict[str, Any] = {
     "statistic": "solve-time-weighted median",
 }
 NODES = {"device": 1, "node": 1, "2-nodes": 2, "4-nodes": 4}
+
+# Earlier probe versions whose runs this version analyzes, each with the legs this version removed.
+# Removing a leg leaves every other leg's workload as it was, so such a run measured this version's
+# workload plus legs the analysis ignores; `analyze` admits it only after regenerating every remaining
+# input and finding it identical. A version that changes a remaining leg is never listed here.
+REMOVED_LEGS = {"1.0.0": ["dslash-single", "dslash-block"]}
 DIMS = "xyzt"
 
 
@@ -241,11 +248,28 @@ def quda_commands(point: dict[str, Any], mass, tolerance) -> dict[str, list[str]
         "invert-single": [q["invert"], *common, *solve, "--nsrc", str(q["single_sources"])],
         "invert-block": [q["invert"], *common, *solve, "--nsrc", str(q["block_sources"]),
                          "--nsrc-tile", str(q["block_tile"])],
-        "dslash-single": [q["dslash"], *common, "--niter", str(q["dslash_iterations"]), "--nsrc", "1",
-                          "--verify", verify],
-        "dslash-block": [q["dslash"], *common, "--niter", str(q["dslash_iterations"]),
-                         "--nsrc", str(q["block_tile"]), "--verify", verify],
     }
+
+
+def point_inputs(point: dict[str, Any], mass, tolerance) -> tuple[dict[str, Any], dict[str, Any]]:
+    """One point's MILC legs, each with its input text, and its QUDA commands, as the manifest names them."""
+    m = PROBE["milc"]
+    name = point["point"]
+    milc = {}
+    for leg, volume, single, sets in (
+        ("throughput", point["throughput_global_volume"], m["single_set_propagators"], m["multicolor_sets"]),
+        ("consistency", PROBE["consistency_global_volume"], m["consistency_single_set_propagators"],
+         m["consistency_multicolor_sets"]),
+    ):
+        # One file per meson: the pions share source, operator and mass labels, so in one file
+        # their keys would collide and read as a stale append.
+        corr = [f"corr-{leg}-{name}-pair{k}.fnal" for k in range(1 + sets)]
+        milc[leg] = {"input": f"milc-{leg}-{name}.in", "output": f"out-milc-{leg}-{name}.txt", "correlators": corr,
+                     "expected_single_solves": 3 * single, "expected_block_solves": sets, "expected_completed": 1,
+                     "text": milc_input(volume, point["node_geometry"], mass, tolerance, f"probe.{leg}.{name}",
+                                        corr, single, sets)}
+    quda = {k: {"argv": v, "output": f"out-quda-{k}-{name}.txt"} for k, v in quda_commands(point, mass, tolerance).items()}
+    return milc, quda
 
 
 def run_inputs(args: argparse.Namespace) -> int:
@@ -275,31 +299,15 @@ def run_inputs(args: argparse.Namespace) -> int:
         print(f"{out} is not empty; the probe writes only into a new directory", file=sys.stderr)
         return 2
     out.mkdir(parents=True, exist_ok=True)
-    m = PROBE["milc"]
     manifest = {"tool": "tools/milc-quda-cg-probe.py", "tool_version": VERSION,
                 "probe": {"name": PROBE["name"], "version": PROBE["version"]},
                 "calibration": PROBE["mass"] is None, "mass": mass, "tolerance": tolerance,
                 "ranks_per_node": args.ranks_per_node, "environment": PROBE["environment"], "points": []}
     for point in points:
-        name = point["point"]
-        files = {}
-        for leg, volume, single, sets in (
-            ("throughput", point["throughput_global_volume"], m["single_set_propagators"], m["multicolor_sets"]),
-            ("consistency", PROBE["consistency_global_volume"], m["consistency_single_set_propagators"],
-             m["consistency_multicolor_sets"]),
-        ):
-            # One file per meson: the pions share source, operator and mass labels, so in one file
-            # their keys would collide and read as a stale append.
-            corr = [f"corr-{leg}-{name}-pair{k}.fnal" for k in range(1 + sets)]
-            path = out / f"milc-{leg}-{name}.in"
-            path.write_text(milc_input(volume, point["node_geometry"], mass, tolerance,
-                                       f"probe.{leg}.{name}", corr, single, sets))
-            files[leg] = {"input": path.name, "output": f"out-milc-{leg}-{name}.txt", "correlators": corr,
-                          "expected_single_solves": 3 * single, "expected_block_solves": sets,
-                          "expected_completed": 1}
-        commands = quda_commands(point, mass, tolerance)
-        point.update({"milc": files, "quda": {k: {"argv": v, "output": f"out-quda-{k}-{name}.txt"}
-                                             for k, v in commands.items()}})
+        milc, quda = point_inputs(point, mass, tolerance)
+        for spec in milc.values():
+            (out / spec["input"]).write_text(spec.pop("text"))
+        point.update({"milc": milc, "quda": quda})
         manifest["points"].append(point)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"wrote {len(manifest['points'])} points into {out.name}: MILC inputs, QUDA command lines, "
@@ -312,9 +320,7 @@ def run_inputs(args: argparse.Namespace) -> int:
 CONGRAD = re.compile(r"CONGRAD5: time = (\S+) \((\S+) (\S)\) masses = (\d+)(?: srcs = (\d+))? iters = (\d+) mflops = (\S+)")
 QUDA_SINGLE = re.compile(r"Done: (\d+) iter / (\S+) secs = (\S+) Gflops")
 QUDA_BLOCK = re.compile(r"Done: (\d+) sub-partitions - (\d+) total iter / (\S+) secs = (\S+) Gflops")
-DSLASH = re.compile(r"^(GFLOPS|GBYTES) = (\S+)", re.M)
 PLAQ = re.compile(r"CHECK PLAQ: (\S+) (\S+)")
-CKSUM = re.compile(r"CHECK NERSC LINKTR: (\S+) CKSUM: (\S+)")
 ROW_ORDER = "Rank order is row major (x running fastest)"
 
 
@@ -362,9 +368,8 @@ def analyze_milc(path: Path, spec: dict[str, Any], report: dict[str, Any], where
             result[kind] = summarize([(r[0], r[1], r[2]) for r in found])
             result[kind]["solver"] = found[0][3]
             result[kind]["precision"] = found[0][4]
-    plaq, cksum = PLAQ.search(text), CKSUM.search(text)
+    plaq = PLAQ.search(text)
     result["plaquette"] = [float(plaq.group(1)), float(plaq.group(2))] if plaq else None
-    result["checksum"] = cksum.group(2) if cksum else None
     return result
 
 
@@ -372,12 +377,6 @@ def analyze_quda(path: Path, kind: str, ranks: int, report: dict[str, Any], wher
     text = path.read_text(errors="replace")
     if ROW_ORDER not in text:
         report["errors"].append(f"{where}: the log does not show '{ROW_ORDER}'")
-    if kind.startswith("dslash"):
-        values = dict(DSLASH.findall(text))
-        if "GFLOPS" not in values:
-            report["errors"].append(f"{where}: no 'GFLOPS =' line")
-            return {}
-        return {"gflops_per_rank": float(values["GFLOPS"]), "gbytes_per_second_per_rank": float(values.get("GBYTES", "nan"))}
     if kind == "invert-single":
         found = [(float(g) / ranks, float(t), int(i)) for i, t, g in QUDA_SINGLE.findall(text)]
         expected = PROBE["quda"]["single_sources"]
@@ -425,14 +424,65 @@ def library_rows(path: Path | None, prefix: Path | None, report: dict[str, Any])
     return rows
 
 
+def check_earlier_run(manifest: dict[str, Any], inputs: Path, report: dict[str, Any]) -> list[str]:
+    """For a run of a listed earlier version: every remaining input identical to this version's.
+
+    Returns the legs to ignore. Each MILC input is compared as the file the run read, beside the
+    manifest; each QUDA command as the manifest recorded it.
+    """
+    removed = REMOVED_LEGS[manifest["probe"]["version"]]
+    problems = []
+    for key, value in (("mass", PROBE["mass"]), ("tolerance", PROBE["tolerance"]),
+                       ("environment", PROBE["environment"]), ("calibration", False)):
+        if manifest.get(key) != value:
+            problems.append(f"{key} {manifest.get(key)!r}, this version {value!r}")
+    try:
+        points = ladder(manifest["ranks_per_node"])
+    except (KeyError, TypeError, ValueError) as exc:
+        points = []
+        problems.append(f"no ladder for the run's ranks per node: {exc}")
+    if [p["point"] for p in points] != [p["point"] for p in manifest["points"]]:
+        problems.append("its ladder points differ from this version's")
+        points = []
+    for point, recorded in zip(points, manifest["points"]):
+        name = point["point"]
+        for key in ("nodes", "ranks", "node_geometry", "dimensions_off_node", "throughput_global_volume"):
+            if recorded.get(key) != point[key]:
+                problems.append(f"{name}: {key} {recorded.get(key)!r}, this version {point[key]!r}")
+        milc, quda = point_inputs(point, PROBE["mass"], PROBE["tolerance"])
+        for leg, spec in milc.items():
+            text = spec.pop("text")
+            written = recorded["milc"].get(leg)
+            if written != spec:
+                problems.append(f"{name} MILC {leg}: manifest entry differs from this version's")
+                continue
+            path = inputs / spec["input"]
+            if not path.is_file() or path.read_text() != text:
+                problems.append(f"{name} MILC {leg}: {spec['input']} is missing or differs from this version's")
+        if set(recorded["quda"]) != set(quda) | set(removed):
+            problems.append(f"{name}: QUDA legs {sorted(recorded['quda'])}, expected {sorted(set(quda) | set(removed))}")
+        for kind, spec in quda.items():
+            if recorded["quda"].get(kind) != spec:
+                problems.append(f"{name} QUDA {kind}: command differs from this version's")
+    for problem in problems:
+        report["errors"].append(f"run of probe {manifest['probe']['version']}: {problem}")
+    return removed
+
+
 def run_analyze(args: argparse.Namespace) -> int:
     manifest = json.loads(args.manifest.read_text())
     report: dict[str, Any] = {"tool": "tools/milc-quda-cg-probe.py", "version": VERSION,
-                              "probe": manifest["probe"], "calibration": manifest["calibration"],
-                              "errors": [], "points": []}
-    if manifest["probe"] != {"name": PROBE["name"], "version": PROBE["version"]}:
-        report["errors"].append(f"manifest is for probe {manifest['probe']}, this tool is {PROBE['name']} {PROBE['version']}")
-    plaquettes, checksums, correlators = {}, {}, {}
+                              "probe": {"name": PROBE["name"], "version": PROBE["version"]},
+                              "calibration": manifest["calibration"], "errors": [], "points": []}
+    ignored: list[str] = []
+    if manifest["probe"] != report["probe"]:
+        if manifest["probe"].get("name") == PROBE["name"] and manifest["probe"].get("version") in REMOVED_LEGS:
+            report["run_probe"] = manifest["probe"]
+            ignored = check_earlier_run(manifest, args.manifest.parent, report)
+            report["ignored_legs"] = ignored
+        else:
+            report["errors"].append(f"manifest is for probe {manifest['probe']}, this tool is {PROBE['name']} {PROBE['version']}")
+    plaquettes, correlators = {}, {}
     for point in manifest["points"]:
         name, ranks = point["point"], point["ranks"]
         summary: dict[str, Any] = {"point": name, "nodes": point["nodes"], "ranks": ranks,
@@ -447,7 +497,7 @@ def run_analyze(args: argparse.Namespace) -> int:
             if leg == "throughput":
                 summary["milc"] = {k: result.get(k) for k in ("single", "block")}
             else:
-                plaquettes[name], checksums[name] = result["plaquette"], result["checksum"]
+                plaquettes[name] = result["plaquette"]
                 for pair, file in enumerate(spec["correlators"]):
                     corr = args.outputs / file
                     if corr.is_file():
@@ -456,17 +506,17 @@ def run_analyze(args: argparse.Namespace) -> int:
                         report["errors"].append(f"{name}: missing {file}")
         summary["quda"] = {}
         for kind, spec in point["quda"].items():
+            if kind in ignored:
+                continue
             path = args.outputs / spec["output"]
             if not path.is_file():
                 report["errors"].append(f"{name}: missing {spec['output']}")
                 continue
             summary["quda"][kind] = analyze_quda(path, kind, ranks, report, f"{name} QUDA {kind}")
         report["points"].append(summary)
-    # The checksum is computed over the links' bits, so the same field gives the same checksum
-    # exactly. The plaquette is a floating-point sum whose order is not fixed: two runs of one input
-    # on one rank have differed in the last digit. It is compared to a relative limit instead.
-    if None in checksums.values() or len(set(checksums.values())) > 1:
-        report["errors"].append(f"consistency leg: the field's checksum differs between points: {checksums}")
+    # The plaquette is a floating-point sum whose order is not fixed: two runs of one input on one
+    # rank have differed in the last digit, so it is compared to a relative limit. MILC's NERSC
+    # checksum is not compared: built on QMP, its global sum is wrong on more than one rank.
     limit = PROBE["consistency_plaquette_relative_difference"]
     values = [v for v in plaquettes.values() if v is not None]
     if None in plaquettes.values() or any(
@@ -482,12 +532,12 @@ def run_analyze(args: argparse.Namespace) -> int:
     rows = []
     if not manifest["calibration"] and args.stack and not report["errors"]:
         libraries = library_rows(args.loaded_libraries, args.install_prefix, report)
-        rows = draft_rows(report, manifest, args.stack, libraries)
+        rows = draft_rows(report, args.stack, libraries)
     print(json.dumps(report | ({"draft_rows": rows} if rows else {}), indent=2))
     return 1 if report["errors"] else 0
 
 
-def draft_rows(report, manifest, stack, libraries):
+def draft_rows(report, stack, libraries):
     rows = []
     for point in report["points"]:
         for kind, label in (("single", 1), ("block", PROBE["quda"]["block_tile"])):
@@ -496,7 +546,7 @@ def draft_rows(report, manifest, stack, libraries):
                 continue
             rows.append({
                 "id": f"probe-{point['point']}-milc-rhs{label}", "kind": "probe", "stack": str(stack),
-                "probe": manifest["probe"], "loaded_libraries": libraries,
+                "probe": report["probe"], "loaded_libraries": libraries,
                 "solver": {"path": stats["solver"], "masses": 1, "rhs": label},
                 "precision": {"precise": "double" if stats["precision"] == "D" else "single",
                               "sloppy": PROBE["quda"]["sloppy_precision"]},

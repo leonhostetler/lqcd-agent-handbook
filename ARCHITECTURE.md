@@ -1134,7 +1134,10 @@ It runs the application's solver and the solver library's own tests at the same 
 drop localizes to the device, the on-node links, the network, or the application side. What it
 cannot hold fixed is the stack, so **a cross-machine comparison is between stacks on machines,
 never bare hardware**. Changing a frozen parameter makes a new probe version, and rows of
-different versions are not compared.
+different versions are not compared. A version that only removes legs leaves every other leg's
+workload unchanged, so its tool analyzes runs of the version before it as its own, after
+regenerating every remaining input and finding it identical; a version that changes a remaining
+leg needs new runs.
 
 **Its limit is stated, not engineered around.** Four nodes is where off-node communication
 begins, not where it settles. Under weak scaling the per-rank halo term grows until every

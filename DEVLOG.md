@@ -6615,3 +6615,60 @@ writes for four ranks per node parse clean under `tools/milc-proofread-input.sh`
 - `ARCHITECTURE.md` §performance-references, "sized for the smallest device the handbook covers":
   *confirmed*; the freeze keeps it true.
 - `ROADMAP.md` obligation 4.8: *amended*, the freeze marked landed.
+
+## 2026-10-10 — The staggered-CG throughput probe 1.1.0: no dslash legs, no checksum
+
+Part of obligation 4.8. The first Horizon probe run (probe 1.0.0, three jobs, all four points)
+completed every leg, but `analyze` failed it on one check and two of its figures proved
+unusable. A tuning trial, submitted by the operator, settled both. Runs, records and comparisons
+stay in the operator's working directory. `tools/milc-quda-cg-probe.py` 1.2.0 carries probe 1.1.0.
+
+**The checksum check was wrong, not the field.** The consistency leg printed four different NERSC
+checksums at four points, while the plaquette (within 1e-14), the link trace (to 1e-13) and both
+correlator pairs agreed. MILC built on QMP reduces the checksum through `QMP_binary_reduction`,
+which QMP implements as an `MPI_Allreduce` of 4 `MPI_BYTE` with a user operation that ignores its
+length. A test program in the trial, linked against the stack's `libqmp`, observed Open MPI 5.0
+handing that operation 2-byte pieces on 2 ranks and 1-byte pieces on 4; one word's sum came out
+wrong in 488 of 1,000 trials and 1,000 of 1,000 respectively, exactly as a plain-MPI replica of
+the pattern did. Independently, two production campaigns on 4 ranks each printed different
+checksums for every lattice file both had read. The calibration had seen the checksum repeat only on one
+rank. The comparison is removed; the plaquette and correlators remain the consistency check.
+
+**The dslash legs measured their own warm-up.** At 100 calls the dslash test gave half its rate
+in one pass of a job and twice it in the other, on the same node. The trial ran 100, 1,000 and
+10,000 calls, repeated and interleaved, beside 100 ms clock telemetry:
+- the rate rose with the call count at every point — on one device, 1 RHS, about 1.04 ms per
+  call over the first 100 calls, 0.52 over the next 900 and 0.38 after;
+- the SM clock was at its maximum before every window and during the slowest, so the clock-ramp
+  hypothesis written beforehand is refuted; the cause was not found;
+- by the rule fixed beforehand (repeats within 2 % for both RHS counts at one device and one
+  node), 1,000 calls failed at one device (7.6 %) and 10,000 failed at one node, 1 RHS (2.4 %).
+The legs are removed. The invert test, thousands of iterations per solve, repeats within 0.2 %.
+
+**Removing legs does not cost the run.** The new rule, in the leaf and §performance-references: a
+version that only removes legs analyzes runs of the version before it, after regenerating every
+remaining input — the MILC input files the run read and the QUDA command lines its manifest
+recorded — and finding them identical. The 1.0.0 run's eight MILC inputs regenerate byte-identical,
+and 1.2.0 analyzes it as probe 1.1.0 with no errors. One residual, judged small and unmeasured: in
+that run the dslash legs ran between the MILC and invert legs and shared the job's tunecache, so
+some kernel settings the invert legs used may have been chosen by the dslash test's tuning; MILC,
+which uses the same kernels at the same volume, had already tuned them first.
+
+**Tests** (`tests/test_milc_quda_cg_probe.py`, now 28): dslash cases replaced by invert ones; the
+checksum case inverted (a differing checksum is accepted); new cases for an earlier run that only
+lost legs (analyzed as 1.1.0, legs ignored), one whose MILC input file or QUDA command differs, one
+with a leg this version did not remove, and an unlisted version (each refused); and a control that
+drops the input-file comparison and shows the changed input then passes. Against tool 1.1.0, 11 of
+the 28 fail.
+
+**Reconciliation.**
+- `software/milc/probes/staggered-cg-throughput.md`: summary, status, legs table, the reading of a
+  drop, the correctness paragraph and the run steps *amended*; its statement that the checksum
+  must be identical at every point *deleted*, with the mechanism in its place.
+- `ARCHITECTURE.md` §performance-references, "Changing a frozen parameter makes a new probe
+  version, and rows of different versions are not compared": *confirmed*, with the leg-removal rule
+  added; "runs the application's solver and the solver library's own tests at the same points":
+  *confirmed*, the invert test remaining.
+- The 1.0.0 entry above, "The checksum is now the exact fingerprint": *superseded* by this entry;
+  left as written.
+- `ROADMAP.md` obligation 4.8: *amended*.
