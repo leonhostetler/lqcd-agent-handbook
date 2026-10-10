@@ -62,6 +62,38 @@ class SliceTwoStackTests(unittest.TestCase):
                 problems = list(validator.iter_errors(yaml.safe_load(path.read_text())))
                 self.assertEqual(problems, [])
 
+    def test_schema_bounds_the_build_record_fields(self):
+        validator = Draft202012Validator(self.schema, format_checker=FormatChecker())
+        stack = yaml.safe_load(
+            (ROOT / "machines/horizon/stacks/quda-cuda13-milc-cg-2026q3/stack.yaml").read_text()
+        )
+        check = {
+            "tool": "tools/check-stack-build-record.py", "version": "1.0.0",
+            "date": "2026-10-10", "mode": "cmake", "evidence": ["the configure command"],
+            "errors": 0, "undecided": 0, "not_cross_checked": 33,
+        }
+        library = {"path": "lib/libquda.so", "sha256": "0" * 64}
+
+        def problems(**build_fields):
+            candidate = json.loads(json.dumps(stack))
+            candidate["build"].update(build_fields)
+            return list(validator.iter_errors(candidate))
+
+        self.assertEqual(problems(installed_libraries=[library], record_checks=[check]), [])
+        rejected = {
+            "absolute library path": {"installed_libraries": [dict(library, path="/opt/lib/libquda.so")]},
+            "parent-relative library path": {"installed_libraries": [dict(library, path="lib/../x.so")]},
+            "short hash": {"installed_libraries": [dict(library, sha256="abc")]},
+            "a check with errors": {"record_checks": [dict(check, errors=1)]},
+            "undecided with no resolution": {"record_checks": [dict(check, undecided=2)]},
+            "another tool": {"record_checks": [dict(check, tool="tools/other.py")]},
+        }
+        for label, fields in rejected.items():
+            with self.subTest(case=label):
+                self.assertNotEqual(problems(**fields), [])
+        resolved = dict(check, undecided=2, resolution="both read from the build log by hand")
+        self.assertEqual(problems(record_checks=[resolved]), [])
+
     def test_schema_uses_values_not_vendor_specific_structure(self):
         stacks = [yaml.safe_load(path.read_text()) for path in self.stack_paths]
         self.assertEqual({stack["build"]["target"] for stack in stacks}, {"CUDA", "HIP", "SYCL"})

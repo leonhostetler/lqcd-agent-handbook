@@ -119,6 +119,13 @@ the resolved cache, module list, compiler and accelerator-toolkit versions, elap
 parallelism, and carefully labelled memory measurement. Do not describe maximum per-process
 RSS as aggregate build memory.
 
+**Make the build log record the exact configure and make commands as they ran**, for example by
+echoing each command line into the log before running it. A stack's record of what was passed is
+checked against those commands, and a build script read afterwards is weaker evidence than the
+run's own log, because the script can change after the build. Configure a CMake build with
+`--fresh` or in a new build directory, so no value from an earlier configure survives in the
+cache.
+
 Build the complete available test suite by default, for both libraries and application suites.
 Building fewer tests requires an explicit operator instruction for that build; do not infer an
 opt-out from machine limits, prior stack commands, reference scripts, or an earlier reduced build.
@@ -149,3 +156,11 @@ naming the new stack and the covered work, rather than recording the supersessio
 prose. Follow the exact-diff approval gate before any handbook write. Enabling an application
 interface without linking and running that application must remain a stated limitation, not be
 promoted to integration validation.
+
+Before proposing a stack record, check that its record of what was passed is complete, with
+`tools/run-check-stack-build-record`: `cmake` mode against the configure command, the build's
+`CMakeCache.txt` and the source at the tested commit; `make` mode against each make command, the
+Makefile and the build log. Record each result under `build.record_checks`; a check with errors is
+fixed in the record, never recorded. For a library stack, record `build.installed_libraries` from
+the tool's `hashes` mode. A stack whose record has not passed this check carries no performance
+reference.

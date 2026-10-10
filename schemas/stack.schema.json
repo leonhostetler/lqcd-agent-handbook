@@ -256,6 +256,116 @@
             }
           },
           "additionalProperties": false
+        },
+        "installed_libraries": {
+          "description": "A library stack's installed shared libraries, by path relative to the install and sha256, so a run can show which build it loaded.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "pattern": "^lib(64)?/[^/\\s]+$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "record_checks": {
+          "description": "Results of tools/check-stack-build-record.py, one per checked configure or make command.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tool",
+              "version",
+              "date",
+              "mode",
+              "evidence",
+              "errors",
+              "undecided"
+            ],
+            "properties": {
+              "tool": {
+                "const": "tools/check-stack-build-record.py"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+              },
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "mode": {
+                "enum": [
+                  "cmake",
+                  "make"
+                ]
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "errors": {
+                "const": 0
+              },
+              "undecided": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "resolution": {
+                "type": "string",
+                "minLength": 1
+              },
+              "not_cross_checked": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "environment_defaults": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "undecided": {
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "undecided"
+              ]
+            },
+            "then": {
+              "required": [
+                "resolution"
+              ]
+            }
+          }
         }
       },
       "additionalProperties": false

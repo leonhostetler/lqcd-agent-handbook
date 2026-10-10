@@ -6404,3 +6404,57 @@ assertions fail and the two positive tests pass, so none of the negatives is vac
 - `tests/test_slice3.py`, `test_composed_stack_cross_references_are_complete`: *confirmed*; it
   still reports no errors over the whole tree.
 - `ROADMAP.md` obligation 4.8: *amended*, the pairing check marked landed.
+
+## 2026-10-10 — Stacks: the build-record completeness checker and the library hashes
+
+Part of obligation 4.8, implementing §stacks' "completeness is checked against the build itself
+when the stack is written". New `tools/check-stack-build-record.py` 1.0.0 (runner
+`tools/run-check-stack-build-record`), with `cmake`, `make` and `hashes` modes, and two optional
+stack-schema fields, `build.installed_libraries` and `build.record_checks`.
+
+**The design changed after a prototype on the operator's Horizon build** (QUDA `ba501e4f8`,
+read-only). Reading QUDA's declared defaults resolved 65 of 105 `QUDA_*` cache values, and the
+five that differed from their default were exactly the flags the configure command passed, so the
+approach finds real passed flags. But 34 defaults are computed (from other variables, per target,
+or from the environment), too many to confirm by hand on every stack. CMake's cache does not mark
+command-line values, because `option()` and `set(CACHE)` overwrite the help string, and neither
+build log recorded the commands. So the executed command is the evidence of what was passed, and
+the cache, the declared defaults and the log are consistency checks on it. Computed defaults are
+counted, not confirmed; those that read the environment are named.
+
+**Calibration on the same build** found two real omissions in a hand-drafted record and three
+tool defects, all before the tests were written:
+- the configure command passes `CMAKE_INSTALL_LIBDIR=lib` and `CMAKE_INSTALL_PREFIX`, which the
+  drafted record lacked — the omission the tool exists to catch;
+- a backtick command substitution was compared literally, booleans in `make` mode were
+  canonicalized to `TRUE`/`FALSE` rather than MILC's `true`/`false`, and shell operators and
+  redirections did not end a command, so `|| make_status=$?` read as a make variable.
+With those fixed and the record completed, both the QUDA configure and the MILC build of both
+targets report no findings: 64 `QUDA_*` values checked against declared defaults, 32 computed and
+1 undeclared not cross-checked, and one environment-reading default (`QUDA_NVSHMEM_HOME`).
+
+**Tests** (`tests/test_check_stack_build_record.py`, 19): a complete record with no findings in
+each mode; seven CMake negatives (a passed flag missing from the record, a recorded value
+differing from the one passed, a passed value that never reached the cache, a cache value nobody
+passed, a recorded-but-unpassed option differing from the build, a source checkout at another
+commit, two configure invocations) and a warning for a configure without `--fresh`; six Make
+negatives or undecided cases; a hash test that skips symbolic links and prints no absolute path;
+and two controls that disable the stale-cache and missing-flag checks in the tool's source and
+show the matching negative then goes quiet. `tests/test_slice2.py` bounds the schema fields: no
+absolute or parent-relative library path, a full sha256, no recorded check with errors, and a
+resolution required for anything left undecided.
+
+**Weaknesses, stated.** A build script can change after it ran; the playbook now asks for the
+commands in the build log. Defaults that read the environment make "anything not passed took its
+default" true only up to the environment; the tool names them.
+
+**Reconciliation.**
+- `ARCHITECTURE.md` §stacks, "A stack's build block is the complete record of what was passed":
+  *confirmed*; "the stack records its result" is `build.record_checks`.
+- `playbooks/build-lqcd-stack.md` §5 (capture the resolved cache and the module list):
+  *confirmed*, and *amended* with the command-logging and `--fresh` rule; §7: *amended* with the
+  check, the two fields and the performance-reference consequence.
+- `tests/test_slice2.py`, every recorded stack validates: *confirmed*; no existing stack uses the
+  new fields.
+- `ROADMAP.md` obligation 4.8: *amended*, the checker and fields marked landed and the row-side
+  requirement named as still owed.
