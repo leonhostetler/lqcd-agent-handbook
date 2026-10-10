@@ -6115,3 +6115,41 @@ recorded as unknown.
 - `machines/horizon/machine.yaml` `accounting.charge_rate_per_node_hour` (documented queues
   only): *confirmed*, unchanged; the notes say `debug` has no recorded rate.
 
+## 2026-10-10 — Performance references: the design decision
+
+The operator asked, during a Horizon spectroscopy campaign, for per-machine benchmark details so
+that later work on a machine can tell when performance is worse than it should be. Discussed
+before any leaf was written; the outcome is the locked decision *Performance references* and
+§performance-references in `ARCHITECTURE.md`, with obligation 4.8 in `ROADMAP.md`.
+
+**Settled with the operator:**
+- rows in schema-validated `machines/<name>/performance.yaml`, with `performance.md` carrying a
+  generated table (operator's choice over a hand-written page);
+- one probe tier for small node counts: one device, one full node, two and four nodes, at one
+  hypercubic local volume, with 1 and 12 right-hand sides;
+- three legs at every point: the QUDA dslash and invert tests and the MILC `ks_spectrum` CG, so
+  a drop can be localized;
+- the MILC leg on a generated, disordered gauge field (`warm` start, fixed seed) with its mass
+  calibrated once, then frozen;
+- the classes of Horizon campaign figures the first rows will carry were cleared by the operator
+  for publication.
+
+**Rejected or set aside:**
+- copying the campaign's timing tables: workload-specific run records, which stay in the
+  working directory;
+- a reference block inside `stack.yaml`: a stack is written once at validation, while reference
+  rows accumulate;
+- a unit-gauge probe: degenerate free spectrum, so CG converges in a few iterations for
+  structured sources, and identical links make cross-geometry correctness checks vacuous;
+- a multi-shift leg: same dslash and halo exchange as single-mass CG, and a sloppy-precision
+  rule that depends on the input's residuals, so a probe field would not represent production;
+- a host-side contraction leg: not needed for the probe's purpose (operator);
+- a scaling tier to sixteen nodes with a local-volume sweep, which extrapolation to large jobs
+  would need: set aside by the operator in favour of one small-node-count tier. The limit is
+  stated in §performance-references.
+
+**Reconciliation.** `ARCHITECTURE.md` §profile-analysis, "Measured profile numbers are not
+handbook facts": *amended* with a sentence distinguishing a performance reference from profile
+figures; the rule itself stands. §records-in-working-directory: *confirmed*; the per-run evidence
+behind a row stays in the working directory. §ensemble-numbers: *confirmed*; campaign rows need a
+class decision. §stacks: *confirmed*, unchanged; rows reference stacks rather than living in them.

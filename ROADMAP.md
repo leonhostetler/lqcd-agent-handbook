@@ -52,6 +52,7 @@ not when a session reports it done.
 | 4.5 | `playbooks/run-benchmark.md`, `playbooks/capture-learning.md` | |
 | 4.6 | Append-only submission-budget-ledger format | [§budget-rule](ARCHITECTURE.md#budget-rule); debit at submit, reconcile down at completion |
 | 4.7 | Scheduler-placement guidance in `conventions/running.md` | the `modes/debugging.md` half landed; this half did not |
+| 4.8 | Performance references ([§performance-references](ARCHITECTURE.md#performance-references)): `schemas/performance.schema.json`; `tools/build-performance-tables.py` and the validator's stale-table check; the versioned staggered-CG probe leaf and `tools/milc-quda-cg-probe.py`, with tests; Horizon's first `performance.yaml` and `performance.md`, carrying the cleared campaign rows; then the probe run, which also validates the stacks for the Horizon production build | The probe's mass is calibrated once before its definition freezes. That calibration chooses a parameter from a measurement, so it is tuning, not part of a benchmark series |
 
 **The untraced-control comparison lands in 4.1**, not as a profile subcommand, because it
 combines a profile figure with an application run-log figure. It crossed

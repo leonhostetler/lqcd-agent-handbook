@@ -72,6 +72,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Ensemble identity and spacing defaults** | A suffix-free MILC `l...` label identifies an ensemble; a trailing lowercase letter identifies one generation stream and is not part of the ensemble identity. An unqualified spacing resolves only through `operator_resolution.spacing_defaults`; an explicit name, stream, mass, paper key, or geometry wins. A spacing with no published physical-mass default keeps a null `ensemble` rather than silently selecting or relabeling another ensemble | MILC changes its public naming convention, or the operator adopts a different default-selection policy |
 | **Reference build scripts** | Public upstream sample scripts may be cited and version-pinned as stack `reference_sources`; they are evidence, not canonical instructions. The validated stack notes own the reproducible procedure and explicitly record deviations from the sample ([§stacks](#stacks)) | A project publishes a supported machine recipe whose contract should supersede handbook-owned reproduction notes |
 | **The validator** | Reports what it checked, **never "passed"** ([§validator-not-clearance](#validator-not-clearance)) | — |
+| **Performance references** | A reproduced, stack-linked throughput summary is a **calibration constant**, and admissible; single runs, per-run ledgers and profile numbers stay in the working directory. Rows are canonical in schema-validated `machines/<name>/performance.yaml` and rendered into `performance.md` as a generated table. **Probe rows** come from a versioned portable probe and compare across machines as stacks on machines, never as bare hardware; **campaign rows** compare only with the same workload, and enter only after the operator's class decision ([§performance-references](#performance-references)) | A probe row proves incomparable across machines on a dimension the probe holds fixed, or a reference band raises false alarms on ordinary noise |
 
 <a id="decisions-operation"></a>
 ### 1.4. Operation
@@ -248,6 +249,9 @@ lqcd-agent-handbook/
 │       │       ├── stack.yaml #   e.g. quda-cuda12-2026q3/, milc-quda-2026q3/
 │       │       └── notes.md
 │       ├── notes.md           # prose: gotchas, folklore-with-evidence, workarounds
+│       ├── performance.yaml   # PERFORMANCE REFERENCES (§performance-references): reproduced,
+│       │                      #   stack-linked throughput rows; schema-validated, canonical
+│       ├── performance.md     # interpretation, plus a table GENERATED from performance.yaml
 │       └── incidents/         # one dated file per incident, co-located with its machine
 │
 ├── software/
@@ -265,6 +269,8 @@ lqcd-agent-handbook/
 │       │                      #   loaded when editing source or preparing a change for review
 │       ├── applications/      # application-family input/output and work-unit semantics;
 │       │   └── <application>.md # version-scoped; never a campaign ledger or build profile
+│       ├── probes/            # versioned portable measurement procedures; their results
+│       │   └── <probe>.md     #   live per machine, never here (§performance-references)
 │       ├── solvers/           # implementation-specific solver mechanisms and tuning
 │       │   ├── <solver>.md    # parameters, limitations, and enabling-profile links
 │       │   └── <solver>/      # deeper tuning and memory-model docs when needed
@@ -342,6 +348,8 @@ lqcd-agent-handbook/
 │   ├── upstream-drift.py          # per-leaf drift of cited files and merge status against a
 │   │                              #   checkout, both directions; proposes re-cites (§staleness)
 │   ├── extract-milc-timings.py
+│   ├── milc-quda-cg-probe.py      # portable CG probe: inputs, run checks, reference rows
+│   ├── build-performance-tables.py # renders performance.yaml into performance.md; --check
 │   ├── milc-compare-fnal-correlators.py # FNAL correlator structure checks and comparison
 │   ├── summarize-slurm-job.py
 │   ├── check-batch-script.py      # advisory batch-script lint (§batch-scripts)
@@ -353,7 +361,7 @@ lqcd-agent-handbook/
 │   ├── machine.schema.json, project.schema.json, ensemble.schema.json
 │   ├── build-profiles.schema.json, stack.schema.json
 │   ├── scheduler-surface.schema.json, hypothesis.schema.json
-│   └── incident.schema.json, prediction.schema.json
+│   └── incident.schema.json, prediction.schema.json, performance.schema.json
 │
 └── inbox/                     # the ONLY path a user-mode agent may write to.
     │                          #   Every write is a NEW uniquely-named file (§freshness-model) —
@@ -1010,6 +1018,76 @@ imports anything but the standard library or another listed operational tool; `t
 pre-3.11 fallback for the standard `tomllib`, is the one exception. The hook shim is Bash and reads the
 scheduler surface with `sed` for a prefilter only, so it needs no exception: the decision it
 defers to is the guard's.
+
+<a id="performance-references"></a>
+### 3.11. Performance references: what a healthy stack should achieve
+
+A stack records that a build worked, not how fast it ran. A session on a machine therefore cannot
+tell a slow node, a degraded module or a mis-bound launch from normal, and the predict → compare
+loop ([§predict-compare-loop](#predict-compare-loop)) has nothing to predict from but the
+campaign's own earlier runs. A **performance reference** is the missing basis: a reproduced
+summary of solver throughput on a named stack, kept with the machine.
+
+**It is a calibration constant, not a run record.** [§profile-analysis](#profile-analysis) keeps
+profile numbers out because a profile is one run's diagnostics, and
+[§records-in-working-directory](#records-in-working-directory) keeps every ledger where it was
+measured. A reference row is neither. It summarizes repeated solves into a statistic with an
+observation count, it is bound to a stack whose `observed_on` makes it stale-detectable, and it
+changes a decision: a run outside its band is diagnosed before its numbers are trusted. The
+per-run evidence behind a row stays in the working directory, as for any reproduced fact.
+
+**Two kinds of row, compared differently.**
+
+- **Probe rows** come from a portable probe the handbook defines (below). The workload is the
+  same on every machine, so probe rows compare across machines.
+- **Campaign rows** summarize a production workload. They compare only with the same workload,
+  on another stack or later on the same one, and enter only after the operator's class decision
+  on publishability ([§ensemble-numbers](#ensemble-numbers)).
+
+**One canonical home, one generated view.** Rows live in `machines/<name>/performance.yaml`,
+bound to `schemas/performance.schema.json`, because a tool compares a run against them.
+`machines/<name>/performance.md` holds the interpretation and a table generated from the YAML —
+the projection argument of [§indexing](#indexing) — and the validator fails when the table is
+stale. Rows sit beside the machine rather than inside `stack.yaml` because they accumulate
+(repeats, campaigns, later probe versions), while a stack is a validation record written once; a
+stack record that kept growing would change meaning. Each row names its stack, so the page is
+also the history of what each build achieved. A new stack starts with no rows, and the old
+stack's rows stay as its own record.
+
+**A row carries everything that makes it comparable**: the stack and any compiled option that
+shapes the solve, such as a multi-right-hand-side tile; the solver path and right-hand-side
+count; precise and sloppy precision and link reconstruction; ranks, nodes, the device a rank
+drives, the decomposition, which dimensions cross the network, and the binding; the local
+volume; the warm state; the iteration count; the statistic with its numbers of solves and runs;
+and, for a probe row, the probe version. A figure missing any of these cannot be compared, so
+the schema requires them rather than prose asking for them. A band's tolerance follows
+[§tolerances](#tolerances): tight on one device, wider once the network is involved.
+
+**The probe fixes the workload and lets the stack vary.** Its definition is a versioned
+software-scoped leaf, and its tool generates every input and checks every run. It holds fixed:
+
+- a gauge field the application generates from a recorded seed, identical at every geometry and
+  on every machine, so no file is shipped or written. **Never a unit gauge**: the free
+  operator's degenerate spectrum lets CG converge in a handful of iterations for structured
+  sources, and identical links hide layout and halo errors from the correctness check;
+- a hypercubic local volume, the same at every point and sized for the smallest device the
+  handbook covers, so face sizes do not depend on which dimension is split;
+- the solver, masses, tolerances, precisions, right-hand-side counts and warm state, with solve
+  length checked before a row is accepted, because short solves measure per-call overhead;
+- a geometry ladder defined by regime, not by node count: one device, every device of one node,
+  then two and four nodes, so on-node and off-node communication each enter at a recorded step.
+
+It runs the application's solver and the solver library's own tests at the same points, so a
+drop localizes to the device, the on-node links, the network, or the application side. What it
+cannot hold fixed is the stack, so **a cross-machine comparison is between stacks on machines,
+never bare hardware**. Changing a frozen parameter makes a new probe version, and rows of
+different versions are not compared.
+
+**Its limit is stated, not engineered around.** Four nodes is where off-node communication
+begins, not where it settles. Under weak scaling the per-rank halo term grows until every
+dimension crosses the network, global reductions keep growing with rank count, and contention
+depends on placement. A probe row supports comparison and drop detection at small node counts;
+it does not license extrapolation to large jobs, which needs its own measured series.
 
 <a id="session-start"></a>
 ## 4. How a session starts across frontends
@@ -2428,7 +2506,10 @@ breakdowns from a real run are observations about one application on one machine
 episode tier under [§scope-levels](#scope-levels), campaign state under
 [§no-escape-hatch](#no-escape-hatch). What may be admitted is the durable residue: a metric
 definition, a mechanism, a capture hazard, a name-resolution rule. The distinction needs stating
-because a profile is unusually rich in numbers that look publishable and are not.
+because a profile is unusually rich in numbers that look publishable and are not. A reproduced
+throughput summary on a validated stack is a different object, a performance reference
+([§performance-references](#performance-references)), and is admitted on those terms, never as a
+figure lifted from a profile.
 
 ---
 
