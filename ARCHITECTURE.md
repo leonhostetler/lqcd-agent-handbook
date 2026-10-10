@@ -43,8 +43,8 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 
 | Decision | Choice | Reopen when |
 |---|---|---|
-| **Stacks** | Validated machine × software × toolchain × **build profile** records, filed **under the machine**. Never speculative — a stack exists only if it was built and run. A displaced stack names its successor and the covered work in `superseded_by`, which nearest-stack resolution reads, rather than only in prose ([§stacks](#stacks)) | — |
-| **Build profiles** | Named option sets with **capabilities** in `software/<name>/build-profiles.yaml`; stacks reference a profile and record what it **cost**. Where a build may run is machine knowledge, and a compute-node build is a job under [§budget-rule](#budget-rule) ([§build-profiles](#build-profiles)) | — |
+| **Stacks** | Validated machine × software × toolchain × **build profile** records, filed **under the machine**. Never speculative — a stack exists only if it was built and run. A displaced stack names its successor and the covered work in `superseded_by`, which nearest-stack resolution reads, rather than only in prose. Its build block is the **complete record of what was passed** at build time, checked against the build when the stack is written; a composing stack names its dependency stack, the pairing is validated, and shared libraries are hashed so a run proves which build it loaded ([§stacks](#stacks)) | — |
+| **Build profiles** | Named option sets with **capabilities** in `software/<name>/build-profiles.yaml`; stacks reference a profile and record what it **cost**. Where a build may run is machine knowledge, and a compute-node build is a job under [§budget-rule](#budget-rule). Composition names its accepted dependency profiles, `composes` plus an optional `also_accepts`, never capability matching alone ([§build-profiles](#build-profiles)) | — |
 | **Application guides** | A suite's input grammar, work units, output structure, timing-marker semantics and completion signals live in `software/<name>/applications/`, version-scoped. Work modes own the method, build profiles own compiled capabilities, stacks own what was validated ([§application-guides](#application-guides)) | Several suites expose an application schema better represented as validated structured data than as prose |
 | **Development conventions** | Software-specific code-change rules live in `software/<name>/development.md` and load whenever that software is modified or prepared for review; only software-independent rules belong in `conventions/`. An executable one keeps its helper in `tools/`, named for the software and routed only from that leaf ([§directory-layout](#directory-layout)) | — |
 | **Profile-analysis capability** | Split on what the artifact is: deterministic extraction from a profiler database ships as an offline tool that makes no model call, the interpretation contract ships as leaves the session executes itself, and the handbook never wraps a second agent ([§profile-analysis](#profile-analysis)) | A profile format arrives whose extraction cannot be made offline and deterministic |
@@ -350,6 +350,7 @@ lqcd-agent-handbook/
 │   ├── extract-milc-timings.py
 │   ├── milc-quda-cg-probe.py      # portable CG probe: inputs, run checks, reference rows
 │   ├── build-performance-tables.py # renders performance.yaml into performance.md; --check
+│   ├── check-stack-build-record.py # a stack's passed-options record against its build tree
 │   ├── milc-compare-fnal-correlators.py # FNAL correlator structure checks and comparison
 │   ├── summarize-slurm-job.py
 │   ├── check-batch-script.py      # advisory batch-script lint (§batch-scripts)
@@ -528,6 +529,38 @@ and additive**, so the stack `schema_version` stays 1: every existing record kee
 meaning, and the schema ships with the only validator that reads it. Supersession narrows a
 stack's use; it never removes the record, which still reproduces its own results and still
 answers for work outside the covered work.
+
+**A stack's build block is the complete record of what was passed.** The named profile's
+options (`profile_options_from`), the stack's `machine_options`, and its toolchain are
+everything the build was given; anything not listed took its default at the tested commit,
+which the code at that commit settles. Defaults are therefore never recorded. An omission is
+not harmless, though: a passed option missing from the record makes every result on the stack
+unattributable, and nothing downstream notices, because a build that passed a performance option
+on top of a profile reads exactly like the profile. So completeness is checked against the build
+itself when the stack is written, by `tools/check-stack-build-record.py`. For a CMake build,
+every cache value either matches an option the record lists or equals the default the tested
+commit's CMake files declare, and a default the tool cannot resolve is listed for a person,
+never assumed. For a Make build, the executed variable assignments equal the record exactly.
+The build tree is not in the repository, so the check runs when the stack is written and the
+stack records its result. A stack that has not passed it carries no performance reference
+([§performance-references](#performance-references)).
+
+**A composing stack names its dependency stack, and the pairing is validated.** An application
+built against a library's installation records that installation's stack in
+`dependency_acquisition.validated_stack`: one path, on the same machine. The validator requires
+that stack to exist, its tested commit to equal the dependency commit in the composing stack's
+`tested_software`, and its `profile_options_from` to equal the composing stack's
+`composed_profile`, which the application profile must accept
+([§build-profiles](#build-profiles)). One reference then reaches both builds' passed options,
+and no reader infers the library from a machine and a commit, which is not unique where two
+toolchains built the same commit.
+
+**A shared library belongs to the build that installed it, and a hash shows it was used.** An
+application linked against a shared library loads whatever file sits at the installed path when
+it runs. Rebuilding the library in place therefore changes every later run while both stack
+records still read as correct. A library stack records the hash of each shared library it
+installs that an application loads, and a measured run records the hash of the library it
+actually loaded; a run whose library does not match its stack is not evidence for that stack.
 
 **Public upstream sample scripts are reference evidence, not canonical instructions.** A
 stack may pin them under `reference_sources` and cite them, but its notes own the tested
@@ -837,6 +870,15 @@ stack coexisting on one machine is not matrix-filling — both were validated, s
 the argument for retaining a cheap CG-only stack** when the work does not need MG. Record
 that trade, not just the two records.
 
+**Composition names its accepted dependency profiles explicitly.** An application profile
+composes a library profile by name in `composes`, and may list others under `also_accepts`,
+such as a variant that differs only in a performance option. A declared capability is not a
+compatibility proof: a library build that narrowed which precisions or link reconstructions it
+compiles would declare the same capabilities and fail at run time. So each accepted pairing is a
+deliberate entry, and `required_capabilities` remains a consistency check on every listed
+profile. The application stack records which accepted profile it actually linked
+([§stacks](#stacks)).
+
 **Where a build may run is machine knowledge.** `machine.yaml` gains a `build_environment:`
 — whether long compiles are permitted on login nodes and under what CPU/wallclock limits,
 whether dedicated build nodes exist, and **which filesystem to build on**, since compiling
@@ -1050,18 +1092,26 @@ bound to `schemas/performance.schema.json`, because a tool compares a run agains
 the projection argument of [§indexing](#indexing) — and the validator fails when the table is
 stale. Rows sit beside the machine rather than inside `stack.yaml` because they accumulate
 (repeats, campaigns, later probe versions), while a stack is a validation record written once; a
-stack record that kept growing would change meaning. Each row names its stack, so the page is
-also the history of what each build achieved. A new stack starts with no rows, and the old
-stack's rows stay as its own record.
+stack record that kept growing would change meaning. Each row names exactly one stack: for an
+application running over a library, the application's stack, which reaches the library's stack
+through the pairing [§stacks](#stacks) validates. The page is therefore also the history of
+what each build achieved. A new stack starts with no rows, and the old stack's rows stay as its
+own record.
 
-**A row carries everything that makes it comparable**: the stack and any compiled option that
-shapes the solve, such as a multi-right-hand-side tile; the solver path and right-hand-side
-count; precise and sloppy precision and link reconstruction; ranks, nodes, the device a rank
-drives, the decomposition, which dimensions cross the network, and the binding; the local
-volume; the warm state; the iteration count; the statistic with its numbers of solves and runs;
-and, for a probe row, the probe version. A figure missing any of these cannot be compared, so
-the schema requires them rather than prose asking for them. A band's tolerance follows
-[§tolerances](#tolerances): tight on one device, wider once the network is involved.
+**A row carries everything that makes it comparable**: the stack; the solver path and
+right-hand-side count; the precise and sloppy precision and link reconstruction the run reports;
+ranks, nodes, the device a rank drives, the decomposition, which dimensions cross the network,
+and the binding; the local volume; the warm state; the iteration count; the statistic with its
+numbers of solves and runs; and, for a probe row, the probe version. A figure missing any of
+these cannot be compared, so the schema requires them rather than prose asking for them. A
+band's tolerance follows [§tolerances](#tolerances): tight on one device, wider once the network
+is involved.
+
+**A row restates no build option.** What was compiled is read from the stack, which records
+everything passed at build time ([§stacks](#stacks)); a copy in the row would be a second home
+that could disagree. A row is admitted only for a stack whose build record passed the
+completeness check, and a probe row only from a run whose loaded shared libraries match the
+hashes its stacks recorded.
 
 **The probe fixes the workload and lets the stack vary.** Its definition is a versioned
 software-scoped leaf, and its tool generates every input and checks every run. It holds fixed:

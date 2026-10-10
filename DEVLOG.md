@@ -6153,3 +6153,59 @@ handbook facts": *amended* with a sentence distinguishing a performance referenc
 figures; the rule itself stands. §records-in-working-directory: *confirmed*; the per-run evidence
 behind a row stays in the working directory. §ensemble-numbers: *confirmed*; campaign rows need a
 class decision. §stacks: *confirmed*, unchanged; rows reference stacks rather than living in them.
+
+## 2026-10-10 — Stack build provenance: complete passed-options records, validated pairing, library hashes
+
+While drafting the build-profile change for the Horizon production build (a QUDA `milc-cg`
+build plus `QUDA_MAX_MULTI_RHS_TILE=3`), the operator set the requirement that governs
+performance references: a performance number in the handbook must never exist without a way to
+recover every build flag behind it. Defaults need not be recorded, since the tested commit
+settles them; what was passed must be known exactly, and the number must reach it through one
+unambiguous stack reference.
+
+**What the stacks did not guarantee.**
+- A stack's passed options are its profile's plus its `machine_options`, transcribed by hand and
+  never checked against the build. The tile would have been exactly the omission that goes
+  unnoticed, had the stack been written from `milc-cg`.
+- Of the twelve MILC stacks, seven name their QUDA stack in `validated_stack`, Aurora's in
+  `composed_stack`, and four name none, leaving it to be inferred from machine and commit. On
+  Perlmutter that inference is not unique: the CUDA 12 and CUDA 13 QUDA `milc-cg` stacks pin
+  the same commit. Where the field exists, nothing checks it.
+- MILC loads QUDA as a shared library (`QUDA_BUILD_SHAREDLIB=ON`; `ldd` resolves `libquda.so` to
+  the install), so an in-place rebuild changes later runs while both records still read as
+  correct.
+
+**Decided with the operator.**
+- §stacks: a stack's build block is the complete record of what was passed, checked against the
+  build tree when the stack is written by a new tool; a composing stack names its dependency in
+  `validated_stack` and the validator checks the pairing; library stacks record shared-library
+  hashes and measured runs record what they loaded.
+- §build-profiles: composition lists its accepted dependency profiles (`composes` plus
+  `also_accepts`).
+- §performance-references: a row names exactly one stack, the application's, and restates no
+  build option.
+
+**Rejected.**
+- Recording every resolved default (the full CMake cache and compile defines): unnecessary for
+  provenance, since the tested commit settles defaults (operator).
+- Restating compiled options in performance rows, which the first draft of §performance-references
+  required: a second home for a stack fact.
+- Rows naming both the application stack and the library stack: the pairing would then live in
+  two places that could disagree.
+- Composition by capability alone, drafted for this change and not applied: a library build
+  narrowing `QUDA_PRECISION` or `QUDA_RECONSTRUCT` would declare the same capabilities as
+  `milc-cg` and still fail MILC at run time.
+- An explicit `QUDA_MAX_MULTI_RHS_TILE: "1"` in `milc-cg`: the default (1 at every QUDA commit a
+  `milc-cg` stack pins, read from each commit's `CMakeLists.txt`) is settled by the commit.
+
+**Reconciliation.**
+- `ARCHITECTURE.md` §performance-references, "the stack and any compiled option that shapes the
+  solve, such as a multi-right-hand-side tile": *amended*, the clause removed and the rule stated.
+- §stacks rules 1–3 and the supersession paragraph: *confirmed*, unchanged.
+- §build-profiles, "Why the capability list": *confirmed*; capabilities still answer what a build
+  can do, and now also check every accepted pairing.
+- `playbooks/build-lqcd-stack.md` composition step 3 ("the dependency profile named by
+  `composes`"): *confirmed* for now and owed an amendment for `also_accepts` under obligation 4.8,
+  landing with the schema field.
+- `machines/*/stacks/milc-*/stack.yaml`, the `dependency_acquisition` blocks: five owed a
+  `validated_stack` under obligation 4.9.
