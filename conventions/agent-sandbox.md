@@ -90,6 +90,18 @@ rather than the accounting database, and even a plain hostname lookup, hang inst
 fast. A query that never returns is this, not a busy scheduler, and a watch built on one will
 wait forever.
 
+**A `timeout` prefix did not break the queue listing on one machine** `[reproduced]`, Horizon,
+2026-10-10. `timeout 60 squeue --me …` and `timeout 60 squeue -A <account> …` returned full
+listings more than ten times, while the same listing redirected to a file hung until the timeout,
+and a listing run from inside a script timed out. So the table's `timeout` row is not universal,
+but its redirect and script rows held. A tool that must query the scheduler from a script
+still cannot be tested from inside the sandbox; give it a way to read saved output instead.
+
+**Select your own jobs with `--me`, not `-u <name>`.** On the same machine and day, `squeue -u
+<user>` failed with `Invalid user` from inside the sandbox, hours after the same form had worked
+`[observed]`. `-u` resolves a name through the user database, the lookup class that hangs here
+`[inferred]`; `--me` uses the process's own user id.
+
 **The dangerous shape is the one that half-works.** The redirect form exits non-zero *and still
 writes a file containing the header row*. That file is indistinguishable from a real record to
 whoever reads it next. **Before treating a captured record as evidence, confirm it has data

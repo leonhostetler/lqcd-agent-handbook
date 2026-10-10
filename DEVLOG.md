@@ -6073,3 +6073,45 @@ interface-timer extraction, three) and one harness gap (a sourced `PATH` prepend
 stubs) recorded as obligations. X.14 was closed by the PR #102 entry above; its number is not
 reused.
 
+## 2026-10-10 — Horizon per-user job limits; sandbox squeue shapes
+
+From an operator production campaign on Horizon. An unattended submission loop, run with a cap of
+80 jobs, reached 40 of the user's jobs; the next submission was refused with
+`QOSMaxSubmitJobPerUserLimit`, while jobs past 20 had been accepted and waited with
+`QOSMaxJobsPerUserLimit` (the operator's report). The operator read the QOS records
+(`sacctmgr show qos`): `qdebug` holds MaxJobsPU 20, MaxSubmitPU 40, MaxTRESPU node=1000, MaxWall
+2 days, and no `GrpTRESMins`. Admitted to the Horizon notes: the limits, how each one fails, and
+the cap rule for a loop. Separately, `timeout`-prefixed `squeue` queries worked repeatedly under
+the agent sandbox while a redirected one hung, and `squeue -u <user>` once failed with
+`Invalid user`; admitted as a scoped refinement to the sandbox leaf.
+
+The operator also reported that the allocation balance is enforced at submission against the
+reserved cost of every project member's queued and running jobs, whether or not those jobs have
+been debited from it.
+Admitted to the Horizon notes as the operator's observation, without the balance figure, which
+is campaign state and not durable; whether running jobs count at their full or remaining time is
+recorded as unknown.
+
+**Reconciliation (obligation 11).**
+- `machines/horizon/notes.md`, the early-access table's `qlimits` row ("not installed"):
+  *confirmed*; the new row gives the limits it would have shown.
+- `machines/horizon/notes.md`, "Submit and account" (project spelling, `--gpus-per-node`):
+  *confirmed*, no conflict.
+- `machines/horizon/machine.yaml` `partition_limits` (documented `gb*`/`vv*` queues, no per-user
+  job limits): *confirmed*, unchanged; `debug` is early-access drift, which the notes own.
+- `machines/deltaai/notes.md`, `QOSMaxSubmitJobPerUserLimit` rejected at submit and not queued:
+  *confirmed*; the same behaviour on Horizon.
+- `conventions/agent-sandbox.md`, the table row "a pipe, a `timeout` wrapper, or one command among
+  several in a script — fails": *amended* by a scoped paragraph, not rewritten; the row came from
+  `sacct`, and the `timeout` part did not hold for `squeue` on Horizon.
+- `conventions/agent-sandbox.md`, "a hang is the same cause wearing a different face":
+  *confirmed* by the redirected query that hung.
+- `ARCHITECTURE.md` §no-escape-hatch, `squeue -u $USER` as an example of runtime state: *confirmed*,
+  unaffected (it is about paths, not sandbox shapes).
+- `machines/horizon/notes.md`, "Submit and account", the project name exactly as `taccinfo`
+  prints it: *confirmed*; the new paragraph reads the balance from the same command.
+- `machines/horizon/notes.md`, "Run agent sessions on compute nodes", every SU charged to the
+  allocation: *confirmed*, no conflict (it concerns what is charged, not the submission check).
+- `machines/horizon/machine.yaml` `accounting.charge_rate_per_node_hour` (documented queues
+  only): *confirmed*, unchanged; the notes say `debug` has no recorded rate.
+

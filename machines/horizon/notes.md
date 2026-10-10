@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, agent placement, ibrun rank placement on a four-GPU board, build, and storage rules for TACC Horizon, including the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, ibrun rank placement on a four-GPU board, build, and storage rules for TACC Horizon, including the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -16,7 +16,9 @@ sources:
   - https://github.com/usqcd-software/qio/issues/19
   - https://github.com/lattice/quda/issues/1655
   - colleague's world-readable Horizon job logs (nvidia-smi topo -m), read 2026-10-09
-observed: "2026-10-09"
+  - live Slurm QOS records (sacctmgr show qos), read 2026-10-10
+  - an unattended submission loop's refused submission, 2026-10-10, reviewed in the working directory, and the operator's report of the reason its excess jobs waited
+observed: "2026-10-10"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -57,6 +59,7 @@ from the guide in ways that change job sizing:
 | Vera Vera nodes | 4,752, queues `vv*` | none in the scheduler |
 | `$WORK` | VAST, later in 2026 | the variable is set but names a path that does not exist |
 | `qlimits` | the source of live limits | not installed on the login node |
+| Per-user limits in `debug` | not given | 20 running jobs, 40 submitted, 1000 nodes, 2 days per job (QOS `qdebug`, read 2026-10-10) |
 
 **Size a job from what the scheduler allocates, not from the profile.** One scheduler
 node today holds four GPUs, twice the profile's `per_node`. Rank counts, decompositions,
@@ -108,6 +111,32 @@ rejects any other spelling as an unknown project, even when it names the right a
 
 A job may request its GPUs as `--gpus-per-node 4`. The submit filter accepted it, and the job
 record shows `gres/gpu:nvidia_gb200:4` `[reproduced ×6]`.
+
+**Keep a submission loop under the per-user job limits.** With `qlimits` absent, read them from
+the QOS records with a bare `sacctmgr -P show qos format=Name,MaxJobsPU,MaxSubmitPU,MaxTRESPU,MaxWall`;
+the early-access table above gives the `debug` values. The two job limits fail differently
+`[observed]`, 2026-10-10:
+
+- **Past the running limit, a job is accepted and waits** with reason `QOSMaxJobsPerUserLimit`.
+  That is a full allowance, not a stuck queue, and not a reason to cancel.
+- **Past the submit limit, `sbatch` refuses** with `QOSMaxSubmitJobPerUserLimit`, and nothing is
+  queued. A loop must not advance its own state on that refusal.
+
+An unattended loop's job cap therefore belongs at or below the submit limit, and counts every
+job of the user, not only its own.
+
+**The allocation balance is enforced at submission, across the whole project** `[observed]` by
+the operator, during early access. A submission is refused when the reserved cost of the
+project's queued and running jobs, every member's, plus the new job would exceed the balance
+`taccinfo` prints, whether or not those jobs have actually been debited from the balance. So
+one member's large pending job can block another member's submission, and a loop can be refused
+for budget while far below the job limits. Whether a running job counts at its full time limit
+or only its remaining time has not been established; count the full limit, the conservative
+case. Before a large submission, sum nodes × time limit over a bare
+`squeue -A <project> -h -o "%D %l %P"` and compare it with the balance. The profile gives no
+charge rate for `debug`. The check appears to belong to TACC's submit filter, which prints
+"Checking available allocation" on every submission, not to the Slurm QOS, which carries no
+`GrpTRESMins` `[inferred]`.
 
 ## Set the OpenMP thread count
 
