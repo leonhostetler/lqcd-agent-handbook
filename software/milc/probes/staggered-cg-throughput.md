@@ -20,9 +20,6 @@ sources:
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/tests/staggered_invert_test.cpp#L404-L428
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/timer.cpp#L297-L298
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/tests/staggered_dslash_test_utils.h#L349-L476
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/nersc_cksum.c#L28-L55
-  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/com_qmp.c#L611-L620
-  - https://github.com/usqcd-software/qmp/blob/3010fef5b5784b3e6eeec9fff38cb9954a28ad42/lib/mpi/QMP_comm_mpi.c#L295-L327
   - operator's screened Horizon probe run and dslash-iteration trial, 2026-10-10
 observed: "2026-10-10"
 observed_on:
@@ -135,14 +132,11 @@ field's `CHECK PLAQ` after a warm start too (`io_helpers.c` L232–L250). **The 
 floating-point sum whose order is not fixed, is compared to a relative limit**: two runs of one
 input on one rank have given plaquettes differing in the last digit.
 
-**MILC's NERSC checksum is not compared, and cannot be on a QMP build.** It is the unsigned sum
-of the links' bits (`nersc_cksum.c` L28–L55), reduced over ranks by `g_uint32sum`, which with QMP
-calls `QMP_binary_reduction` (`com_qmp.c` L611–L620). QMP does that as `MPI_Allreduce` of 4
-`MPI_BYTE` with a user operation that ignores the length it is given (`QMP_comm_mpi.c`
-L295–L327). Open MPI 5.0 on Horizon handed that operation 2 bytes at a time on 2 ranks and 1 byte
-on 4, and the sum of one word came out wrong in 488 of 1,000 trials and in all 1,000
-respectively `[observed]`. The probe's consistency leg printed four different checksums at its
-four points for one field whose plaquette, link trace and correlators agreed.
+**MILC's NERSC checksum is not compared, and cannot be on a QMP build**: its sum over ranks goes
+through `QMP_binary_reduction`, which is wrong on more than one rank
+([../../qmp/binary-reduction.md](../../qmp/binary-reduction.md)). The probe's consistency leg
+printed four different checksums at its four points for one field whose plaquette, link trace
+and correlators agreed.
 
 Each meson's correlator file must agree with the first point's, within the probe's limit, through
 `tools/milc-compare-fnal-correlators.py`. Each meson writes its own file: the

@@ -24,3 +24,6 @@ with its MPI backend; QMP was a dependency rather than the primary software prof
 Use `project.yaml` for the repository, intrinsic interfaces, and build-option meanings.
 The consuming stack records the exact tested revision, acquisition mode, MPI toolchain,
 and runtime evidence.
+
+`QMP_binary_reduction` sums values wider than one byte wrongly on more than one rank; MILC's
+NERSC checksum is the one MILC caller. See [binary-reduction.md](binary-reduction.md).

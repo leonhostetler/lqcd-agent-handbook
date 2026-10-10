@@ -6672,3 +6672,21 @@ the 28 fail.
 - The 1.0.0 entry above, "The checksum is now the exact fingerprint": *superseded* by this entry;
   left as written.
 - `ROADMAP.md` obligation 4.8: *amended*.
+
+## 2026-10-10 — QMP_binary_reduction and MILC's NERSC checksum
+
+New leaf `software/qmp/binary-reduction.md`, from the probe run's checksum failure and the test
+program in the dslash trial (previous entry). It moves the mechanism out of the probe leaf, which
+now links to it, and adds what the probe did not need: MILC's only caller is `nersc_cksum`; a NERSC
+archive saved from more than one rank gets a wrong header checksum (from source, no archive
+written); MILC's XOR file checksums use a native reduction and stay sound, as every production
+read on 4 and 8 ranks confirmed; MILC built on MPI alone is unaffected. The suggested QMP fix is
+untested, and whether QMP upstream knows of the defect was not checked: the sandbox could not
+reach GitHub.
+
+**Reconciliation.**
+- `software/milc/probes/staggered-cg-throughput.md`, the checksum paragraph: *amended* to a link;
+  its three mechanism sources move to the new leaf.
+- `software/qmp/README.md`: *amended*, a pointer added.
+- `software/milc/internals/gauge-io-cost.md`, "Both verified their checksums": *confirmed*; those
+  are file checksums, not the NERSC sum.
