@@ -165,6 +165,14 @@
         "profile": {
           "$ref": "#/$defs/name"
         },
+        "also_accepts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
+        },
         "required_capabilities": {
           "type": "object",
           "minProperties": 1,

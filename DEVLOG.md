@@ -6245,3 +6245,32 @@ has 10 bytes of budget left.
   unchanged.
 - `ROADMAP.md` obligation 4.8, the probe-mass calibration classified as tuning: *confirmed*; it is
   a measurement run, which is project work.
+
+## 2026-10-10 — Build profiles: `also_accepts` in compositions
+
+The first part of obligation 4.8 under the stack-provenance decision: a composition lists every
+dependency profile it accepts. `schemas/build-profiles.schema.json` gains an optional
+`also_accepts` (a non-empty list of unique profile names) beside `profile`.
+`tools/validate-knowledge.py` now applies the existing existence and capability checks to every
+accepted profile rather than only to `profile`, names the offending profile in each error, and
+rejects a composition that lists its own `profile` again. No profile uses the field yet; the
+QUDA tile variant and the MILC profile that accepts it follow.
+
+**Tests** (`tests/test_slice3.py`): a positive case (`mg-staggered`, which declares every
+capability `ks-spectrum-hisq-quda` requires) and three negatives — a missing listed profile, a
+listed profile narrowed to plain CG, and the composed profile listed again. Run against the
+unmodified validator, all three negatives fail, so none is vacuous; the positive case passes
+there too, as it should, because the old validator ignored the field.
+
+**Reconciliation.**
+- `playbooks/build-lqcd-stack.md`, composition step 3: *amended*, and it now says capability
+  matching alone admits nothing.
+- `tests/test_slice3.py`, `test_validator_rejects_a_missing_composed_profile`: *confirmed*; the
+  primary profile's error message is unchanged.
+- `tests/test_slice3.py`, `test_milc_profile_composes_the_validated_quda_profile`: *confirmed*,
+  unaffected.
+- `software/milc/build-profiles.yaml` and `software/quda/build-profiles.yaml`: *confirmed*,
+  unchanged in this step.
+- `ARCHITECTURE.md` §build-profiles, "Composition names its accepted dependency profiles
+  explicitly": *confirmed*; this step implements it.
+- `ROADMAP.md` obligation 4.8: *amended*, this part marked landed.

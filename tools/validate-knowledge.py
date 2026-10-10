@@ -446,32 +446,47 @@ def validate_build_profile_references(
                 if isinstance(dependency_record, dict)
                 else {}
             )
-            if dependency_profile not in available_profiles:
+            # Every accepted dependency profile is a deliberate pairing, so each must exist
+            # and declare every required capability; capability matching never admits a
+            # profile the composition does not list (ARCHITECTURE.md, build profiles).
+            also_accepts = composition.get("also_accepts", [])
+            if not isinstance(also_accepts, list):
+                also_accepts = []
+            if dependency_profile in also_accepts:
                 errors.append(
-                    f"{rel}: profile {profile_name!r} composes missing profile "
-                    f"{dependency!r}/{dependency_profile!r}"
+                    f"{rel}: profile {profile_name!r} lists its composed profile "
+                    f"{dependency!r}/{dependency_profile!r} in also_accepts"
                 )
-                continue
-            selected_dependency_profile = available_profiles[dependency_profile]
-            available_capabilities = (
-                selected_dependency_profile.get("capabilities", {})
-                if isinstance(selected_dependency_profile, dict)
-                else {}
-            )
+            accepted = [(dependency_profile, "composes")] + [
+                (name, "also accepts") for name in also_accepts if name != dependency_profile
+            ]
             required_capabilities = composition.get("required_capabilities", {})
             if not isinstance(required_capabilities, dict):
-                continue
-            for capability, required_values in required_capabilities.items():
-                if not isinstance(required_values, list):
-                    continue
-                available_values = available_capabilities.get(capability, [])
-                missing = sorted(set(required_values) - set(available_values))
-                if missing:
+                required_capabilities = {}
+            for accepted_profile, relation in accepted:
+                if accepted_profile not in available_profiles:
                     errors.append(
-                        f"{rel}: profile {profile_name!r} requires unavailable "
-                        f"{dependency!r}/{dependency_profile!r} capability "
-                        f"{capability!r}: {', '.join(missing)}"
+                        f"{rel}: profile {profile_name!r} {relation} missing profile "
+                        f"{dependency!r}/{accepted_profile!r}"
                     )
+                    continue
+                selected_dependency_profile = available_profiles[accepted_profile]
+                available_capabilities = (
+                    selected_dependency_profile.get("capabilities", {})
+                    if isinstance(selected_dependency_profile, dict)
+                    else {}
+                )
+                for capability, required_values in required_capabilities.items():
+                    if not isinstance(required_values, list):
+                        continue
+                    available_values = available_capabilities.get(capability, [])
+                    missing = sorted(set(required_values) - set(available_values))
+                    if missing:
+                        errors.append(
+                            f"{rel}: profile {profile_name!r} requires unavailable "
+                            f"{dependency!r}/{accepted_profile!r} capability "
+                            f"{capability!r}: {', '.join(missing)}"
+                        )
 
 
 def validate_stack_references(

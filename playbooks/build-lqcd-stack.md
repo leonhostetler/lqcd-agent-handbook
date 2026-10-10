@@ -81,8 +81,10 @@ current machine but does have a portable application recipe or a validated stack
    application stack;
 2. take compilers, target architecture, dependency prefixes, flags, and placement from the
    current-machine stack; and
-3. confirm that the current-machine dependency stack references the dependency profile named
-   by `composes`, whose declared capabilities satisfy `required_capabilities`.
+3. confirm that the current-machine dependency stack references a dependency profile the
+   composition accepts — the one named by `composes`, or one listed in its `also_accepts` —
+   whose declared capabilities satisfy `required_capabilities`. A profile that merely declares
+   the same capabilities is not accepted until a composition lists it.
 
 That resolved capability contract is sufficient for the first build attempt. The absence of a
 same-machine application run means the combined runtime path is unvalidated; it does not by

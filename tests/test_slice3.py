@@ -121,6 +121,57 @@ class SliceThreeProfileTests(unittest.TestCase):
             VALIDATOR.validate_build_profile_references(copy, path, record, errors)
             self.assertTrue(any("composes missing profile" in error for error in errors))
 
+    def _also_accepts_errors(self, also_accepts, extra_quda_profile=None):
+        """Validate ks-spectrum-hisq-quda in a copy with the given also_accepts list."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            copy = Path(temp_dir) / "handbook"
+            shutil.copytree(
+                ROOT,
+                copy,
+                ignore=handbook_copy_ignore(ROOT, ".git", "__pycache__", "*.pyc"),
+            )
+            if extra_quda_profile is not None:
+                quda_path = copy / "software/quda/build-profiles.yaml"
+                quda = yaml.safe_load(quda_path.read_text())
+                name, profile = extra_quda_profile
+                quda["profiles"][name] = profile
+                quda_path.write_text(yaml.safe_dump(quda, sort_keys=False))
+            path = copy / "software/milc/build-profiles.yaml"
+            record = yaml.safe_load(path.read_text())
+            record["profiles"]["ks-spectrum-hisq-quda"]["composes"]["quda"][
+                "also_accepts"
+            ] = also_accepts
+            errors: list[str] = []
+            VALIDATOR.validate_build_profile_references(copy, path, record, errors)
+            return errors
+
+    def test_validator_accepts_a_listed_profile_with_the_required_capabilities(self):
+        # mg-staggered declares every capability ks-spectrum-hisq-quda requires.
+        self.assertEqual(self._also_accepts_errors(["mg-staggered"]), [])
+
+    def test_validator_rejects_a_missing_also_accepted_profile(self):
+        errors = self._also_accepts_errors(["missing-profile"])
+        self.assertTrue(any("also accepts missing profile" in error for error in errors))
+
+    def test_validator_rejects_an_also_accepted_profile_lacking_a_capability(self):
+        quda = yaml.safe_load((ROOT / "software/quda/build-profiles.yaml").read_text())
+        narrowed = dict(quda["profiles"]["milc-cg"])
+        narrowed["capabilities"] = dict(narrowed["capabilities"], solvers=["cg"])
+        errors = self._also_accepts_errors(
+            ["narrowed-cg"], extra_quda_profile=("narrowed-cg", narrowed)
+        )
+        self.assertTrue(
+            any(
+                "requires unavailable 'quda'/'narrowed-cg' capability 'solvers'" in error
+                for error in errors
+            ),
+            errors,
+        )
+
+    def test_validator_rejects_the_composed_profile_listed_again(self):
+        errors = self._also_accepts_errors(["milc-cg"])
+        self.assertTrue(any("in also_accepts" in error for error in errors))
+
     def test_dependency_projects_validate_and_record_exact_revisions(self):
         schema = json.loads((ROOT / "schemas/project.schema.json").read_text())
         validator = Draft202012Validator(schema, format_checker=FormatChecker())
