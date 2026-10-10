@@ -6506,3 +6506,62 @@ build's stacks, which carry the record checks and exist only after a validation 
 - `tests/support.py`, `EXPECTED_SCHEMA_OBJECTS`: *amended*, 43 → 44.
 - `ROADMAP.md` obligation 4.8: *amended*, these pieces marked landed and the order of the rest
   corrected.
+
+## 2026-10-10 — The staggered-CG throughput probe: leaf and tool, probe 0.1.0
+
+Part of obligation 4.8. `software/milc/probes/staggered-cg-throughput.md` explains the probe and
+`tools/milc-quda-cg-probe.py` 1.0.0 carries its parameters (`describe`), writes a run's inputs
+and manifest (`inputs`), and checks a run and drafts rows (`analyze`). The probe is 0.1.0: its
+mass and tolerance wait for a calibration run, so `inputs` writes only calibration inputs and
+`analyze` drafts no rows until they are frozen.
+
+**Settled with the operator before writing:** a single tier at one device, one node, two and four
+nodes; 1 and 12 right-hand sides; a MILC leg on a `warm` field and QUDA's invert and dslash tests at
+every point; 48⁴ per rank, chosen from `tools/quda-staggered-memory.py` to fit a 40 GB A100; six
+single-RHS solves and four 12-RHS blocks per leg, the first of each excluded.
+
+**Found while writing, each fixed before review:**
+- *Weak scaling breaks cross-geometry correctness.* Each ladder point has its own global lattice,
+  so its own warm field, plaquette and correlators. A consistency leg was added: one fixed global
+  volume (24³×48, divisible at every ladder point) with the same seed everywhere, whose plaquette,
+  NERSC checksum and correlators must agree.
+- *The geometry ladder as first proposed put only t off node at four nodes.* With QMP, MILC
+  ranks are numbered x fastest (MILC declares no dimension map; `QMP_topology_mpi.c` `get_rank`),
+  so `1 2 2 4` on four 4-rank nodes splits only t across nodes. The tool now derives the ladder:
+  a node's ranks fill the fastest dimensions and nodes split t, then z; it computes the off-node
+  dimensions for any ranks-per-node and refuses a ladder the volumes cannot divide.
+- *QUDA's tests default to t-fastest rank order.* They now run with `--rank-order row`, and
+  `analyze` requires the row-major line in every QUDA log.
+- *The 12-RHS QUDA invert needs `--nsrc-tile`*: without a tile above 1 the test loops single
+  solves; with it each block goes through `invertMultiSrcQuda`, the path MILC uses.
+- *QUDA's invert Gflops is summed over ranks* (`timer.cpp`), so the probe divides it by the rank
+  count; the dslash test's counters are per process and are reported as printed.
+- *Correlator keys would collide*: every pion shares source, operator and mass labels, so each
+  meson now writes its own file.
+- *Two tool defects caught by the tests*: `--job-id` swallowed the file arguments passed after
+  it, and the first-solve exclusion was applied in two places, which the control exposed.
+
+**Checked against the real executable.** All eight inputs the tool generates for 4 ranks per node
+(both legs at every point) parse clean under `tools/milc-proofread-input.sh` with the Horizon
+production build's `ks_spectrum_hisq`, re-checked after the correlator-file change.
+
+**Tests** (`tests/test_milc_quda_cg_probe.py`, 19): the frozen definition, inputs refused for an
+unfrozen probe without a calibration mass and for a frozen probe with one, a non-empty output
+directory refused, the ladder for 4 and 12 ranks per node, a ladder refused for 5, the MILC inputs'
+sets and per-meson files, the QUDA commands' rank order, verification and block tile; a complete
+synthetic run analyzed with the first solve excluded and QUDA's figure divided by ranks; nine
+negatives (plaquette or checksum differing between points, a missing or malformed correlator, a
+wrong solve count, an incomplete run, non-convergence, a QUDA log in the wrong rank order, a
+missing QUDA output); and a control that removes the first-solve exclusion and shows the slow
+first solve then counts.
+
+**Reconciliation.**
+- `ARCHITECTURE.md` §performance-references, "the probe fixes the workload", the ladder "one
+  device, every device of one node, then two and four nodes", and the unit-gauge ban: *confirmed*.
+- `software/milc/timing.md`, `CONGRAD5` is per rank, nominal and precision-blind: *confirmed*; the
+  leaf points to it.
+- `software/milc/applications/ks-spectrum.md`, propagator sets as execution units:
+  *confirmed*; the leaf cites the set-type parser rather than restating the guide.
+- `tools/milc-compare-fnal-correlators.py`: *confirmed*, reused unchanged.
+- `ROADMAP.md` obligation 4.8: *amended*, the leaf and tool marked landed and the freeze listed as
+  owed.
