@@ -6565,3 +6565,53 @@ first solve then counts.
 - `tools/milc-compare-fnal-correlators.py`: *confirmed*, reused unchanged.
 - `ROADMAP.md` obligation 4.8: *amended*, the leaf and tool marked landed and the freeze listed as
   owed.
+
+## 2026-10-10 — The staggered-CG throughput probe frozen at 1.0.0
+
+Part of obligation 4.8. One calibration run on a Horizon GB200, in tuning mode and submitted by the
+operator, chose the probe's mass and settled its volume; `tools/milc-quda-cg-probe.py` 1.1.0 now
+carries probe 1.0.0. The run's outputs, the prediction record and its comparison stay in the
+operator's working directory.
+
+**What it measured** (one rank on one GPU, warm unless stated):
+- single-RHS CG on the probe's warm field at 48⁴ took 14,045, 5,598, 2,680, 1,248, 495 and 247
+  iterations at masses 0.002, 0.005, 0.01, 0.02, 0.05 and 0.1. By the rule fixed beforehand —
+  the scanned mass in 1000–3000 iterations nearest 2000 — the mass is 0.01;
+- at 0.01 the 40⁴ count was 2,665, so the mass holds at the frozen volume;
+- MILC's `CONGRAD5` rate at 40⁴ was 92 % (1 RHS) and 98 % (12 RHS) of the 48⁴ rate;
+- QUDA's dslash and invert tests ran and passed with the probe's command lines, in row-major rank
+  order; the invert test's rates agreed with MILC's within 1 % on the same paths;
+- first warm solves ran slower than later ones, and per-iteration time rose for short solves.
+
+**The miss that changed the volume.** Every leg's device footprint was about 1.6 times
+`tools/quda-staggered-memory.py`'s plain-CG estimate, at 48⁴ and 40⁴ alike; at 48⁴ the QUDA
+12-RHS invert needed more than a 40 GB A100 holds. The probe's design required a volume that fits
+that device, so the operator chose 40⁴, which every measured leg fits with room, at a rate cost on
+the GB200 of a few percent. The fit's calibration is Perlmutter A100 plain CG; this workload adds
+QUDA's HISQ link construction and a 12-RHS block, so the miss is an observation outside its
+envelope, and no fitted constant changes. Whether to record that observation beside the fit is a
+separate decision.
+
+**The analyzer defect found.** Two runs of one input on one rank gave the same NERSC checksum and
+plaquettes differing in the last digit, so the consistency leg's exact plaquette comparison would
+have failed a correct run. The checksum is now the exact fingerprint and the plaquette is compared to
+a relative limit; that limit and the correlator-agreement limit are frozen with the probe.
+
+**Frozen without measurement.** The tolerance, the campaigns' light-quark residual; and the
+correlator-agreement limit, an order of magnitude above the largest cross-build difference those
+campaigns recorded.
+
+**Tests** (`tests/test_milc_quda_cg_probe.py`, now 22): updated for a frozen probe, with the
+unfrozen path exercised by perturbing the mass away; new cases for drafted rows, a plaquette
+differing only by rounding (accepted), and correlators beyond the limit (rejected). Against the
+0.1.0 tool the updated tests fail, most of them because it writes no inputs without calibration
+flags; the two new analyzer cases fail on their own grounds. All eight inputs the frozen tool
+writes for four ranks per node parse clean under `tools/milc-proofread-input.sh`.
+
+**Reconciliation.**
+- `software/milc/probes/staggered-cg-throughput.md`, status, volume and correctness paragraphs:
+  *amended*; the leaf still restates no parameter value.
+- `software/quda/solvers/staggered-memory.md` and the memory tool: *confirmed*, unchanged.
+- `ARCHITECTURE.md` §performance-references, "sized for the smallest device the handbook covers":
+  *confirmed*; the freeze keeps it true.
+- `ROADMAP.md` obligation 4.8: *amended*, the freeze marked landed.

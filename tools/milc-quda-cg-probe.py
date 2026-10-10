@@ -43,22 +43,28 @@ import sys
 from pathlib import Path
 from typing import Any
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 ROOT = Path(__file__).resolve().parents[1]
 COMPARE = ROOT / "tools" / "milc-compare-fnal-correlators.py"
 
 # The probe's frozen definition. Changing any value makes a new probe version, and rows of
-# different versions are not compared (ARCHITECTURE.md, performance references). Mass and
-# tolerance stay None until the one-time calibration freezes them; the probe is 0.x until then.
+# different versions are not compared (ARCHITECTURE.md, performance references). Frozen at 1.0.0
+# from one calibration on a GB200 (2026-10-10): the mass gives a little under 2700 single-RHS
+# iterations on one device; the local volume is the largest calibrated one whose full measured
+# footprint, not a model's estimate, fits a 40 GB A100. The tolerance is the campaigns' light-quark
+# residual, and the correlator limit sits an order of magnitude above the largest cross-build
+# difference those campaigns recorded. A mass or tolerance of None marks an unfrozen probe, for
+# which `inputs` writes only calibration inputs.
 PROBE: dict[str, Any] = {
     "name": "staggered-cg-throughput",
-    "version": "0.1.0",
-    "mass": None,
-    "tolerance": None,
-    "consistency_max_relative_difference": None,
+    "version": "1.0.0",
+    "mass": 0.01,
+    "tolerance": 1e-8,
+    "consistency_max_relative_difference": 1e-5,
+    "consistency_plaquette_relative_difference": 1e-14,
     "seed": 5682304,
     "start": "warm",
-    "throughput_local_volume": [48, 48, 48, 48],
+    "throughput_local_volume": [40, 40, 40, 40],
     "consistency_global_volume": [24, 24, 24, 48],
     "milc": {
         "executable": "ks_spectrum_hisq",
@@ -456,10 +462,19 @@ def run_analyze(args: argparse.Namespace) -> int:
                 continue
             summary["quda"][kind] = analyze_quda(path, kind, ranks, report, f"{name} QUDA {kind}")
         report["points"].append(summary)
-    if None in plaquettes.values() or len({json.dumps(v) for v in plaquettes.values()}) > 1:
-        report["errors"].append(f"consistency leg: the field's plaquette differs between points: {plaquettes}")
+    # The checksum is computed over the links' bits, so the same field gives the same checksum
+    # exactly. The plaquette is a floating-point sum whose order is not fixed: two runs of one input
+    # on one rank have differed in the last digit. It is compared to a relative limit instead.
     if None in checksums.values() or len(set(checksums.values())) > 1:
         report["errors"].append(f"consistency leg: the field's checksum differs between points: {checksums}")
+    limit = PROBE["consistency_plaquette_relative_difference"]
+    values = [v for v in plaquettes.values() if v is not None]
+    if None in plaquettes.values() or any(
+        abs(a - b) > limit * max(abs(a), abs(b)) for v in values for a, b in zip(v, values[0])
+    ):
+        report["errors"].append(
+            f"consistency leg: the field's plaquette differs between points by more than {limit} relative: {plaquettes}"
+        )
     report["consistency_correlators"] = {}
     for pair, files in sorted(correlators.items()):
         if len(files) > 1:

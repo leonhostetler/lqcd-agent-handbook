@@ -5,8 +5,9 @@ dimension per step, for any ranks-per-node the volumes divide into; the MILC inp
 frozen sets and one correlator file per meson; the QUDA commands match MILC's rank order; and
 nothing is written for an unfrozen probe without a calibration mass, or for a frozen one with
 one. Analysis: a complete synthetic run reports the first-solve-excluded statistics and no
-errors, and each way a run can be incomplete or inconsistent is an error. The control removes
-the first-solve exclusion and shows the reported value moves.
+errors, a frozen probe drafts rows, a plaquette differing only by rounding passes, and each way
+a run can be incomplete or inconsistent is an error. The control removes the first-solve
+exclusion and shows the reported value moves.
 """
 
 import json
@@ -23,6 +24,7 @@ from support import PerturbationMixin  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "milc-quda-cg-probe.py"
 MASS, TOL = "0.01", "1e-10"
+UNFROZEN = ('"mass": 0.01,\n    "tolerance": 1e-8,', '"mass": None,\n    "tolerance": None,')
 
 
 def run(*args: str) -> subprocess.CompletedProcess:
@@ -72,8 +74,8 @@ class ProbeCase(PerturbationMixin, unittest.TestCase):
         done = run("inputs", "--ranks-per-node", ranks_per_node, "--out", str(out), *extra)
         return done, out
 
-    def calibration_inputs(self, ranks_per_node="4"):
-        done, out = self.inputs(ranks_per_node, "--calibration-mass", MASS, "--calibration-tolerance", TOL)
+    def probe_inputs(self, ranks_per_node="4"):
+        done, out = self.inputs(ranks_per_node)
         self.assertEqual(done.returncode, 0, done.stderr)
         return out, json.loads((out / "manifest.json").read_text())
 
@@ -82,20 +84,21 @@ class InputTests(ProbeCase):
     def test_describe_prints_the_frozen_definition(self):
         probe = json.loads(run("describe").stdout)
         self.assertEqual(probe["name"], "staggered-cg-throughput")
-        self.assertEqual(probe["throughput_local_volume"], [48, 48, 48, 48])
-        self.assertIsNone(probe["mass"])
+        self.assertEqual(probe["version"], "1.0.0")
+        self.assertEqual(probe["throughput_local_volume"], [40, 40, 40, 40])
+        self.assertEqual((probe["mass"], probe["tolerance"]), (0.01, 1e-8))
 
     def test_an_unfrozen_probe_writes_inputs_only_for_a_calibration(self):
+        self.perturb(TOOL, *UNFROZEN)
         done, out = self.inputs()
         self.assertEqual(done.returncode, 2)
         self.assertIn("not frozen", done.stderr)
         self.assertFalse(out.exists())
-        _, manifest = self.calibration_inputs()
-        self.assertTrue(manifest["calibration"])
+        done, out = self.inputs("4", "--calibration-mass", MASS, "--calibration-tolerance", TOL)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertTrue(json.loads((out / "manifest.json").read_text())["calibration"])
 
     def test_a_frozen_probe_refuses_a_calibration_mass(self):
-        # one perturbation: a second call on the same file would restart from the original
-        self.perturb(TOOL, '"mass": None,\n    "tolerance": None,', '"mass": 0.01,\n    "tolerance": 1e-10,')
         done, _ = self.inputs("4", "--calibration-mass", MASS, "--calibration-tolerance", TOL)
         self.assertEqual(done.returncode, 2)
         self.assertIn("different probe", done.stderr)
@@ -107,8 +110,7 @@ class InputTests(ProbeCase):
         out = self.base / "used"
         out.mkdir()
         (out / "old.txt").write_text("previous run")
-        done = run("inputs", "--ranks-per-node", "4", "--out", str(out), "--calibration-mass", MASS,
-                   "--calibration-tolerance", TOL)
+        done = run("inputs", "--ranks-per-node", "4", "--out", str(out))
         self.assertEqual(done.returncode, 2)
         self.assertIn("not empty", done.stderr)
 
@@ -116,7 +118,7 @@ class InputTests(ProbeCase):
         for rpn, geometries in (("4", [[1, 1, 1, 1], [2, 2, 1, 1], [2, 2, 1, 2], [2, 2, 2, 2]]),
                                 ("12", [[1, 1, 1, 1], [3, 2, 2, 1], [3, 2, 2, 2], [3, 2, 4, 2]])):
             with self.subTest(ranks_per_node=rpn):
-                _, manifest = self.calibration_inputs(rpn)
+                _, manifest = self.probe_inputs(rpn)
                 points = manifest["points"]
                 self.assertEqual([p["node_geometry"] for p in points], geometries)
                 self.assertEqual([p["dimensions_off_node"] for p in points], [[], [], ["t"], ["z", "t"]])
@@ -128,16 +130,18 @@ class InputTests(ProbeCase):
                     self.assertEqual(p["ranks"], product)
 
     def test_refuses_a_ladder_the_volumes_cannot_divide(self):
-        done, _ = self.inputs("5", "--calibration-mass", MASS, "--calibration-tolerance", TOL)
+        done, _ = self.inputs("5")
         self.assertEqual(done.returncode, 2)
         self.assertIn("does not split", done.stderr)
 
     def test_milc_inputs_carry_the_frozen_sets_and_a_file_per_meson(self):
-        out, manifest = self.calibration_inputs()
+        out, manifest = self.probe_inputs()
         point = manifest["points"][3]
         text = (out / point["milc"]["throughput"]["input"]).read_text()
         self.assertIn("node_geometry 2 2 2 2", text)
-        self.assertIn("nx 96", text)
+        self.assertIn("nx 80", text)
+        self.assertIn("mass 0.01", text)
+        self.assertIn("error_for_propagator 1e-08", text)
         self.assertIn("\nwarm\n", text)
         self.assertEqual(text.count("set_type single"), 1)
         self.assertEqual(text.count("set_type multicolorsource"), 4)
@@ -150,7 +154,7 @@ class InputTests(ProbeCase):
         self.assertIn("nt 48", consistency)
 
     def test_quda_commands_match_milcs_rank_order_and_block_path(self):
-        _, manifest = self.calibration_inputs()
+        _, manifest = self.probe_inputs()
         for point in manifest["points"]:
             for kind, command in point["quda"].items():
                 argv = command["argv"]
@@ -165,7 +169,7 @@ class InputTests(ProbeCase):
 
 class AnalyzeTests(ProbeCase):
     def write_run(self, mutate=None):
-        out, manifest = self.calibration_inputs()
+        out, manifest = self.probe_inputs()
         outputs = self.base / "outputs"
         outputs.mkdir()
         files: dict[str, str] = {}
@@ -209,13 +213,43 @@ class AnalyzeTests(ProbeCase):
         self.assertEqual(node["quda"]["invert-single"]["min"], 9100.0)
         self.assertEqual(node["quda"]["dslash-block"]["gbytes_per_second_per_rank"], 6500.25)
         self.assertEqual(set(report["consistency_correlators"]), {"pair0", "pair1"})
-        self.assertNotIn("draft_rows", report)  # a calibration never yields rows
+        self.assertFalse(report["calibration"])
+        self.assertNotIn("draft_rows", report)  # rows only for a named stack
+
+    def test_a_frozen_probe_drafts_rows_for_a_named_stack(self):
+        libraries = self.base / "loaded-libraries.txt"
+        prefix = self.base / "install"
+        (prefix / "lib").mkdir(parents=True)
+        (prefix / "lib" / "libquda.so").write_bytes(b"quda")
+        libraries.write_text(f"{prefix}/lib/libquda.so {'a' * 64}\n")
+        status, report = self.analyze(None, "--stack", "machines/m/stacks/milc-x/stack.yaml",
+                                      "--loaded-libraries", str(libraries), "--install-prefix", str(prefix))
+        self.assertEqual(status, 0, report["errors"])
+        rows = report["draft_rows"]
+        self.assertEqual(len(rows), 8)  # four points, 1 and 12 RHS
+        self.assertEqual(rows[0]["probe"], {"name": "staggered-cg-throughput", "version": "1.0.0"})
+        self.assertEqual(rows[0]["loaded_libraries"], [{"path": "lib/libquda.so", "sha256": "a" * 64}])
+        self.assertEqual(rows[0]["placement"]["local_volume"], [40, 40, 40, 40])
+        self.assertEqual(rows[-1]["placement"]["dimensions_off_node"], ["z", "t"])
+
+    def test_accepts_a_plaquette_that_differs_only_by_rounding(self):
+        def mutate(files, manifest):
+            name = manifest["points"][2]["milc"]["consistency"]["output"]
+            files[name] = files[name].replace("5.0000000000000000e-01", "5.0000000000000011e-01")
+        status, report = self.analyze(mutate)
+        self.assertEqual((status, report["errors"]), (0, []))
+
+    def test_rejects_correlators_that_disagree_beyond_the_limit(self):
+        def mutate(files, manifest):
+            name = manifest["points"][3]["milc"]["consistency"]["correlators"][1]
+            files[name] = fnal("probe.consistency.4-nodes", scale=1.001)
+        self.assert_error(self.analyze(mutate)[1], "consistency correlators, pair 1")
 
     def test_rejects_a_field_whose_plaquette_differs_between_points(self):
         def mutate(files, manifest):
             name = manifest["points"][2]["milc"]["consistency"]["output"]
-            files[name] = files[name].replace("5.0000000000000000e-01", "5.0000000000000100e-01")
-        self.assert_error(self.analyze(mutate)[1], "plaquette differs between points")
+            files[name] = files[name].replace("5.0000000000000000e-01", "5.0000000000100000e-01")
+        self.assert_error(self.analyze(mutate)[1], "plaquette differs between points by more than")
 
     def test_rejects_a_field_whose_checksum_differs_between_points(self):
         def mutate(files, manifest):

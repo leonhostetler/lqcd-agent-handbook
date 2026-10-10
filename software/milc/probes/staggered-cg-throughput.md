@@ -43,11 +43,11 @@ frozen value (volumes, seed, sets, right-hand-side counts, precision, reconstruc
 counts, the ladder and the statistic); this page explains them and restates none. Changing any
 of them makes a new probe version, and rows of different versions are never compared.
 
-**Status: version 0.x, not yet frozen.** The mass and tolerance are fixed once, by a
-calibration run that chooses a mass giving solves of 1000–3000 iterations on one device; that
-choice is made from a measurement, so it is tuning work, and the probe becomes 1.0.0 when the
-values are written into the tool. Until then `inputs` writes inputs only for a calibration run,
-and `analyze` emits no performance rows.
+**Status: version 1.0.0, frozen.** The mass was chosen by one calibration on a GB200, as tuning
+work: the scanned mass whose single-RHS solves on one device took closest to 2000 iterations within
+1000–3000. The tolerance is the light-quark residual of the campaigns the probe was built beside,
+fixed on that reasoning rather than measured. A tool whose mass is unset is an unfrozen probe, and
+then `inputs` writes only calibration inputs and `analyze` drafts no rows.
 
 ## What it holds fixed, and why
 
@@ -58,10 +58,14 @@ and `analyze` emits no performance rows.
   same field at every geometry. No file is shipped or written. **Never a unit gauge**: the free
   operator's degenerate spectrum lets CG converge in a handful of iterations for structured
   sources, and identical links hide layout and halo errors from a correctness check.
-- **A hypercubic local volume per rank** under weak scaling, sized for a 40 GB A100 by
-  `tools/quda-staggered-memory.py` with margin for its fit error, so face sizes do not depend
-  on which dimension is split. Whether one such rank fills a larger device is a measurement,
-  not a property of the choice.
+- **A hypercubic local volume per rank** under weak scaling, so face sizes do not depend on
+  which dimension is split, and sized so the whole probe fits a 40 GB A100. **The size came from
+  a measurement, not from `tools/quda-staggered-memory.py`.** On the calibration, every leg's device
+  footprint was about 1.6 times that tool's plain-CG estimate, at two volumes alike: the probe
+  carries QUDA's HISQ link construction and a 12-RHS block, which lie outside the fit's
+  calibration. The next calibrated volume up did not fit. On the largest devices one rank at this
+  volume runs slightly below their plateau; rows stay comparable because every machine runs the
+  same volume.
 - **Two right-hand-side counts.** 1, from a `single` set, which MILC solves one colour at a
   time; and 12, from `multicolorsource` sets of four same-parity corner-wall sources, solved as
   one block (`ks_spectrum/setup.c` L517–L529). 12 is a multiple of every multi-RHS tile in use,
@@ -109,10 +113,13 @@ node fine and two or four slower, at the network or the MPI transport; QUDA fine
 ## Correctness
 
 Under weak scaling each point has its own global lattice and so its own field, which is why a
-**consistency leg** runs one fixed global volume with the same seed at every point. Its
-`CHECK PLAQ` and NERSC checksum (`io_helpers.c` L232–L250), which MILC prints after a warm start
-too, must be identical at every point, and each meson's correlator file must agree with the first
-point's through `tools/milc-compare-fnal-correlators.py`. Each meson writes its own file: the
+**consistency leg** runs one fixed global volume with the same seed at every point. MILC prints the
+field's `CHECK PLAQ` and NERSC checksum after a warm start too (`io_helpers.c` L232–L250). **The
+checksum, computed over the links' bits, must be identical at every point; the plaquette, a
+floating-point sum whose order is not fixed, is compared to a relative limit.** Two runs of one
+input on one rank have given the same checksum and plaquettes differing in the last digit. Each
+meson's correlator file must agree with the first point's, within the probe's limit, through
+`tools/milc-compare-fnal-correlators.py`. Each meson writes its own file: the
 pions share source, operator and mass labels, so in one file their keys would collide. The QUDA
 legs verify against the host on one device only, because host verification at the probe volume
 is slow.
