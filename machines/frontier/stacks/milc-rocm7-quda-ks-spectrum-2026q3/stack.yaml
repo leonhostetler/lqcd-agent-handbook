@@ -55,6 +55,7 @@ build:
   dependency_acquisition:
     mode: existing validated QUDA stack installation
     composed_profile: software/quda/build-profiles.yaml#milc-cg
+    validated_stack: machines/frontier/stacks/quda-rocm7-milc-cg-2026q3/stack.yaml
     network_required: false
   cost:
     where: login

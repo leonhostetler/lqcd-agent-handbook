@@ -553,7 +553,10 @@ that stack to exist, its tested commit to equal the dependency commit in the com
 `composed_profile`, which the application profile must accept
 ([§build-profiles](#build-profiles)). One reference then reaches both builds' passed options,
 and no reader infers the library from a machine and a commit, which is not unique where two
-toolchains built the same commit.
+toolchains built the same commit. An application that built its own copy of the library instead
+names, in `equivalent_validated_stack`, the stack whose passed options that build reproduced,
+under the same checks. Its build flags stay recoverable, but its library is not that stack's, so
+it carries no performance reference unless it records the hash of the library it built.
 
 **A shared library belongs to the build that installed it, and a hash shows it was used.** An
 application linked against a shared library loads whatever file sits at the installed path when

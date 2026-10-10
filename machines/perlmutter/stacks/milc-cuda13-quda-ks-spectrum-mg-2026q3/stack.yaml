@@ -60,6 +60,7 @@ build:
   dependency_acquisition:
     mode: existing QUDA installation built from the mg-staggered profile
     composed_profile: software/quda/build-profiles.yaml#mg-staggered
+    validated_stack: machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/stack.yaml
     network_required: false
   cost:
     where: login

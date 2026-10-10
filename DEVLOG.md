@@ -6315,3 +6315,62 @@ Neither could be stated as a profile, so no stack could record that build.
 - `playbooks/build-lqcd-stack.md`, composition step 3: *confirmed*; it already reads
   `also_accepts`.
 - Every existing MILC stack's `composed_profile: …#milc-cg`: *confirmed*, unaffected.
+
+## 2026-10-10 — MILC stacks: every one names its QUDA stack
+
+Obligation 4.9, the backfill the validator's pairing check needs. Before it, six of the twelve
+MILC stacks named their QUDA stack in `build.dependency_acquisition.validated_stack`. A check of
+all twelve, written for this step, found six that did not, one more than 4.9 listed: the DeltaAI
+Wilson-flow stack carries a pointer under a different key, `equivalent_validated_stack`, which an
+earlier `grep` for the field name had counted as present.
+
+**Five now name it in `validated_stack`,** each settled from the record and the handbook's history
+rather than from machine and commit alone:
+
+- `machines/aurora/stacks/milc-sycl-quda-ks-spectrum-2026q4` → `quda-sycl-milc-cg-2026q4`, moved
+  from a `composed_stack` key. The notes name the same stack, and it is the only QUDA stack on
+  Aurora.
+- `machines/frontier/stacks/milc-rocm7-quda-ks-spectrum-2026q3` → `quda-rocm7-milc-cg-2026q3`.
+  The notes say "the already validated QUDA `milc-cg` installation"; it is the only QUDA stack on
+  Frontier, now and when the MILC stack was added (`6537217`), at the same QUDA commit
+  (`7733f60b`) and ROCm 7.1.1.
+- `machines/perlmutter/stacks/milc-cuda12-quda-ks-spectrum-2026q3` →
+  `quda-cuda12-milc-cg-2026q3`. When the MILC stack was added (`7d202ee`, 2026-08-17), that was
+  the only Perlmutter QUDA stack, so the notes' "the already validated Perlmutter QUDA `milc-cg`
+  installation" can mean nothing else; both record CUDA 12.9.41.
+- `machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-2026q3` →
+  `quda-cuda13-milc-cg-2026q3`. Both were added in one commit (`960cb3d`, "Add Perlmutter stack
+  for CUDA 13") and both record `cudatoolkit/13.2`, CUDA 13.2.78. The weakest of the five: the
+  CUDA 12 installation existed by then at the same QUDA commit, and neither record holds an `ldd`
+  or run path that pins the library. That the CUDA 13.2 MILC build linked the CUDA 13.2 QUDA
+  installation added beside it is `[inferred]` from the paired commit and the matching toolkit.
+- `machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3` →
+  `quda-cuda13-mg-staggered-2026q3`, which its notes name; same QUDA commit (`b6998853`) and
+  CUDA 13.2.78.
+
+**One keeps `equivalent_validated_stack`, the operator's choice.**
+`machines/deltaai/stacks/milc-cuda12-quda-wilson-flow-2026q3` built its own QUDA ("fresh QUDA
+build using the composed profile") and names `quda-cuda12-milc-cg-2026q3` as the equivalent:
+same commit (`b6998853`) and profile. Naming it in `validated_stack` would have claimed a library
+the run did not load. §stacks now says such a stack names the equivalent stack under the same
+checks, keeps its build flags recoverable through it, and carries no performance reference
+unless it records the hash of the library it built. Rejected: leaving it outside the pairing
+check, which would leave its QUDA flags known only through a profile name.
+
+For all twelve, the named stack is on the same machine, its tested QUDA commit equals the MILC
+stack's, and its `profile_options_from` equals the MILC stack's `composed_profile`: the
+conditions the pairing check will enforce. No stack's validation record, date or result changed.
+
+**Reconciliation.**
+- The five `dependency_acquisition.mode` lines ("existing validated QUDA stack installation";
+  for the MG stack, "existing QUDA installation built from the mg-staggered profile"):
+  *confirmed*; they now name the installation they describe.
+- The Wilson-flow stack's `mode` ("fresh QUDA build using the composed profile") and its
+  `equivalent_validated_stack`: *confirmed*, unchanged.
+- The notes of the six stacks: *confirmed*, unchanged; each agrees with the stack now named.
+- Aurora's `composed_stack` key: *deleted*; nothing read it, and the stack schema leaves
+  `dependency_acquisition` open, so the change needs no schema change.
+- `ARCHITECTURE.md` §stacks, "A composing stack names its dependency stack": *amended* with the
+  fresh-build case.
+- `ROADMAP.md` obligation 4.9: *removed* as complete; 4.8's pairing check *amended* to cover both
+  fields and to say its prerequisite has landed.

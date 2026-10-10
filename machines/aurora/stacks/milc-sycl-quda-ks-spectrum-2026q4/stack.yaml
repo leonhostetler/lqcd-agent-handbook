@@ -61,8 +61,8 @@ build:
     QIOPAR: <quda-install-prefix>
   dependency_acquisition:
     mode: existing validated QUDA stack installation
-    composed_stack: quda-sycl-milc-cg-2026q4
     composed_profile: software/quda/build-profiles.yaml#milc-cg
+    validated_stack: machines/aurora/stacks/quda-sycl-milc-cg-2026q4/stack.yaml
     network_required: false
   cost:
     where: login
