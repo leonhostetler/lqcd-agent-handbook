@@ -1,13 +1,17 @@
 # Engineering Mode
 
-Engineering mode changes software on purpose: it adds or extends a capability, restructures
-code, changes an interface, ports to a new platform, or reviews and validates a change another
-author proposed. Its deliverable is a change whose behavior matches a stated contract, validated
-to a stated scope and ready for review. The mode changes only when the operator explicitly
-declares a different work mode.
+Engineering mode changes LQCD software on purpose — MILC, QUDA, and the other software a
+campaign builds and runs. It adds or extends a capability, restructures code, changes an
+interface, ports to a new platform, or reviews and validates a change another author proposed.
+Its deliverable is a change whose behavior matches a stated contract, validated to a stated
+scope and ready for review. The mode changes only when the operator explicitly declares a
+different work mode.
 
-This is a **work** mode. It grants no write access to the handbook; that is decided by the
-handbook mode, and developer mode is a different thing with a deliberately different name.
+This is a **work** mode, and it covers that software only. **It never covers developing the
+handbook itself**: the handbook's tools, schemas, tests and leaves are developer-mode work under
+`developer.md`, which no work mode governs. Nor does it grant write access to the handbook;
+that is decided by the handbook mode, and developer mode is a different thing with a
+deliberately different name.
 
 ## Boundaries with the other work modes
 

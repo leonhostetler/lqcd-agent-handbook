@@ -6209,3 +6209,39 @@ unambiguous stack reference.
   landing with the schema field.
 - `machines/*/stacks/milc-*/stack.yaml`, the `dependency_acquisition` blocks: five owed a
   `validated_stack` under obligation 4.9.
+
+## 2026-10-10 — Work modes never classify handbook development
+
+In a developer-mode session whose work mode was benchmarking, the agent twice classified
+upcoming handbook work — a probe tool, then a schema field and validator check — as engineering,
+and asked the operator to declare that mode. The operator corrected it: handbook changes are only
+ever developer-mode work, and engineering mode means developing LQCD software such as MILC or
+QUDA. The text allowed the misreading: `modes/engineering.md` and the decision row said
+"changing software" without saying which, and §handbook-modes said the work mode decides what the
+agent is doing, which a session building the handbook reads as asking which work mode that is.
+The one existing separation, "grants no write access to the handbook", concerned permission, not
+scope.
+
+Fixed in the decision row, the §work-modes sketch, §handbook-modes (a paragraph stating the rule
+and what happens to the current work mode), `modes/engineering.md` and `modes/developer.md`.
+The rule that matters most sits in `modes/developer.md` and §handbook-modes, because a
+developer-mode session reads both whatever its work mode, while `modes/engineering.md` loads only
+under engineering, after the misclassification has already been made. Not in Tier 0: `AGENTS.md`
+has 10 bytes of budget left.
+
+**Reconciliation.**
+- `ARCHITECTURE.md` decision *Engineering work mode*: *amended*; its naming rationale
+  (engineering, not development, so a work-mode declaration is not read as handbook write access)
+  is *confirmed* and complements the new scope sentence.
+- §work-modes, the engineering sketch: *amended*. The closing paragraph ("a campaign may pass
+  through debugging, engineering, …"): *confirmed*; it is about a campaign.
+- §handbook-modes: *amended* with the rule.
+- `modes/engineering.md`, the opening definition and the work-mode paragraph: *amended*.
+- `modes/developer.md`: *amended* with the rule.
+- `modes/debugging.md` ("a feature or refactor is engineering mode"), and the transition lists in
+  `modes/benchmarking.md`, `modes/performance.md`, `modes/tuning.md` and `modes/production.md`:
+  *confirmed*; each concerns the code or campaign under investigation.
+- `AGENTS.md`, `README.md` and `playbooks/start-session.md`, the six-mode lists: *confirmed*,
+  unchanged.
+- `ROADMAP.md` obligation 4.8, the probe-mass calibration classified as tuning: *confirmed*; it is
+  a measurement run, which is project work.

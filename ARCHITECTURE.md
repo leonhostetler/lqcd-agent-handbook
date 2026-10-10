@@ -86,7 +86,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Task-time Tier-2 routing** | Startup loads Tier 1 only. Before substantive analysis or action, and whenever a task narrows or changes, derive the named applications, solvers, ensembles and immediate decision from the request and the active project instructions, then load the smallest Tier-2 leaves whose `load_when` matches. Interpretation waits for this check | A reliable executable task router makes the Tier-0 checkpoint redundant |
 | **Tuning and benchmarking boundary** | Tuning adaptively searches for a candidate; benchmarking measures a candidate and workload frozen before the measured series. A campaign may move from one to the other but never occupies a hybrid mode, and an exploratory winner needs independent confirmation before it supports a benchmark claim ([§work-modes](#work-modes), [§the-loop](#the-loop)) | A durable workflow requires simultaneous adaptive selection and confirmatory measurement with no safe phase boundary |
 | **Trial shape versus production workload** | A tuning or benchmarking trial runs few solves by design: it prices one-time and recurring cost cheaply so production can be costed at counts it never ran. Its own solve count is an instrument setting, and any share, ratio, ranking or winner derived from it carries the count it holds at. **Not a mandatory declaration** — where the production count is unknown the deliverable is `C(N) = I + N·R` and the crossover, so an exploratory campaign discovers its regimes instead of declaring them ([§trial-is-an-instrument](#trial-is-an-instrument)) | An objective appears whose ranking is genuinely solve-count-independent, or the crossover form proves unusable for a real decision |
-| **Engineering work mode** | A sixth work mode for changing software on purpose — a capability, a restructuring, an interface, a port, or the review and validation of another author's change — accepted on correctness against a stated contract. **Debugging** owns defects in code that already existed and **tuning** owns a source change kept because it measured better, and software-specific code-change rules stay in `software/<name>/development.md`. Named *engineering*, not *development*, because a near-homonym of developer mode would let a work-mode declaration be read as a grant of handbook write access ([§work-modes](#work-modes), [§handbook-modes](#handbook-modes)) | A session cannot classify a source change as engineering or tuning from its immediate decision, or the mode proves to carry no method beyond `software/<name>/development.md` |
+| **Engineering work mode** | A sixth work mode for changing, on purpose, the LQCD software a campaign builds and runs — MILC, QUDA and their dependencies — through a capability, a restructuring, an interface, a port, or the review and validation of another author's change, accepted on correctness against a stated contract. **Debugging** owns defects in code that already existed and **tuning** owns a source change kept because it measured better, and software-specific code-change rules stay in `software/<name>/development.md`. **It never covers the handbook itself**: the handbook's tools, schemas, tests and leaves are developed under developer mode alone ([§handbook-modes](#handbook-modes)). Named *engineering*, not *development*, because a near-homonym of developer mode would let a work-mode declaration be read as a grant of handbook write access ([§work-modes](#work-modes), [§handbook-modes](#handbook-modes)) | A session cannot classify a source change as engineering or tuning from its immediate decision, or the mode proves to carry no method beyond `software/<name>/development.md` |
 | **Performance and tuning boundary** | Performance **diagnoses**: it ingests a profile and produces a ranked, evidenced hypothesis list. Tuning **searches**: it applies a change, rebuilds, remeasures and selects. A profile-driven optimisation loop crosses the boundary and is declared at the crossing, never one mode doing both ([§work-modes](#work-modes), [§profile-analysis](#profile-analysis)) | A diagnosis phase proves to carry no decision content distinct from the search that follows it |
 | **Session start** | Machine and software are **detected**, not asked. Only the work mode is a mandatory question; a session logger or submission guard that is not ready produces a non-blocking offer in the orientation report, and in developer mode so does the tool Python, but only when no interpreter the dispatcher selects already carries the developer tools' packages ([§work-mode-currency](#work-mode-currency), [§session-logging](#session-logging)) | — |
 | **Stale clones** | `lqcd-start-session` **auto-pulls** when upstream is a clean fast-forward and the tree is clean except for qualifying pending intake; otherwise it reports and stops ([§freshness-model](#freshness-model)) | — |
@@ -1928,16 +1928,16 @@ distinguishing content:
 - **debugging** — needs the problem statement and where the code is; must ask whether it
   is analysis-only or hands-on (build/run/edit/recompile); `compute-sanitizer`,
   `valgrind4hpc`; **may submit jobs only under an explicit node-hour budget** ([§budget-rule](#budget-rule)).
-- **engineering** — needs the change contract (what changes, the acceptance criteria, and what
-  must not change), whose change it is and the head and base under review, and whether the work
-  is analysis-only or hands-on. It inventories the interfaces the change crosses and their
-  consumers, builds base and change in separate trees, derives the build matrix from dispatch,
-  requires every new test to fail without the change, and validates in layers. A defect in code
-  the change did not touch is a declared debugging phase; a source change kept because it
-  measured better is tuning. Its deliverable is an unstaged change, or scoped findings on another
-  author's, never a commit or a review comment unless explicitly requested. **May submit jobs
-  only under an explicit node-hour budget** ([§budget-rule](#budget-rule)), and a compute-node
-  build counts.
+- **engineering** — changes LQCD software, never the handbook. Needs the change contract (what
+  changes, the acceptance criteria, and what must not change), whose change it is and the head
+  and base under review, and whether the work is analysis-only or hands-on. It inventories the
+  interfaces the change crosses and their consumers, builds base and change in separate trees,
+  derives the build matrix from dispatch, requires every new test to fail without the change,
+  and validates in layers. A defect in code the change did not touch is a declared debugging
+  phase; a source change kept because it measured better is tuning. Its deliverable is an
+  unstaged change, or scoped findings on another author's, never a commit or a review comment
+  unless explicitly requested. **May submit jobs only under an explicit node-hour budget**
+  ([§budget-rule](#budget-rule)), and a compute-node build counts.
 - **performance** — needs the profile or the capture plan, the application and the build that
   produced it, the region of interest, and the division of labour. It answers *where does the
   time go, and why*: capture or ingest a profiler database, extract a structured summary with a
@@ -2064,6 +2064,14 @@ information is not.
 
 One work mode **and** one handbook mode are in force at all times. The handbook mode
 decides what the agent may *write*; the work mode decides what it is *doing*.
+
+**Work modes classify work on LQCD software and campaigns; handbook development is never one of
+them.** Writing the handbook's tools, schemas, tests and leaves is governed by developer mode
+alone — its approval gate, its validator and its change-proposal harness — and by no work
+mode's method or gates, engineering's included. Declaring developer mode leaves the current work
+mode in place, still describing the project work in the working directory. A job that handbook
+work needs, such as a run that validates a stack or calibrates a probe, is project work and
+falls under the current work mode like any other.
 
 - **user mode** (default) — the handbook is read-only. The agent may write to `inbox/`
   and nowhere else in the repo, *even under auto-accept permissions*. Before creating an

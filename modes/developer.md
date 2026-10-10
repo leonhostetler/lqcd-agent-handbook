@@ -6,6 +6,12 @@ Read `ARCHITECTURE.md`, `ROADMAP.md`, and `handbook.yaml` before changing the ha
 and the next action. `DEVLOG.md` holds the episode record and is **not** read at session
 start; open it by name only when you need the evidence behind a decision.
 
+Developer mode alone governs handbook development, including the handbook's tools, schemas and
+tests. No work mode covers it, engineering included, and declaring developer mode does not
+change the current work mode, which keeps describing the project work. A job that handbook work
+needs, such as a run that validates a stack or calibrates a probe, is project work under that
+work mode.
+
 ## Before editing
 
 1. Require current HEAD and a clean tracked Git tree. New untracked files may remain under
