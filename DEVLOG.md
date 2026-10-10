@@ -6458,3 +6458,51 @@ default" true only up to the environment; the tool names them.
   new fields.
 - `ROADMAP.md` obligation 4.8: *amended*, the checker and fields marked landed and the row-side
   requirement named as still owed.
+
+## 2026-10-10 — Performance references: the schema, the table generator, the admission checks
+
+Part of obligation 4.8. `schemas/performance.schema.json` (`schema_version` 1, declared in
+`handbook.yaml`) binds `machines/<name>/performance.yaml`: one file per machine holding a list of
+rows, each naming its own application stack, so one machine carries rows for any number of
+stacks — the operator's question when this was drafted. `tools/build-performance-tables.py`
+1.0.0 renders the rows into the marked block of `machines/<name>/performance.md`, grouped by
+stack, and `--check` reports a missing page, a missing or doubled block, or a stale table.
+
+**A row** records its stack and everything that makes it comparable — solver path, masses and
+right-hand sides, the precision and reconstruction the run reports, placement (nodes, ranks, the
+device a rank drives, `node_geometry`, local volume, the dimensions off node, binding), warm
+state, iterations, and the metric with its statistic, range, solves and runs — and no build
+option: `additionalProperties: false` rejects one. A probe row also records the probe and
+version and the libraries the run loaded; a campaign row records its workload and how its
+library was established.
+
+**The validator** binds the schema and, per row, requires a stack on the same machine that is an
+application stack paired with its dependency stack; passed `build.record_checks` on both; for a
+probe row, every loaded library's path and hash among the dependency stack's
+`installed_libraries`; and for a stack that built its own dependency, its own recorded libraries.
+It also checks what the schema cannot express — ranks equal to the product of `node_geometry`,
+ranks dividing evenly over nodes, no off-node dimension on one node, the value inside its range,
+and unique ids — and runs the generator's `--check`, counted as "performance tables current".
+The schema-object count moves from 43 to 44 for the new schema file; `tests/support.py` follows.
+
+**Tests** (`tests/test_performance_references.py`, 18): one machine holding rows for two stacks,
+grouped by stack in the generated table; the manifest's schema version; and sixteen negatives —
+an unchecked stack, an unchecked dependency stack, a mismatched library hash, a library stack
+named as a row's stack, another machine's stack, a fresh dependency build without hashes, a probe
+row without libraries, a build option in a row, a campaign row without a workload, a geometry not
+making the rank count, an off-node dimension on one node, a value outside its range, duplicate
+ids, a stale table, rows without a page, and a page without markers. Against the validator before
+this change all sixteen negatives fail and both positives pass.
+
+**Ordering consequence.** Horizon's campaign rows cannot land before the Horizon production
+build's stacks, which carry the record checks and exist only after a validation run, so obligation
+4.8 now lists the probe run before Horizon's first performance files.
+
+**Reconciliation.**
+- `ARCHITECTURE.md` §performance-references (one canonical home, a generated view, a row naming
+  one stack and restating no build option, admission only for checked stacks): *confirmed*;
+  implemented here. The directory layout already lists both files and the schema.
+- `tools/validate-knowledge.py`'s schema bindings and summary line: *amended*.
+- `tests/support.py`, `EXPECTED_SCHEMA_OBJECTS`: *amended*, 43 → 44.
+- `ROADMAP.md` obligation 4.8: *amended*, these pieces marked landed and the order of the rest
+  corrected.

@@ -237,6 +237,7 @@ def validate_schemas(root: Path, errors: list[str]) -> int:
         ("machines/*/stacks/*/stack.yaml", "stack.schema.json"),
         ("ensembles/milc-hisq.yaml", "ensemble.schema.json"),
         ("conventions/scheduler-surfaces.yaml", "scheduler-surface.schema.json"),
+        ("machines/*/performance.yaml", "performance.schema.json"),
     ]
     checked = 0
     for pattern, schema_name in bindings:
@@ -311,6 +312,8 @@ def validate_schemas(root: Path, errors: list[str]) -> int:
                         ),
                     )
                     validate_stack_references(root, path, instance, errors)
+                elif schema_name == "performance.schema.json":
+                    validate_performance_references(root, path, instance, errors)
                 elif schema_name == "ensemble.schema.json":
                     validate_observed_on(instance.get("observed_on"), rel, errors)
                     validate_ensemble_catalog(rel, instance, errors)
@@ -688,6 +691,133 @@ def validate_dependency_pairing(
             f"{rel}: build.dependency_acquisition.composed_profile {composed!r} is not a "
             f"{dependency} profile that {stack.get('profile')!r} accepts ({names})"
         )
+
+
+def validate_performance_references(
+    root: Path, path: Path, record: dict[str, Any], errors: list[str]
+) -> None:
+    """Check that every performance row reaches builds whose recorded flags were verified.
+
+    A row names one application stack and restates no build option (ARCHITECTURE.md,
+    performance references), so it is admissible only when that stack and the dependency stack
+    it pairs with both carry a passed record check, and a probe row only when the libraries the
+    run loaded are the ones the dependency stack recorded installing. The rest are internal
+    consistency checks the schema cannot express.
+    """
+    rel = path.relative_to(root)
+    if len(rel.parts) != 3 or rel.parts[0] != "machines":
+        errors.append(f"{rel}: performance references must live at machines/<name>/performance.yaml")
+        return
+    machine = rel.parts[1]
+    if record.get("machine") != machine:
+        errors.append(f"{rel}: machine {record.get('machine')!r} must match parent machine {machine!r}")
+    seen: set[str] = set()
+    rows = record.get("rows", [])
+    for index, row in enumerate(rows if isinstance(rows, list) else []):
+        if not isinstance(row, dict):
+            continue
+        where = f"{rel}:rows.{index}"
+        row_id = row.get("id")
+        if row_id in seen:
+            errors.append(f"{where}: id {row_id!r} is used by an earlier row")
+        seen.add(row_id)
+
+        placement = row.get("placement", {}) if isinstance(row.get("placement"), dict) else {}
+        geometry, ranks, nodes = (
+            placement.get("node_geometry"), placement.get("ranks"), placement.get("nodes")
+        )
+        if isinstance(geometry, list) and all(isinstance(v, int) for v in geometry) and isinstance(ranks, int):
+            product = 1
+            for value in geometry:
+                product *= value
+            if product != ranks:
+                errors.append(f"{where}: node_geometry {geometry} makes {product} ranks, not {ranks}")
+        if isinstance(nodes, int) and isinstance(ranks, int) and ranks % nodes:
+            errors.append(f"{where}: {ranks} ranks do not divide evenly over {nodes} nodes")
+        if nodes == 1 and placement.get("dimensions_off_node"):
+            errors.append(f"{where}: a one-node row cannot have dimensions off node")
+        metric = row.get("metric", {}) if isinstance(row.get("metric"), dict) else {}
+        bounds = [metric.get(key) for key in ("min", "value", "max")]
+        if all(isinstance(v, (int, float)) for v in bounds) and not bounds[0] <= bounds[1] <= bounds[2]:
+            errors.append(f"{where}: metric value {bounds[1]} lies outside its min-max {bounds[0]}-{bounds[2]}")
+
+        pointer = row.get("stack")
+        parts = Path(pointer).parts if isinstance(pointer, str) else ()
+        if len(parts) != 5 or parts[1] != machine:
+            errors.append(f"{where}: stack {pointer!r} is not a stack on {machine!r}")
+            continue
+        try:
+            stack = load_yaml(root / pointer)
+        except (OSError, ValueError) as exc:
+            errors.append(f"{where}: cannot load stack {pointer}: {exc}")
+            continue
+        build = stack.get("build", {}) if isinstance(stack, dict) else {}
+        build = build if isinstance(build, dict) else {}
+        acquisition = build.get("dependency_acquisition", {})
+        acquisition = acquisition if isinstance(acquisition, dict) else {}
+        key = next((k for k in DEPENDENCY_STACK_KEYS if k in acquisition), None)
+        if key is None:
+            errors.append(
+                f"{where}: {pointer} is not an application stack paired with a dependency stack; "
+                "a row names the application's stack"
+            )
+            continue
+        if not build.get("record_checks"):
+            errors.append(f"{where}: {pointer} has no build.record_checks, so its passed options are unverified")
+        try:
+            dependency = load_yaml(root / acquisition[key])
+        except (OSError, ValueError, TypeError):
+            continue  # the pairing check reports an unloadable dependency stack
+        dependency_build = dependency.get("build", {}) if isinstance(dependency, dict) else {}
+        dependency_build = dependency_build if isinstance(dependency_build, dict) else {}
+        if not dependency_build.get("record_checks"):
+            errors.append(
+                f"{where}: dependency stack {acquisition[key]} has no build.record_checks, "
+                "so its passed options are unverified"
+            )
+        owner, owner_build = (
+            (pointer, build) if key == "equivalent_validated_stack" else (acquisition[key], dependency_build)
+        )
+        installed = {
+            (item.get("path"), item.get("sha256"))
+            for item in owner_build.get("installed_libraries", []) or []
+            if isinstance(item, dict)
+        }
+        if key == "equivalent_validated_stack" and not installed:
+            errors.append(
+                f"{where}: {pointer} built its own dependency and records no build.installed_libraries, "
+                "so it carries no performance reference"
+            )
+        if row.get("kind") == "probe":
+            for item in row.get("loaded_libraries", []) or []:
+                if isinstance(item, dict) and (item.get("path"), item.get("sha256")) not in installed:
+                    errors.append(
+                        f"{where}: the run loaded {item.get('path')} with a hash {owner} did not record "
+                        "installing, so it is not evidence for that stack"
+                    )
+
+
+def validate_generated_performance_tables(root: Path, errors: list[str]) -> int:
+    """Each performance page's generated table must be what its YAML renders (ARCHITECTURE.md)."""
+    pages = sorted(root.glob("machines/*/performance.yaml"))
+    if not pages:
+        return 0
+    tool = root / "tools/build-performance-tables.py"
+    if not tool.is_file():
+        errors.append("tools/build-performance-tables.py: performance-table generator is missing")
+        return 0
+    result = subprocess.run(
+        [sys.executable, str(tool), "--check", "--root", str(root)],
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    if result.returncode != 0:
+        messages = result.stdout.strip().splitlines() or ["unknown performance-table failure"]
+        errors.extend(f"performance table: {message}" for message in messages)
+    return len(pages)
 
 
 def superseding_stacks(stack: Any) -> list[str]:
@@ -1425,6 +1555,7 @@ def main() -> int:
     schema_count = validate_schemas(root, errors)
     provenance_count = validate_provenance(root, errors, warnings)
     index_count = validate_generated_indices(root, errors)
+    performance_count = validate_generated_performance_tables(root, errors)
     runtime_count = validate_runtime_data(root, errors)
     operational_count = validate_operational_imports(root, errors)
     restatement_count = validate_restatements(root, warnings)
@@ -1453,6 +1584,7 @@ def main() -> int:
             f"{privacy_count} text files · {frontend_count} frontend adapters · "
             f"{logging_count} session-logging assets · "
             f"{index_count} generated indices · "
+            f"{performance_count} performance tables · "
             f"{runtime_count} runtime-data files · "
             f"{operational_count} operational tools · "
             f"{restatement_count} P2 advisories · "
@@ -1469,6 +1601,7 @@ def main() -> int:
         f"{frontend_count} frontend adapters valid · "
         f"{logging_count} session-logging assets valid · "
         f"{index_count} generated indices current · "
+        f"{performance_count} performance tables current · "
         f"{runtime_count} runtime-data files current · "
         f"{operational_count} operational tools stdlib-only · "
         f"{restatement_count} P2 advisories · "

@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/lqcd-agent-handbook/schemas/performance.schema.json",
+  "title": "LQCD performance references for one machine",
+  "description": "Reproduced, stack-linked solver-throughput rows (ARCHITECTURE.md, performance references). A row names one application stack and restates no build option; the stack records what was compiled.",
+  "type": "object",
+  "required": ["schema_version", "machine", "rows"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": 1},
+    "machine": {"$ref": "#/$defs/name"},
+    "rows": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/row"}}
+  },
+  "$defs": {
+    "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "text": {"type": "string", "minLength": 1},
+    "positive_integer": {"type": "integer", "minimum": 1},
+    "four_integers": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"$ref": "#/$defs/positive_integer"}
+    },
+    "precision": {"enum": ["double", "single", "half", "quarter"]},
+    "library": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {"type": "string", "pattern": "^lib(64)?/[^/\\s]+$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "kind", "stack", "solver", "precision", "reconstruct", "placement",
+        "warm_state", "iterations", "metric", "evidence", "observed", "sources"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/name"},
+        "kind": {"enum": ["probe", "campaign"]},
+        "stack": {
+          "type": "string",
+          "pattern": "^machines/[a-z0-9][a-z0-9-]*/stacks/[a-z0-9][a-z0-9-]*/stack\\.yaml$"
+        },
+        "probe": {
+          "type": "object",
+          "required": ["name", "version"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {"$ref": "#/$defs/name"},
+            "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
+          }
+        },
+        "workload": {"$ref": "#/$defs/text"},
+        "loaded_libraries": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/library"}
+        },
+        "library_evidence": {"$ref": "#/$defs/text"},
+        "solver": {
+          "type": "object",
+          "required": ["path", "masses", "rhs"],
+          "additionalProperties": false,
+          "properties": {
+            "path": {"$ref": "#/$defs/text"},
+            "masses": {"$ref": "#/$defs/positive_integer"},
+            "rhs": {"$ref": "#/$defs/positive_integer"}
+          }
+        },
+        "precision": {
+          "type": "object",
+          "required": ["precise", "sloppy"],
+          "additionalProperties": false,
+          "properties": {
+            "precise": {"$ref": "#/$defs/precision"},
+            "sloppy": {"$ref": "#/$defs/precision"}
+          }
+        },
+        "reconstruct": {
+          "type": "object",
+          "required": ["precise", "sloppy"],
+          "additionalProperties": false,
+          "properties": {
+            "precise": {"enum": [8, 9, 12, 13, 18]},
+            "sloppy": {"enum": [8, 9, 12, 13, 18]}
+          }
+        },
+        "placement": {
+          "type": "object",
+          "required": [
+            "nodes", "ranks", "device", "node_geometry", "local_volume",
+            "dimensions_off_node", "binding"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "nodes": {"$ref": "#/$defs/positive_integer"},
+            "ranks": {"$ref": "#/$defs/positive_integer"},
+            "device": {"$ref": "#/$defs/text"},
+            "node_geometry": {"$ref": "#/$defs/four_integers"},
+            "local_volume": {"$ref": "#/$defs/four_integers"},
+            "dimensions_off_node": {
+              "type": "array", "uniqueItems": true,
+              "items": {"enum": ["x", "y", "z", "t"]}
+            },
+            "binding": {"$ref": "#/$defs/text"}
+          }
+        },
+        "warm_state": {"$ref": "#/$defs/text"},
+        "iterations": {
+          "type": "object",
+          "required": ["statistic", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "statistic": {"$ref": "#/$defs/text"},
+            "value": {"type": "number", "exclusiveMinimum": 0}
+          }
+        },
+        "metric": {
+          "type": "object",
+          "required": ["name", "unit", "statistic", "value", "min", "max", "solves", "runs"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {"enum": ["congrad5_gflops_per_rank", "quda_cg_gflops_per_rank", "quda_dslash_gbytes_per_second_per_rank"]},
+            "unit": {"$ref": "#/$defs/text"},
+            "statistic": {"$ref": "#/$defs/text"},
+            "value": {"type": "number", "exclusiveMinimum": 0},
+            "min": {"type": "number", "exclusiveMinimum": 0},
+            "max": {"type": "number", "exclusiveMinimum": 0},
+            "solves": {"$ref": "#/$defs/positive_integer"},
+            "runs": {"$ref": "#/$defs/positive_integer"}
+          }
+        },
+        "evidence": {"enum": ["reproduced", "observed", "experiment"]},
+        "observations": {"type": "integer", "minimum": 2},
+        "observed": {"type": "string", "format": "date"},
+        "sources": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
+        "notes": {"$ref": "#/$defs/text"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "probe"}}, "required": ["kind"]},
+          "then": {"required": ["probe", "loaded_libraries"], "not": {"required": ["workload"]}}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "campaign"}}, "required": ["kind"]},
+          "then": {"required": ["workload", "library_evidence"], "not": {"required": ["probe"]}}
+        },
+        {
+          "if": {"properties": {"evidence": {"const": "reproduced"}}, "required": ["evidence"]},
+          "then": {"required": ["observations"]}
+        }
+      ]
+    }
+  }
+}
