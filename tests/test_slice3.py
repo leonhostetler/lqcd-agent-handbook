@@ -72,6 +72,7 @@ class SliceThreeProfileTests(unittest.TestCase):
         )["profiles"]["milc-cg"]
         composition = milc["composes"]["quda"]
         self.assertEqual(composition["profile"], "milc-cg")
+        self.assertEqual(composition["also_accepts"], ["milc-cg-mrhs-tile3"])
         for capability, required in composition["required_capabilities"].items():
             self.assertLessEqual(set(required), set(quda["capabilities"][capability]))
 

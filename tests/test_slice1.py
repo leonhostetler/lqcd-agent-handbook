@@ -190,8 +190,18 @@ class SliceOneKnowledgeTests(unittest.TestCase):
         profiles = yaml.safe_load(
             (ROOT / "software/quda/build-profiles.yaml").read_text()
         )["profiles"]
-        self.assertEqual(list(profiles), ["milc-cg", "mg-staggered"])
+        self.assertEqual(
+            list(profiles), ["milc-cg", "milc-cg-mrhs-tile3", "mg-staggered"]
+        )
         self.assertFalse(profiles["milc-cg"]["options"]["QUDA_MULTIGRID"])
+        # The tile variant may differ from milc-cg in the tile alone.
+        variant = profiles["milc-cg-mrhs-tile3"]
+        variant_options = dict(variant["options"])
+        self.assertEqual(variant_options.pop("QUDA_MAX_MULTI_RHS_TILE"), "3")
+        self.assertNotIn("QUDA_MAX_MULTI_RHS_TILE", profiles["milc-cg"]["options"])
+        self.assertEqual(variant_options, profiles["milc-cg"]["options"])
+        self.assertEqual(variant["capabilities"], profiles["milc-cg"]["capabilities"])
+        self.assertEqual(variant["excludes"], profiles["milc-cg"]["excludes"])
         self.assertTrue(profiles["milc-cg"]["options"]["QUDA_INTERFACE_QDP"])
         self.assertTrue(profiles["mg-staggered"]["options"]["QUDA_MULTIGRID"])
         self.assertEqual(

@@ -6274,3 +6274,44 @@ there too, as it should, because the old validator ignored the field.
 - `ARCHITECTURE.md` §build-profiles, "Composition names its accepted dependency profiles
   explicitly": *confirmed*; this step implements it.
 - `ROADMAP.md` obligation 4.8: *amended*, this part marked landed.
+
+## 2026-10-10 — Build profiles: the multi-RHS-tile QUDA variant; the GB-baryon ks_spectrum target
+
+Under obligation 4.8. The Horizon production build behind the operator's spectroscopy campaigns
+configured QUDA with the `milc-cg` options plus `QUDA_MAX_MULTI_RHS_TILE=3` (read from its
+`CMakeCache.txt`), and built the GB-baryon `ks_spectrum` executable beside `ks_spectrum_hisq`.
+Neither could be stated as a profile, so no stack could record that build.
+
+- **`software/quda/build-profiles.yaml`: new profile `milc-cg-mrhs-tile3`.** The operator chose
+  a profile over a stack-level deviation, because adding the tile to `milc-cg` would change what
+  every existing `milc-cg` stack claims it was built with. The 2026-10-02 entry left `milc-cg`
+  unchanged because no stack validated the tile; that still holds for `milc-cg`, and the variant
+  is validated by its own stack once the probe runs. Its options and capabilities are duplicated
+  from `milc-cg`, as `mg-staggered`'s shared options already are, and `tests/test_slice1.py` now
+  fails if the two differ in anything but the tile.
+- **`software/milc/build-profiles.yaml`, `ks-spectrum-hisq-quda`.** The QUDA composition lists
+  the variant under `also_accepts`. The GB-baryon target joins `targets` and
+  `capabilities.applications`, the operator's choice over recording it only in a stack; its
+  `Make_template` rule, identical at `a5f8f9fa` and `ab5011f5`, supplies its own defines and
+  objects, so the profile's options are unchanged. The other MILC profiles that compose
+  `milc-cg` (`ks-spectrum-hisq-quda-mg`, `wilson-flow-quda`) do not accept the variant; nothing
+  has asked them to.
+
+**Reconciliation.**
+- `software/milc/applications/ks-spectrum.md`, "Portable build recipe", "maps to target and
+  executable `ks_spectrum_hisq`": *amended* to name both targets, with the guide's coverage gap
+  for the GB-baryon output stated. "Require a named profile that supplies its exact options":
+  *confirmed*; the profile now supplies them for this target.
+- `software/milc/applications/ks-spectrum.md`, the `GB_BARYON` path reducing once: *confirmed*,
+  unaffected.
+- `software/quda/project.yaml`, `QUDA_MAX_MULTI_RHS_TILE`: *confirmed*, unchanged; the new profile
+  points to it rather than restating it.
+- `software/quda/build-profiles.yaml`, `milc-cg` and `mg-staggered` (which sets the same tile):
+  *confirmed*, unchanged.
+- `tests/test_slice1.py`, the pinned QUDA profile list: *amended*, with the drift guard.
+- `tests/test_slice3.py`, `test_milc_profile_composes_the_validated_quda_profile`: *amended* to pin
+  the accepted list.
+- `tests/test_milc_applications.py`, the guide's routing markers: *confirmed*, still present.
+- `playbooks/build-lqcd-stack.md`, composition step 3: *confirmed*; it already reads
+  `also_accepts`.
+- Every existing MILC stack's `composed_profile: …#milc-cg`: *confirmed*, unaffected.

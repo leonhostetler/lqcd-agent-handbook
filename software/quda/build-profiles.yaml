@@ -41,6 +41,45 @@ profiles:
       - QMP and QIO are dependencies of this MILC-facing build, not separate profile-name components.
       - Deflated CG needs no additional QUDA profile switch at the observed revision; the composed MILC profile sets WANT_EIG_GPU explicitly (MILC's Makefile forced it from WANT_FN_CG_GPU through 6b9b8a06 and stopped at d17e9559). Runtime validation remains stack-owned.
       - The all-tests options implement the default in playbooks/build-lqcd-stack.md; only an explicit operator instruction may override them for a build.
+  milc-cg-mrhs-tile3:
+    summary: The milc-cg build with a staggered-dslash register tile of three right-hand sides, for multi-source CG solves.
+    options:
+      QUDA_DIRAC_DEFAULT_OFF: true
+      QUDA_DIRAC_STAGGERED: true
+      QUDA_INTERFACE_MILC: true
+      QUDA_INTERFACE_QDP: true
+      QUDA_QMP: true
+      QUDA_MPI: false
+      QUDA_QIO: true
+      QUDA_MULTIGRID: false
+      QUDA_MAX_MULTI_RHS_TILE: "3"
+      QUDA_USE_EIGEN: true
+      QUDA_DOWNLOAD_EIGEN: true
+      QUDA_DOWNLOAD_USQCD: true
+      QUDA_BUILD_ALL_TESTS: true
+      QUDA_INSTALL_ALL_TESTS: true
+    capabilities:
+      dirac:
+        - staggered
+        - improved-staggered
+      solvers:
+        - cg
+        - deflated-cg
+      application_interfaces:
+        - milc
+        - qdp
+      communication:
+        - qmp
+      io:
+        - qio
+      gauge_operations:
+        - wilson-flow
+    excludes:
+      - multigrid
+    notes:
+      - Identical to milc-cg except that it passes QUDA_MAX_MULTI_RHS_TILE, so every milc-cg note applies to it; tests/test_slice1.py fails if the two differ in any other option, capability or exclusion.
+      - The tile adds no capability. It sets how many right-hand sides one staggered-dslash thread applies the operator to, so it acts on multi-source CG solves; software/quda/project.yaml owns its meaning, including that it is part of the dslash tuning key. Any speed effect is measured per stack, never claimed by this profile.
+      - Equal capabilities do not make it interchangeable with milc-cg. An application profile accepts it only by listing it under also_accepts, as ks-spectrum-hisq-quda in software/milc/build-profiles.yaml does.
   mg-staggered:
     summary: Native staggered CG, deflated CG, and GCR with a multigrid preconditioner, plus MILC and QDP interfaces, QMP, and QIO.
     options:

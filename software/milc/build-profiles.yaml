@@ -4,7 +4,7 @@ profiles:
   ks-spectrum-hisq-quda:
     summary: Double-precision, multi-rank ks_spectrum_hisq application with HISQ links and plain or deflated staggered CG accelerated by QUDA.
     application_guide: software/milc/applications/ks-spectrum.md
-    targets: [ks_spectrum_hisq]
+    targets: [ks_spectrum_hisq, ks_spectrum_hisq_gb_baryon_blind_no_sink_links]
     options:
       PRECISION: 2
       MPP: true
@@ -24,7 +24,7 @@ profiles:
       KSCGMULTI: -DKS_MULTICG=HYBRID
       CTIME: -DNERSC_TIME -DCGTIME -DFFTIME -DFLTIME -DGFTIME -DREMAP -DPRTIME -DIOTIME -DGS_TIME
     capabilities:
-      applications: [ks_spectrum_hisq]
+      applications: [ks_spectrum_hisq, ks_spectrum_hisq_gb_baryon_blind_no_sink_links]
       fermion_actions: [hisq]
       precision: [double with double-half QUDA solves]
       parallelism: [qmp, openmp]
@@ -40,6 +40,7 @@ profiles:
     composes:
       quda:
         profile: milc-cg
+        also_accepts: [milc-cg-mrhs-tile3]
         required_capabilities:
           dirac: [staggered, improved-staggered]
           solvers: [cg, deflated-cg]
@@ -50,6 +51,8 @@ profiles:
       - Capabilities describe compiled paths; each stack records which paths its runtime validation actually exercised.
       - WANT_EIG_GPU is explicit. Through 6b9b8a06 the Makefile forced it on with WANT_FN_CG_GPU, so the validated stacks compiled with it; from d17e9559 the Makefile does not. Through a5f8f9fa a QUDA CG build without it does not compile (generic/milc_to_quda_utilities.c reads eigensolver-only parameter fields); from ab5011f5 it compiles but selects the host-eigenvector mode, which refuses a fresh eigensolve. So the explicit setting is required for the QUDA eigensolver this profile provides. Either way the native-CG deflation path is compiled even when a run supplies no eigenspace.
       - QMP and QIO are supplied by the composed QUDA installation in the validated Frontier stack.
+      - ks_spectrum_hisq_gb_baryon_blind_no_sink_links builds from these same options. Its ks_spectrum/Make_template rule adds -DEIGEN_QIO -DGB_BARYON -DGB_BARYON_MMAP -DBLIND -DNO_SINK_LINKS and the GB-baryon objects itself, so no option here selects them. The file's other GB-baryon variants are not covered by this profile.
+      - The QUDA composition accepts milc-cg and milc-cg-mrhs-tile3, which differs only in the multi-right-hand-side tile. A MILC stack records which one it linked in build.dependency_acquisition.composed_profile.
   ks-spectrum-hisq-quda-mg:
     summary: Double-precision, multi-rank ks_spectrum_hisq application with HISQ links and QUDA staggered multigrid, built with the MILC MULTIGRID and MULTISOURCE dispatch defines.
     application_guide: software/milc/applications/ks-spectrum.md
@@ -148,6 +151,7 @@ observed_on:
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/Makefile
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L604-L619
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_spectrum/Make_template#L230-L233
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L1112-L1122
   - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/systems/Frontier/compile_ks_spectrum_hisq.sh
   - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/wilson_flow/Make_template

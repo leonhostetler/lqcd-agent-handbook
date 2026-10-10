@@ -82,8 +82,11 @@ and shared instrumentation policy lives in `../timing.md`.
 ## Portable build recipe
 
 The application directory is `ks_spectrum`, and its upstream targets are defined in
-`ks_spectrum/Make_template`. The current named profile `ks-spectrum-hisq-quda` maps to target and
-executable `ks_spectrum_hisq`. Resolve the shared invocation in `../build.md` with:
+`ks_spectrum/Make_template`. The named profile `ks-spectrum-hisq-quda` covers two targets, each
+building the executable of the same name: `ks_spectrum_hisq`, and
+`ks_spectrum_hisq_gb_baryon_blind_no_sink_links`, whose own `Make_template` rule adds the
+GB-baryon, memory-map, blinding and no-sink-links defines and objects. Resolve the shared
+invocation in `../build.md` with:
 
 ```text
 MILC_APPLICATION_DIR=ks_spectrum
@@ -92,11 +95,17 @@ MILC_BUILT_EXECUTABLE=ks_spectrum_hisq
 profile=ks-spectrum-hisq-quda
 ```
 
+For the GB-baryon executable, set `MILC_MAKE_TARGET` and `MILC_BUILT_EXECUTABLE` to
+`ks_spectrum_hisq_gb_baryon_blind_no_sink_links`. This guide's output, timer and artifact rules
+were established on `ks_spectrum_hisq`; it does not describe that target's GB-baryon correlator
+records or timers, so establish those from source and representative output before treating them
+as comparable evidence.
+
 Other upstream targets select Asqtad, naive, eigCG, equation-of-state, chemical-potential, U(1),
-or specialized baryon variants. Select such a target from the physics and observable request,
-then require a named profile that supplies its exact options before treating the recipe as
-portable. Do not infer those options from the HISQ/QUDA profile merely because the application
-directory is shared.
+or other specialized baryon variants. Select such a target from the physics and observable
+request, then require a named profile that supplies its exact options before treating the recipe
+as portable. Do not infer those options from the HISQ/QUDA profile merely because the
+application directory is shared.
 
 ## Input structure
 
