@@ -6374,3 +6374,33 @@ conditions the pairing check will enforce. No stack's validation record, date or
   fresh-build case.
 - `ROADMAP.md` obligation 4.9: *removed* as complete; 4.8's pairing check *amended* to cover both
   fields and to say its prerequisite has landed.
+
+## 2026-10-10 — Validator: the dependency-stack pairing check
+
+Part of obligation 4.8, enforcing §stacks' "a composing stack names its dependency stack, and the
+pairing is validated". `tools/validate-knowledge.py` gains `validate_dependency_pairing`, called
+from `validate_stack_references` for every stack whose profile composes a dependency (today the
+twelve MILC stacks). It requires exactly one of `validated_stack` and
+`equivalent_validated_stack` in `build.dependency_acquisition`, naming
+`machines/<machine>/stacks/<stack>/stack.yaml` on the stack's own machine; the named record must
+load, be a stack of the composed software, have tested the same dependency commit, and carry as
+`profile_options_from` the stack's `composed_profile`, which the application profile must accept
+(`composes` or `also_accepts`). A profile composing more than one dependency is reported rather
+than half-checked, because `dependency_acquisition` names one stack; none exists.
+
+**Tests** (`tests/test_slice3.py`, `DependencyPairingTests`): every MILC stack in the tree pairs
+cleanly; the fresh-build stack pairs through `equivalent_validated_stack`; and eight negatives,
+one per condition: neither field, both fields, another machine, a missing record, a stack of the
+wrong software, a dependency-commit mismatch, a composed profile differing from the named stack,
+and a self-consistent pair whose profile the application profile does not accept (checked to
+raise only that error). Run against the validator before this change, all eight negative
+assertions fail and the two positive tests pass, so none of the negatives is vacuous.
+
+**Reconciliation.**
+- `ARCHITECTURE.md` §stacks, the pairing and fresh-build paragraphs: *confirmed*; this implements
+  them.
+- `validate_stack_references`'s existing `composes` check (composed software present in
+  `tested_software`): *confirmed*, kept; the commit comparison relies on it.
+- `tests/test_slice3.py`, `test_composed_stack_cross_references_are_complete`: *confirmed*; it
+  still reports no errors over the whole tree.
+- `ROADMAP.md` obligation 4.8: *amended*, the pairing check marked landed.

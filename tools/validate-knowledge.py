@@ -570,7 +570,124 @@ def validate_stack_references(
             f"{nearest_application_stack}"
         )
 
+    validate_dependency_pairing(root, path, stack, selected_profile, errors)
     validate_supersession(root, path, stack, errors)
+
+
+DEPENDENCY_STACK_KEYS = ("validated_stack", "equivalent_validated_stack")
+
+
+def validate_dependency_pairing(
+    root: Path,
+    path: Path,
+    stack: dict[str, Any],
+    selected_profile: Any,
+    errors: list[str],
+) -> None:
+    """Check that a composing stack names its dependency's stack and that the pair agrees.
+
+    One reference must reach both builds' passed options (ARCHITECTURE.md, stacks), so the
+    named stack must exist on this machine, be a stack of the composed software, have tested
+    the dependency commit this stack tested, and record as its profile the one this stack says
+    it composed, which the application profile must accept. `validated_stack` names the
+    installation the application linked; `equivalent_validated_stack` names the stack whose
+    options a fresh dependency build reproduced. Exactly one is required.
+    """
+    rel = path.relative_to(root)
+    compositions = (
+        selected_profile.get("composes", {}) if isinstance(selected_profile, dict) else {}
+    )
+    if not isinstance(compositions, dict) or not compositions:
+        return
+    if len(compositions) != 1:
+        errors.append(
+            f"{rel}: profile composes {len(compositions)} dependencies, but "
+            "build.dependency_acquisition can name only one dependency stack"
+        )
+        return
+    ((dependency, composition),) = compositions.items()
+    build = stack.get("build", {})
+    acquisition = build.get("dependency_acquisition", {}) if isinstance(build, dict) else {}
+    if not isinstance(acquisition, dict):
+        acquisition = {}
+    present = [key for key in DEPENDENCY_STACK_KEYS if key in acquisition]
+    if len(present) != 1:
+        found = f"; found {', '.join(present)}" if present else ""
+        errors.append(
+            f"{rel}: build.dependency_acquisition must name its {dependency} stack in "
+            f"exactly one of {', '.join(DEPENDENCY_STACK_KEYS)}{found}"
+        )
+        return
+    key = present[0]
+    pointer = acquisition[key]
+    field = f"build.dependency_acquisition.{key}"
+    parts = Path(pointer).parts if isinstance(pointer, str) else ()
+    if (
+        len(parts) != 5
+        or parts[0] != "machines"
+        or parts[2] != "stacks"
+        or parts[4] != "stack.yaml"
+    ):
+        errors.append(f"{rel}: {field} must be machines/<machine>/stacks/<stack>/stack.yaml")
+        return
+    machine = stack.get("machine")
+    if parts[1] != machine:
+        errors.append(
+            f"{rel}: {field} names a stack on {parts[1]!r}, not on this stack's "
+            f"machine {machine!r}"
+        )
+        return
+    try:
+        dependency_stack = load_yaml(root / pointer)
+    except (OSError, ValueError) as exc:
+        errors.append(f"{rel}: {field} cannot load {pointer}: {exc}")
+        return
+    if not isinstance(dependency_stack, dict):
+        errors.append(f"{rel}: {field} names {pointer}, which is not a stack record")
+        return
+    if dependency_stack.get("software") != dependency:
+        errors.append(
+            f"{rel}: {field} names a {dependency_stack.get('software')!r} stack, "
+            f"not a {dependency!r} stack"
+        )
+        return
+
+    def tested_commit(record: dict[str, Any]) -> Any:
+        tested = record.get("tested_software", {})
+        entry = tested.get(dependency, {}) if isinstance(tested, dict) else {}
+        return entry.get("commit") if isinstance(entry, dict) else None
+
+    own_commit = tested_commit(stack)
+    named_commit = tested_commit(dependency_stack)
+    if own_commit != named_commit:
+        errors.append(
+            f"{rel}: tested {dependency} commit {own_commit!r} differs from "
+            f"{pointer}'s {named_commit!r}"
+        )
+    composed = acquisition.get("composed_profile")
+    named_build = dependency_stack.get("build", {})
+    named_profile = (
+        named_build.get("profile_options_from") if isinstance(named_build, dict) else None
+    )
+    if composed != named_profile:
+        errors.append(
+            f"{rel}: build.dependency_acquisition.composed_profile {composed!r} differs "
+            f"from {pointer}'s profile_options_from {named_profile!r}"
+        )
+    also_accepts = composition.get("also_accepts", []) if isinstance(composition, dict) else []
+    accepted = [composition.get("profile") if isinstance(composition, dict) else None]
+    accepted += also_accepts if isinstance(also_accepts, list) else []
+    prefix = f"software/{dependency}/build-profiles.yaml#"
+    if (
+        not isinstance(composed, str)
+        or not composed.startswith(prefix)
+        or composed[len(prefix):] not in accepted
+    ):
+        names = ", ".join(str(name) for name in accepted)
+        errors.append(
+            f"{rel}: build.dependency_acquisition.composed_profile {composed!r} is not a "
+            f"{dependency} profile that {stack.get('profile')!r} accepts ({names})"
+        )
 
 
 def superseding_stacks(stack: Any) -> list[str]:

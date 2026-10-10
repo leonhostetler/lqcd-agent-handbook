@@ -287,5 +287,130 @@ class SliceThreePerlmutterStackTests(unittest.TestCase):
         self.assertIn("non-literal FLTIME marker", runtime["outer_harness_result"])
 
 
+
+class DependencyPairingTests(unittest.TestCase):
+    """The validator checks that a MILC stack names its QUDA stack and that the pair agrees."""
+
+    HORIZON = "machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-2026q3/stack.yaml"
+    HORIZON_QUDA = "machines/horizon/stacks/quda-cuda13-milc-cg-2026q3/stack.yaml"
+    FRESH_BUILD = "machines/deltaai/stacks/milc-cuda12-quda-wilson-flow-2026q3/stack.yaml"
+
+    def pairing_errors(self, stack_rel, mutate=None, mutate_copy=None):
+        """Validate one stack in a handbook copy after mutating its record or the copy."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            copy = Path(temp_dir) / "handbook"
+            shutil.copytree(
+                ROOT,
+                copy,
+                ignore=handbook_copy_ignore(ROOT, ".git", "__pycache__", "*.pyc"),
+            )
+            if mutate_copy is not None:
+                mutate_copy(copy)
+            path = copy / stack_rel
+            stack = yaml.safe_load(path.read_text())
+            if mutate is not None:
+                mutate(stack)
+            errors: list[str] = []
+            VALIDATOR.validate_stack_references(copy, path, stack, errors)
+            return errors
+
+    @staticmethod
+    def acquisition(stack):
+        return stack["build"]["dependency_acquisition"]
+
+    def assert_one_error(self, errors, fragment):
+        self.assertTrue(any(fragment in error for error in errors), errors)
+
+    def test_every_composing_stack_in_the_tree_pairs_cleanly(self):
+        for path in sorted(ROOT.glob("machines/*/stacks/milc-*/stack.yaml")):
+            with self.subTest(stack=path):
+                errors: list[str] = []
+                stack = yaml.safe_load(path.read_text())
+                VALIDATOR.validate_stack_references(ROOT, path, stack, errors)
+                self.assertEqual(errors, [])
+
+    def test_a_fresh_dependency_build_pairs_through_the_equivalent_stack(self):
+        stack = yaml.safe_load((ROOT / self.FRESH_BUILD).read_text())
+        self.assertIn("equivalent_validated_stack", self.acquisition(stack))
+        self.assertNotIn("validated_stack", self.acquisition(stack))
+        self.assertEqual(self.pairing_errors(self.FRESH_BUILD), [])
+
+    def test_rejects_a_stack_naming_no_dependency_stack(self):
+        def mutate(stack):
+            del self.acquisition(stack)["validated_stack"]
+
+        self.assert_one_error(self.pairing_errors(self.HORIZON, mutate), "exactly one of")
+
+    def test_rejects_a_stack_naming_both_fields(self):
+        def mutate(stack):
+            self.acquisition(stack)["equivalent_validated_stack"] = self.HORIZON_QUDA
+
+        self.assert_one_error(
+            self.pairing_errors(self.HORIZON, mutate),
+            "found validated_stack, equivalent_validated_stack",
+        )
+
+    def test_rejects_a_stack_on_another_machine(self):
+        def mutate(stack):
+            self.acquisition(stack)["validated_stack"] = (
+                "machines/vista/stacks/quda-cuda13-milc-cg-2026q3/stack.yaml"
+            )
+
+        self.assert_one_error(self.pairing_errors(self.HORIZON, mutate), "not on this stack")
+
+    def test_rejects_a_missing_dependency_stack(self):
+        def mutate(stack):
+            self.acquisition(stack)["validated_stack"] = (
+                "machines/horizon/stacks/quda-missing/stack.yaml"
+            )
+
+        self.assert_one_error(self.pairing_errors(self.HORIZON, mutate), "cannot load")
+
+    def test_rejects_a_stack_of_the_wrong_software(self):
+        def mutate(stack):
+            self.acquisition(stack)["validated_stack"] = self.HORIZON
+
+        self.assert_one_error(
+            self.pairing_errors(self.HORIZON, mutate), "names a 'milc' stack"
+        )
+
+    def test_rejects_a_dependency_commit_mismatch(self):
+        def mutate(stack):
+            stack["tested_software"]["quda"]["commit"] = (
+                "ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e"
+            )
+
+        self.assert_one_error(
+            self.pairing_errors(self.HORIZON, mutate), "tested quda commit"
+        )
+
+    def test_rejects_a_composed_profile_that_differs_from_the_named_stack(self):
+        def mutate(stack):
+            self.acquisition(stack)["composed_profile"] = (
+                "software/quda/build-profiles.yaml#milc-cg-mrhs-tile3"
+            )
+
+        self.assert_one_error(
+            self.pairing_errors(self.HORIZON, mutate), "differs from"
+        )
+
+    def test_rejects_a_composed_profile_the_application_profile_does_not_accept(self):
+        # The pair agrees with itself, but ks-spectrum-hisq-quda does not accept the profile.
+        unaccepted = "software/quda/build-profiles.yaml#mg-staggered"
+
+        def mutate_copy(copy):
+            quda_path = copy / self.HORIZON_QUDA
+            quda = yaml.safe_load(quda_path.read_text())
+            quda["build"]["profile_options_from"] = unaccepted
+            quda_path.write_text(yaml.safe_dump(quda, sort_keys=False))
+
+        def mutate(stack):
+            self.acquisition(stack)["composed_profile"] = unaccepted
+
+        errors = self.pairing_errors(self.HORIZON, mutate, mutate_copy)
+        self.assert_one_error(errors, "is not a quda profile")
+        self.assertFalse(any("differs from" in error for error in errors), errors)
+
+
 if __name__ == "__main__":
     unittest.main()
