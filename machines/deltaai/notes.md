@@ -67,8 +67,11 @@ Copy anything needed after the job out of `/tmp`, because it is purged at job en
 Neither `/projects` nor `/work` has snapshots or backups.
 
 The `ghx4-interactive` partition is for short debugging and prototyping. Its two-hour,
-four-node, and eight-running-node-hour-per-user limits are recorded in the profile; use
-`ghx4` for larger or longer work. It also admits **one job per user, queued or running**. A
+two-node, and eight-running-node-hour-per-user limits are recorded in the profile; use
+`ghx4` for larger or longer work. **The node limit is the partition's `MaxNodes`, 2, not the
+user guide's four** (`scontrol show partition`, 2026-10-11): a four-node job is rejected at
+submit time with `Node count specification invalid` and is not queued `[observed]`. It also
+admits **one job per user, queued or running**. A
 second submission is rejected at submit time with `QOSMaxSubmitJobPerUserLimit` and is not
 queued, so a campaign of several jobs there is serial. Submit each job only after the previous
 one has left the queue, and treat a rejected submission as not submitted. The partition is also

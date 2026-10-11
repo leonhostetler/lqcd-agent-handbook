@@ -53,7 +53,7 @@
         ],
         "default_walltime_minutes": 30,
         "interactive_limits": {
-          "maximum_nodes_per_job": 4,
+          "maximum_nodes_per_job": 2,
           "maximum_walltime_hours": 2,
           "maximum_running_node_hours_per_user": 8,
           "maximum_submitted_per_user": 1,
@@ -154,7 +154,8 @@
       "https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/running-jobs.html",
       "https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/job-accounting.html",
       "https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/data-mgmt.html",
-      "https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/prog-env.html"
+      "https://docs.ncsa.illinois.edu/systems/deltaai/en/latest/user-guide/prog-env.html",
+      "scontrol show partition ghx4-interactive, 2026-10-11 (MaxNodes=2, MaxTime=02:00:00)"
     ]
   }
 }

@@ -6855,3 +6855,18 @@ operator to submit. `performance.yaml` is a third schema object, so
 **Reconciliation.** `machines/deltaai/notes.md`: no statement about throughput; *confirmed*.
 `software/milc/probes/staggered-cg-throughput.md`: untouched. `ROADMAP.md` watch items: a
 campaign-row extractor added at two uses.
+
+## 2026-10-11 — DeltaAI: ghx4-interactive takes at most two nodes
+
+The machine profile recorded four nodes per job on `ghx4-interactive`, from NCSA's user guide.
+A four-node probe job was rejected at submit time ("Node count specification invalid"), and
+`scontrol show partition ghx4-interactive` reports `MaxNodes=2` and `MaxTime=02:00:00`.
+`maximum_nodes_per_job` is now 2, with the `scontrol` reading as a source. The running-node-hour
+and one-job limits come from the partition's QoS, which was not read, so they stay as documented.
+
+**Reconciliation.** `machines/deltaai/machine.yaml`, `interactive_limits.maximum_nodes_per_job`:
+*amended*. `machines/deltaai/notes.md`, "two-hour, four-node, and eight-running-node-hour-per-user
+limits": *amended*. `machines/deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q3/notes.md`, "the
+one-node application validation fits DeltaAI's interactive limits": *confirmed*. The
+`partition: ghx4-interactive` records in three DeltaAI `stack.yaml` files, all one-node runs:
+*confirmed*.
