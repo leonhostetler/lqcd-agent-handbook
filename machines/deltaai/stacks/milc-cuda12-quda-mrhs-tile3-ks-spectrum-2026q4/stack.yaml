@@ -1,0 +1,162 @@
+schema_version: 1
+machine: deltaai
+software: milc
+profile: ks-spectrum-hisq-quda
+validated_on:
+  - gpu-gh200
+tested_software:
+  milc:
+    commit: 6bd16fce292a3bda9d65b426b3d263ee184d3a9a
+    branch: fix/baryon-normalization
+    forked_from_default: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+  quda:
+    commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+tested_toolchain:
+  programming_environment: PrgEnv-gnu/8.6.0
+  modules: [PrgEnv-gnu/8.6.0, gcc-native/14, craype/2.7.35, cudatoolkit/25.5_12.9, cray-mpich/9.0.1, libfabric/2.3.1, cray-libsci/25.09.0, cray-dsmml/0.3.1, xpmem/1.0.1-1.4_gf67ddfb318d4, perftools-base/25.09.0, nccl-ofi-plugin/1.18.0-cuda129, craype-accel-nvidia90]
+  host_compiler:
+    module: gcc-native/14
+    version: 14.2.0
+    wrappers:
+      c: cc
+      cxx: CC
+  craype: craype/2.7.35
+  cuda:
+    module: cudatoolkit/25.5_12.9
+    runtime_version: 12.9
+  driver: 595.71.05 (CUDA driver API 13.2)
+  mpi:
+    module: cray-mpich/9.0.1
+  target_module: craype-accel-nvidia90
+build:
+  type: optimized double precision with debug information
+  target: CUDA
+  gpu_arch: sm_90
+  generator: GNU Make
+  install_layout: <milc-checkout>/ks_spectrum/ks_spectrum_hisq
+  profile_options_from: software/milc/build-profiles.yaml#ks-spectrum-hisq-quda
+  portable_recipe: software/milc/applications/ks-spectrum.md
+  machine_options:
+    OFFLOAD: CUDA
+    MY_CC: cc
+    MY_CXX: CC
+    COMPILER: gnu
+    ARCH: ""
+    GPU_ARCH: nvidia
+    OPT: -O3 -Ofast -g
+    LDFLAGS: "-g "
+    QUDA_HOME: <quda-install-prefix>
+    QMPPAR: <quda-install-prefix>
+    QIOPAR: <quda-install-prefix>
+    WANT_KS_CONT_GPU: false
+    WANTPRIMME: false
+  dependency_acquisition:
+    mode: existing validated QUDA stack installation
+    composed_profile: software/quda/build-profiles.yaml#milc-cg-mrhs-tile3
+    validated_stack: machines/deltaai/stacks/quda-cuda12-milc-cg-mrhs-tile3-2026q4/stack.yaml
+    network_required: false
+  cost:
+    where: login
+    command: make -j 1 <target>
+    parallelism: 1
+    wallclock: not measured
+    timing_scope: Clean, then the application objects, dependent MILC libraries and final link, once per target; not timed.
+    maximum_reported_rss_kib: not measured
+    memory_scope: Not measured.
+  record_checks:
+    - tool: tools/check-stack-build-record.py
+      version: 1.0.0
+      date: "2026-10-11"
+      mode: make
+      target: ks_spectrum_hisq
+      evidence:
+        - the build script, read after the build; its log does not echo the make command
+        - ks_spectrum/Makefile of the checkout, copied from the top-level Makefile by the build script
+        - the make log, whose header names the tested MILC commit
+        - the MILC source checkout at the tested commit
+      errors: 0
+      undecided: 0
+    - tool: tools/check-stack-build-record.py
+      version: 1.0.0
+      date: "2026-10-11"
+      mode: make
+      target: ks_spectrum_hisq_gb_baryon_blind_no_sink_links
+      evidence:
+        - the same build script, run with the second target; it passes the same make variables
+        - ks_spectrum/Makefile of the checkout, copied from the top-level Makefile by the build script
+        - the make log, whose header names the tested MILC commit
+        - the MILC source checkout at the tested commit
+      errors: 0
+      undecided: 0
+validation:
+  date: "2026-10-11"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 3
+    accelerator: NVIDIA GH200 120GB
+    accelerator_memory_mib: 97871
+    compute_capability: "9.0"
+    partition: ghx4
+    exclusive: true
+    legs:
+      - {name: fpi, executable: ks_spectrum_hisq, nodes: 3, mpi_ranks: 12, node_geometry: [1, 1, 4, 3]}
+      - {name: specnd, executable: ks_spectrum_hisq, nodes: 2, mpi_ranks: 8, node_geometry: [1, 1, 2, 4]}
+      - {name: omega, executable: ks_spectrum_hisq_gb_baryon_blind_no_sink_links, nodes: 2, mpi_ranks: 8, node_geometry: [1, 2, 2, 2]}
+  runtime:
+    communication: QMP over Cray MPICH
+    launcher: srun -K, 4 tasks per node, SRUN_CPUS_PER_TASK=32, SLURM_CPU_BIND=cores
+    QUDA_ENABLE_GDR: 1
+    QUDA_ENABLE_P2P: unset (deliberately)
+    QUDA_DETERMINISTIC_REDUCE: unset (deliberately)
+    QUDA_MILC_HISQ_RECONSTRUCT: 13
+    QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY: 9
+    MPICH_GPU_SUPPORT_ENABLED: 1
+    MPICH_RDMA_ENABLED_CUDA: 1
+    OMP_NUM_THREADS: 16
+    OMP_PROC_BIND: spread, spread, spread
+    gpu_binding: None; every rank sees all four devices and QUDA selects the device by local rank.
+    cpu_binding: Thirty-two cores per rank, bound to cores (SLURM_CPU_BIND=cores); the first runs showed one NUMA domain and NIC per rank.
+    quda_resource_path: One tunecache per campaign, populated by a first tuning run and then read.
+    linked_quda: RPATH resolves libquda, libqmp, libqio and liblime from the composed install prefix, whose files the QUDA stack hashes.
+  tests:
+    - name: production_benchmark
+      workload: three production campaigns on an 80³×144 HISQ ensemble, 10 configurations each, one batch job per campaign
+      checks: per configuration, the batch's own completion status, scheduler step COMPLETED, every input set completed and every solve converged by tools/extract-milc-timings.py 1.2.0, and the campaign tunecache read and not rewritten
+      configurations_accepted: 30 of 30
+      result: pass
+  scope_limits:
+    - Both targets passed the build-record check. Each was validated by production runs only, with no cross-geometry consistency check.
+    - The MILC commit is on fix/baryon-normalization, one commit on develop 6b9b8a06 that reduces KS baryon correlators over ranks once; the commit has since reached develop.
+    - Plain and multi-right-hand-side CG and multi-shift CG only. Deflation, QIO file writes, gauge-force and fermion-force paths were compiled but not exercised.
+    - The build script passes its make variables through the environment, not on the make command line, so the Makefile's own OpenMP additions are appended to LDFLAGS and the link line carries -fopenmp -lgomp; the same -g passed on the command line replaces them and does not link (milc-cuda12-quda-ks-spectrum-2026q4).
+evidence: experiment
+observed: "2026-10-11"
+observed_on:
+  machine: deltaai
+  node_type: gpu-gh200
+  software:
+    milc:
+      commit: 6bd16fce292a3bda9d65b426b3d263ee184d3a9a
+      branch: fix/baryon-normalization
+      forked_from_default: 6b9b8a06eec5746187bbfd197eac2629ab8d8e72
+    quda:
+      commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+      branch: develop
+  toolchain:
+    cuda: 12.9
+    host_compiler: GNU 14.2.0 through Cray wrappers
+sources:
+  - https://github.com/milc-qcd/milc_qcd/commit/6bd16fce292a3bda9d65b426b3d263ee184d3a9a
+  - operator-run builds and production runs reviewed in the working directory; raw scheduler output is not committed

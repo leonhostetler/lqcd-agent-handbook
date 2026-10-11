@@ -6802,3 +6802,56 @@ native stack and points to the linked one.
 - `software/quda/solvers/staggered-solver-selection.md`, the multigrid row and the two-stack
   paragraph: *confirmed*.
 - `playbooks/tune-solver.md`, the native-seed and linked-stack paragraph: *confirmed*.
+
+## 2026-10-11 — DeltaAI production stacks with build records
+
+`machines/deltaai/stacks/quda-cuda12-milc-cg-mrhs-tile3-2026q4` and
+`milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4` record the build DeltaAI's three production
+ks_spectrum campaigns run on: QUDA `00c7ef33` with `QUDA_MAX_MULTI_RHS_TILE=3`, and MILC `6bd16fce`
+on `fix/baryon-normalization` (one commit on develop `6b9b8a06`), both targets. They are DeltaAI's
+first stacks with `record_checks` and `installed_libraries`:
+- `tools/check-stack-build-record.py` 1.0.0 found 0 errors and 0 undecided: QUDA's 12 passed `-D`
+  values against its cache and source (64 defaults cross-checked, 32 computed or undeclared), and
+  each MILC target's 30 make variables against its Makefile and log. The evidence for the commands
+  is the build scripts read afterwards. The first QUDA pass reported one error, the draft's
+  `CRAY_ACCEL_TARGET`, an environment variable the script exports and never a cache entry; it was
+  removed from `machine_options` and the toolchain's `target_module` carries it.
+- The installed library hashes equal the files the production executables' `RPATH` resolves; the
+  libraries are unchanged since 2026-10-02, before the first production run.
+
+Validation is the production campaigns: 30 configurations, 10 per campaign, accepted under the
+benchmark contract of the next entry, on 8 ranks over two nodes and 12 over three. No QUDA test
+executable ran, so nothing was host-verified, and there is no cross-geometry check; both scope
+limits say so, and the staggered-CG probe would add both.
+
+**Reconciliation.** Statements about DeltaAI MILC linking: `milc-cuda12-quda-ks-spectrum-2026q4`'s
+scope limit and notes ("`-g` no longer links here"): *confirmed*. The new build passes its make
+variables through the environment, so the Makefile's OpenMP `+=` still applies; the 2026q4 build
+passed `LDFLAGS` on the command line, which replaces it (`software/milc/build.md`, confirmed). The
+new MILC stack states the difference rather than contradicting the old one. `ROADMAP.md` 5.1's
+DeltaAI deflation stacks: *confirmed*, untouched. `tests/support.py` `EXPECTED_SCHEMA_OBJECTS`:
+*amended*, 47 to 49 for the two stack records.
+
+## 2026-10-11 — DeltaAI's first performance references (campaign rows)
+
+`machines/deltaai/performance.yaml` holds three campaign rows on the same three workloads as
+Horizon's: multi-shift over 10 masses, light-mass 3-RHS, and 9-RHS. The operator's class decision
+admits them on Horizon's terms (§ensemble-numbers; recorded in the working directory). Unlike
+Horizon's, they come from **existing production jobs, analyzed only**: one 10-configuration batch
+per campaign, chosen by a rule fixed before any throughput was read (the most recent all-`ok`
+batch), under a contract frozen in the working directory first. The solve-class definitions are
+Horizon's, the warm-state check is a log line (`tunecache.tsv` loaded once and never saved), and
+every configuration passed `tools/extract-milc-timings.py` 1.2.0's convergence accounting and its
+captured scheduler step state. The working-directory extractor was made to fail on purpose
+three ways (a tunecache save, a failed configuration, a non-separating iteration threshold).
+
+The rows sit at DeltaAI's production placements (12 ranks on three nodes, 8 on two), not
+Horizon's, because each machine places a campaign by its memory; `performance.md` says the
+cross-machine comparison is between stacks at their own placements. No probe rows yet: the probe
+inputs, batch script, contract and prediction are prepared in the working directory for the
+operator to submit. `performance.yaml` is a third schema object, so
+`EXPECTED_SCHEMA_OBJECTS` goes from 49 to 50.
+
+**Reconciliation.** `machines/deltaai/notes.md`: no statement about throughput; *confirmed*.
+`software/milc/probes/staggered-cg-throughput.md`: untouched. `ROADMAP.md` watch items: a
+campaign-row extractor added at two uses.

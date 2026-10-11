@@ -113,6 +113,11 @@ occurrence trips the rule rather than starting the count again.
   `machines/perlmutter/gpu-aware-mpi-device-context.md`. Deliberately prose for now: the profile is
   per device and the term is per node, so folding it in needs a per-ordinal verdict, which is a
   small schema change to the capacity output rather than a constant.
+- **Campaign-row extraction from production logs** — classing `CONGRAD5` records into a row's
+  solve class, dropping the first per configuration, and the solve-time-weighted median: by hand
+  for Horizon's campaign rows and by a working-directory script for DeltaAI's, at two uses. The
+  probe tool does this for probe outputs only; a third use makes it an `extract-milc-timings`
+  subcommand.
 - **Kernel template-argument resolution** against the revision that built the binary —
   deliberately manual, because it needs the decomposition cross-check and therefore judgement
   at each step.

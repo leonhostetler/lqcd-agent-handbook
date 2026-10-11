@@ -1,0 +1,149 @@
+schema_version: 1
+machine: deltaai
+software: quda
+profile: milc-cg-mrhs-tile3
+validated_on:
+  - gpu-gh200
+tested_software:
+  quda:
+    commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+  eigen:
+    version: 3.4.0
+    requested_revision: 3.4.0
+  cccl:
+    commit: 413d2efd811ebb2ca0333a281d04a2de838ecad6
+    requested_revision: v3.3.4
+    branch_context: Tag selected by QUDA; no branch asserted.
+tested_toolchain:
+  programming_environment: PrgEnv-gnu/8.6.0
+  host_compiler:
+    module: gcc-native/14
+    version: 14.2.0
+    wrappers:
+      c: cc
+      cxx: CC
+  craype: craype/2.7.35
+  cuda:
+    module: cudatoolkit/25.5_12.9
+    runtime_version: 12.9
+  driver: 595.71.05 (CUDA driver API 13.2)
+  mpi:
+    module: cray-mpich/9.0.1
+  target_module: craype-accel-nvidia90
+  cmake: 3.28.3, the system cmake
+build:
+  type: RELEASE
+  target: CUDA
+  gpu_arch: sm_90
+  generator: Unix Makefiles
+  install_layout: <build-dir>/usqcd
+  profile_options_from: software/quda/build-profiles.yaml#milc-cg-mrhs-tile3
+  machine_options:
+    CMAKE_C_COMPILER: cc
+    CMAKE_CXX_COMPILER: CC
+    QUDA_GPU_ARCH: sm_90
+    CMAKE_INSTALL_PREFIX: <build-dir>/usqcd
+  dependency_acquisition:
+    mode: QUDA CMake downloads
+    network_required_at_configure: true
+  cost:
+    where: interactive
+    command: cmake --build <build-dir> -j 32 -v, then cmake --install <build-dir>
+    parallelism: 32
+    wallclock: 8m01.95s
+    timing_scope: GNU time of the whole build script, which also updated the QUDA checkout, configured with --fresh in an existing build directory, built and installed.
+    maximum_reported_rss_kib: 1910080
+    memory_scope: Maximum RSS reported by GNU time for the script, the largest single process, not aggregate build-process memory.
+  installed_libraries:
+    - {path: lib/liblime.so, sha256: 520de78578c4e7bc68e433a423a536905bf76603c6122174ec6bf4241a5afc45}
+    - {path: lib/libqio.so, sha256: b06a8ed33d22e086e5b3ad4ba9e4a740abaca346dbac44aee4f2a8f0f5ad8052}
+    - {path: lib/libqmp.so, sha256: bb5e196712fdafc1bff748264f30f50b92e923044b42342636a6127b9940b4fe}
+    - {path: lib/libquda.so, sha256: f5d49c6870d2fa9f4fefe8389bfdfe38174c6e472cc24a0781073ad635af2e7c}
+    - {path: lib64/libquda_test.so, sha256: b805d2ec08b8bcfa2c4021ce7806bf21fd55b9459fcc8017d37745afba5c7782}
+  record_checks:
+    - tool: tools/check-stack-build-record.py
+      version: 1.0.0
+      date: "2026-10-11"
+      mode: cmake
+      evidence:
+        - the build script, read after the build; its log does not echo the configure command
+        - the build's CMakeCache.txt
+        - the QUDA source checkout at the tested commit
+      errors: 0
+      undecided: 0
+      not_cross_checked: 32
+      environment_defaults: [QUDA_NVSHMEM_HOME]
+validation:
+  date: "2026-10-11"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 3
+    mpi_ranks: 12
+    ranks_per_node: 4
+    cpus_per_rank: 32
+    gpus_per_rank: 1
+    visible_gpu_devices_per_rank: 4
+    accelerator: NVIDIA GH200 120GB
+    accelerator_memory_mib: 97871
+    compute_capability: "9.0"
+    partition: ghx4
+    exclusive: true
+    launcher: srun -K, 4 tasks per node, SRUN_CPUS_PER_TASK=32, SLURM_CPU_BIND=cores, all four GPUs visible to every rank
+    rank_grids: [[1, 1, 4, 3], [1, 1, 2, 4], [1, 2, 2, 2]]
+  runtime:
+    communication: QMP over Cray MPICH
+    QUDA_ENABLE_GDR: 1
+    gdr_confirmed_by: the campaign tunecaches hold dslash policy keys with gdr=1 and p2p=7
+    QUDA_ENABLE_P2P: unset (deliberately)
+    QUDA_DETERMINISTIC_REDUCE: unset (deliberately)
+    QUDA_MILC_HISQ_RECONSTRUCT: 13
+    QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY: 9
+    MPICH_GPU_SUPPORT_ENABLED: 1
+    MPICH_RDMA_ENABLED_CUDA: 1
+    OMP_NUM_THREADS: 16
+    OMP_PROC_BIND: spread, spread, spread
+    gpu_binding: None; every rank sees all four devices and QUDA selects the device by local rank.
+    cpu_binding: Thirty-two cores per rank, bound to cores (SLURM_CPU_BIND=cores); the first runs showed one NUMA domain and NIC per rank.
+    resource_path: One tunecache per campaign, populated by a first tuning run and then read.
+  tests:
+    - name: production_ks_spectrum_multi_node
+      workload: three production ks_spectrum campaigns on an 80³×144 HISQ ensemble, through the MILC interface (see milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4)
+      points: [12 ranks on three nodes (1 1 4 3), 8 ranks on two nodes (1 1 2 4 and 1 2 2 2)]
+      solvers: multi-shift CG, and single-mass CG with 1, 3 and 9 right-hand sides through invertMultiSrcQuda
+      checks: every solve converged at its requested residual or heavy-quark criterion, by tools/extract-milc-timings.py 1.2.0
+      configurations_checked: 30, 10 per campaign
+      result: pass
+  scope_limits:
+    - No QUDA test executable was run on this build; the validation is the MILC-interface path only, with no host verification.
+    - QUDA_MAX_MULTI_RHS_TILE is 3; the tile is a build option and a stack built without it is a different stack.
+    - QIO was exercised only through MILC's gauge-file reads (reload_mpiio does not use QIO); no QIO write was exercised.
+    - The installed libqmp's QMP_binary_reduction sums multi-byte values wrongly on more than one rank (software/qmp/binary-reduction.md).
+    - The profile compiled eigensolver support, but no eigensolve or deflated solve was exercised.
+    - Validated on two- and three-node layouts only; no single-GPU or single-node point.
+evidence: experiment
+observed: "2026-10-11"
+observed_on:
+  machine: deltaai
+  node_type: gpu-gh200
+  software:
+    quda:
+      commit: 00c7ef33dacadfb94860e3ca1cc06862926182dc
+      branch: develop
+  toolchain:
+    cuda: 12.9
+    host_compiler: GNU 14.2.0 through Cray wrappers
+sources:
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt
+  - operator-run build and production runs reviewed in the working directory; raw scheduler output is not committed

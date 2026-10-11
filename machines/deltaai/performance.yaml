@@ -1,0 +1,177 @@
+# Performance references for DeltaAI (ARCHITECTURE.md, performance references). Canonical rows;
+# performance.md renders them with tools/build-performance-tables.py.
+schema_version: 1
+machine: deltaai
+rows:
+- id: campaign-multishift-10-masses
+  kind: campaign
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  workload: 'A production spectroscopy campaign on an 80³×144 HISQ ensemble, ks_spectrum_hisq: per configuration,
+    48 multi-shift CG solves over 10 light valence masses at residual 1e-8, from random-colour and even-odd
+    wall sources on 4 time slices. Its single-mass heavy-quark solves, under 1,000 iterations each, are left
+    out: they measure per-call overhead.'
+  library_evidence: The production executable is the build the stack validated (same sha256), and its
+    run path resolves libquda, libqmp and libqio from the install whose hashes the QUDA stack records;
+    the production jobs did not list loaded libraries.
+  solver:
+    path: multicg_offset_QUDA
+    masses: 10
+    rhs: 1
+  precision:
+    precise: double
+    sloppy: single
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 3
+    ranks: 12
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 1
+    - 1
+    - 4
+    - 3
+    local_volume:
+    - 80
+    - 80
+    - 20
+    - 48
+    dimensions_off_node:
+    - t
+    binding: srun, 4 tasks per node, 32 cores per rank bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread,
+      spread, spread", 16 OpenMP threads; all four GPUs visible to every rank
+  warm_state: the campaign tunecache, warm from earlier configurations and not rewritten by these runs;
+    the first solve of each kind in every configuration excluded
+  iterations:
+    statistic: median per solve
+    value: 25262
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 3826.6
+    min: 3548.9
+    max: 3882.2
+    solves: 470
+    runs: 10
+  evidence: reproduced
+  observations: 470
+  observed: '2026-10-11'
+  sources: &id001
+  - operator-submitted production jobs, one 10-configuration job per campaign, analyzed under a benchmark
+    contract frozen before extraction and reviewed in the working directory; raw outputs are not committed
+  notes: MILC runs a multi-shift QUDA solve in double-single under this build's mixed-precision setting,
+    not double-half. The iteration count is the multi-shift total. Every configuration passed the benchmark
+    correctness checks.
+- id: campaign-light-mass-rhs3
+  kind: campaign
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  workload: 'A production spectroscopy campaign on an 80³×144 HISQ ensemble, ks_spectrum_hisq: per configuration,
+    8 multicolorsource solves of 3 right-hand sides at the light valence mass, residual 1e-8, from corner-wall
+    sources. The strange and charm masses'' solves, under 700 iterations each, are left out.'
+  library_evidence: The production executable is the build the stack validated (same sha256), and its
+    run path resolves libquda, libqmp and libqio from the install whose hashes the QUDA stack records;
+    the production jobs did not list loaded libraries.
+  solver:
+    path: fn_QUDA
+    masses: 1
+    rhs: 3
+  precision:
+    precise: double
+    sloppy: half
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 2
+    ranks: 8
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 1
+    - 1
+    - 2
+    - 4
+    local_volume:
+    - 80
+    - 80
+    - 40
+    - 36
+    dimensions_off_node:
+    - t
+    binding: srun, 4 tasks per node, 32 cores per rank bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread,
+      spread, spread", 16 OpenMP threads; all four GPUs visible to every rank
+  warm_state: the campaign tunecache, warm from earlier configurations and not rewritten by these runs;
+    the first solve of each kind in every configuration excluded
+  iterations:
+    statistic: median per solve
+    value: 20920
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 7389.9
+    min: 7052.3
+    max: 7404.8
+    solves: 70
+    runs: 10
+  evidence: reproduced
+  observations: 70
+  observed: '2026-10-11'
+  sources: *id001
+  notes: Every configuration passed the benchmark correctness checks.
+- id: campaign-rhs9
+  kind: campaign
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  workload: 'A production baryon campaign on an 80³×144 HISQ ensemble, ks_spectrum_hisq_gb_baryon_blind_no_sink_links:
+    per configuration, 144 solves of 9 right-hand sides at one valence mass, residual 1e-12.'
+  library_evidence: The production executable is the stack's second checked target, built by the same
+    make variables, and its run path resolves libquda, libqmp and libqio from the install whose hashes
+    the QUDA stack records; the production jobs did not list loaded libraries.
+  solver:
+    path: fn_QUDA
+    masses: 1
+    rhs: 9
+  precision:
+    precise: double
+    sloppy: half
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 2
+    ranks: 8
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 1
+    - 2
+    - 2
+    - 2
+    local_volume:
+    - 80
+    - 40
+    - 40
+    - 72
+    dimensions_off_node:
+    - t
+    binding: srun, 4 tasks per node, 32 cores per rank bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread,
+      spread, spread", 16 OpenMP threads; all four GPUs visible to every rank
+  warm_state: the campaign tunecache, warm from earlier configurations and not rewritten by these runs;
+    the first solve of each kind in every configuration excluded
+  iterations:
+    statistic: median per solve
+    value: 1034
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 7639.1
+    min: 6758.7
+    max: 7781.0
+    solves: 1430
+    runs: 10
+  evidence: reproduced
+  observations: 1430
+  observed: '2026-10-11'
+  sources: *id001
+  notes: Every configuration passed the benchmark correctness checks.
