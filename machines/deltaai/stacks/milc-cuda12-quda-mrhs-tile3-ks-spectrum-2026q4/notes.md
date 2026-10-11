@@ -6,7 +6,7 @@ load_when: Rebuilding, validating, or running with the milc-cuda12-quda-mrhs-til
 evidence: experiment
 sources:
   - https://github.com/milc-qcd/milc_qcd/commit/6bd16fce292a3bda9d65b426b3d263ee184d3a9a
-  - operator-run builds and production runs reviewed in the working directory
+  - operator-run builds, production runs and probe runs reviewed in the working directory
 observed: "2026-10-11"
 observed_on:
   machine: deltaai
@@ -48,10 +48,13 @@ variables. Differences from
 
 ## What the validation shows
 
-Three production campaigns, 10 configurations each, accepted under a frozen benchmark
-contract: 12 ranks on three nodes and 8 ranks on two, multi-shift CG and 3- and 9-right-hand-side
-CG through `invertMultiSrcQuda`, every solve converged, and the campaign tunecaches were read
-and not rewritten. There was no cross-geometry consistency check, and the GB-baryon target was
-exercised by one campaign only. MILC's printed NERSC checksum is unreliable on more than one
-rank on this stack's `libqmp`
+The staggered-CG throughput probe ran `ks_spectrum_hisq` on one GPU, one node, two nodes and
+four nodes: every leg completed and every solve converged, and its consistency leg, one field at
+all four geometries, gave plaquettes within 1.4e-15 relative and pion correlators within 2.2e-19
+of the correlator scale of the one-rank leg. Three production campaigns, 10 configurations each,
+were accepted under a frozen benchmark contract: 12 ranks on three nodes and 8 ranks on two,
+multi-shift CG and 3- and 9-right-hand-side CG through `invertMultiSrcQuda`, every solve
+converged, and the campaign tunecaches were read and not rewritten. The GB-baryon target was
+exercised by one campaign only, with no cross-geometry check. MILC's printed NERSC checksum is
+unreliable on more than one rank on this stack's `libqmp`
 ([`../../../../software/qmp/binary-reduction.md`](../../../../software/qmp/binary-reduction.md)).

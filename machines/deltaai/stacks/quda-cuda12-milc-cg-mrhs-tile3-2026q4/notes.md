@@ -6,7 +6,7 @@ load_when: Rebuilding, validating, or running with the quda-cuda12-milc-cg-mrhs-
 evidence: experiment
 sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt
-  - operator-run build and production runs reviewed in the working directory
+  - operator-run build, production runs and probe runs reviewed in the working directory
 observed: "2026-10-11"
 observed_on:
   machine: deltaai
@@ -36,9 +36,12 @@ differences:
 
 ## What the validation shows
 
-Three production `ks_spectrum` campaigns through the MILC interface, on 8 ranks over two nodes
-and 12 ranks over three: in 30 checked configurations every multi-shift and single-mass solve,
-with 1, 3 and 9 right-hand sides, converged. No QUDA test executable ran on this build, so
-nothing was host-verified; the staggered-CG throughput probe's QUDA legs would add that. The
+The staggered-CG throughput probe's QUDA legs ran `staggered_invert_test` at 40⁴ per rank on
+one GPU, one node, two nodes and four nodes. On one GPU, 54 solves, single and in blocks of 12
+through `invertMultiSrcQuda`, were verified against the host; the multi-rank points checked
+convergence, the true residual and row-major rank order. Three production `ks_spectrum`
+campaigns through the MILC interface, on 8 ranks over two nodes and 12 ranks over three: in 30
+checked configurations every multi-shift and single-mass solve, with 1, 3 and 9 right-hand
+sides, converged. The
 `libqmp` this installs sums multi-byte values wrongly in `QMP_binary_reduction` on more than
 one rank ([`../../../../software/qmp/binary-reduction.md`](../../../../software/qmp/binary-reduction.md)).

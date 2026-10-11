@@ -3,6 +3,484 @@
 schema_version: 1
 machine: deltaai
 rows:
+- id: probe-device-milc-rhs1
+  kind: probe
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  probe:
+    name: staggered-cg-throughput
+    version: 1.1.0
+  loaded_libraries:
+  - path: lib/libqio.so
+    sha256: b06a8ed33d22e086e5b3ad4ba9e4a740abaca346dbac44aee4f2a8f0f5ad8052
+  - path: lib/libqmp.so
+    sha256: bb5e196712fdafc1bff748264f30f50b92e923044b42342636a6127b9940b4fe
+  - path: lib/libquda.so
+    sha256: f5d49c6870d2fa9f4fefe8389bfdfe38174c6e472cc24a0781073ad635af2e7c
+  solver:
+    path: fn_QUDA
+    masses: 1
+    rhs: 1
+  precision:
+    precise: double
+    sloppy: half
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 1
+    ranks: 1
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 1
+    - 1
+    - 1
+    - 1
+    local_volume:
+    - 40
+    - 40
+    - 40
+    - 40
+    dimensions_off_node: []
+    binding: srun -n 1, 32 cores bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread, spread, spread",
+      16 OpenMP threads; all four GPUs visible, QUDA selects the device by local rank
+  warm_state: warm tunecache from a preceding tuning run; first solve excluded
+  iterations:
+    statistic: median per solve
+    value: 2668
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 4806.2
+    min: 4765.3
+    max: 4847.8
+    solves: 5
+    runs: 1
+  evidence: reproduced
+  observations: 5
+  observed: '2026-10-11'
+  sources:
+  - operator-submitted probe run, three jobs on 2026-10-11, reviewed in the working directory; raw outputs are not
+    committed
+- id: probe-device-milc-rhs12
+  kind: probe
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  probe:
+    name: staggered-cg-throughput
+    version: 1.1.0
+  loaded_libraries:
+  - path: lib/libqio.so
+    sha256: b06a8ed33d22e086e5b3ad4ba9e4a740abaca346dbac44aee4f2a8f0f5ad8052
+  - path: lib/libqmp.so
+    sha256: bb5e196712fdafc1bff748264f30f50b92e923044b42342636a6127b9940b4fe
+  - path: lib/libquda.so
+    sha256: f5d49c6870d2fa9f4fefe8389bfdfe38174c6e472cc24a0781073ad635af2e7c
+  solver:
+    path: fn_QUDA
+    masses: 1
+    rhs: 12
+  precision:
+    precise: double
+    sloppy: half
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 1
+    ranks: 1
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 1
+    - 1
+    - 1
+    - 1
+    local_volume:
+    - 40
+    - 40
+    - 40
+    - 40
+    dimensions_off_node: []
+    binding: srun -n 1, 32 cores bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread, spread, spread",
+      16 OpenMP threads; all four GPUs visible, QUDA selects the device by local rank
+  warm_state: warm tunecache from a preceding tuning run; first solve excluded
+  iterations:
+    statistic: median per solve
+    value: 2673
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 9644.6
+    min: 9626.6
+    max: 9673.0
+    solves: 3
+    runs: 1
+  evidence: reproduced
+  observations: 3
+  observed: '2026-10-11'
+  sources:
+  - operator-submitted probe run, three jobs on 2026-10-11, reviewed in the working directory; raw outputs are not
+    committed
+- id: probe-node-milc-rhs1
+  kind: probe
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  probe:
+    name: staggered-cg-throughput
+    version: 1.1.0
+  loaded_libraries:
+  - path: lib/libqio.so
+    sha256: b06a8ed33d22e086e5b3ad4ba9e4a740abaca346dbac44aee4f2a8f0f5ad8052
+  - path: lib/libqmp.so
+    sha256: bb5e196712fdafc1bff748264f30f50b92e923044b42342636a6127b9940b4fe
+  - path: lib/libquda.so
+    sha256: f5d49c6870d2fa9f4fefe8389bfdfe38174c6e472cc24a0781073ad635af2e7c
+  solver:
+    path: fn_QUDA
+    masses: 1
+    rhs: 1
+  precision:
+    precise: double
+    sloppy: half
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 1
+    ranks: 4
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 2
+    - 2
+    - 1
+    - 1
+    local_volume:
+    - 40
+    - 40
+    - 40
+    - 40
+    dimensions_off_node: []
+    binding: srun, 4 tasks per node, 32 cores per rank bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread,
+      spread, spread", 16 OpenMP threads; all four GPUs visible to every rank
+  warm_state: warm tunecache from a preceding tuning run; first solve excluded
+  iterations:
+    statistic: median per solve
+    value: 2675
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 4028.6
+    min: 4010.3
+    max: 4036.7
+    solves: 5
+    runs: 1
+  evidence: reproduced
+  observations: 5
+  observed: '2026-10-11'
+  sources:
+  - operator-submitted probe run, three jobs on 2026-10-11, reviewed in the working directory; raw outputs are not
+    committed
+- id: probe-node-milc-rhs12
+  kind: probe
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  probe:
+    name: staggered-cg-throughput
+    version: 1.1.0
+  loaded_libraries:
+  - path: lib/libqio.so
+    sha256: b06a8ed33d22e086e5b3ad4ba9e4a740abaca346dbac44aee4f2a8f0f5ad8052
+  - path: lib/libqmp.so
+    sha256: bb5e196712fdafc1bff748264f30f50b92e923044b42342636a6127b9940b4fe
+  - path: lib/libquda.so
+    sha256: f5d49c6870d2fa9f4fefe8389bfdfe38174c6e472cc24a0781073ad635af2e7c
+  solver:
+    path: fn_QUDA
+    masses: 1
+    rhs: 12
+  precision:
+    precise: double
+    sloppy: half
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 1
+    ranks: 4
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 2
+    - 2
+    - 1
+    - 1
+    local_volume:
+    - 40
+    - 40
+    - 40
+    - 40
+    dimensions_off_node: []
+    binding: srun, 4 tasks per node, 32 cores per rank bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread,
+      spread, spread", 16 OpenMP threads; all four GPUs visible to every rank
+  warm_state: warm tunecache from a preceding tuning run; first solve excluded
+  iterations:
+    statistic: median per solve
+    value: 2688
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 8212.6
+    min: 8207.0
+    max: 8222.4
+    solves: 3
+    runs: 1
+  evidence: reproduced
+  observations: 3
+  observed: '2026-10-11'
+  sources:
+  - operator-submitted probe run, three jobs on 2026-10-11, reviewed in the working directory; raw outputs are not
+    committed
+- id: probe-2-nodes-milc-rhs1
+  kind: probe
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  probe:
+    name: staggered-cg-throughput
+    version: 1.1.0
+  loaded_libraries:
+  - path: lib/libqio.so
+    sha256: b06a8ed33d22e086e5b3ad4ba9e4a740abaca346dbac44aee4f2a8f0f5ad8052
+  - path: lib/libqmp.so
+    sha256: bb5e196712fdafc1bff748264f30f50b92e923044b42342636a6127b9940b4fe
+  - path: lib/libquda.so
+    sha256: f5d49c6870d2fa9f4fefe8389bfdfe38174c6e472cc24a0781073ad635af2e7c
+  solver:
+    path: fn_QUDA
+    masses: 1
+    rhs: 1
+  precision:
+    precise: double
+    sloppy: half
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 2
+    ranks: 8
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 2
+    - 2
+    - 1
+    - 2
+    local_volume:
+    - 40
+    - 40
+    - 40
+    - 40
+    dimensions_off_node:
+    - t
+    binding: srun, 4 tasks per node, 32 cores per rank bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread,
+      spread, spread", 16 OpenMP threads; all four GPUs visible to every rank
+  warm_state: warm tunecache from a preceding tuning run; first solve excluded
+  iterations:
+    statistic: median per solve
+    value: 2686
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 3594.2
+    min: 3546.2
+    max: 3603.2
+    solves: 5
+    runs: 1
+  evidence: reproduced
+  observations: 5
+  observed: '2026-10-11'
+  sources:
+  - operator-submitted probe run, three jobs on 2026-10-11, reviewed in the working directory; raw outputs are not
+    committed
+- id: probe-2-nodes-milc-rhs12
+  kind: probe
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  probe:
+    name: staggered-cg-throughput
+    version: 1.1.0
+  loaded_libraries:
+  - path: lib/libqio.so
+    sha256: b06a8ed33d22e086e5b3ad4ba9e4a740abaca346dbac44aee4f2a8f0f5ad8052
+  - path: lib/libqmp.so
+    sha256: bb5e196712fdafc1bff748264f30f50b92e923044b42342636a6127b9940b4fe
+  - path: lib/libquda.so
+    sha256: f5d49c6870d2fa9f4fefe8389bfdfe38174c6e472cc24a0781073ad635af2e7c
+  solver:
+    path: fn_QUDA
+    masses: 1
+    rhs: 12
+  precision:
+    precise: double
+    sloppy: half
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 2
+    ranks: 8
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 2
+    - 2
+    - 1
+    - 2
+    local_volume:
+    - 40
+    - 40
+    - 40
+    - 40
+    dimensions_off_node:
+    - t
+    binding: srun, 4 tasks per node, 32 cores per rank bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread,
+      spread, spread", 16 OpenMP threads; all four GPUs visible to every rank
+  warm_state: warm tunecache from a preceding tuning run; first solve excluded
+  iterations:
+    statistic: median per solve
+    value: 2702
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 6600.1
+    min: 6532.0
+    max: 6603.8
+    solves: 3
+    runs: 1
+  evidence: reproduced
+  observations: 3
+  observed: '2026-10-11'
+  sources:
+  - operator-submitted probe run, three jobs on 2026-10-11, reviewed in the working directory; raw outputs are not
+    committed
+- id: probe-4-nodes-milc-rhs1
+  kind: probe
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  probe:
+    name: staggered-cg-throughput
+    version: 1.1.0
+  loaded_libraries:
+  - path: lib/libqio.so
+    sha256: b06a8ed33d22e086e5b3ad4ba9e4a740abaca346dbac44aee4f2a8f0f5ad8052
+  - path: lib/libqmp.so
+    sha256: bb5e196712fdafc1bff748264f30f50b92e923044b42342636a6127b9940b4fe
+  - path: lib/libquda.so
+    sha256: f5d49c6870d2fa9f4fefe8389bfdfe38174c6e472cc24a0781073ad635af2e7c
+  solver:
+    path: fn_QUDA
+    masses: 1
+    rhs: 1
+  precision:
+    precise: double
+    sloppy: half
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 4
+    ranks: 16
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 2
+    - 2
+    - 2
+    - 2
+    local_volume:
+    - 40
+    - 40
+    - 40
+    - 40
+    dimensions_off_node:
+    - z
+    - t
+    binding: srun, 4 tasks per node, 32 cores per rank bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread,
+      spread, spread", 16 OpenMP threads; all four GPUs visible to every rank
+  warm_state: warm tunecache from a preceding tuning run; first solve excluded
+  iterations:
+    statistic: median per solve
+    value: 2697
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 2921.1
+    min: 2902.0
+    max: 2951.4
+    solves: 5
+    runs: 1
+  evidence: reproduced
+  observations: 5
+  observed: '2026-10-11'
+  sources:
+  - operator-submitted probe run, three jobs on 2026-10-11, reviewed in the working directory; raw outputs are not
+    committed
+- id: probe-4-nodes-milc-rhs12
+  kind: probe
+  stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml
+  probe:
+    name: staggered-cg-throughput
+    version: 1.1.0
+  loaded_libraries:
+  - path: lib/libqio.so
+    sha256: b06a8ed33d22e086e5b3ad4ba9e4a740abaca346dbac44aee4f2a8f0f5ad8052
+  - path: lib/libqmp.so
+    sha256: bb5e196712fdafc1bff748264f30f50b92e923044b42342636a6127b9940b4fe
+  - path: lib/libquda.so
+    sha256: f5d49c6870d2fa9f4fefe8389bfdfe38174c6e472cc24a0781073ad635af2e7c
+  solver:
+    path: fn_QUDA
+    masses: 1
+    rhs: 12
+  precision:
+    precise: double
+    sloppy: half
+  reconstruct:
+    precise: 13
+    sloppy: 9
+  placement:
+    nodes: 4
+    ranks: 16
+    device: one NVIDIA GH200 GPU (96 GB) of a four-GH200 node
+    node_geometry:
+    - 2
+    - 2
+    - 2
+    - 2
+    local_volume:
+    - 40
+    - 40
+    - 40
+    - 40
+    dimensions_off_node:
+    - z
+    - t
+    binding: srun, 4 tasks per node, 32 cores per rank bound to cores (SLURM_CPU_BIND=cores), OMP_PROC_BIND="spread,
+      spread, spread", 16 OpenMP threads; all four GPUs visible to every rank
+  warm_state: warm tunecache from a preceding tuning run; first solve excluded
+  iterations:
+    statistic: median per solve
+    value: 2699
+  metric:
+    name: congrad5_gflops_per_rank
+    unit: GFLOP/s per rank
+    statistic: solve-time-weighted median
+    value: 4224.9
+    min: 4193.7
+    max: 4249.6
+    solves: 3
+    runs: 1
+  evidence: reproduced
+  observations: 3
+  observed: '2026-10-11'
+  sources:
+  - operator-submitted probe run, three jobs on 2026-10-11, reviewed in the working directory; raw outputs are not
+    committed
 - id: campaign-multishift-10-masses
   kind: campaign
   stack: machines/deltaai/stacks/milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4/stack.yaml

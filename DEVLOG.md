@@ -6870,3 +6870,46 @@ limits": *amended*. `machines/deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q3
 one-node application validation fits DeltaAI's interactive limits": *confirmed*. The
 `partition: ghx4-interactive` records in three DeltaAI `stack.yaml` files, all one-node runs:
 *confirmed*.
+
+## 2026-10-11 — DeltaAI probe rows, and the probe in both production stacks' validation
+
+The staggered-CG throughput probe 1.1.0 ran on DeltaAI on the production build, in three
+operator-submitted jobs: one GPU and one node, and two nodes, on `ghx4-interactive`; four nodes on
+`ghx4`, since the interactive queue takes at most two. All 28 legs completed. The three jobs
+recorded identical library hashes, executables and manifest, equal to the QUDA stack's
+`installed_libraries`, and `tools/milc-quda-cg-probe.py analyze` over their outputs together found
+no error, so its eight draft rows enter `machines/deltaai/performance.yaml` beside the campaign
+rows. A contract and prediction were written in the working directory before any job ran.
+
+Two results missed the prediction. **The one-GPU and one-node rates were above their intervals**:
+the prediction scaled Horizon's probe rows by 0.51, the ratio of the two machines' light-mass
+campaign rows, which sit at different placements (one board with nothing off node on Horizon, two
+nodes with t off node here). At like placements the ratio is 0.60–0.70, and 0.54 for 12 RHS on
+four nodes; `performance.md` now sends a cross-machine comparison through the probe rows.
+**QUDA's 12-RHS invert test ran 17 % below MILC on four nodes**, against agreement within 2 % at
+every other point and leg, warm and with about 1 % spread. One run cannot say whether it repeats,
+so `performance.md` states it as an observation without a cause; the MILC row at that point is
+inside its predicted interval.
+
+The probe's QUDA legs give the QUDA stack its first test-executable validation, host-verified on
+one GPU, with true residual and rank order checked on the multi-rank points. Its consistency leg
+gives `ks_spectrum_hisq` a cross-geometry check: plaquettes within 1.4e-15 relative and pion
+correlators within 2.2e-19 of the correlator scale across the four points, close but not
+bit-identical as Horizon's were.
+
+**Reconciliation.** `machines/deltaai/performance.md`: "No probe rows exist yet … has not been run
+on DeltaAI" *deleted*; "Locating a drop. Once probe rows exist …" and "How tight the reference is"
+*amended*; the two campaign-row bullets *confirmed*. `quda-cuda12-milc-cg-mrhs-tile3-2026q4`: scope
+limit "No QUDA test executable was run on this build …" *deleted*, replaced by the
+host-verification limit; "Validated on two- and three-node layouts only; no single-GPU or
+single-node point" *deleted*; the notes' "No QUDA test executable ran on this build, so nothing was
+host-verified" *amended*; `gdr_confirmed_by` and `resource_path` *amended*; the tile, QIO,
+binary-reduction and eigensolver limits *confirmed*.
+`milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4`: scope limit "Each was validated by production runs
+only, with no cross-geometry consistency check" *amended* (`ks_spectrum_hisq` now has one, the
+GB-baryon target still none); the notes' "There was no cross-geometry consistency check" *amended*;
+the LDFLAGS, baryon-fix and exercised-paths limits *confirmed*. The entry above found
+`ghx4-interactive` recorded only on one-node stacks; both production stacks now record it for probe
+points of at most two nodes, within `MaxNodes=2`: *confirmed*.
+`software/milc/probes/staggered-cg-throughput.md`: untouched; its reading rules held and it names no
+machine's results.

@@ -104,13 +104,17 @@ validation:
   reviewed_by: agent
   result: pass
   resources:
-    nodes: 3
+    nodes: 4
     accelerator: NVIDIA GH200 120GB
     accelerator_memory_mib: 97871
     compute_capability: "9.0"
-    partition: ghx4
+    partition: ghx4 for the campaigns and the four-node probe point; ghx4-interactive for the other probe points (same nodes, a different queue)
     exclusive: true
     legs:
+      - {name: probe-device, executable: ks_spectrum_hisq, nodes: 1, mpi_ranks: 1, node_geometry: [1, 1, 1, 1], launch: "srun -n 1, 32 cores bound"}
+      - {name: probe-node, executable: ks_spectrum_hisq, nodes: 1, mpi_ranks: 4, node_geometry: [2, 2, 1, 1]}
+      - {name: probe-2-nodes, executable: ks_spectrum_hisq, nodes: 2, mpi_ranks: 8, node_geometry: [2, 2, 1, 2], dimensions_off_node: [t]}
+      - {name: probe-4-nodes, executable: ks_spectrum_hisq, nodes: 4, mpi_ranks: 16, node_geometry: [2, 2, 2, 2], dimensions_off_node: [z, t]}
       - {name: fpi, executable: ks_spectrum_hisq, nodes: 3, mpi_ranks: 12, node_geometry: [1, 1, 4, 3]}
       - {name: specnd, executable: ks_spectrum_hisq, nodes: 2, mpi_ranks: 8, node_geometry: [1, 1, 2, 4]}
       - {name: omega, executable: ks_spectrum_hisq_gb_baryon_blind_no_sink_links, nodes: 2, mpi_ranks: 8, node_geometry: [1, 2, 2, 2]}
@@ -128,16 +132,30 @@ validation:
     OMP_PROC_BIND: spread, spread, spread
     gpu_binding: None; every rank sees all four devices and QUDA selects the device by local rank.
     cpu_binding: Thirty-two cores per rank, bound to cores (SLURM_CPU_BIND=cores); the first runs showed one NUMA domain and NIC per rank.
-    quda_resource_path: One tunecache per campaign, populated by a first tuning run and then read.
+    quda_resource_path: One tunecache per campaign, populated by a first tuning run and then read; for the probe, a fresh, job-private tunecache per job, filled by a tuning pass before the measured pass.
+    loaded_libraries: the probe jobs recorded libquda, libqmp, libqio and liblime, equal to the composed stack's installed_libraries
     linked_quda: RPATH resolves libquda, libqmp, libqio and liblime from the composed install prefix, whose files the QUDA stack hashes.
   tests:
+    - name: probe_throughput_legs
+      input: the staggered-CG throughput probe's MILC inputs (software/milc/probes/staggered-cg-throughput.md), proofread clean through tools/milc-proofread-input.sh
+      local_lattice: [40, 40, 40, 40]
+      solves_per_leg: 10, 6 single and 4 blocks of 12 right-hand sides through the multicolorsource path
+      terminal_marker: RUNNING COMPLETED in every leg
+      convergence: every solve reported converged at the 1e-8 target
+      result: pass
+    - name: probe_consistency_leg
+      global_lattice: [24, 24, 24, 48]
+      geometries: [1, 4, 8, 16 ranks]
+      plaquette: equal within 1.4e-15 relative at every geometry
+      correlators: both pion files agree with the one-rank leg at every geometry within 2.2e-19 of the correlator scale; not bit-identical
+      result: pass
     - name: production_benchmark
       workload: three production campaigns on an 80³×144 HISQ ensemble, 10 configurations each, one batch job per campaign
       checks: per configuration, the batch's own completion status, scheduler step COMPLETED, every input set completed and every solve converged by tools/extract-milc-timings.py 1.2.0, and the campaign tunecache read and not rewritten
       configurations_accepted: 30 of 30
       result: pass
   scope_limits:
-    - Both targets passed the build-record check. Each was validated by production runs only, with no cross-geometry consistency check.
+    - Both targets passed the build-record check. ks_spectrum_hisq was validated by the probe, with its cross-geometry consistency check, and by the production benchmark; ks_spectrum_hisq_gb_baryon_blind_no_sink_links by the production benchmark only, with no cross-geometry check.
     - The MILC commit is on fix/baryon-normalization, one commit on develop 6b9b8a06 that reduces KS baryon correlators over ranks once; the commit has since reached develop.
     - Plain and multi-right-hand-side CG and multi-shift CG only. Deflation, QIO file writes, gauge-force and fermion-force paths were compiled but not exercised.
     - The build script passes its make variables through the environment, not on the make command line, so the Makefile's own OpenMP additions are appended to LDFLAGS and the link line carries -fopenmp -lgomp; the same -g passed on the command line replaces them and does not link (milc-cuda12-quda-ks-spectrum-2026q4).
@@ -159,4 +177,4 @@ observed_on:
     host_compiler: GNU 14.2.0 through Cray wrappers
 sources:
   - https://github.com/milc-qcd/milc_qcd/commit/6bd16fce292a3bda9d65b426b3d263ee184d3a9a
-  - operator-run builds and production runs reviewed in the working directory; raw scheduler output is not committed
+  - operator-run builds, production runs and probe runs reviewed in the working directory; raw scheduler output is not committed

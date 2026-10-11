@@ -89,8 +89,8 @@ validation:
   reviewed_by: agent
   result: pass
   resources:
-    nodes: 3
-    mpi_ranks: 12
+    nodes: 4
+    mpi_ranks: 16
     ranks_per_node: 4
     cpus_per_rank: 32
     gpus_per_rank: 1
@@ -98,14 +98,14 @@ validation:
     accelerator: NVIDIA GH200 120GB
     accelerator_memory_mib: 97871
     compute_capability: "9.0"
-    partition: ghx4
+    partition: ghx4 for the campaigns and the four-node probe point; ghx4-interactive for the other probe points (same nodes, a different queue)
     exclusive: true
-    launcher: srun -K, 4 tasks per node, SRUN_CPUS_PER_TASK=32, SLURM_CPU_BIND=cores, all four GPUs visible to every rank
-    rank_grids: [[1, 1, 4, 3], [1, 1, 2, 4], [1, 2, 2, 2]]
+    launcher: srun -K, 4 tasks per node, SRUN_CPUS_PER_TASK=32, SLURM_CPU_BIND=cores, all four GPUs visible to every rank; the probe's one-rank point runs srun -n 1 with the same binding
+    rank_grids: [[1, 1, 4, 3], [1, 1, 2, 4], [1, 2, 2, 2], [1, 1, 1, 1], [2, 2, 1, 1], [2, 2, 1, 2], [2, 2, 2, 2]]
   runtime:
     communication: QMP over Cray MPICH
     QUDA_ENABLE_GDR: 1
-    gdr_confirmed_by: the campaign tunecaches hold dslash policy keys with gdr=1 and p2p=7
+    gdr_confirmed_by: the campaign tunecaches and every probe job's tunecache hold dslash policy keys with gdr=1 and p2p=7
     QUDA_ENABLE_P2P: unset (deliberately)
     QUDA_DETERMINISTIC_REDUCE: unset (deliberately)
     QUDA_MILC_HISQ_RECONSTRUCT: 13
@@ -116,8 +116,25 @@ validation:
     OMP_PROC_BIND: spread, spread, spread
     gpu_binding: None; every rank sees all four devices and QUDA selects the device by local rank.
     cpu_binding: Thirty-two cores per rank, bound to cores (SLURM_CPU_BIND=cores); the first runs showed one NUMA domain and NIC per rank.
-    resource_path: One tunecache per campaign, populated by a first tuning run and then read.
+    resource_path: One tunecache per campaign, populated by a first tuning run and then read; for the probe, a fresh, job-private tunecache per job, filled by a tuning pass before the measured pass.
+    test_executables: Installed bin tests.
   tests:
+    - name: staggered_invert_test_one_gpu_host_verified
+      arguments: --dslash-type hisq --inv-type cg --prec double --prec-sloppy half --recon 13 --recon-sloppy 9 --mass 0.01 --tol 1e-8 --verify true, row-major rank order
+      local_lattice: [40, 40, 40, 40]
+      solves: 54, 6 one at a time and 48 in blocks of 12 through invertMultiSrcQuda (--nsrc-tile 12)
+      iterations: 2559-2566
+      maximum_host_l2_relative_residual: 9.999007e-9
+      result: pass
+    - name: staggered_invert_test_multi_rank
+      arguments: as the one-GPU test, without host verification
+      points: [4 ranks on one node, 8 ranks on two nodes, 16 ranks on four nodes]
+      local_lattice: [40, 40, 40, 40]
+      solves: 54 per point
+      iterations: 2562-2585
+      maximum_true_l2_relative_residual: 9.998229e-9
+      rank_order: every log prints row major, matching MILC's
+      result: pass
     - name: production_ks_spectrum_multi_node
       workload: three production ks_spectrum campaigns on an 80³×144 HISQ ensemble, through the MILC interface (see milc-cuda12-quda-mrhs-tile3-ks-spectrum-2026q4)
       points: [12 ranks on three nodes (1 1 4 3), 8 ranks on two nodes (1 1 2 4 and 1 2 2 2)]
@@ -126,12 +143,11 @@ validation:
       configurations_checked: 30, 10 per campaign
       result: pass
   scope_limits:
-    - No QUDA test executable was run on this build; the validation is the MILC-interface path only, with no host verification.
+    - Host verification ran on one GPU only; the multi-rank points checked convergence and the true residual QUDA reports, and the composed MILC stack's cross-geometry consistency checks the multi-rank results.
     - QUDA_MAX_MULTI_RHS_TILE is 3; the tile is a build option and a stack built without it is a different stack.
     - QIO was exercised only through MILC's gauge-file reads (reload_mpiio does not use QIO); no QIO write was exercised.
     - The installed libqmp's QMP_binary_reduction sums multi-byte values wrongly on more than one rank (software/qmp/binary-reduction.md).
     - The profile compiled eigensolver support, but no eigensolve or deflated solve was exercised.
-    - Validated on two- and three-node layouts only; no single-GPU or single-node point.
 evidence: experiment
 observed: "2026-10-11"
 observed_on:
@@ -146,4 +162,4 @@ observed_on:
     host_compiler: GNU 14.2.0 through Cray wrappers
 sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt
-  - operator-run build and production runs reviewed in the working directory; raw scheduler output is not committed
+  - operator-run build, production runs and probe runs reviewed in the working directory; raw scheduler output is not committed
