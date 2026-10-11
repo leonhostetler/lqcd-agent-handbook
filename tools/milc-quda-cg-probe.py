@@ -45,7 +45,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 ROOT = Path(__file__).resolve().parents[1]
 COMPARE = ROOT / "tools" / "milc-compare-fnal-correlators.py"
 
@@ -407,7 +407,10 @@ def compare_correlators(pair: int, paths: list[Path], report: dict[str, Any]) ->
 
 
 def library_rows(path: Path | None, prefix: Path | None, report: dict[str, Any]) -> list[dict[str, str]]:
-    """Lines '<absolute path> <sha256>' recorded by the job, made relative to the install prefix."""
+    """Lines '<absolute path> <sha256>' recorded by the job, made relative to the install prefix.
+
+    A library listed more than once (ldd can name one twice) is kept once, in first-seen order.
+    """
     if path is None:
         return []
     rows = []
@@ -420,7 +423,9 @@ def library_rows(path: Path | None, prefix: Path | None, report: dict[str, Any])
         except ValueError:
             report["errors"].append(f"loaded library {Path(library).name} is outside the install prefix")
             continue
-        rows.append({"path": str(relative), "sha256": digest})
+        entry = {"path": str(relative), "sha256": digest}
+        if entry not in rows:
+            rows.append(entry)
     return rows
 
 

@@ -225,7 +225,8 @@ class AnalyzeTests(ProbeCase):
         prefix = self.base / "install"
         (prefix / "lib").mkdir(parents=True)
         (prefix / "lib" / "libquda.so").write_bytes(b"quda")
-        libraries.write_text(f"{prefix}/lib/libquda.so {'a' * 64}\n")
+        # the job's ldd listing can name a library twice; a row lists it once
+        libraries.write_text(f"{prefix}/lib/libquda.so {'a' * 64}\n" * 2)
         status, report = self.analyze(None, "--stack", "machines/m/stacks/milc-x/stack.yaml",
                                       "--loaded-libraries", str(libraries), "--install-prefix", str(prefix))
         self.assertEqual(status, 0, report["errors"])

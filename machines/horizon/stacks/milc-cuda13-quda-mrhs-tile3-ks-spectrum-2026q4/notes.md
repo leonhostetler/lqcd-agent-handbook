@@ -38,4 +38,6 @@ field at all four geometries, gave plaquettes equal within 1e-14 and pion correl
 printed precision. MILC's printed NERSC `CKSUM` differed between geometries; that is QMP's
 reduction, not the field
 ([`../../../../software/qmp/binary-reduction.md`](../../../../software/qmp/binary-reduction.md)).
-Only the `ks_spectrum_hisq` target was built by the checked command.
+Both profile targets passed the build-record check. Thirty production configurations, ten each from
+three campaigns on one and two boards, also passed their correctness checks, among them the
+`ks_spectrum_hisq_gb_baryon_blind_no_sink_links` target's only validation.

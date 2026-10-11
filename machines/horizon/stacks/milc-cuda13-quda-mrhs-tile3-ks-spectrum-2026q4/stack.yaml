@@ -83,6 +83,18 @@ build:
         - the MILC source checkout at the tested commit
       errors: 0
       undecided: 0
+    - tool: tools/check-stack-build-record.py
+      version: 1.0.0
+      date: "2026-10-10"
+      mode: make
+      target: ks_spectrum_hisq_gb_baryon_blind_no_sink_links
+      evidence:
+        - the second build script, read after the build; it passes the same make variables and its log does not echo the make command
+        - ks_spectrum/Makefile of the checkout
+        - the make log, whose header names the tested MILC commit
+        - the MILC source checkout at the tested commit
+      errors: 0
+      undecided: 0
 validation:
   date: "2026-10-10"
   submitted_by: operator
@@ -129,8 +141,13 @@ validation:
       plaquette: equal within 1e-14 relative at every geometry
       correlators: both pion files identical at every geometry to the files' printed precision (largest difference 0 against the one-rank leg)
       result: pass
+    - name: production_benchmark
+      workload: three production campaigns on an 80³×144 HISQ ensemble, 10 configurations each; ks_spectrum_hisq on 2 boards (8 ranks, node_geometry 1 1 2 4) and 1 board (4 ranks, 1 1 2 2), ks_spectrum_hisq_gb_baryon_blind_no_sink_links on 1 board (4 ranks, 1 1 2 2)
+      checks: per configuration, completion, convergence of every solve, the exact set of correlator records, and the job's records, by the working directory's benchmark checker
+      configurations_accepted: 30 of 30
+      result: pass
   scope_limits:
-    - Validated through ks_spectrum_hisq with the probe's warm-start inputs. The profile's other target, ks_spectrum_hisq_gb_baryon_blind_no_sink_links, was not built by the checked make command.
+    - Both targets passed the build-record check. ks_spectrum_hisq was validated by the probe and the production benchmark; ks_spectrum_hisq_gb_baryon_blind_no_sink_links by the production benchmark only, with no cross-geometry check.
     - MILC's printed NERSC CKSUM differs between geometries for one field on this stack; it is QMP's binary-reduction defect (software/qmp/binary-reduction.md), not the field, and the plaquette and correlators agree.
     - Plain and multi-right-hand-side CG only. Deflation, QIO file I/O, Gaussian smearing, gauge-force and fermion-force paths were compiled but not exercised. Multi-rank QIO writes are unsafe on $HOME and $SCRATCH (software/qio/parallel-singlefile-writes.md).
     - Validated on the early-access layout, where one scheduler node is a four-GPU NVL4 board.

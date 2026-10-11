@@ -6730,3 +6730,38 @@ cross-geometry consistency leg.
 compute nodes reach the network was not established": *amended*; this build configured in a batch
 job and downloaded its dependencies. `ROADMAP.md` 4.8: *amended*. `tests/support.py`
 `EXPECTED_SCHEMA_OBJECTS`: *amended*, 44 to 46 for the two stack records.
+
+## 2026-10-10 — Horizon's first performance references
+
+Part of obligation 4.8. `machines/horizon/performance.yaml` holds the eight probe rows of the
+Horizon probe run (four points, 1 and 12 RHS, probe 1.1.0), drafted by
+`tools/milc-quda-cg-probe.py analyze` and completed by hand only where the tool leaves
+placeholders: the device, the binding, the date and the source. Each row names the MILC stack;
+the validator admitted them because both stacks carry record checks and the loaded libraries
+match the QUDA stack's recorded hashes. `machines/horizon/performance.md` holds the reading and
+the generated table.
+
+**A tool defect, fixed.** The job's library listing names each library twice, because `ldd`
+reports it twice, and the drafted rows repeated them; the schema requires unique entries. Tool
+1.2.1 keeps each library once. The drafting test now feeds a doubled listing; against 1.2.0 it
+fails. `tests/test_performance_references.py`'s missing-page case now removes Horizon's real
+page before writing rows without one, and `tests/support.py` counts 47 schema objects.
+
+**Campaign rows**, after the operator's class decision to admit them (§ensemble-numbers; the
+decision is recorded in the working directory). Row ids and workloads name no campaign. Three rows from the confirmatory production
+benchmark, 10 configurations per campaign: one campaign's multi-shift solves, another's light-mass
+3-RHS solves and a third's 9-RHS solves. Solves under 1,000 iterations are left out, because they
+measure per-call overhead: charm-mass solves of about 100 iterations ran between 2,700 and 7,800
+GFLOP/s across identical calls. The multi-shift row records double-single: MILC's multi-shift QUDA path
+uses half precision only above a residual of 3e-5. The benchmark jobs did not list their loaded
+libraries, so each row's library evidence is the executable's hash and run path.
+
+**The MILC stack, amended.** One campaign runs the profile's second target, built by a second script with
+the same 30 make variables; its build-record check found 0 errors, and the stack now carries it as
+a second record check. The production benchmark (30 of 30 configurations accepted) is added to the
+stack's validation, as the second target's only one; its scope limit and notes are amended.
+
+**Reconciliation.** `ROADMAP.md` 4.8: *amended*, complete. The MILC stack's scope limit "was not
+built by the checked make command": *amended*. `software/milc/probes/staggered-cg-throughput.md`,
+"it also prints draft `performance.yaml` rows whose device, binding, date and source still need
+filling in": *confirmed*.

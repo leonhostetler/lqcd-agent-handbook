@@ -252,6 +252,7 @@ class PerformanceReferenceTests(unittest.TestCase):
 
     def test_rejects_rows_without_a_page(self):
         self.write([row()], generate=False, page=False)
+        (self.copy / "machines/horizon/performance.md").unlink(missing_ok=True)  # Horizon has a real page
         self.assert_error("missing; performance.yaml needs a page")
 
     def test_rejects_a_page_without_the_markers(self):
