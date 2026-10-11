@@ -6765,3 +6765,40 @@ stack's validation, as the second target's only one; its scope limit and notes a
 built by the checked make command": *amended*. `software/milc/probes/staggered-cg-throughput.md`,
 "it also prints draft `performance.yaml` rows whose device, binding, date and source still need
 filling in": *confirmed*.
+
+## 2026-10-10 — Solver selection: deflated CG has DeltaAI path evidence
+
+`software/quda/solvers/staggered-solver-selection.md` said no stack exercised deflated CG and
+called it runtime-unvalidated. The DeltaAI `quda-cuda12-milc-cg-2026q4` and
+`milc-cuda12-quda-ks-spectrum-2026q4` stacks, admitted 2026-10-07, both ran an eigensolve and a
+deflated solve, and ROADMAP obligation 5.1 already said so. The table's deflated-CG row and the
+sentence closing the multigrid paragraph now describe that evidence and its limits, and the leaf
+cites both stack records. Found in review, not from a run.
+
+**Reconciliation.**
+- `staggered-solver-selection.md`, the deflated-CG table row and "Deflated CG remains compiled
+  but runtime-unvalidated": *amended*.
+- `staggered-solver-selection.md`, gate 2 (linked, native-harness, or compiled-only):
+  *confirmed*; generic.
+- `software/quda/solvers/staggered-deflated-cg.md`, "the stack has validated both the
+  eigensolve and the deflated solve": *confirmed*; a precondition, not a catalog claim.
+- `playbooks/tune-solver.md`, "Keep compiled-only candidates explicitly labelled as
+  experimental": *confirmed*; generic.
+- `software/quda/internals/milc-deflation-space.md`, "no validated stack yet covers the
+  exact-current path": *confirmed*; neither DeltaAI stack ran exact current.
+- The other stacks' `scope_limits` saying no deflated solve was exercised: *confirmed*; each is
+  true of its own stack.
+
+## 2026-10-10 — QUDA README: linked MILC multigrid is validated
+
+`software/quda/README.md` said the `mg-staggered` profile's Perlmutter stack "does not validate
+linked MILC multigrid", true of that stack but read as a statement about the catalog, which since
+the linked-MILC MG stack does validate one hierarchy through MILC. The sentence now names the
+native stack and points to the linked one.
+
+**Reconciliation.**
+- `software/quda/README.md`, "it does not validate linked MILC multigrid": *amended*.
+- `software/quda/build-profiles.yaml`, `mg-staggered` notes: *confirmed*; already names both stacks.
+- `software/quda/solvers/staggered-solver-selection.md`, the multigrid row and the two-stack
+  paragraph: *confirmed*.
+- `playbooks/tune-solver.md`, the native-seed and linked-stack paragraph: *confirmed*.

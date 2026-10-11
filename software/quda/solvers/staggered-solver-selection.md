@@ -9,6 +9,8 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/solver.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
   - https://github.com/leonhostetler/lqcd-agent-handbook/blob/7abade7bc3a2c1ca6ce33027dca2691970cbcbb2/machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/stack.yaml
+  - https://github.com/leonhostetler/lqcd-agent-handbook/blob/e3231ea22d190127499eb35d8f8758020f79e5c9/machines/deltaai/stacks/quda-cuda12-milc-cg-2026q4/stack.yaml
+  - https://github.com/leonhostetler/lqcd-agent-handbook/blob/e3231ea22d190127499eb35d8f8758020f79e5c9/machines/deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q4/stack.yaml
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c
@@ -41,7 +43,7 @@ selection procedure.
 | Candidate | Mathematical path | Reusable state | Current handbook coverage and remaining gate |
 |---|---|---|---|
 | Plain CG | selected-parity Hermitian staggered normal equation | no eigenspace or hierarchy; ordinary process and autotuning state may still recur | `milc-cg` and `ks-spectrum-hisq-quda` compile the path; native QUDA and linked MILC stacks exercise plain CG with true-residual checks |
-| Deflated CG | the same selected-parity normal equation with a low-mode projection attached to native CG | an eigenspace valid for the exact links, action, parity, mass-shift contract, and interface lifecycle | `milc-cg`, `mg-staggered`, and `ks-spectrum-hisq-quda` compile the path, but no current stack exercises eigensolve or load, projection, deflated solve, or reuse; treat it as experimental |
+| Deflated CG | the same selected-parity normal equation with a low-mode projection attached to native CG | an eigenspace valid for the exact links, action, parity, mass-shift contract, and interface lifecycle | `milc-cg`, `mg-staggered`, and `ks-spectrum-hisq-quda` compile the path; the DeltaAI `milc-cg` and `ks-spectrum-hisq-quda` stacks exercise a fresh eigensolve and deflated solve, natively and through the MILC caller, on random fields only; no stack validates reuse across gauge configurations or deflation on a physical ensemble, so treat it as experimental beyond that path |
 | Multigrid | full staggered system solved by outer GCR with a multigrid preconditioner | a hierarchy valid for the exact operator, parameter set, update policy, and decomposition | `mg-staggered` and the Perlmutter CUDA 13 native stack validate one unit-gauge hierarchy and solve; `ks-spectrum-hisq-quda-mg` and the Perlmutter linked-MILC MG stack additionally validate one production-gauge hierarchy through the MILC caller, with stored setup state loaded rather than generated |
 
 Reject a candidate before performance work when its mathematical path does not satisfy
@@ -61,8 +63,19 @@ Neither licenses a different hierarchy, placement, level count, or node type, an
 benchmark evidence: the native run populated a fresh tunecache and the linked run reused a
 warm one. The linked stack additionally loaded stored near-null and eigenvector sets, so
 hierarchy setup from scratch is not what it validates, and its repeatability gate was met by
-an operator-accepted substitute rather than by a repeat. Deflated CG remains compiled but
-runtime-unvalidated in the current catalog.
+an operator-accepted substitute rather than by a repeat.
+
+Deflated CG has path evidence on DeltaAI only, again in two layers. The native
+[`quda-cuda12-milc-cg-2026q4` stack](../../../machines/deltaai/stacks/quda-cuda12-milc-cg-2026q4/notes.md)
+ran one QUDA eigensolve and deflated solve. The
+[linked-MILC `milc-cuda12-quda-ks-spectrum-2026q4` stack](../../../machines/deltaai/stacks/milc-cuda12-quda-ks-spectrum-2026q4/notes.md)
+ran a fresh eigensolve and converged deflated solves for the first input set of a process
+only: a later input set in the same process deflated with the first set's eigenvectors and
+failed silently, so one gauge configuration per process is part of that stack's validated
+scope. [`../internals/milc-deflation-space.md`](../internals/milc-deflation-space.md) owns the
+mechanism and the cleanup that removes it. Both runs used random fields with test-chosen
+eigensolver parameters: they show the path executes and converges, not that deflation pays
+for itself on a production workload, and no stack has deflated on a physical ensemble.
 
 Apply memory, local-geometry, decomposition, and operator-lifecycle constraints before
 timing. Failure to fit, an invalid aggregation hierarchy, or an eigenspace that cannot

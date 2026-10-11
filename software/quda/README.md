@@ -25,8 +25,10 @@ Keep the software name and build profile separate. `quda` identifies the project
 `milc-cg` identifies the option set that exposes the MILC interface and plain or deflated
 staggered CG capability. QMP and QIO are dependencies selected by that profile, so they
 do not belong in the profile slug. `mg-staggered` adds multigrid kernels and records plain and deflated
-CG as compiled capabilities in the same library. Its current Perlmutter stack validates a
-native GCR-MG harness only; it does not validate linked MILC multigrid.
+CG as compiled capabilities in the same library. Its Perlmutter `quda-cuda13-mg-staggered-2026q3`
+stack validates QUDA's native GCR-MG harness only. Linked MILC multigrid is validated
+separately, for one hierarchy, by the
+[linked-MILC MG stack](../../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md).
 
 Use `project.yaml` for intrinsic capabilities and option meanings,
 `build-profiles.yaml` for named option sets, and `build.md` for the software-specific build
