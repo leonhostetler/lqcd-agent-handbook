@@ -1,0 +1,155 @@
+schema_version: 1
+machine: horizon
+software: milc
+profile: ks-spectrum-hisq-quda
+validated_on:
+  - gpu-gb200
+tested_software:
+  milc:
+    commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+    branch: develop
+  quda:
+    commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+tested_toolchain:
+  modules: [nvidia/26.9, cuda/13.3, openmpi/5.0.11, ucx/1.22.0]
+  host_compiler:
+    module: nvidia/26.9
+    version: NVHPC 26.9 (nvc, nvc++)
+    wrappers:
+      c: mpicc
+      cxx: mpicxx
+  cuda:
+    module: cuda/13.3
+    runtime_version: 13.3
+  driver: 595.71.05 (CUDA driver API 13.2; the 13.3 runtime ran under minor-version compatibility)
+  mpi:
+    module: openmpi/5.0.11
+    transport: UCX 1.22.0 from the loaded ucx module; libmpi carries no run path to UCX
+build:
+  type: optimized double precision with debug information
+  target: CUDA
+  gpu_arch: sm_100
+  generator: GNU Make
+  install_layout: <milc-checkout>/ks_spectrum/ks_spectrum_hisq
+  profile_options_from: software/milc/build-profiles.yaml#ks-spectrum-hisq-quda
+  portable_recipe: software/milc/applications/ks-spectrum.md
+  machine_options:
+    OFFLOAD: CUDA
+    MY_CC: mpicc
+    MY_CXX: mpicxx
+    COMPILER: gnu
+    ARCH: ""
+    GPU_ARCH: nvidia
+    OPT: -O3 -Ofast -g
+    LDFLAGS: -g -fopenmp -lcuda -lnvidia-ml
+    QUDA_HOME: <quda-install-prefix>
+    QMPPAR: <quda-install-prefix>
+    QIOPAR: <quda-install-prefix>
+    WANT_KS_CONT_GPU: false
+    WANTPRIMME: false
+  dependency_acquisition:
+    mode: existing validated QUDA stack installation
+    composed_profile: software/quda/build-profiles.yaml#milc-cg-mrhs-tile3
+    validated_stack: machines/horizon/stacks/quda-cuda13-milc-cg-mrhs-tile3-2026q4/stack.yaml
+    network_required: false
+  cost:
+    where: batch
+    command: make -j 1 ks_spectrum_hisq
+    parallelism: 1
+    wallclock: not measured
+    timing_scope: Clean, then the application objects, dependent MILC libraries and final link, in the batch job that built the QUDA stack; not timed.
+    maximum_reported_rss_kib: not measured
+    memory_scope: Not measured.
+  record_checks:
+    - tool: tools/check-stack-build-record.py
+      version: 1.0.0
+      date: "2026-10-10"
+      mode: make
+      target: ks_spectrum_hisq
+      evidence:
+        - the build script, read after the build; its log does not echo the make command
+        - ks_spectrum/Makefile of the checkout
+        - the make log, whose header names the tested MILC commit
+        - the MILC source checkout at the tested commit
+      errors: 0
+      undecided: 0
+validation:
+  date: "2026-10-10"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 4
+    accelerator: NVIDIA GB200
+    accelerator_memory_mib: 189471
+    compute_capability: "10.0"
+    scheduler_node: Early access; one scheduler node was a four-GPU NVL4 board (see the composed QUDA stack).
+    partition: debug
+    exclusive: true
+    legs:
+      - {name: device, mpi_ranks: 1, node_geometry: [1, 1, 1, 1], launch: "ibrun -n 1 -o 0, unbound, OMP_PROC_BIND=false"}
+      - {name: node, mpi_ranks: 4, node_geometry: [2, 2, 1, 1], launch: "full allocation, --map-by slot:PE=36 --bind-to core"}
+      - {name: 2-nodes, mpi_ranks: 8, node_geometry: [2, 2, 1, 2], dimensions_off_node: [t], launch: as node}
+      - {name: 4-nodes, mpi_ranks: 16, node_geometry: [2, 2, 2, 2], dimensions_off_node: [z, t], launch: as node}
+  runtime:
+    communication: QMP over Open MPI 5.0.11 with UCX 1.22.0
+    UCX_TLS: unset (deliberately; UCX default transport list)
+    QUDA_ENABLE_GDR: 1
+    QUDA_ENABLE_P2P: unset (deliberately)
+    QUDA_DETERMINISTIC_REDUCE: unset (deliberately)
+    QUDA_MILC_HISQ_RECONSTRUCT: 13
+    QUDA_MILC_HISQ_RECONSTRUCT_SLOPPY: 9
+    OMP_NUM_THREADS: 32
+    OMP_PROC_BIND: false for the one-rank leg, which ibrun leaves unbound; spread for the bound legs
+    OMP_PLACES: cores
+    gpu_binding: None; CUDA_VISIBLE_DEVICES unset, QUDA selects the device by local rank.
+    quda_resource_path: A fresh, job-private tunecache per job, filled by a tuning pass before the measured pass.
+    loaded_libraries: libquda, libqmp and libqio as recorded by every job, equal to the composed stack's installed_libraries
+  tests:
+    - name: probe_throughput_legs
+      input: the staggered-CG throughput probe's MILC inputs (software/milc/probes/staggered-cg-throughput.md), proofread clean through tools/milc-proofread-input.sh
+      local_lattice: [40, 40, 40, 40]
+      solves_per_leg: 10, 6 single and 4 blocks of 12 right-hand sides through the multicolorsource path
+      terminal_marker: RUNNING COMPLETED in every leg
+      convergence: every solve reported converged at the 1e-8 target
+      result: pass
+    - name: probe_consistency_leg
+      global_lattice: [24, 24, 24, 48]
+      geometries: [1, 4, 8, 16 ranks]
+      plaquette: equal within 1e-14 relative at every geometry
+      correlators: both pion files identical at every geometry to the files' printed precision (largest difference 0 against the one-rank leg)
+      result: pass
+  scope_limits:
+    - Validated through ks_spectrum_hisq with the probe's warm-start inputs. The profile's other target, ks_spectrum_hisq_gb_baryon_blind_no_sink_links, was not built by the checked make command.
+    - MILC's printed NERSC CKSUM differs between geometries for one field on this stack; it is QMP's binary-reduction defect (software/qmp/binary-reduction.md), not the field, and the plaquette and correlators agree.
+    - Plain and multi-right-hand-side CG only. Deflation, QIO file I/O, Gaussian smearing, gauge-force and fermion-force paths were compiled but not exercised. Multi-rank QIO writes are unsafe on $HOME and $SCRATCH (software/qio/parallel-singlefile-writes.md).
+    - Validated on the early-access layout, where one scheduler node is a four-GPU NVL4 board.
+evidence: experiment
+observed: "2026-10-10"
+observed_on:
+  machine: horizon
+  node_type: gpu-gb200
+  software:
+    milc:
+      commit: a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785
+      branch: develop
+    quda:
+      commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
+      branch: develop
+  toolchain:
+    cuda: "13.3"
+    host_compiler: NVHPC 26.9 through Open MPI 5.0.11 wrappers
+    ucx: 1.22.0
+sources:
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L517-L529
+  - operator-submitted build and probe runs reviewed in the working directory; raw scheduler output is not committed

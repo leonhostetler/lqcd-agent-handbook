@@ -52,7 +52,9 @@ cmake --build "$QUDA_BUILD_DIR" --target install --parallel 64
 ```
 
 Configure on a login node: it downloads QMP, QIO, Eigen and CCCL, and whether compute nodes
-reach the network was not established. Build on a compute node; the login node's conduct rules
+reach the network was not established when this stack was built. They did on 2026-10-09, when
+[`quda-cuda13-milc-cg-mrhs-tile3-2026q4`](../quda-cuda13-milc-cg-mrhs-tile3-2026q4/notes.md)
+configured in a batch job. Build on a compute node; the login node's conduct rules
 rule out this parallelism. The cache shows `CMAKE_CUDA_ARCHITECTURES=75` beside
 `QUDA_GPU_ARCH=sm_100`. That is a leftover default: QUDA sets the architecture on its own
 library target, which compiles `compute_100`/`sm_100`, and it is the only target that compiles

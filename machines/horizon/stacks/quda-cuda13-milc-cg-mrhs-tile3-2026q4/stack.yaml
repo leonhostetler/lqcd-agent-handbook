@@ -1,0 +1,166 @@
+schema_version: 1
+machine: horizon
+software: quda
+profile: milc-cg-mrhs-tile3
+validated_on:
+  - gpu-gb200
+tested_software:
+  quda:
+    commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
+    branch: develop
+tested_dependencies:
+  qmp:
+    commit: 3010fef5b5784b3e6eeec9fff38cb9954a28ad42
+    requested_revision: 3010fef
+    branch_context: Detached revision selected by QUDA; no branch asserted.
+  qio:
+    commit: 273841537392f9465d229c957228755e923408eb
+    requested_revision: qio3-0-0
+    branch_context: Tag selected by QUDA; no branch asserted.
+  eigen:
+    version: 3.4.0
+    requested_revision: e67c494cba7180066e73b9f6234d0b2129f1cdf5, an archive URL selected by QUDA
+  cccl:
+    commit: 413d2efd811ebb2ca0333a281d04a2de838ecad6
+    requested_revision: v3.3.4
+    branch_context: Tag selected by QUDA; no branch asserted.
+tested_toolchain:
+  modules: [nvidia/26.9, cuda/13.3, openmpi/5.0.11, ucx/1.22.0]
+  host_compiler:
+    module: nvidia/26.9
+    version: NVHPC 26.9 (nvc, nvc++)
+    wrappers:
+      c: mpicc
+      cxx: mpicxx
+  cuda:
+    module: cuda/13.3
+    runtime_version: 13.3
+  driver: 595.71.05 (CUDA driver API 13.2; the 13.3 runtime ran under minor-version compatibility)
+  mpi:
+    module: openmpi/5.0.11
+    transport: UCX 1.22.0 from the loaded ucx module; libmpi carries no run path to UCX
+  cmake: 3.30.5, the system cmake; the build script unloads the cmake module, whose binaries were not executable
+build:
+  type: RELEASE
+  target: CUDA
+  gpu_arch: sm_100
+  generator: Unix Makefiles
+  install_layout: <install-prefix>
+  profile_options_from: software/quda/build-profiles.yaml#milc-cg-mrhs-tile3
+  machine_options:
+    CMAKE_C_COMPILER: mpicc
+    CMAKE_CXX_COMPILER: mpicxx
+    QUDA_GPU_ARCH: sm_100
+    CMAKE_INSTALL_PREFIX: <install-prefix>
+    CMAKE_INSTALL_LIBDIR: lib
+  dependency_acquisition:
+    mode: QUDA CMake downloads
+    network_required_at_configure: true
+  cost:
+    where: batch
+    command: cmake --build <build-dir> -j 32 -v, then cmake --install <build-dir>
+    parallelism: 32
+    wallclock: not measured
+    timing_scope: Configure, build and install ran in one batch job, which also cloned QUDA and downloaded QMP, QIO, Eigen and CCCL at configure; none of it was timed.
+    maximum_reported_rss_kib: not measured
+    memory_scope: Not measured.
+  installed_libraries:
+    - {path: lib/liblime.so, sha256: 91742816246b2e6dc8ef59c2d6d6b28e6970158df3f1507b454f76ea2eb65cd4}
+    - {path: lib/libqio.so, sha256: cf664f5cdc598620a2abb6633eb744d241f0ede94e3b8019504d2a8b33fe77f1}
+    - {path: lib/libqmp.so, sha256: c09510316fba1b233b6a5adf32312312aa7c3b20a94ff4026ef4f9baa15e1ccf}
+    - {path: lib/libquda.so, sha256: 3fc86d6b3ec992f4f430a857931c9cdb264fe32b89cb6e332e2459c6894ac7b8}
+    - {path: lib/libquda_test.so, sha256: 03c2cee10922ea8c733eb0032a50885917d8fb1359563ae4292e6f89d7050644}
+  record_checks:
+    - tool: tools/check-stack-build-record.py
+      version: 1.0.0
+      date: "2026-10-10"
+      mode: cmake
+      evidence:
+        - the build script, read after the build; its log does not echo the configure command
+        - the build's CMakeCache.txt
+        - the QUDA source checkout at the tested commit
+      errors: 0
+      undecided: 0
+      not_cross_checked: 33
+      environment_defaults: [QUDA_NVSHMEM_HOME]
+validation:
+  date: "2026-10-10"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 4
+    mpi_ranks: 16
+    ranks_per_node: 4
+    cpus_per_rank: 36
+    gpus_per_rank: 1
+    visible_gpu_devices_per_rank: 4
+    accelerator: NVIDIA GB200
+    accelerator_memory_mib: 189471
+    compute_capability: "10.0"
+    scheduler_node: Early access; one scheduler node is a whole four-GPU GB200 NVL4 board (see machines/horizon/notes.md).
+    partition: debug
+    exclusive: true
+    launcher: >-
+      The staggered-CG throughput probe's ladder: one rank through ibrun -n 1 -o 0 (unbound,
+      OMP_PROC_BIND=false), and 4, 8 and 16 ranks on one, two and four boards through ibrun with
+      OPENMPI_AFFINITY="--map-by slot:PE=36 --bind-to core" (OMP_PROC_BIND=spread)
+    rank_grids: [[1, 1, 1, 1], [2, 2, 1, 1], [2, 2, 1, 2], [2, 2, 2, 2]]
+  runtime:
+    communication: QMP over Open MPI 5.0.11 with UCX 1.22.0
+    UCX_TLS: unset (deliberately; UCX default transport list)
+    QUDA_ENABLE_GDR: 1
+    gdr_confirmed_by: every job's tunecache holds dslash policy keys with gdr=1, and p2p=7 on the multi-rank points
+    QUDA_ENABLE_P2P: unset (deliberately)
+    QUDA_DETERMINISTIC_REDUCE: unset (deliberately)
+    OMP_NUM_THREADS: 32
+    OMP_PLACES: cores
+    gpu_binding: None; CUDA_VISIBLE_DEVICES unset, QUDA selects the device by local rank.
+    resource_path: A fresh, job-private tunecache per job, filled by a tuning pass before the measured pass.
+    test_executables: Installed bin tests.
+  tests:
+    - name: staggered_dslash_test_one_gpu_verified
+      arguments: --dslash-type hisq --prec double --recon 13 --verify true, row-major rank order
+      local_lattice: [40, 40, 40, 40]
+      right_hand_sides: [1, 12]
+      maximum_l2_relative_deviation: 2.220446e-16
+      result: pass
+    - name: staggered_invert_test_one_gpu_host_verified
+      arguments: --dslash-type hisq --inv-type cg --prec double --prec-sloppy half --recon 13 --recon-sloppy 9 --mass 0.01 --tol 1e-8 --verify true
+      local_lattice: [40, 40, 40, 40]
+      solves: 54, 6 one at a time and 48 in blocks of 12 through invertMultiSrcQuda (--nsrc-tile 12)
+      iterations: 2556-2567
+      maximum_host_l2_relative_residual: 9.998836e-9
+      result: pass
+    - name: staggered_invert_test_multi_rank
+      arguments: as the one-GPU test, without host verification
+      points: [4 ranks on one board, 8 ranks on two boards, 16 ranks on four boards]
+      local_lattice: [40, 40, 40, 40]
+      solves: 54 per point
+      iterations: 2561-2587
+      maximum_true_l2_relative_residual: 9.994827e-9
+      rank_order: every log prints row major, matching MILC's
+      result: pass
+  scope_limits:
+    - Host verification ran on one GPU only; the multi-rank points checked convergence and the true residual QUDA reports, and the composed MILC stack's cross-geometry consistency checks the multi-rank results.
+    - QUDA_MAX_MULTI_RHS_TILE is 3, so a 12-right-hand-side block runs as four tiles; the tile is a build option and a stack built without it is a different stack.
+    - QIO was not exercised. Multi-rank QIO writes are unsafe on $HOME and $SCRATCH because of the open upstream defect in software/qio/parallel-singlefile-writes.md, which quda-cuda13-milc-cg-2026q3 observed on Horizon.
+    - The installed libqmp's QMP_binary_reduction sums multi-byte values wrongly on more than one rank (software/qmp/binary-reduction.md); MILC's printed NERSC CKSUM is its only MILC caller.
+    - The profile compiled eigensolver support, but no eigensolve or deflated solve was exercised.
+    - Validated on the early-access layout, where one scheduler node is a four-GPU NVL4 board.
+evidence: experiment
+observed: "2026-10-10"
+observed_on:
+  machine: horizon
+  node_type: gpu-gb200
+  software:
+    quda:
+      commit: ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e
+      branch: develop
+  toolchain:
+    cuda: "13.3"
+    host_compiler: NVHPC 26.9 through Open MPI 5.0.11 wrappers
+    ucx: 1.22.0
+sources:
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/CMakeLists.txt#L213-L216
+  - operator-submitted build and probe runs reviewed in the working directory; raw scheduler output is not committed

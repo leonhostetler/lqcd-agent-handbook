@@ -6705,3 +6705,28 @@ estimate in words, an empty time, memory in words and zero.
 **Reconciliation.** `ARCHITECTURE.md` §build-profiles, "The stack records the cost": *amended*,
 the unmeasured case added. `playbooks/build-lqcd-stack.md` step 5, "Capture ... elapsed build time
 ... and carefully labelled memory measurement": *confirmed*; it still asks for the measurement.
+
+## 2026-10-10 — Horizon production stacks with build records
+
+Part of obligation 4.8. `machines/horizon/stacks/quda-cuda13-milc-cg-mrhs-tile3-2026q4` and
+`milc-cuda13-quda-mrhs-tile3-ks-spectrum-2026q4` record the build the Horizon ks_spectrum
+campaigns run on, validated by the probe run. They are the first stacks with `record_checks` and
+`installed_libraries`:
+- `tools/check-stack-build-record.py` found 0 errors and 0 undecided for both: QUDA's 13 passed
+  `-D` values against its cache and source (64 defaults cross-checked, 33 computed or undeclared),
+  MILC's 30 make variables against its Makefile and log. The evidence for the commands is the
+  build scripts read afterwards, because the logs do not echo them; the build playbook calls that
+  weaker, and each record says so.
+- The installed `libquda`, `libqmp` and `libqio` hashes equal those every probe job loaded.
+- Both builds ran in one batch job and were not timed or measured; the cost fields say so, as the
+  previous entry allows.
+
+The MILC stack names the QUDA stack as `validated_stack` and composes `milc-cg-mrhs-tile3`, which
+its profile accepts. The QUDA stack's validation is the probe's QUDA legs (host-verified on one
+GPU, converged on 4, 8 and 16 ranks); the MILC stack's is the probe's MILC legs and its
+cross-geometry consistency leg.
+
+**Reconciliation.** `machines/horizon/stacks/quda-cuda13-milc-cg-2026q3/notes.md`, "whether
+compute nodes reach the network was not established": *amended*; this build configured in a batch
+job and downloaded its dependencies. `ROADMAP.md` 4.8: *amended*. `tests/support.py`
+`EXPECTED_SCHEMA_OBJECTS`: *amended*, 44 to 46 for the two stack records.
