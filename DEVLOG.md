@@ -6997,3 +6997,19 @@ imitates a fault in something else") *confirmed*; the new section added before "
 does not follow redirects"; `observed` advanced. `conventions/running.md`, "Do not decide a job
 has ended from a scheduler query" and "A watch must die with the job it watches" *confirmed*,
 unchanged; the new section points to the first rather than restating it.
+
+## 2026-10-12 — ROADMAP X.18: the dry-run harness cannot exercise a passing branch
+
+Three diagnostic and analysis scripts written in one Horizon session scored legs on artifacts
+(profiler reports, JSON outputs, per-rank CSVs). Under the shipped dry-run harness every stub
+produced nothing, so only each script's failing branch ran, and private harnesses with fake
+programs were written to exercise the passing branch and the reading block. Two of them ran the
+real profiler on the login node: once because `module load` put the real `nsys` ahead of the
+fake on `PATH`, once because TACC's `BASH_ENV` (`/etc/tacc/tacc_functions`) redefined `module`
+in the child shell over an exported fake. One of those private tests also caught a real defect:
+an analysis window that ended at the last kernel lost the collective that follows it.
+
+**Reconciliation.** `conventions/batch-scripts.md` step 9, "Make sure the stubs win" and "Do not
+substitute a private harness" *confirmed*, unchanged: X.18 asks the shipped harness to cover the
+passing branch so that a private one is not needed. ROADMAP X.17 (a launch that escaped the
+stubs) *confirmed*, unchanged; X.18 is a different gap.
