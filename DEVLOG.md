@@ -6913,3 +6913,40 @@ the LDFLAGS, baryon-fix and exercised-paths limits *confirmed*. The entry above 
 points of at most two nodes, within `MaxNodes=2`: *confirmed*.
 `software/milc/probes/staggered-cg-throughput.md`: untouched; its reading rules held and it names no
 machine's results.
+
+## 2026-10-12 — Horizon: Nsight Systems needs XALT unloaded
+
+The Horizon notes recorded `nsys profile` as failing on every gpu-gb200 target with
+`Failed to probe the process (sync)`, cause unknown, with Yama `ptrace_scope` as the leading
+guess. A working `nsys` invocation on the same machine differed from the failing ones in two
+ways: CPU sampling and context-switch tracing were off, and the `xalt` module was unloaded.
+
+Two operator-submitted single-node probes then separated them. Each ran `nsys profile -t cuda`
+on `sleep 3` with a defaults control at both ends of the job. **The first varied the sampling
+options**: every combination of `--sample=none` and `--cpuctxsw=none`, and a four-rank `ibrun`
+leg with both off. All six legs failed identically, so sampling is not the cause. **The second
+varied the environment** with nsys defaults: `env -u LD_PRELOAD` passed, `module unload xalt`
+passed, and a four-rank `ibrun` leg with `-t cuda,nvtx,osrt,mpi --mpi-impl=openmpi` and default
+sampling passed after the unload. Both controls failed. A `TMPDIR=/tmp` leg was no test, since
+the job's `TMPDIR` was already `/tmp`. The compute node recorded `ptrace_scope` 2 and the
+64K-page kernel, unchanged between failing and passing legs. A four-rank MILC `ks_spectrum_hisq`
+run with QUDA under `ibrun` was then captured with the full trace set and process-tree sampling
+after `module unload xalt`: four reports, no orphaned `.qdstrm`, and correlators identical to an
+untraced run apart from their date headers. Why `libxalt_init.so` breaks nsys's launch probe was
+not investigated.
+
+Filed in user mode as an inbox proposal, then promoted in developer mode the same session; the
+proposal is removed.
+
+**Reconciliation.** `machines/horizon/notes.md`: the section "Nsight Systems does not run on the
+GB compute nodes" *replaced* by "Nsight Systems needs XALT unloaded on the GB compute nodes". Its
+error text, the `sleep 3` and `ibrun` failure scope, and "`nsys status -e` does not predict the
+failure" *confirmed*; "the cause is unknown" and the `ptrace_scope` inference *deleted*; the
+pre-booking `sleep 3` check *deleted*, superseded by unloading XALT and validating the artifact.
+"Inside an agent sandbox, unload `xalt` before linking … A batch job is unaffected, so keep XALT
+loaded there" *amended* with the Nsight Systems exception; its link-wrapper mechanism *confirmed*.
+The leaf's summary gains the topic, so `machines/INDEX.md` regenerates. Searched for every other
+statement about `nsys` launching, `xalt`, `LD_PRELOAD` and `ptrace_scope` outside `DEVLOG.md`:
+`conventions/profile-capture.md` "Validate the artifact, never the status" *confirmed*, unchanged;
+`machines/perlmutter/gpu-aware-mpi-device-context.md`'s `LD_PRELOAD` use is a different object,
+a preloaded constructor on Perlmutter, untouched. No test or link names the old heading.

@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, ibrun rank placement on a four-GPU board, build, and storage rules for TACC Horizon, including the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, ibrun rank placement on a four-GPU board, profiling with Nsight Systems (unload XALT first), build, and storage rules for TACC Horizon, including the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -18,7 +18,8 @@ sources:
   - colleague's world-readable Horizon job logs (nvidia-smi topo -m), read 2026-10-09
   - live Slurm QOS records (sacctmgr show qos), read 2026-10-10
   - an unattended submission loop's refused submission, 2026-10-10, reviewed in the working directory, and the operator's report of the reason its excess jobs waited
-observed: "2026-10-10"
+  - operator-submitted Nsight Systems probe and capture jobs on gpu-gb200 nodes, 2026-10-09 and 2026-10-12, reviewed in the working directory
+observed: "2026-10-12"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -186,26 +187,36 @@ the GPUs: a four-rank MILC run spent about 13 ms per multi-GPU dslash instead of
 `[experiment]`. Set `OMP_PROC_BIND=false` for a subset launch, or use the whole allocation.
 [`../../conventions/batch-scripts.md`](../../conventions/batch-scripts.md) owns the mechanism.
 
-## Nsight Systems does not run on the GB compute nodes
+## Nsight Systems needs XALT unloaded on the GB compute nodes
 
-`[reproduced ×2]`, 2026-10-09: two jobs on gpu-gb200 nodes, one an eight-leg probe. `nsys
-profile` from the `nvidia/26.9` module (Nsight Systems 2026.4.1) aborts every target within
-seconds and writes no report, with:
+`module reset` loads TACC's `xalt` module, which puts XALT's `libxalt_init.so` in `LD_PRELOAD`,
+so it is loaded into `nsys` and every process `nsys` starts. With it there, `nsys profile` from
+the `nvidia/26.9` module (Nsight Systems 2026.4.1) aborts every target within seconds and writes
+no report, with:
 
     terminate called after throwing an instance of 'boost::wrapexcept<QuadDCommon::LogicException>'
     Failed to probe the process (sync). Timeout: 2 sec
 
-It fails alone on `sleep 3` with only `-t cuda`, and equally under `ibrun` with any combination
-of `osrt`, `mpi`, `nvtx` and process-tree sampling. On the same compute node `nsys status -e`
-reports every check OK, including system-wide sampling at `perf_event_paranoid` 0, so the
-readiness check does not predict the failure.
+`[reproduced ×4]`, 2026-10-09 to 2026-10-12, four jobs on four gpu-gb200 nodes with
+`xalt/3.2.4` loaded. It fails alone on `sleep 3` with only `-t cuda`, under `ibrun` with any
+combination of `osrt`, `mpi`, `nvtx` and process-tree sampling, and with CPU sampling and
+context-switch tracing both off (`--sample=none --cpuctxsw=none`).
 
-The cause is unknown. The login node's Yama `ptrace_scope` is 2, which forbids even a parent
-from tracing its own child without `CAP_SYS_PTRACE`. The compute nodes' value was not recorded
-`[inferred]`. Before booking a capture, run `nsys profile -t cuda -o /tmp/probe sleep 3` once
-inside a short job and require a `.nsys-rep`.
-[`../../conventions/profile-capture.md`](../../conventions/profile-capture.md) owns the rule that
-a capture is validated by its artifact.
+**Removing the preload is the fix** `[experiment]`, 2026-10-12: on one node, in one job, between
+two failing controls, `env -u LD_PRELOAD` alone made the same command write its report, and so
+did `module unload xalt`. With XALT unloaded, four ranks under `ibrun` traced `cuda`, `nvtx`,
+`osrt`, `mpi` and process-tree sampling, and a four-rank MILC run with QUDA then traced to
+completion with output identical to an untraced run. So **in any job that runs `nsys`, run
+`module unload xalt` after loading modules and assert that `LD_PRELOAD` no longer names XALT
+before launching it**; a later `module reset` restores it.
+
+Why the preload breaks the probe is not established, so the rule is empirical. It is not Yama
+`ptrace_scope`, which is 2 on the compute nodes as on the login node, nor the 64K-page kernel:
+both were unchanged between the failing and passing legs. `nsys status -e` reports every check
+OK either way, so it does not predict the failure. A missing `TMPDIR` fails with a different
+message, `temp_directory_path: Not a directory` (`[observed]` on a login node). Validate a
+capture by its `.nsys-rep` files, never by `nsys`'s exit status:
+[`../../conventions/profile-capture.md`](../../conventions/profile-capture.md) owns that rule.
 
 ## UCX devices, and the HPC-X alternative
 
@@ -257,7 +268,8 @@ needs 3.18 or newer, so the validated stacks use the system cmake explicitly. Ch
 **Inside an agent sandbox, unload `xalt` before linking.** XALT's `ld` wrapper writes under a
 hard-coded `/tmp`, which a sandbox that confines writes makes read-only, and every link then
 fails, including CMake's compiler checks `[reproduced]`. A batch job is unaffected, so keep XALT
-loaded there.
+loaded there, except in a job that runs Nsight Systems (see "Nsight Systems needs XALT unloaded on
+the GB compute nodes").
 
 ## Choose storage by workload
 
