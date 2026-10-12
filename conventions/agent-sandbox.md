@@ -5,7 +5,7 @@ scope: [universal]
 load_when: A command fails, hangs, or leaves a half-written file in a way that suggests a machine, scheduler, network-service, or permission fault while the session runs under an agent sandbox; or before writing a tool that shells out to a site service.
 evidence: reproduced
 observations: 2
-observed: "2026-09-21"
+observed: "2026-10-12"
 observed_on:
   requirements: agent-sandbox-constraints
 review_by: "2027-09-21"
@@ -179,6 +179,22 @@ node, from the operator's own shell, found both. `[reproduced ×2]`
 So a GPU run, a fabric or GPU-memory probe, or anything that must open an accelerator is run
 from a shell outside the sandbox, and the record says where it ran. Building, reading
 binaries, and checking linkage still work inside it.
+
+## A process the sandbox hides looks like one that has ended
+
+A harness that sandboxes each command separately can give each its own process namespace. Then
+`ps` in one command does not show a process started in the background by an earlier command.
+`[observed]` once: a long analysis that writes its log only when it exits showed no process, an
+empty log and part of its outputs, which together read exactly as a run killed part-way. It was
+reported as stopped, and a second copy was started over the same output directory. The two ran
+together until the first one's newest output, written after its supposed end, exposed it.
+
+So do not decide that a background job has ended from a process listing taken in a different
+command. Use what the job leaves on disk — its newest output still advancing, or a marker it
+writes when it exits — or the harness's own completion notice. This is
+[`running.md`](running.md)'s rule that an empty result is not a termination, applied to a local
+process instead of a scheduler query. Write such a job's outputs whole, so that a duplicate
+started by mistake cannot leave a half-written file.
 
 ## A host allowlist does not follow redirects
 

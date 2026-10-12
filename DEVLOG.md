@@ -6981,3 +6981,19 @@ categories are host time": its statement that a rank reaching the sum first reco
 `compute` *confirmed*, unchanged. No other statement about cross-rank matching, collective
 waits or outlined-region names was found. ROADMAP watch item added for a per-call arrival
 subcommand (one use).
+
+## 2026-10-12 — Agent sandbox: a hidden background process looks ended
+
+In the same session a drill-down analysis was started in the background on a login node. A
+later command's `ps` showed no such process, the log (written only at exit) was empty, and part
+of the outputs existed, so the run was reported as stopped and a resumed copy was started over
+the same output directory. The original was still running; its newest output, written after the
+supposed stop, exposed it, and the copy was stopped before it wrote anything. The harness
+sandboxes each command separately, and the evidence is consistent with a separate process
+namespace per command; that mechanism was not checked further.
+
+**Reconciliation.** `conventions/agent-sandbox.md`: the opening rule ("a sandbox restriction
+imitates a fault in something else") *confirmed*; the new section added before "A host allowlist
+does not follow redirects"; `observed` advanced. `conventions/running.md`, "Do not decide a job
+has ended from a scheduler query" and "A watch must die with the job it watches" *confirmed*,
+unchanged; the new section points to the first rather than restating it.
