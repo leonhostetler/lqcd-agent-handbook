@@ -6950,3 +6950,34 @@ statement about `nsys` launching, `xalt`, `LD_PRELOAD` and `ptrace_scope` outsid
 `conventions/profile-capture.md` "Validate the artifact, never the status" *confirmed*, unchanged;
 `machines/perlmutter/gpu-aware-mpi-device-context.md`'s `LD_PRELOAD` use is a different object,
 a preloaded constructor on Perlmutter, untouched. No test or link names the old heading.
+
+## 2026-10-12 — Profile analysis: per-call collective arrival, and NVHPC outlined names
+
+A four-rank MILC/QUDA Nsight Systems capture on Horizon (performance mode) was analysed for a
+contraction phase in which every rank spent most of its time inside a per-call all-reduce. The
+extractor's cross-rank totals ranked the rank that waited longest as the problem. Matching the
+6,912-byte all-reduce across the four per-rank databases on a UTC clock (session start plus
+session-relative time) showed the opposite: that rank was least often late, the late rank moved
+among all four, and time inside the collective equalled the wait for the last arriver within
+10 ms per rank over 246 calls. The match held a median end-time spread of about 5 µs. Matching by
+index across all message sizes failed, because one rank's trace held one fewer 32-byte
+all-reduce in each window; a count check refused it. The inferred phases also misaligned
+across ranks at an equal `k`, so windows were taken from the first and last launch of the
+contraction kernel per rank. Host sampling's top symbol, `__nv_local_F1L186_5`, resolved to the
+parallel loop at line 186 of `local()` in MILC's `generic_ks/spin_taste_ops.c`; a second symbol
+confirmed the naming (`copy_v_from_ksp`, defined at line 359, region `L363`). The matching was
+done by two working-directory scripts, tested on synthetic databases with planted answers and
+negative cases (clock skew, a missing call).
+
+**Reconciliation.** `conventions/profile-metrics.md`: "Where the refusal is a near miss on
+segmentation … forcing a common `k` recovers the per-phase view" *confirmed* and qualified by
+the new paragraph that a common `k` does not make the boundaries common; "One rank's profile is
+one rank's view" and "Imbalance is a cross-rank quantity" *confirmed*, extended by the per-call
+arrival paragraphs; the host-sample rules (count not time, leaf frame only, summed over threads)
+*confirmed*, extended by the outlined-name paragraph. `playbooks/analyze-profile.md` step 3 ("run
+`cross-rank` before attributing any wait") *confirmed*, unchanged: per-call arrival refines the
+cross-rank view and does not replace it. `software/quda/profiling.md`, "An interface timer's
+categories are host time": its statement that a rank reaching the sum first records its wait as
+`compute` *confirmed*, unchanged. No other statement about cross-rank matching, collective
+waits or outlined-region names was found. ROADMAP watch item added for a per-call arrival
+subcommand (one use).

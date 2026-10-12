@@ -121,6 +121,10 @@ occurrence trips the rule rather than starting the count again.
 - **Kernel template-argument resolution** against the revision that built the binary —
   deliberately manual, because it needs the decomposition cross-check and therefore judgement
   at each step.
+- **A per-call collective-arrival subcommand** for `tools/gpu-profile-summary.py`: match a
+  blocking collective's calls across per-rank captures on one clock, gate on end-time agreement,
+  and report the last arriver per call (`conventions/profile-metrics.md`, "Per-call arrival").
+  At one hand derivation, with two working-directory scripts, 2026-10-12.
 - **A nearest-stack resolver** that lists the detected machine's stacks for the resolved node
   type, relates each to the checkout in front of the session, and applies `superseded_by` — at
   one use, the Vista CUDA 12/13 tie. Deliberately prose for now: `playbooks/start-session.md`

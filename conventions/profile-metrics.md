@@ -7,7 +7,8 @@ evidence: source
 sources:
   - tools/gpu_profile/metrics.py
   - vendor tracer documentation for Nsight Systems and ROCm Systems Profiler
-observed: "2026-09-15"
+  - operator's screened four-rank MILC/QUDA Nsight Systems capture analysis (Horizon, 2026-10-12)
+observed: "2026-10-12"
 observed_on:
   requirements: gpu-profile-metric-semantics
 review_by: "2027-09-15"
@@ -278,6 +279,18 @@ extraction reports the thread-state split and caveats a capture that mixes them,
 the OS-runtime section above gives: an unfiltered progress thread parked in `poll` can cover a
 whole window and report a number that is arithmetically correct and worthless.
 
+**An NVHPC-compiled OpenMP region is named for its function and its source line.**
+`[reproduced ×2]` The NVHPC compilers outline each OpenMP parallel region into a separate
+function, and host sampling reports that function rather than the one that contains the loop.
+The name has the form `__nv_<function>_F<n>L<line>_<k>`: `<function>` is the enclosing function
+and `<line>` is the line of the parallel loop inside it. So a top symbol such as
+`__nv_local_F1L186_5` is the parallel loop at line 186 of a function named `local`. Find the
+function's definition in the sources that built the binary and check that line before naming
+the work; a static function's name is unique only within its file, so confirm the file too.
+Seen on two symbols in one NVHPC 26.9 capture of MILC: a loop at line 186 inside a function
+defined at line 181, and one at line 363 inside a function defined at line 359. The `F<n>`
+and `<k>` fields are not interpreted here.
+
 ## What a tracer does not record
 
 `[docs]` Nsight Systems and ROCm Systems Profiler are **tracers**. They record API calls, kernel
@@ -379,3 +392,39 @@ phase alignment is refused, because it has already derived it and discarding it 
 to re-derive the same numbers by hand; the reading it licenses is bounded in the same output.
 Where the refusal is a near miss on segmentation rather than a real difference in workload,
 forcing a common `k` recovers the per-phase view, and that is the comparison to quote.
+
+**A common `k` does not make the boundaries common.** `[observed]` On one four-rank capture
+every rank chose the same number of phases, and the boundaries still differed enough that one
+phase held 1.64 s of kernel time on two ranks and 0.30 s on the other two: a per-phase
+comparison of edges, not of work. Where a window must be the same on every rank, define it from
+the application's own events instead of the inferred phases — on each rank, the first and last
+launch of a named kernel, padded by more than one unit of work so the operations that follow
+the last launch are inside.
+
+**Per-call arrival is what separates one slow rank from a late rank that moves.** Where ranks
+meet in a blocking collective once per unit of work, a rank's time inside it is the wait for the
+last rank to arrive plus the collective's own cost. `[observed]` On one capture — four ranks on
+one node, a 6,912-byte all-reduce after every call — the two agreed within 10 ms per rank over
+246 calls: the collective cost nothing, and every second inside it was arrival skew. The totals
+pointed at the rank that waited longest. Per call, that rank was the one least often late, and
+the late rank moved among all four; the skew matched each late rank's own preceding work, not a
+property of the waiting rank. Totals cannot show this, because a rank that is late on a few calls
+and a rank that is late on every call can carry the same total.
+
+So where a collective's wait is large, match its calls across the per-rank captures and count
+the last arriver per call. Three conditions make the match trustworthy:
+
+- **One clock.** Each rank's capture is relative to its own session start; add that start, in
+  UTC, before comparing ranks. On one node this aligned the ranks to a median end-time spread of
+  about 5 µs.
+- **Gate on end time.** A blocking collective completes at nearly the same moment on every rank,
+  so a median end-time spread far above the collective's own latency means the match or the
+  clock is wrong. Refuse to compute arrival rather than report it.
+- **Match within one message size.** A trace can lose a single event. On the capture above one
+  rank held one fewer small all-reduce than the others in each of two windows, while the
+  per-call collective matched one for one. Matching by index across every size would pair
+  unrelated calls; a check that the counts agree refused it, and is worth keeping beside the
+  end-time gate.
+
+The extraction does not do this yet, so the matching is a hand derivation and is declared as
+one.
