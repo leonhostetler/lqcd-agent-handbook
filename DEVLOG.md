@@ -7027,8 +7027,8 @@ four subsets then ran correctly. Three jobs were cancelled by node failures, two
 correlator printing; the source shows rank 0 reopening the FNAL destination once per pair, and
 staging the destinations on node-local `/tmp` (a local xfs disk on two boards) removed it with
 correlators byte-identical apart from `date:` lines. Two configurations finished normally with
-one solve stopped by QUDA's residual-increase cap. Also: the performance-reference test fixture
-id `campaign-specnd` named a working campaign and is renamed `campaign-fixture-rhs3`.
+one solve stopped by QUDA's residual-increase cap. Also: the performance-reference test fixture's
+campaign-row id named a working campaign and is renamed `campaign-fixture-rhs3`.
 
 **Reconciliation.** `machines/horizon/notes.md`, "Launch MPI deliberately": "Concurrent
 multi-node launches have not been tried, so never background an `ibrun` while later legs

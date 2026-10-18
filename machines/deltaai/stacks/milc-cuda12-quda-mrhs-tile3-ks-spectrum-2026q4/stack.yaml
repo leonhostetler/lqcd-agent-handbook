@@ -115,9 +115,9 @@ validation:
       - {name: probe-node, executable: ks_spectrum_hisq, nodes: 1, mpi_ranks: 4, node_geometry: [2, 2, 1, 1]}
       - {name: probe-2-nodes, executable: ks_spectrum_hisq, nodes: 2, mpi_ranks: 8, node_geometry: [2, 2, 1, 2], dimensions_off_node: [t]}
       - {name: probe-4-nodes, executable: ks_spectrum_hisq, nodes: 4, mpi_ranks: 16, node_geometry: [2, 2, 2, 2], dimensions_off_node: [z, t]}
-      - {name: fpi, executable: ks_spectrum_hisq, nodes: 3, mpi_ranks: 12, node_geometry: [1, 1, 4, 3]}
-      - {name: specnd, executable: ks_spectrum_hisq, nodes: 2, mpi_ranks: 8, node_geometry: [1, 1, 2, 4]}
-      - {name: omega, executable: ks_spectrum_hisq_gb_baryon_blind_no_sink_links, nodes: 2, mpi_ranks: 8, node_geometry: [1, 2, 2, 2]}
+      - {name: campaign-multishift-10-masses, executable: ks_spectrum_hisq, nodes: 3, mpi_ranks: 12, node_geometry: [1, 1, 4, 3]}
+      - {name: campaign-light-mass-rhs3, executable: ks_spectrum_hisq, nodes: 2, mpi_ranks: 8, node_geometry: [1, 1, 2, 4]}
+      - {name: campaign-rhs9, executable: ks_spectrum_hisq_gb_baryon_blind_no_sink_links, nodes: 2, mpi_ranks: 8, node_geometry: [1, 2, 2, 2]}
   runtime:
     communication: QMP over Cray MPICH
     launcher: srun -K, 4 tasks per node, SRUN_CPUS_PER_TASK=32, SLURM_CPU_BIND=cores

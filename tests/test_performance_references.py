@@ -92,7 +92,7 @@ def row(**overrides):
 
 
 def campaign_row(**overrides):
-    base = row(id="campaign-specnd", kind="campaign", stack=SECOND_MILC)
+    base = row(id="campaign-fixture-rhs3", kind="campaign", stack=SECOND_MILC)
     del base["probe"], base["loaded_libraries"]
     base["workload"] = "a spectroscopy campaign: 8 corner-wall sources, 4 masses, 3 RHS per solve"
     base["library_evidence"] = "library modification time predates the jobs; hash taken after"
@@ -163,7 +163,7 @@ class PerformanceReferenceTests(unittest.TestCase):
         page = (self.copy / "machines/horizon/performance.md").read_text()
         self.assertIn("#### `milc-cuda13-quda-ks-spectrum-2026q3`", page)
         self.assertIn("#### `milc-cuda13-quda-ks-spectrum-fixture`", page)
-        self.assertLess(page.index("probe-one-node"), page.index("campaign-specnd"))
+        self.assertLess(page.index("probe-one-node"), page.index("campaign-fixture-rhs3"))
         self.assertEqual(self.generate("--check").returncode, 0)
 
     def test_the_manifest_declares_the_schema_version(self):
