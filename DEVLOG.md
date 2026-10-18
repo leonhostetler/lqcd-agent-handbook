@@ -7013,3 +7013,41 @@ an analysis window that ended at the last kernel lost the collective that follow
 substitute a private harness" *confirmed*, unchanged: X.18 asks the shipped harness to cover the
 passing branch so that a private one is not needed. ROADMAP X.17 (a launch that escaped the
 stubs) *confirmed*, unchanged; X.18 is a different gap.
+
+## 2026-10-18 — Horizon: concurrent ibrun launches, lost nodes, node-local /tmp; ks_spectrum correlator writes and solver early exits
+
+From one Horizon spectroscopy campaign, 2026-10-13 to 2026-10-16 (operator-submitted jobs,
+records in the working directory). Bundled jobs ran several `ks_spectrum` runs side by side,
+one `ibrun` per node subset. The first such job misplaced every other launch off the batch node;
+a placement trial with an unpinned control traced it to PRRTE giving `srun` no node list for an
+all-remote subset, and pinning the `prted` step with `plm_slurm_args --nodelist` through
+`MY_MPIRUN_OPTIONS` placed 36 of 36 launches against 6 of 6 misplaced. Production jobs of up to
+four subsets then ran correctly. Three jobs were cancelled by node failures, two of them with
+`ibrun` returning 0 for runs killed mid-contraction. A half-day slowdown sat in `ks_spectrum`'s
+correlator printing; the source shows rank 0 reopening the FNAL destination once per pair, and
+staging the destinations on node-local `/tmp` (a local xfs disk on two boards) removed it with
+correlators byte-identical apart from `date:` lines. Two configurations finished normally with
+one solve stopped by QUDA's residual-increase cap. Also: the performance-reference test fixture
+id `campaign-specnd` named a working campaign and is renamed `campaign-fixture-rhs3`.
+
+**Reconciliation.** `machines/horizon/notes.md`, "Launch MPI deliberately": "Concurrent
+multi-node launches have not been tried, so never background an `ibrun` while later legs
+launch" *amended* — concurrent launches are now described for disjoint subsets, and the
+prohibition kept for a launch over the whole node list; the statement that `ibrun` clears
+`PRTE_MCA_plm_slurm_args` *confirmed* (read again 2026-10-13), and the new paragraph names
+`MY_MPIRUN_OPTIONS` as the route that remains; "A subset launch is always unbound" *confirmed*,
+and the new paragraph points to it rather than restating it; the host-memory-per-step rule
+*confirmed*, now stated to apply per subset. "Choose storage by workload": "Node-local `/tmp`
+is cleared when the job ends" *confirmed* and extended. `machines/horizon/machine.yaml`
+`sizing.local_storage_gib` (docs, per documented node) *confirmed*, unchanged; the live figure
+went into the early-access table beside it. `machines/vista/notes.md`, "never background an
+`ibrun`" *confirmed*, unchanged: it concerns a launch sharing nodes with a running one, which the
+Horizon finding does not test, and no concurrent `ibrun` has run on Vista.
+`conventions/running.md`, "No single layer decides the result" *confirmed*, unchanged; the
+Horizon section points to it for the launcher-exit case. `software/milc/applications/ks-spectrum.md`:
+"external FNAL … writers open their destinations in append mode" and the open-failure fallback
+*confirmed*; the per-pair reopen paragraph added after them; "Completion checks", "all required
+solves report convergence" *confirmed*, and the early-exit paragraph says why a normal exit does
+not establish it. `software/quda/solvers/staggered-cg.md`'s L2-breakdown account covers the
+heavy-quark path only and is *confirmed*, unchanged; no other statement about
+`max_res_increase` was found.

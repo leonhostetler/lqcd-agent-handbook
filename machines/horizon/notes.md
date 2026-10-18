@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, ibrun rank placement on a four-GPU board, profiling with Nsight Systems (unload XALT first), build, and storage rules for TACC Horizon, including the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, ibrun rank placement on a four-GPU board, concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -19,7 +19,10 @@ sources:
   - live Slurm QOS records (sacctmgr show qos), read 2026-10-10
   - an unattended submission loop's refused submission, 2026-10-10, reviewed in the working directory, and the operator's report of the reason its excess jobs waited
   - operator-submitted Nsight Systems probe and capture jobs on gpu-gb200 nodes, 2026-10-09 and 2026-10-12, reviewed in the working directory
-observed: "2026-10-12"
+  - the site's installed ibrun script, read 2026-10-13
+  - operator-submitted placement trials and production jobs running concurrent ibrun launches on gpu-gb200 nodes, with their placement probes and scheduler step records, 2026-10-13 to 2026-10-16, reviewed in the working directory
+  - operator-submitted jobs cancelled by node failures, and in-job df -T records of node-local /tmp, 2026-10-15, reviewed in the working directory
+observed: "2026-10-16"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -61,6 +64,7 @@ from the guide in ways that change job sizing:
 | `$WORK` | VAST, later in 2026 | the variable is set but names a path that does not exist |
 | `qlimits` | the source of live limits | not installed on the login node |
 | Per-user limits in `debug` | not given | 20 running jobs, 40 submitted, 1000 nodes, 2 days per job (QOS `qdebug`, read 2026-10-10) |
+| Node-local `/tmp` | 130 GiB local storage per node | a local xfs disk, not tmpfs, about 156 GiB free per board (`df -T` in a job on two boards, 2026-10-15) |
 
 **Size a job from what the scheduler allocates, not from the profile.** One scheduler
 node today holds four GPUs, twice the profile's `per_node`. Rank counts, decompositions,
@@ -165,10 +169,38 @@ Vista, where each multi-node `ibrun` call creates one Slurm step that claims its
 On Horizon the step covers only the nodes other than the batch node `[reproduced ×6]`:
 accounting records of two two-node and four one-node jobs. A two-node `ibrun` created one step,
 named `prted`, on the second node. The batch node's ranks ran inside the batch step, and a
-one-node `ibrun` created no step at all. Two consequences follow. Concurrent multi-node launches
-have not been tried, so never background an `ibrun` while later legs launch. And read a job's
+one-node `ibrun` created no step at all. Two consequences follow. Never background an `ibrun`
+over the job's whole node list while later legs launch: concurrent launches work only on
+disjoint nodes, set up as the next paragraph describes. And read a job's
 host memory per node from the batch step for the batch node and from the `prted` step for the
 others: a one-node job's whole application appears under the batch step.
+
+**Concurrent launches on disjoint nodes work once each is narrowed and pinned.** A job can run
+several `ibrun` calls side by side, each on its own subset of the job's nodes, if every launch
+sets two things in its own subshell:
+
+- **Narrow the allocation variables to the subset.** `ibrun` builds its hostfile from
+  `SLURM_NODELIST` and `SLURM_TASKS_PER_NODE` and takes the slot count from `SLURM_NPROCS`
+  `[source]`. Export `SLURM_NODELIST`, `SLURM_JOB_NODELIST`, `SLURM_NNODES`,
+  `SLURM_JOB_NUM_NODES`, `SLURM_TASKS_PER_NODE`, `SLURM_NTASKS`, `SLURM_NPROCS` and
+  `SLURM_JOB_CPUS_PER_NODE` for the subset. Do not narrow with `ibrun -n/-o`, which drops the
+  binding (below).
+- **Pin the daemon step to the subset.** The hostfile does not place the remote daemons. For a
+  subset that excludes the batch node, PRRTE gave `srun` no node list, and Slurm alternated the
+  `prted` step between the job's nodes, so every other launch ran on another subset's nodes
+  `[experiment]`, the pin below as the one variable. Pass
+  `--prtemca plm_slurm_args --nodelist=<the subset's nodes other than the batch node>` through
+  `MY_MPIRUN_OPTIONS`, which `ibrun` appends to its `mpirun` command `[source]`; the variable
+  route is closed, because `ibrun` unsets `PRTE_MCA_plm_slurm_args`. Leave it unset for a
+  subset that is the batch node alone, whose ranks run under `mpirun` itself.
+
+Pinned, 36 of 36 launches landed on their own nodes with the intended CPU blocks, in one-node,
+concurrent one-node and two-node subsets, where the unpinned control misplaced 6 of 6; in
+production jobs of up to four concurrent subsets every `prted` step ran on its own subset's
+nodes `[reproduced]`. Do not trust the setup alone: record each launch's hosts and allowed
+CPUs, or compare the application's rank-0 host with its subset. Each subset's `ibrun` still
+creates its own step, so the accounting rule above applies per subset. More than four
+concurrent subsets have not been run.
 
 The profile records `ibrun` as `scheduler.site_launcher`, and the batch-script dry-run
 harness stubs it from that record.
@@ -186,6 +218,18 @@ each rank then holds the 36 cores beside its GPU `[reproduced]`, recorded by a p
 the GPUs: a four-rank MILC run spent about 13 ms per multi-GPU dslash instead of about 40 us
 `[experiment]`. Set `OMP_PROC_BIND=false` for a subset launch, or use the whole allocation.
 [`../../conventions/batch-scripts.md`](../../conventions/batch-scripts.md) owns the mechanism.
+
+## A lost node ends the whole job
+
+When one node of a job stops responding, Slurm cancels the whole job (`DUE TO NODE FAILURE`;
+`sinfo -R` gives the node as not responding) `[reproduced ×3]`. Every launch dies with it,
+those on healthy nodes included, and node-local `/tmp` goes with the job. Before the
+cancellation, `ibrun` returned exit status 0 for an application run that was killed when PRRTE
+lost that node's daemons `[reproduced ×2]`. A launch's exit status therefore does not show that
+the application finished: judge every run by the application's own completion markers and
+its artifacts ([`../../conventions/running.md`](../../conventions/running.md)). A job that
+carries many work units should record each unit's result as it finishes and copy each unit's
+node-local outputs off the node then, so a cancellation costs only the units in flight.
 
 ## Nsight Systems needs XALT unloaded on the GB compute nodes
 
@@ -276,7 +320,19 @@ the GB compute nodes").
 Run jobs from `$SCRATCH`. It purges files whose access time is more than ten days old, and
 deliberately altering access times to evade the purge is prohibited. `$HOME` is small and
 not for parallel or high-intensity I/O. Neither accepts Lustre striping commands.
-Node-local `/tmp` is cleared when the job ends; copy out anything needed afterwards.
+Node-local `/tmp` is a local disk, not a memory-backed tmpfs (early-access table), so a file
+written there costs no host memory. It is cleared when the job ends, and lost with a cancelled
+one; copy out anything needed as soon as it is complete.
+
+**Stage a writer that reopens its file per record on `/tmp`, not on `$SCRATCH`.** Such a writer
+pays the shared filesystem's per-open latency every time. During one slow period that latency
+rose from milliseconds to hundreds of milliseconds per open, on many nodes at once for about
+half a day, and an output phase that normally takes seconds took most of a job's walltime
+`[observed]`; the cause was not visible from inside a job. MILC `ks_spectrum`'s FNAL correlator
+writer is one such writer
+([`../../software/milc/applications/ks-spectrum.md`](../../software/milc/applications/ks-spectrum.md),
+"Rank 0 reopens a destination for every pair"). Write to `/tmp`, then copy each finished file
+to `$SCRATCH` and verify the copy before deleting the original.
 
 Follow the universal
 [bounded filesystem-discovery convention](../../conventions/filesystem-discovery.md).
