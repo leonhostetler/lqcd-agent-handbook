@@ -61,6 +61,12 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2227-L2266
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/interface_quda.cpp#L6196-L6286
   - operator's screened GPU-contraction trial and timer accounting (Horizon, 2026-10-09)
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/spectrum_ks.c#L1283-L1331
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L104
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/d_congrad5_fn_quda.c#L199
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/reliable_updates.h#L205-L230
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/check_params.h#L452-L453
+  - operator's Horizon production spectroscopy records: correlator staging on node-local storage, its correlator comparison, and two solver early exits (2026-10-13 to 2026-10-16)
 observed: "2026-10-09"
 observed_on:
   software:
@@ -423,6 +429,22 @@ that correlator path to the inline `forget_corr` behavior, and can continue. A n
 requested external artifact was created. Require the requested output route, absence of writer
 errors, and the exact manifest checks above.
 
+**Rank 0 reopens a destination for every pair.** At the observed revision each meson pair,
+baryon triplet and extended-baryon triplet opens its `save_corr_fnal` destination on rank 0 in
+append mode, writes all of its reported correlators, and closes it again
+(`open_fnal_meson_file`, `close_fnal_meson_file` and their baryon counterparts in
+`spectrum_ks.c`). An input with thousands of pairs therefore opens and closes its few
+destinations thousands of times per gauge configuration, serially on one rank; the other ranks wait
+for it at their next collective `[inferred]`. The cost lands in `Time for printing
+correlator`, so when a shared filesystem's per-open latency rises that phase grows while the
+solves and contractions stay normal. In one campaign it went from seconds to most of a
+gauge configuration's walltime during a filesystem slow period `[observed]`. Where that exposure
+matters, point the destinations at node-local storage in the submitted input and copy the
+finished files to shared storage after the run. Only the paths change: the staged run's
+correlators were byte-identical to an unstaged run's apart from their `date:` lines
+`[observed]`. The expected-artifact set is then the copied files at the canonical input's
+paths, and the checks above apply to the copies.
+
 `tools/milc-compare-fnal-correlators.py` executes the file checks of step 3 and the duplicate
 check of step 4 for FNAL correlator files, and compares several files record by record against
 the first, relative to each correlator's own scale. Use it rather than reading the files by eye:
@@ -570,6 +592,19 @@ Accept an output block for performance analysis only when:
   unexpected entries; and
 - a normal `exit:` marker is present and the application and scheduler exit states are
   successful.
+
+**A normal exit does not mean every solve converged.** QUDA's CG stops a solve that has no
+heavy-quark target once its reliable-update residual has risen more than `max_res_increase`
+times in a row or `max_res_increase_total` times in all, logging `solver exiting due to too many
+true residual norm increases` (`reliable_break` in `include/reliable_updates.h`). The defaults
+are 1 and 10 (`lib/check_params.h`), and the MILC interface does not set either. MILC then
+flags the solve as not converged and does not restart it, since QUDA owns the restart budget
+(`d_congrad5_fn_quda.c`), and the run continues to a normal `exit:`. In production this left
+one solve of a gauge configuration slightly above its L2 target, rarely but more than once
+`[reproduced ×2]`. So check convergence per solve, as `tools/extract-milc-timings.py solves`
+does, and decide each such gauge configuration explicitly. Do not expect an unchanged rerun to
+differ: with the same input and warm tunecache, a comparison run repeated iteration counts
+exactly `[inferred]`.
 
 A truncated output, missing artifact, nonconverged solve, or automatically substituted runtime
 path remains useful debugging or tuning evidence, but it is not a valid confirmatory benchmark.
