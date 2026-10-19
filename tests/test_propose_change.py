@@ -273,6 +273,32 @@ class EndToEndNegative(unittest.TestCase):
         self.assertIn("error", dirty.detail)
 
 
+class RootResolution(unittest.TestCase):
+    """A harness run from a scratch clone once checked `$LQCD_HANDBOOK` instead and
+    passed an untouched tree. Each default is paired with the case that must differ."""
+
+    def test_the_default_root_is_the_harness_own_clone_not_the_environment(self):
+        with tempfile.TemporaryDirectory() as other:
+            root, note = pc.resolve_root(None, other)
+        self.assertEqual(root, ROOT)
+        self.assertIsNotNone(note, "a different $LQCD_HANDBOOK must be reported")
+        self.assertIn("different clone", note)
+
+    def test_no_note_when_the_environment_names_this_clone(self):
+        root, note = pc.resolve_root(None, str(ROOT))
+        self.assertEqual(root, ROOT)
+        self.assertIsNone(note)
+
+    def test_no_note_without_the_environment(self):
+        self.assertEqual(pc.resolve_root(None, None), (ROOT, None))
+
+    def test_an_explicit_root_wins_and_is_reported_against_the_environment(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, note = pc.resolve_root(d, str(ROOT))
+            self.assertEqual(root, Path(d).resolve())
+        self.assertIsNotNone(note)
+
+
 class ReportComposition(unittest.TestCase):
     def test_one_failing_step_fails_the_report(self):
         r = pc.Report(base="HEAD", head="abc1234")

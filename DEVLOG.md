@@ -7051,3 +7051,21 @@ solves report convergence" *confirmed*, and the early-exit paragraph says why a 
 not establish it. `software/quda/solvers/staggered-cg.md`'s L2-breakdown account covers the
 heavy-quark path only and is *confirmed*, unchanged; no other statement about
 `max_res_increase` was found.
+
+## 2026-10-19 — Change-proposal harness: check the clone it belongs to
+
+Twice in one developer session (2026-10-11), `tools/run-change-proposal` run from a scratch
+clone's own `tools/` reported on the live handbook named by `$LQCD_HANDBOOK`: `diff 0 changed
+file(s)`, an unchanged dev-docs byte count, every step `[ok ]`. With `LQCD_HANDBOOK=<clone>` the
+same harness saw the nine changed files. `tools/propose-change.py` defaulted `--root` to the
+environment variable, and every step, the validator included, ran in that root. 1.2.0 takes the
+default from its own location, as `tools/validate-knowledge.py` already did, and prints a note
+when `$LQCD_HANDBOOK` names a different clone. Four tests in `tests/test_propose_change.py`; the
+first fails on 1.1.0, which has no `resolve_root` and whose default was the variable. Source:
+the operator's campaign-project staging notes.
+
+**Reconciliation.** `modes/developer.md` ("Run `tools/run-change-proposal` before every commit")
+and `CONTRIBUTING.md` step 7 name the harness without saying which tree it checks: *confirmed*,
+unchanged. `ARCHITECTURE.md` §decisions-operation, "`propose-change.py` reads untracked files
+directly": *confirmed*, unchanged. `tools/run-change-proposal` passes arguments through and
+names no root: *confirmed*, unchanged. No other statement about the harness's root was found.

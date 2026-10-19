@@ -28,6 +28,14 @@ must judge. That is a review surface, deliberately not a gate: a tool that claim
 to clear a proposal for publication would be the worst possible place to be wrong.
 
 It also does not commit, and it does not decide whether the change is correct.
+
+**Which clone it checks.** The one it belongs to, unless `--root` says otherwise. It
+used to default to `$LQCD_HANDBOOK`, so a harness run from a scratch clone's own
+`tools/` checked the live handbook instead and reported `0 changed file(s)` with every
+step `[ok ]` -- a clean pass on a tree nobody had touched. The validator already
+resolved its root from its own location; the harness now does too, and prints a note
+when `$LQCD_HANDBOOK` names a different clone, since that is the case where a reader
+could mistake which tree was checked.
 """
 
 from __future__ import annotations
@@ -39,7 +47,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 #: Categories PRIVACY.md forbids that no regular expression can decide. Printed
 #: beside the diff so a reviewer knows what they are looking for; the validator
@@ -243,6 +251,16 @@ def build_report(root: Path, base: str, out_path: Path | None, run=_run) -> Repo
     return report
 
 
+def resolve_root(arg_root: str | None, env_root: str | None) -> tuple[Path, str | None]:
+    """The clone to check, and a note when `$LQCD_HANDBOOK` names a different one."""
+    root = Path(arg_root).resolve() if arg_root else Path(__file__).resolve().parents[1]
+    note = None
+    if env_root and Path(env_root).resolve() != root:
+        note = (f"note: checking {root}; $LQCD_HANDBOOK names a different clone "
+                f"({Path(env_root).resolve()})")
+    return root, note
+
+
 def render(report: Report) -> str:
     out = [
         f"change proposal · propose-change {VERSION} · base {report.base} · HEAD {report.head}",
@@ -262,16 +280,15 @@ def render(report: Report) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--root", default=os.environ.get("LQCD_HANDBOOK"),
-                    help="handbook root (default: $LQCD_HANDBOOK)")
+    ap.add_argument("--root", default=None,
+                    help="handbook root (default: the clone this harness belongs to)")
     ap.add_argument("--base", default="HEAD", help="git ref the proposal is against")
     ap.add_argument("--added-lines-out", default=None,
                     help="write the proposal's added lines here for privacy review")
     args = ap.parse_args(argv)
-    if not args.root:
-        print("error: --root or $LQCD_HANDBOOK required", file=sys.stderr)
-        return 2
-    root = Path(args.root).resolve()
+    root, note = resolve_root(args.root, os.environ.get("LQCD_HANDBOOK"))
+    if note:
+        print(note)
     if not (root / ".git").exists():
         print(f"error: {root} is not a git repository", file=sys.stderr)
         return 2
