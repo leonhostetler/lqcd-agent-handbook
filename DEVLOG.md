@@ -7070,6 +7070,38 @@ unchanged. `ARCHITECTURE.md` §decisions-operation, "`propose-change.py` reads u
 directly": *confirmed*, unchanged. `tools/run-change-proposal` passes arguments through and
 names no root: *confirmed*, unchanged. No other statement about the harness's root was found.
 
+## 2026-10-19 — MILC UML: an even-pure source makes the odd polish free
+
+While settling a paper's source-type convention, the question was what a parity-pure point
+source saves on each MILC inverter, and whether the cheap odd reconstruction should count as
+a solve. Read from `mat_invert_uml_field` at `551dc479` (unchanged since `a5f8f9fa`): the
+rebuilt odd residual is `-Dslash_oe r_e / (2 mass)` for any source, so for an even-pure
+source the polish inherits the even solve's relative tolerance and converges at entry, while
+any odd support makes it a real solve by a factor of order `|Dslash| / (2 mass)`. Observed
+across every UML solve of the 2026 benchmark series on the 144³×288 ensemble — 2 819 solves,
+three configurations, eleven masses, 27 to 288 nodes, deflated and not — the odd line read
+`iters = 0` or `1` with `final_rsq` at or below the even one; the polish was undeflated, the
+runs predating `d17e9559`. `inv_type CG` does not share the saving: its odd solve starts from
+the guess against the same nonzero right-hand side. The deflation consequence from
+`d17e9559` — an odd-space build for a one-iteration solve — is inferred from the call site
+and the deflated-CG leaf, not observed. Source: the operator's screened benchmark records.
+The iteration-count class was admitted by the operator's decision at import.
+
+**Reconciliation.** `software/milc/internals/staggered-inverter-types.md`: the `UML` table row
+and the "Choosing with source parity" bullet *confirmed* and extended in place; the
+timer-line section's "a second call reporting zero iterations is the documented zero-source
+shortcut" *amended* — for `UML` the odd right-hand side is nonzero and the zero is the
+polish converging; the same section's "`inv_type CG` emits two lines" *amended* to name
+`UML` too; the `CGZ` zero-source shortcut and the `MG` full-system statements *confirmed*,
+unchanged. `software/quda/solvers/staggered-solver-selection.md`, the per-propagator counting
+paragraph: *amended* to name `UML`. `software/quda/solvers/staggered-deflated-cg.md`, "the
+first odd-parity solve makes QUDA reconstruct the odd space": *confirmed*, unchanged, and now
+cited. `software/quda/solvers/staggered-multigrid.md`, "the parity field is a dummy for this
+path": *confirmed*, unchanged. `software/quda/solvers/staggered-cg.md`, "a zero-norm source is
+handled as a trivial solution": *confirmed*, unchanged. `software/milc/internals/quark-source-types.md`,
+the `point` parity row: *confirmed*, unchanged. `conventions/measurement.md` says nothing about
+source parity: *confirmed*. No other statement about the UML polish was found.
+
 ## 2026-10-19 — Staggered-CG probe tool: a dispatcher-selected entry point
 
 On DeltaAI login nodes `python3` is `/usr/bin/python3` 3.6 (observed 2026-10-11 and again
