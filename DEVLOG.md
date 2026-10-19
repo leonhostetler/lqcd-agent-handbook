@@ -7069,3 +7069,23 @@ and `CONTRIBUTING.md` step 7 name the harness without saying which tree it check
 unchanged. `ARCHITECTURE.md` §decisions-operation, "`propose-change.py` reads untracked files
 directly": *confirmed*, unchanged. `tools/run-change-proposal` passes arguments through and
 names no root: *confirmed*, unchanged. No other statement about the harness's root was found.
+
+## 2026-10-19 — Staggered-CG probe tool: a dispatcher-selected entry point
+
+On DeltaAI login nodes `python3` is `/usr/bin/python3` 3.6 (observed 2026-10-11 and again
+2026-10-19), and `tools/milc-quda-cg-probe.py`, invoked as the probe leaf said, failed at import
+with `SyntaxError: future feature annotations is not defined`. `/usr/bin/python3.11` ran it. The
+tool is stdlib-only, so nothing machine-specific is wrong: its documented entry point bypassed
+`tools/select-python`, which exists for exactly this case. `tools/run-milc-quda-cg-probe` now
+wraps it like `tools/run-extract-milc-timings`, the leaf's "Running it" steps call the wrapper,
+and `tests/test_milc_quda_cg_probe.py` runs `describe` through it; that test fails without the
+wrapper. No DeltaAI machine note: an old system `python3` is the dispatcher's premise, not a
+machine fact a session must act on. Source: the operator's campaign-project staging notes.
+
+**Reconciliation.** `software/milc/probes/staggered-cg-throughput.md`: "`tools/milc-quda-cg-probe.py`
+is the one home of its parameters" *confirmed*, unchanged (it names the parameter home, not an
+invocation); "Running it" steps 1 and 3 *amended* to the wrapper. The tool's docstring lists
+subcommands without an invocation path: *confirmed*, unchanged. `machines/deltaai/notes.md` says
+nothing about Python: *confirmed*, unchanged. No other statement invoking the probe tool was
+found. Not changed here: `playbooks/analyze-profile.md` invokes `tools/gpu-profile-summary.py`
+directly and that tool has no wrapper; it was not observed failing.

@@ -25,6 +25,7 @@ from support import PerturbationMixin  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "milc-quda-cg-probe.py"
+RUNNER = ROOT / "tools" / "run-milc-quda-cg-probe"
 MASS, TOL = "0.01", "1e-10"
 UNFROZEN = ('"mass": 0.01,\n    "tolerance": 1e-8,', '"mass": None,\n    "tolerance": None,')
 
@@ -353,6 +354,19 @@ class AnalyzeTests(ProbeCase):
         self.perturb(TOOL, "    kept = solves[1:]  # the first solve", "    kept = solves  # the first solve")
         _, report = self.analyze()
         self.assertEqual(report["points"][0]["milc"]["single"]["min"], 2000.0)
+
+
+
+class Runner(unittest.TestCase):
+    def test_runner_selects_a_usable_interpreter(self):
+        """A bare `python3` on DeltaAI login nodes is 3.6 and rejects this tool at import,
+        so the documented entry point goes through the shared dispatcher."""
+        result = subprocess.run(
+            ["/bin/bash", str(RUNNER), "describe"],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(json.loads(result.stdout)["name"], "staggered-cg-throughput")
 
 
 if __name__ == "__main__":

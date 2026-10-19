@@ -146,14 +146,17 @@ is slow.
 
 ## Running it
 
-1. `tools/milc-quda-cg-probe.py inputs --ranks-per-node R --out DIR` writes every point's MILC
+Run the tool through `tools/run-milc-quda-cg-probe`, which selects an interpreter new enough to
+parse it; a bare `python3` may not be.
+
+1. `tools/run-milc-quda-cg-probe inputs --ranks-per-node R --out DIR` writes every point's MILC
    inputs, QUDA command lines and a manifest naming every output the run must produce. Proofread
    the MILC inputs with `tools/milc-proofread-input.sh` before submitting.
 2. The batch script is machine-specific and follows the batch-script convention. For each point
    it runs a tuning pass, then the measured run, writing outputs under the manifest's names. It
    records each QUDA library the run loaded, as `<path> <sha256>` lines, exports the
    reconstruction settings the manifest lists, and binds each rank beside its device.
-3. `tools/milc-quda-cg-probe.py analyze --manifest … --outputs DIR` checks completion,
+3. `tools/run-milc-quda-cg-probe analyze --manifest … --outputs DIR` checks completion,
    convergence, solve counts, rank order, the consistency leg and every artifact, and reports
    each point's figures. Keep the inputs beside the manifest: for a run of an earlier version,
    the identity check reads them there. For a frozen probe, given `--stack`, the loaded-library file and the

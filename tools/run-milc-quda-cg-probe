@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Run the staggered-CG throughput probe tool under an interpreter the shared dispatcher
+# selects. The tool imports only the standard library, but a bare python3 on PATH may
+# predate its syntax: on DeltaAI login nodes it is 3.6, which rejects the file at import.
+set -eu
+
+here="${BASH_SOURCE[0]%/*}"
+if [[ "$here" == "${BASH_SOURCE[0]}" ]]; then
+    here="."
+fi
+here="$(cd -- "$here" && pwd)"
+
+exec "${BASH:-bash}" "$here/select-python" \
+    --label "the staggered-CG probe tool" \
+    --allow-module-load \
+    -- "$here/milc-quda-cg-probe.py" "$@"
