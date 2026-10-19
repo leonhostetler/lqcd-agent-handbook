@@ -183,7 +183,14 @@ and record the failed preflight without representing it as executed work.
 
 1. Monitor scheduler state at a rate consistent with site policy. Keep monitoring helpers and
    credentials scoped to the campaign, and ensure background helpers terminate when their job
-   or monitoring task ends.
+   or monitoring task ends. **Restart a long-running helper after editing its script.** Bash
+   parses a whole compound command before running it, so a top-level loop keeps executing the
+   text read at start, and a stop check or signal handler added by the edit does not exist in
+   the running process (`[experiment]` bash 4.4.23, 2026-10-19). A helper that logs its own
+   script hash when it starts lets a later check compare it with the file. Make it wait between
+   cycles with `sleep N & wait $!`, not a foreground `sleep`: bash runs a trap only after the
+   foreground command finishes, but at once when the signal interrupts `wait` (bash manual,
+   "Signals").
 2. Persist scheduler metadata and accounting evidence promptly; scheduler history may expire
    before a long campaign ends. Periodically reconcile the full manifest, not only recently
    submitted work.

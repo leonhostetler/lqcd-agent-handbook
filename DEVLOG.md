@@ -7089,3 +7089,30 @@ subcommands without an invocation path: *confirmed*, unchanged. `machines/deltaa
 nothing about Python: *confirmed*, unchanged. No other statement invoking the probe tool was
 found. Not changed here: `playbooks/analyze-profile.md` invokes `tools/gpu-profile-summary.py`
 directly and that tool has no wrapper; it was not observed failing.
+
+## 2026-10-19 — Production: restart a monitoring helper after editing it
+
+A campaign's auto-submitter, a bash script run in the background on a login node, was started
+four minutes before its last edit and ran for eleven days. The edited file checked a stop file
+every cycle and slept with `sleep & wait` so a signal acted at once. The running process
+submitted for three days after the stop file appeared, though the file was visible from its
+node, and a SIGTERM took effect only when the next cycle's sleep ended. Cause, by experiment
+(bash 4.4.23, 2026-10-19): a loop started from a script kept printing its original text after
+the file was rewritten, ignored the stop check the rewrite introduced, and stopped on the
+original one; a TERM trap ran 4 s after the signal behind a foreground `sleep 4` and at once
+behind `sleep 4 & wait $!`. The second half is documented in the bash manual's "Signals"
+section. Source: the operator's campaign records; the pre-edit script was not kept, so which
+features it lacked is inferred from behaviour.
+
+Admitted although the bash `RANDOM` note was not (`ROADMAP.md` §settled): that one restated a
+consequence the `ks_spectrum` guide already carried, while this changes what an operator does
+with a campaign helper, and its failure disabled the campaign's stop mechanism without a trace.
+
+**Reconciliation.** `modes/production.md`, "Monitor, reconcile, and retry" step 1: "ensure
+background helpers terminate when their job or monitoring task ends" *confirmed*, extended in
+place. Step 9's escalation list and the permissions section's "Do not cancel a running job"
+*confirmed*, unchanged: stopping a helper cancels nothing. `conventions/repeated-work.md`
+("an unexercised tool is worse than the hand pass") concerns trusting a new tool, not a running
+one: *confirmed*, unchanged. `conventions/running.md` and `conventions/campaign-records.md` say
+nothing about helper processes: *confirmed*, unchanged. No other statement about long-running
+helpers was found.
