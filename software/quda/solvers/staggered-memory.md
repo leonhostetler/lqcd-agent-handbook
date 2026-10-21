@@ -316,9 +316,11 @@ update's Kähler-Dirac rebuild.** `[source]` at QUDA `00c7ef33d`. A full update 
 level-0 coarse operators and rebuilds the KD inverse while the previous inverse and its sloppy
 copy are still held, and the build allocates, at fine local volume and KD geometry: a
 MILC-order inverse temporary (created zeroed, so a failure surfaces as a memset), an
-unreconstructed single-precision copy of the fine gauge field whenever the run's reconstruct is
-not `18` ([`../internals/milc-gauge-reconstruct.md`](../internals/milc-gauge-reconstruct.md)),
-a native-order temporary, and the new inverse. Compute each with the object layer above
+unreconstructed single-precision copy of the fine fat-link field unless the smoother already holds
+that field in single precision (the reconstruct pair does not enter, because the MILC interface
+stores fat links at `18`;
+[`../internals/milc-gauge-reconstruct.md`](../internals/milc-gauge-reconstruct.md)), a
+native-order temporary, and the new inverse. Compute each with the object layer above
 (`gauge` with the KD `site_dim` of `16`, and `vector` geometry for the gauge copy); at a fine
 local volume of order a million sites the transient is of order several gigabytes, against
 **nothing** for a thin update. `[experiment]` One run at the calibration ensemble completed setup

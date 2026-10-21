@@ -129,8 +129,9 @@ measurement across such a change without re-warming.
 
 **Gauge reconstruct is the same mechanism and is easier to miss, because it is set in the
 environment rather than in any input file.** Reconstruct is a template parameter, so each type
-is a separate kernel specialisation: changing it produces new keys for *exactly* the
-gauge-touching kernels while every other entry still hits. A run seeded from a cache built at
+is a separate kernel specialisation: changing it produces new keys for the kernels that read or
+copy the long links, and the memory operations keyed by their size, while every other entry still
+hits. A run seeded from a cache built at
 another reconstruct is therefore **partly** warm — neither the cold-start case nor the warm one —
 and a timing taken from it has to say so. See
 [`milc-gauge-reconstruct.md`](milc-gauge-reconstruct.md) for the variables and their defaults.
@@ -244,6 +245,16 @@ every retained figure was uncontaminated and both the first-solve and tuning-eve
 The defect was in the *schedule*, not in the numbers — so a rig whose measurements are verified
 correctly can still lose a leg this way, and only a walltime estimate that counts new shapes
 prevents it.
+
+**It also lands outside the solver, in phase timers that read like recurring cost.** An
+application that builds its links through QUDA tunes the link-construction kernels on first use,
+inside that phase. In a MILC `ks_spectrum` HISQ run, each of two cold-cache invocations logged 58
+tuning events between the gauge reload and its `FLTIME` line — staple, link, unitarization and
+long-link kernels — and its `FLTIME` was about forty times that of the twelve warm invocations,
+which logged none `[reproduced ×2]`. A projection that takes a phase timer from a cold run as its
+per-invocation cost overstates every warm invocation by the tuning; in the recorded case that was
+most of the error in a walltime projection that overshot by more than half. Take phase timers
+from a warm invocation, or locate the tuning events inside the phase first, as for a solve.
 
 ## An absent cache and an empty one are not the same file
 

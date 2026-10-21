@@ -7148,3 +7148,63 @@ place. Step 9's escalation list and the permissions section's "Do not cancel a r
 one: *confirmed*, unchanged. `conventions/running.md` and `conventions/campaign-records.md` say
 nothing about helper processes: *confirmed*, unchanged. No other statement about long-running
 helpers was found.
+
+## 2026-10-21 — QUDA MILC reconstruct: the variables never reach the fat links
+
+A reconstruct control in a one-node HISQ CG run left two tunecaches whose staggered dslash keys
+carry `QudaReconstructType_s18` for the fat links under both settings, with the long links at
+`s13`/`s9` in one and `s18` in the other. Read at QUDA `00c7ef33` (the leaf's observed commit)
+and at `b6998853`: `lib/milc_interface.cpp` sets the fat-link field's outer, sloppy and
+preconditioner reconstruct to `QUDA_RECONSTRUCT_NO` (L981-L983) and calls `getReconstruct` for the
+long-link field (L998) and the HISQ force gauge parameter (L364) only.
+`software/quda/internals/milc-gauge-reconstruct.md` said the variables decide how every fat and
+long field is stored, and its KD section derived a reconstruct-dependent gauge copy from that
+premise. `lib/multigrid.cpp` (L464-L468) hands the KD build the smoother's short-link field, which
+for HISQ is the fat-link field, so the reconstruct half of `need_new_U`'s test always passes there
+and precision alone decides the copy. The two caches also bounded what a reconstruct change
+re-keys: 104 entries shared; the differing entries are the staggered dslash, gauge copy and ghost
+extraction kernels and memory operations keyed by size, while link fattening kept its keys.
+Source: QUDA at both commits; the operator's campaign records for the caches.
+
+**Reconciliation.** `milc-gauge-reconstruct.md`: summary and opening paragraph *amended* to long
+links only; facts 1-4 *confirmed*, unchanged (`getReconstruct` is identical at both commits);
+"the stored size of every gauge field differs" *amended* to the long-link fields; "new tune keys
+for exactly the gauge-touching kernels" *amended* to the observed set; the KD section *rewritten*
+(the copy exists, is paid on every full update, and is decided by precision, not reconstruct);
+"What to do" and its `13`/`9` recommendation *confirmed*, unchanged. `staggered-memory.md`'s KD
+rebuild inventory, "copy ... whenever the run's reconstruct is not `18`", *amended*.
+`autotuning.md`'s reconstruct paragraph, "exactly the gauge-touching kernels", *amended*.
+`runtime-environment.md`'s reconstruct row states the defaults and inheritance only: *confirmed*,
+unchanged. `tools/quda-staggered-memory.py` carries no reconstruct term: *confirmed*, unchanged.
+The DeltaAI and Vista stack notes that export the pair: *confirmed*, unchanged. No other statement
+about the reconstruct variables or the KD gauge copy was found.
+
+## 2026-10-21 — A matched `13`/`9` against `18`/`18` comparison, and link tuning inside `FLTIME`
+
+One Perlmutter `gpu-a100-40` node, four ranks, QUDA `b6998853` and MILC `6b9b8a06`, ran plain
+mixed-precision CG (`inv_type UML`, point source) on a 64³×96 HISQ ensemble near physical light
+mass with a reconstruct control: the same input at `13`/`9` and with both variables unset, each
+leg warm on its own tunecache, the pair verified from each leg's environment dump and from the
+dslash keys. Medians of solves 2-6: 54.80 s at `13`/`9`, 63.70 s at `18`/`18`, ratio 1.162; 3.45
+against 3.99 ms per iteration; device high-water 24 239 against 24 959 MiB per rank. Even-solve
+counts 15953/15593/15886 against 15876/15929/15958; an earlier `18`/`18` run of the same even
+system through `inv_type CG` gave 15915/15903/15958. The job's two cold invocations each logged
+58 tuning events inside the fermion-link phase, with `FLTIME` 199.2 and 208.8 s, against 4.9-5.1 s
+and none in twelve warm invocations. The study had projected from a cold 202 s `FLTIME` and
+overshot the job's walltime by 57 %. Source: the operator's campaign records.
+
+**Reconciliation.** `milc-gauge-reconstruct.md`: "nobody has measured `18`/`18` against `13`/`9`
+on a matched pair on any machine in this catalogue" *amended*, one comparison now exists; "not a
+measured optimum" *amended* to "measured once", the scope limits stated; "treat a departure as
+invalidating every memory and timing figure recorded here" *confirmed*, unchanged.
+`autotuning.md`: "The cost lands as wall clock" and "What earns this its own rule" *confirmed*,
+extended by one paragraph on phase timers. `conventions/measurement.md`, "Excluding the first
+sample is necessary and not sufficient", governs samples, not phase timers: *confirmed*,
+unchanged. `software/milc/timing.md`'s `FLTIME` row: *confirmed*, unchanged. `ARCHITECTURE.md`
+§tolerances ("iteration counts: tight relative, near-deterministic for a fixed problem") and
+`modes/benchmarking.md` step 8: *confirmed*; 0.25 % at fixed settings is tight, and a reconstruct
+change is not a fixed problem.
+
+**Not admitted:** the same run's propagator agreement between the `UML` and `CG` paths, 2e-6 of
+the correlator maximum against an expected 1e-8. One comparison, and the conditioning argument
+for it is inferred rather than shown.
