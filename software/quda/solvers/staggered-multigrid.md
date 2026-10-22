@@ -118,9 +118,10 @@ Which keys select generated coarse-color kernels — and so must appear in
 deflation count rather than a coarse colour. **At four levels** `nvec 1` and `nvec 2` are
 coarse colours and must be in the list; `nvec 3` is the coarsest deflation count and must
 not. **At three levels** only `nvec 1` is a coarse colour; `nvec 2` is the coarsest
-deflation count, and there is no `nvec 3`. Checking the four-level rule against a
-three-level file therefore requires a compiled colour that the run never uses, and misses
-none that it does.
+deflation count, and there is no `nvec 3`. **At five levels** `nvec 1`, `nvec 2` and `nvec 3`
+are coarse colours and `nvec 4` is the coarsest deflation count. Checking the four-level rule
+against a three-level file therefore requires a compiled colour that the run never uses, and
+misses none that it does; against a five-level file it misses the third colour.
 
 <a id="level-naming"></a>
 ### Numbered symbols are level indices; role names are roles
@@ -135,8 +136,9 @@ Three rules follow, and the third is the one that is easy to get wrong:
 1. **Use role names in any statement meant to hold at more than one level count** —
    `coarsest_global_volume`, `coarsest_vector_density`, `coarsest_cell_aspect`. These are what
    [`quda-staggered-decomposition.py`](../../../tools/quda-staggered-decomposition.py) always
-   reports. It emits the numbered aliases `V3_global` and `nu3` only for a four-level hierarchy
-   and `V2_global` only for a three-level one, so an alias cannot outlive its level count.
+   reports. It emits the numbered aliases `V3_global` and `nu3` only for a four-level hierarchy,
+   `V2_global` only for a three-level one and `V4_global` and `nu4` only for a five-level one,
+   so an alias cannot outlive its level count.
    `coarsest` is the canonical role word throughout this handbook; `terminal` appears in some
    campaign records as a synonym for the same grid and is normalized to `coarsest` on import.
 2. **Use a numbered symbol only where the level count is fixed** by the surrounding text or by
@@ -265,8 +267,9 @@ switches are `WANTQUDA`, `WANT_FN_CG_GPU`, and `WANT_MULTIGRID`, and the CMake b
 
 QUDA compiles coarse-color and multi-right-hand-side kernels for configured lists. Every
 requested coarse colour must be represented in `QUDA_MULTIGRID_NVEC_LIST` — `nvec 1` and
-`nvec 2` at four levels, `nvec 1` alone at three, since the last `nvec` key is a deflation
-count — while a selected active multi-source batch shape must be represented in
+`nvec 2` at four levels, `nvec 1` alone at three, `nvec 1`, `nvec 2` and `nvec 3` at five,
+since the last `nvec` key is a deflation count — while a selected active multi-source batch
+shape must be represented in
 `QUDA_MULTIGRID_MRHS_LIST`. These are separate checks from the runtime
 `use_mma` switch. The QUDA defaults are not proof that an arbitrary MILC `nvec` or batch
 size was instantiated.
@@ -337,7 +340,8 @@ Additional hard constraints include:
   catch-all that aborts with `MMA implementation not available for fineColor = .. coarseColor
   = ..`. The colours here are near-null counts. The first aggregation out of the KD level is
   not such a build, so the rule binds only from the second aggregation on — in a four-level
-  MILC parameter file the pair (`nvec 1`, `nvec 2`); a three-level hierarchy has none.
+  MILC parameter file the pair (`nvec 1`, `nvec 2`); in a five-level file the two pairs
+  (`nvec 1`, `nvec 2`) and (`nvec 2`, `nvec 3`); a three-level hierarchy has none.
   `nvec 1 = 32` with `nvec 2 = 96` passes the colour rule and `QUDA_MULTIGRID_NVEC_LIST`,
   and still aborts at the first coarse-to-coarse build, which in a generating run comes only
   after the level-1 near-null generation has been paid for. So with MMA on, `nvec 1 = 32`
@@ -393,8 +397,12 @@ QUDA's supported MMA set and the coarse-to-coarse colour pair against its instan
 pairs; the results appear as `build_capability.QUDA_MMA_COARSE_GAUGE_COLOR.status` and
 `build_capability.QUDA_MMA_COARSE_COLOR_PAIR.status`, each `unchecked` unless `--mma` or
 `--no-mma` is supplied, and the pair check is `not-applicable` below four levels. Pass
-`--allow-truncation` to enumerate the truncated long-link space deliberately. Every result is derived from the supplied global lattice and rank
-geometry; there is no built-in lattice size or lattice-spacing default. The
+`--allow-truncation` to enumerate the truncated long-link space deliberately. A five-level
+hierarchy is `--levels 5` with `--block3`, `--nvec3` as the third coarse colour and
+`--nvec4` as the coarsest deflation count; every per-step rule, the compiled-colour list and
+both MMA pairs are then checked one aggregation deeper, and the four-level corpus screens
+are declined as they are at three. Every result is derived from the supplied global lattice
+and rank geometry; there is no built-in lattice size or lattice-spacing default. The
 `build_capability.QUDA_MULTIGRID_NVEC_LIST.status` field is `pass` or `fail` only when
 `--compiled-nvecs` is supplied; otherwise it is explicitly `unchecked`. A geometry
 `source_status: pass` with an unchecked build capability is not proof that the executable

@@ -86,7 +86,7 @@ A target outside that scope may still use the source mechanism and measurement
 procedure, but its numerical result is a probe. In particular:
 
 - changing `nvec_2` invalidates the fitted spectrum coefficient;
-- using two or three levels invalidates all four-level numerical bands;
+- using two, three or five levels invalidates all four-level numerical bands;
 - the 0.09-fm population does not extend the working spectrum fit; and
 - a new machine, allocator, build, precision, or operator requires target validation.
 

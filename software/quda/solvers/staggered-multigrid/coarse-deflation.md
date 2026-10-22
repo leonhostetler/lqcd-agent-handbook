@@ -30,7 +30,7 @@ Coarsest-level deflation is an eigensolver setup investment followed by a recurr
 coarse-solve effect. Configure it from the executed hierarchy, measured spectrum,
 eigenvector quality, compatible reuse count, and target workload. Do not copy a bare
 coarsest deflation count — `nvec 3` in a four-level MILC parameter file, `nvec 2` in a
-three-level one — or a mass switch from another ensemble.
+three-level one, `nvec 4` in a five-level one — or a mass switch from another ensemble.
 
 All numerical bands and fitted constants below belong to the named
 `perlmutter-a100-staggered-mg-2024-2026` retrospective. Its
@@ -112,7 +112,8 @@ value.
 
 The shared exponent and coefficient are an empirical prior, not a source law. Changing the
 near-null count on the level above the coarsest — `nvec 2` in a four-level MILC parameter
-file, `nvec 1` in a three-level one — invalidates `A`, because the calibration cannot
+file, `nvec 1` in a three-level one, `nvec 3` in a five-level one — invalidates `A`, because
+the calibration cannot
 distinguish `coarsest_vector_density` from the fraction of the full coarse colour space.
 Refit rather than extrapolate. In all cases, compare the prediction with the run's printed
 `eval_max`; a large, one-sided mismatch can indicate a partially delivered eigenspace

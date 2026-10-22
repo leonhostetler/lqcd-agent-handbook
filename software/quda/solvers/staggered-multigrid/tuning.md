@@ -369,7 +369,7 @@ re-deriving `deflate_a_min` and confirming the outer solve still converges — a
 made without both is not measuring the parameter it claims to.
 
 **Which count is coarsest-defining depends on level count:** `nvec 1` at three levels,
-`nvec 2` at four ([level naming](../staggered-multigrid.md#level-naming)). At four levels a
+`nvec 2` at four, `nvec 3` at five ([level naming](../staggered-multigrid.md#level-naming)). At four levels a
 `nvec 1` change leaves the coarsest cost term untouched but still perturbs the coarsest
 spectrum indirectly, by altering the level-2 operator its near-null vectors are generated
 from. Re-derive `deflate_a_min` there too.

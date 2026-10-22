@@ -7208,3 +7208,38 @@ change is not a fixed problem.
 **Not admitted:** the same run's propagator agreement between the `UML` and `CG` paths, 2e-6 of
 the correlator maximum against an expected 1e-8. One comparison, and the conditioning argument
 for it is inferred rather than shown.
+
+## 2026-10-21 — Five-level staggered MG in the decomposition and memory tools
+
+A planned campaign on a lattice larger than any in the fitted corpus needs a coarsest grid that
+two aggregations of legal size cannot always deliver, and the operator asked that both four- and
+five-level hierarchies be screened. `tools/quda_staggered_geometry.py`, `tools/quda-staggered-decomposition.py`
+and `tools/quda-staggered-memory.py` accepted `--levels 2|3|4` only. The geometry engine now
+builds its aggregation steps from a list (`aggregation_steps`, `coarse_colours`) and accepts a
+third aggregation (`block3`) with MILC `nvec 3` as the third coarse colour and `nvec 4` as the
+coarsest-deflation count — the roles the MILC keys already have at that level count. Every
+per-step source predicate, the compiled-colour list, the MMA coarse-gauge-colour rule and the MMA
+pair rule reach the third aggregation; the corpus screens stay declined at any level count but
+four; the numbered aliases are `V4_global`/`nu4` at five levels and the four-level ones do not
+appear. The memory model adds phase E, the level-4 build, mirroring phase C one level down, with
+phase C holding the level-3 near-null set instead of the eigenspace; it is reported as an
+unvalidated structural extrapolation with the same loud warning as two and three levels, and
+post-setup phase D is not inventoried above four levels. No four-level value changed: the pinned
+0.04 and 0.06 fm examples reproduce to the published digits, and a four-level request with
+`--block3` or `--nvec4` is refused. `tests/test_five_level_hierarchy.py` (17 tests) fails on the
+unchanged tools in every case and passes on the change.
+
+**Reconciliation.** Every statement naming the level-count-dependent keys was listed and
+amended to carry the five-level case in the same sentence, the form §role-not-index requires:
+`staggered-multigrid.md` (the crosswalk paragraph on which keys are compiled colours, the
+level-naming aliases, the build-requirements sentence, the MMA pair paragraph, the tool
+invocation); `staggered-memory.md` (the tier bullet, the phase-structure sentence, the phase
+table, the "flat in the deflation count" paragraph, the unvalidated-controls paragraph);
+`calibration.md` (the invalidation bullet); `tuning.md` ("which count is coarsest-defining");
+`hierarchy-and-setup.md` (the coarsest-level index sentence and the `nvec` key sentence);
+`coarse-deflation.md` (the bare-count sentence and the refit sentence); `diagnostics.md` (the
+`MG level <C>` prefix and the requested-count sentence). `ARCHITECTURE.md` §5.4 names four and
+three levels as examples of the rule, not as the supported set: *confirmed*, unchanged. The
+depth rule in `tuning.md` (a level appended below an adequate coarsest grid buys per-iteration
+cost only) is unchanged by the tool support and is what a five-level candidate is screened
+against. `ROADMAP.md` 5.6 records the owed validation.

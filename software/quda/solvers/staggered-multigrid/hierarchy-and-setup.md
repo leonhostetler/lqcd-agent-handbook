@@ -47,8 +47,8 @@ coarsest_vector_density = coarsest_deflation_count / coarsest_global_volume
 ```
 
 Both are named for the **role** of the grid, not its index, because the coarsest grid is
-level 3 in a four-level hierarchy and level 2 in a three-level one. The decomposition tool
-reports exactly these names. See
+level 3 in a four-level hierarchy, level 2 in a three-level one and level 4 in a five-level
+one. The decomposition tool reports exactly these names. See
 [level naming](../staggered-multigrid.md#level-naming) for the rule and for the
 parameter-file keys each maps to.
 
@@ -71,7 +71,8 @@ however, the quantity to hold fixed when the fine problem is unchanged and only 
 hierarchy moved** — see the next section. The corpus also cannot separate that density from
 the fraction of the complete coarse colour space, because the near-null count on the level
 above the coarsest — `nvec 2` in a four-level MILC parameter file, `nvec 1` in a three-level
-one — was nearly fixed. If it changes, treat the existing calibration as needing a refit.
+one, `nvec 3` in a five-level one — was nearly fixed. If it changes, treat the existing
+calibration as needing a refit.
 
 The decomposition tool reports these quantities without treating them as legality
 conditions:

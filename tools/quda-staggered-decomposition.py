@@ -25,8 +25,8 @@ def parser() -> argparse.ArgumentParser:
         metavar=("RX", "RY", "RZ", "RT"), help="four-dimensional rank grid",
     )
     out.add_argument(
-        "--levels", type=int, choices=(2, 3, 4), default=4,
-        help="total QUDA levels; 4 means levels 0, 1, 2, and 3",
+        "--levels", type=int, choices=(2, 3, 4, 5), default=4,
+        help="total QUDA levels; 4 means levels 0, 1, 2, and 3; 5 adds a third aggregation",
     )
     out.add_argument(
         "--block1", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"),
@@ -36,11 +36,22 @@ def parser() -> argparse.ArgumentParser:
         "--block2", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"),
         help="MILC geo_block_size 2: aggregate QUDA level 2 into level 3",
     )
+    out.add_argument(
+        "--block3", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"),
+        help="MILC geo_block_size 3: aggregate QUDA level 3 into level 4 (five levels only)",
+    )
     out.add_argument("--nvec1", type=int, default=0, help="MILC nvec 1 coarse color count")
     out.add_argument("--nvec2", type=int, default=0, help="MILC nvec 2 coarse color count")
     out.add_argument(
         "--nvec3", type=int,
-        help="MILC nvec 3 coarsest-deflation count; not a compiled coarse color",
+        help=(
+            "MILC nvec 3: the coarsest-deflation count at four levels (not a compiled coarse "
+            "color), the third coarse color at five"
+        ),
+    )
+    out.add_argument(
+        "--nvec4", type=int,
+        help="MILC nvec 4: the coarsest-deflation count at five levels; not a compiled coarse color",
     )
     out.add_argument(
         "--compiled-nvecs", nargs="+", type=int,
@@ -86,7 +97,9 @@ def main() -> int:
     command = parser()
     args = command.parse_args()
     try:
-        if args.nvec1 < 0 or args.nvec2 < 0 or (args.nvec3 is not None and args.nvec3 < 0):
+        if args.nvec1 < 0 or args.nvec2 < 0 or any(
+            value is not None and value < 0 for value in (args.nvec3, args.nvec4)
+        ):
             raise GeometryError("nvec values must be nonnegative")
         payload = evaluate_decomposition(
             args.global_dims,
@@ -102,6 +115,8 @@ def main() -> int:
             args.corpus_advisories,
             args.allow_truncation,
             args.mma,
+            args.block3,
+            args.nvec4,
         )
     except GeometryError as exc:
         command.error(str(exc))

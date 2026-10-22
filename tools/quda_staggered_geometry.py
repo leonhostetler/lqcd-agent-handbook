@@ -45,7 +45,8 @@ MMA_COARSE_GAUGE_COLORS = (12, 48, 64, 128, 192)
 # catch-all overload whose body is errorQuda("MMA implementation not available ..."). The
 # colours are colour-spinor colours, i.e. near-null counts, not coarse gauge colours. The first
 # aggregation out of the Kahler-Dirac level is not from_coarse and is not governed by this
-# table, so only a four-level hierarchy has a pair to check: (nvec1, nvec2).
+# table, so a hierarchy has one pair to check per coarse-to-coarse build: (nvec1, nvec2) at
+# four levels, and (nvec2, nvec3) as well at five.
 # https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/coarse_op_mma_launch.h#L338-L356
 # Re-verified 2026-10-02 at 00c7ef33dacadfb94860e3ca1cc06862926182dc: the header is unchanged.
 MMA_COARSE_COLOR_PAIRS = (
@@ -77,6 +78,61 @@ CORPUS_NU3_MAX = 0.250
 
 class GeometryError(ValueError):
     """Invalid dimensions or hierarchy arguments supplied to the geometry engine."""
+
+
+# Total level counts the engine models. Levels 0 and 1 are the fine operator and its
+# Kahler-Dirac transform; every level beyond that is one aggregation, so a hierarchy of
+# L levels has L - 2 aggregation steps and L - 2 coarse colours.
+SUPPORTED_LEVELS = (2, 3, 4, 5)
+
+
+def aggregation_steps(
+    levels: int,
+    block1: list[int] | None,
+    block2: list[int] | None,
+    nvec1: int,
+    nvec2: int,
+    block3: list[int] | None = None,
+    nvec3: int = 0,
+) -> list[tuple[int, list[int], int, int, int]]:
+    """The (level, block, nvec, fine colour, spin block) of every aggregation, validated.
+
+    The MILC keys follow the level index, so `nvec 3` is the third coarse colour at five
+    levels and the coarsest-deflation count at four; this helper is where that role is
+    decided, from `levels` alone. Callers hand it the MILC value of `nvec 3` only when it is
+    a coarse colour.
+    """
+    if levels not in SUPPORTED_LEVELS:
+        raise GeometryError("levels must be 2, 3, 4, or 5")
+    if levels >= 3 and (block1 is None or nvec1 <= 0):
+        raise GeometryError("three-, four- and five-level MG require block1 and positive nvec1")
+    if levels >= 4 and (block2 is None or nvec2 <= 0):
+        raise GeometryError("four- and five-level MG require block2 and positive nvec2")
+    if levels == 5 and (block3 is None or nvec3 <= 0):
+        raise GeometryError("five-level MG requires block3 and positive nvec3 as a coarse colour")
+    if levels < 5 and block3 is not None:
+        raise GeometryError(f"block3 is not used by a {levels}-level hierarchy")
+    if levels < 4 and block2 is not None:
+        raise GeometryError(f"block2 is not used by a {levels}-level hierarchy")
+    if levels == 2 and block1 is not None:
+        raise GeometryError("block1 is not used by a two-level KD-only hierarchy")
+    steps: list[tuple[int, list[int], int, int, int]] = []
+    if levels >= 3:
+        assert block1 is not None
+        steps.append((1, block1, nvec1, 3, 0))
+    if levels >= 4:
+        assert block2 is not None
+        steps.append((2, block2, nvec2, nvec1, 1))
+    if levels == 5:
+        assert block3 is not None
+        steps.append((3, block3, nvec3, nvec2, 1))
+    return steps
+
+
+def coarse_colours(levels: int, nvec1: int, nvec2: int, nvec3: int = 0) -> list[tuple[str, int]]:
+    """The MILC keys that name generated coarse colours at this level count, in order."""
+    names = [("nvec1", nvec1), ("nvec2", nvec2), ("nvec3", nvec3)]
+    return names[: max(levels - 2, 0)]
 
 
 @dataclass(frozen=True)
@@ -246,31 +302,23 @@ def evaluate_local_hierarchy(
     compiled_nvecs: list[int] | None = None,
     allow_truncation: bool = False,
     use_mma: bool | None = None,
+    block3: list[int] | None = None,
+    nvec3: int = 0,
 ) -> dict[str, object]:
-    """Adjust and validate every aggregation step for a supplied local lattice."""
+    """Adjust and validate every aggregation step for a supplied local lattice.
+
+    `nvec3` here is the third coarse colour of a five-level hierarchy and is ignored below
+    five levels, where MILC's `nvec 3` is the coarsest-deflation count instead.
+    """
     require_four_positive("local dimensions", local_dims)
-    if levels not in (2, 3, 4):
-        raise GeometryError("levels must be 2, 3, or 4")
-    if levels >= 3 and (block1 is None or nvec1 <= 0):
-        raise GeometryError("three- and four-level MG require block1 and positive nvec1")
-    if levels == 4 and (block2 is None or nvec2 <= 0):
-        raise GeometryError("four-level MG requires block2 and positive nvec2")
-    if levels < 4 and block2 is not None:
-        raise GeometryError(f"block2 is not used by a {levels}-level hierarchy")
-    if levels == 2 and block1 is not None:
-        raise GeometryError("block1 is not used by a two-level KD-only hierarchy")
+    steps = aggregation_steps(levels, block1, block2, nvec1, nvec2, block3, nvec3)
+    colour3 = nvec3 if levels == 5 else 0
 
     errors: list[str] = []
     level_details: list[dict[str, object]] = []
     current = list(local_dims)
     effective_blocks: list[list[int]] = []
-    steps = []
-    if levels >= 3:
-        steps.append((1, block1, nvec1, 3, 0))
-    if levels == 4:
-        steps.append((2, block2, nvec2, nvec1, 1))
     for level, requested, nvec, fine_color, spin_block in steps:
-        assert requested is not None
         adjusted = transfer_adjust(current, requested)
         coarse, step_errors, detail = source_checks(
             current, adjusted, level, nvec, fine_color, spin_block, allow_truncation
@@ -297,9 +345,9 @@ def evaluate_local_hierarchy(
         "runtime_confirmation": "confirm every `Transfer: using block size ...` line",
     }
     hierarchy = attach_compiled_nvec_check(
-        hierarchy, levels, nvec1, nvec2, compiled_nvecs
+        hierarchy, levels, nvec1, nvec2, compiled_nvecs, colour3
     )
-    return attach_mma_capability_check(hierarchy, levels, nvec1, nvec2, use_mma)
+    return attach_mma_capability_check(hierarchy, levels, nvec1, nvec2, use_mma, colour3)
 
 
 def compiled_nvec_check(
@@ -307,13 +355,12 @@ def compiled_nvec_check(
     nvec1: int,
     nvec2: int,
     compiled_nvecs: list[int] | None,
+    nvec3: int = 0,
 ) -> dict[str, object]:
     """Describe a QUDA_MULTIGRID_NVEC_LIST check without implying it ran."""
-    required = []
-    if levels >= 3:
-        required.append({"parameter": "nvec1", "value": nvec1})
-    if levels == 4:
-        required.append({"parameter": "nvec2", "value": nvec2})
+    required = [
+        {"parameter": name, "value": value} for name, value in coarse_colours(levels, nvec1, nvec2, nvec3)
+    ]
     supplied = sorted(set(compiled_nvecs)) if compiled_nvecs is not None else None
     missing = (
         [item for item in required if item["value"] not in supplied]
@@ -326,7 +373,8 @@ def compiled_nvec_check(
         "supplied": supplied,
         "missing": missing,
         "scope": (
-            "nvec1/nvec2 construct coarse colors; nvec3 is a coarsest-deflation "
+            "the coarse colours are nvec1 at three levels, nvec1/nvec2 at four and "
+            "nvec1/nvec2/nvec3 at five; the last MILC nvec key is the coarsest-deflation "
             "count and is not checked against this list"
         ),
     }
@@ -338,9 +386,10 @@ def attach_compiled_nvec_check(
     nvec1: int,
     nvec2: int,
     compiled_nvecs: list[int] | None,
+    nvec3: int = 0,
 ) -> dict[str, object]:
     """Attach the build check and make a checked failure source-invalid."""
-    check = compiled_nvec_check(levels, nvec1, nvec2, compiled_nvecs)
+    check = compiled_nvec_check(levels, nvec1, nvec2, compiled_nvecs, nvec3)
     hierarchy["build_capability"] = {"QUDA_MULTIGRID_NVEC_LIST": check}
     if check["status"] == "fail":
         for item in check["missing"]:
@@ -357,6 +406,7 @@ def mma_capability_check(
     nvec1: int,
     nvec2: int,
     use_mma: bool | None,
+    nvec3: int = 0,
 ) -> dict[str, object]:
     """Describe QUDA's MMA coarse-gauge-color restriction without implying it ran.
 
@@ -365,15 +415,10 @@ def mma_capability_check(
     a compiled coarse color and still abort in coarse-operator construction.  It is
     independent of QUDA_MULTIGRID_NVEC_LIST.
     """
-    required = []
-    if levels >= 3:
-        required.append(
-            {"parameter": "nvec1", "value": nvec1, "coarse_gauge_color": 2 * nvec1}
-        )
-    if levels == 4:
-        required.append(
-            {"parameter": "nvec2", "value": nvec2, "coarse_gauge_color": 2 * nvec2}
-        )
+    required = [
+        {"parameter": name, "value": value, "coarse_gauge_color": 2 * value}
+        for name, value in coarse_colours(levels, nvec1, nvec2, nvec3)
+    ]
     if use_mma is None:
         status, unsupported = "unchecked", []
     elif not use_mma:
@@ -403,6 +448,7 @@ def mma_pair_check(
     nvec1: int,
     nvec2: int,
     use_mma: bool | None,
+    nvec3: int = 0,
 ) -> dict[str, object]:
     """Describe QUDA's MMA (fine colour, coarse colour) pair restriction without implying it ran.
 
@@ -410,9 +456,11 @@ def mma_pair_check(
     near-null counts are each MMA-supported colours can still name a pair QUDA did not
     instantiate, and then aborts at its first coarse-to-coarse operator build.
     """
-    required = (
-        [{"parameters": "nvec1->nvec2", "pair": [nvec1, nvec2]}] if levels == 4 else []
-    )
+    colours = coarse_colours(levels, nvec1, nvec2, nvec3)
+    required = [
+        {"parameters": f"{fine_name}->{coarse_name}", "pair": [fine, coarse]}
+        for (fine_name, fine), (coarse_name, coarse) in zip(colours, colours[1:])
+    ]
     if use_mma is None:
         status, unsupported = "unchecked", []
     elif not use_mma or not required:
@@ -429,8 +477,8 @@ def mma_pair_check(
         "unsupported": unsupported,
         "scope": (
             "binds only when MILC use_mma is true, on every coarse operator built from a "
-            "coarse level: (nvec1, nvec2) at four levels, none at two or three; checked in "
-            "addition to the coarse-gauge-colour rule"
+            "coarse level: (nvec1, nvec2) at four levels, (nvec1, nvec2) and (nvec2, nvec3) "
+            "at five, none at two or three; checked in addition to the coarse-gauge-colour rule"
         ),
     }
 
@@ -441,9 +489,10 @@ def attach_mma_capability_check(
     nvec1: int,
     nvec2: int,
     use_mma: bool | None,
+    nvec3: int = 0,
 ) -> dict[str, object]:
     """Attach the MMA check and make a checked failure source-invalid."""
-    check = mma_capability_check(levels, nvec1, nvec2, use_mma)
+    check = mma_capability_check(levels, nvec1, nvec2, use_mma, nvec3)
     capability = hierarchy.setdefault("build_capability", {})
     capability["QUDA_MMA_COARSE_GAUGE_COLOR"] = check
     if check["status"] == "fail":
@@ -454,7 +503,7 @@ def attach_mma_capability_check(
                 "coarse-operator kernel; use_mma aborts in coarse-operator construction"
             )
         hierarchy["source_status"] = "error"
-    pair = mma_pair_check(levels, nvec1, nvec2, use_mma)
+    pair = mma_pair_check(levels, nvec1, nvec2, use_mma, nvec3)
     capability["QUDA_MMA_COARSE_COLOR_PAIR"] = pair
     if pair["status"] == "fail":
         for item in pair["unsupported"]:
@@ -482,8 +531,24 @@ def evaluate_decomposition(
     corpus_advisories: bool = False,
     allow_truncation: bool = False,
     use_mma: bool | None = None,
+    block3: list[int] | None = None,
+    nvec4: int | None = None,
 ) -> dict[str, object]:
-    """Derive local geometry, adjust blocks, and keep source errors separate from advice."""
+    """Derive local geometry, adjust blocks, and keep source errors separate from advice.
+
+    The nvec arguments carry the MILC values of the keys they are named after, so their
+    roles follow the level count exactly as the keys' do: at five levels `nvec3` is the third
+    coarse colour and `nvec4` the coarsest-deflation count; at four levels `nvec3` is the
+    deflation count and `nvec4` is not used; below four, `nvec3` and `nvec4` are not used.
+    """
+    if levels == 5:
+        colour3 = nvec3 or 0
+        deflation_count = nvec4
+    else:
+        if nvec4 is not None:
+            raise GeometryError(f"nvec4 is not used by a {levels}-level hierarchy")
+        colour3 = 0
+        deflation_count = nvec3
     local, errors = derive_local(global_dims, ranks)
     hierarchy: dict[str, object]
     if local is None:
@@ -502,14 +567,14 @@ def evaluate_decomposition(
     else:
         hierarchy = evaluate_local_hierarchy(
             local, levels, block1, block2, nvec1, nvec2, compiled_nvecs,
-            allow_truncation, use_mma,
+            allow_truncation, use_mma, block3, colour3,
         )
         hierarchy["source_errors"] = errors + list(hierarchy["source_errors"])
         hierarchy["source_status"] = "error" if hierarchy["source_errors"] else "pass"
 
     if local is None:
-        attach_compiled_nvec_check(hierarchy, levels, nvec1, nvec2, compiled_nvecs)
-        attach_mma_capability_check(hierarchy, levels, nvec1, nvec2, use_mma)
+        attach_compiled_nvec_check(hierarchy, levels, nvec1, nvec2, compiled_nvecs, colour3)
+        attach_mma_capability_check(hierarchy, levels, nvec1, nvec2, use_mma, colour3)
 
     metrics: dict[str, object] = {}
     advisories: list[str] = []
@@ -532,22 +597,22 @@ def evaluate_decomposition(
                 "coarsest_cell_aspect": aspect,
             }
         )
-        if levels == 4:
-            metrics["V3_global"] = coarsest_global_volume
-            metrics["V3_local"] = product(coarsest_local_dims)
-        elif levels == 3:
-            metrics["V2_global"] = coarsest_global_volume
-            metrics["V2_local"] = product(coarsest_local_dims)
+        # The numbered aliases name the coarsest level by its index and so exist only at the
+        # level count that index belongs to; a consumer that reads `V3_global` from a
+        # five-level result would be reading a different grid than it thinks.
+        if levels >= 3:
+            metrics[f"V{levels - 1}_global"] = coarsest_global_volume
+            metrics[f"V{levels - 1}_local"] = product(coarsest_local_dims)
         if lattice_spacing_fm is not None:
             if lattice_spacing_fm <= 0:
                 raise GeometryError("lattice-spacing-fm must be positive")
             metrics["coarsest_cell_fm"] = [
                 lattice_spacing_fm * value for value in total_block
             ]
-        if nvec3 is not None:
-            metrics["coarsest_vector_density"] = nvec3 / coarsest_global_volume
-            if levels == 4:
-                metrics["nu3"] = nvec3 / coarsest_global_volume
+        if deflation_count is not None:
+            metrics["coarsest_vector_density"] = deflation_count / coarsest_global_volume
+            if levels >= 3:
+                metrics[f"nu{levels - 1}"] = deflation_count / coarsest_global_volume
 
         # coarse_fine_work: how many full fine-operator applications one coarsest apply
         # costs. The solver-tuning procedure requires this screen -- an adequate coarsest
@@ -556,9 +621,9 @@ def evaluate_decomposition(
         # so every campaign following the gate computed it by hand.
         #
         # The trap it removes is which count to use. The coarse gauge colour is
-        # 2 * nvec_(L-1), and L-1 is a LEVEL INDEX, not a role: that is nvec_2 at four
-        # levels and nvec_1 at three. nvec_3 is a deflation count and never a coarse colour.
-        # Getting this wrong at three levels silently squares the wrong number.
+        # 2 * nvec_(L-1), and L-1 is a LEVEL INDEX, not a role: that is nvec_3 at five
+        # levels, nvec_2 at four and nvec_1 at three. The last nvec key is a deflation count
+        # and never a coarse colour. Getting this wrong silently squares the wrong number.
         #
         # This is a dimensionless ratio derived from the lattice, the executed blocks and
         # the coarse colour -- a quantity, not a fitted band -- so unlike the corpus screens
@@ -572,7 +637,7 @@ def evaluate_decomposition(
         # DIFFERENT hierarchy, and this ratio moves accordingly. That is the executed
         # hierarchy being priced, which is the one worth pricing; check
         # `requested_blocks_changed` before comparing two placements.
-        coarsest_defining_nvec = {4: nvec2, 3: nvec1}.get(levels)
+        coarsest_defining_nvec = {5: colour3, 4: nvec2, 3: nvec1}.get(levels)
         if coarsest_defining_nvec:
             coarse_gauge_colour = 2 * coarsest_defining_nvec
             metrics["coarse_gauge_colour"] = coarse_gauge_colour

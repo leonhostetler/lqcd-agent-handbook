@@ -93,12 +93,14 @@ tool together. A field the tool reports `unavailable` is missing data, never a z
   level or run.
 - **`eval_max` and `coarsest_res_max`:** for one coarsest eigensolve event, collect its
   lines matching `MG level <C> (GPU): Eval[NNNN] = (+real,imag) ... Residual = <r>`, where
-  `<C>` is the executed index of the **coarsest** level — `3` in a four-level hierarchy and
-  `2` in a three-level one. Reading a fixed `MG level 3` prefix silently returns nothing at
-  three levels. `eval_max` is the maximum printed real eigenvalue and `coarsest_res_max` is
-  the maximum printed `Residual` over the same delivered prefix. Count the `Eval[...]` lines
+  `<C>` is the executed index of the **coarsest** level — `3` in a four-level hierarchy,
+  `2` in a three-level one and `4` in a five-level one. Reading a fixed `MG level 3` prefix
+  silently returns nothing at three levels and the wrong level at five. `eval_max` is the
+  maximum printed real eigenvalue and `coarsest_res_max` is the maximum printed `Residual`
+  over the same delivered prefix. Count the `Eval[...]` lines
   and compare that count with the requested coarsest deflation count — `nvec 3` in a
-  four-level MILC parameter file, `nvec 2` in a three-level one — and the event's
+  four-level MILC parameter file, `nvec 2` in a three-level one, `nvec 4` in a five-level
+  one — and the event's
   convergence summary; a short prefix is partial delivery, not a smaller complete
   spectrum.
 - **TRLM restarts:** from the summary for that same event, parse the integer immediately

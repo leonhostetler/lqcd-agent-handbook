@@ -149,8 +149,8 @@ For MG, inspect `prediction_assessment.tier` before using the number:
 - `caveated-extrapolation` means the source formulas still produce a planning estimate,
   but at least one component leaves that envelope and no combined empirical error bound
   applies.
-- `unvalidated-structural-extrapolation` is used for two- and three-level hierarchies.
-  These paths have never been measured and always emit a loud warning.
+- `unvalidated-structural-extrapolation` is used for two-, three- and five-level
+  hierarchies. These paths have never been measured and always emit a loud warning.
 
 The current-code KD correction remains a separately declared one-point extrapolation even
 inside the first tier. A final candidate must still be measured on its target stack.
@@ -159,7 +159,7 @@ For `mg-fit` JSON, top-level `evidence` is the actual prediction tier above, whi
 `model_basis` records `corpus-calibrated-with-source-geometry`. Thus an
 `--machine other` result says `evidence: caveated-extrapolation` instead of inheriting a
 calibrated label. The `detail.phase_model_evidence` string describes whether the
-two-, three-, or four-level phase structure has empirical support; it does not claim
+two-, three-, four-, or five-level phase structure has empirical support; it does not claim
 that every four-level candidate is inside the calibration envelope.
 
 ### Plain CG
@@ -263,6 +263,7 @@ The model is a maximum over allocation phases rather than a sum over every objec
 | 4 | A: near-null generation; B: level-2 build; C: level-3 build | corpus-calibrated |
 | 3 | A and B, with estimated deflation on the larger level-2 grid | **never empirically validated** |
 | 2 | KD resident state only, plus an optional estimated deflation term | **never empirically validated** |
+| 5 | A, B and C as at four levels, with C holding the level-3 near-null set instead of the eigenspace; then E: level-4 build, with the estimated deflation on the level-4 grid (D names the post-setup phase below, which is not inventoried at five levels) | **never empirically validated** |
 
 This matters operationally. If A wins, changing aggregation may not change the peak at
 all. If B wins, block size, level-2 volume, coarse color, and MMA copies are directly on
@@ -274,9 +275,10 @@ phase D, the resident hierarchy plus the width-1 solve workspace.** See "Phase D
 
 **The winning phase decides whether the coarsest deflation count is visible at all.** The
 coarsest eigenspace
-is carried in exactly one phase — A at two levels, B at three, C at four — and the
-four-level term is sized by `max(nvec 2, nvec 3)`. When another phase wins, or when
-`nvec 3 <= nvec 2` at four levels, the reported total is **flat in the deflation count** and its
+is carried in exactly one phase — A at two levels, B at three, C at four, E at five — and the
+four-level term is sized by `max(nvec 2, nvec 3)`, the five-level one by `max(nvec 3, nvec 4)`.
+When another phase wins, or when the deflation count is at or below the coarse colour above it
+(`nvec 3 <= nvec 2` at four levels), the reported total is **flat in the deflation count** and its
 headroom is not eigenspace-aware. This is not a corner case: a large-volume four-level
 candidate frequently peaks in phase A, where the fitted setup workspace dominates, so a
 requested eigenspace of several thousand vectors can contribute nothing to the estimate.
@@ -531,10 +533,13 @@ reason.
 
 ### Unvalidated hierarchy, precision, and fit controls
 
-Pass `--levels 2` with no aggregation blocks or `--levels 3` with `--block1`. Both modes
-emit `LOUD WARNING` on stderr and in JSON because neither has ever been empirically
-validated. The three-level estimate includes the coarse deflation space on the larger
-level-2 grid; omitting that term can turn an apparent fit into an out-of-memory run.
+Pass `--levels 2` with no aggregation blocks, `--levels 3` with `--block1`, or `--levels 5`
+with `--block3`, `--nvec3` as the third coarse colour and `--nvec4` as the coarsest deflation
+count. All three modes emit `LOUD WARNING` on stderr and in JSON because none has ever been
+empirically validated. The three-level estimate includes the coarse deflation space on the
+larger level-2 grid; omitting that term can turn an apparent fit into an out-of-memory run.
+The five-level estimate adds phase E for the level-4 build and does not inventory the
+post-setup phase D.
 
 `--null-precision` and `--setup-precision` expose the source-sized precision terms.
 `--setup-ws-bytes-per-site` and `--coarse-copy-factor` expose the two fitted controls.

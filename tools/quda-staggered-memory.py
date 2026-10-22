@@ -8,6 +8,11 @@ the Perlmutter A100 retrospective calibration documented in
 software/quda/solvers/staggered-memory.md.
 
 CHANGES
+  2026-10-21  mg-fit and mg-search accept --levels 5 with --block3 and --nvec4: a third
+              aggregation whose coarse colour is MILC `nvec 3` and whose coarsest-deflation
+              count is `nvec 4`.  Phase E (the level-4 build) joins A-C as an unvalidated
+              structural extrapolation; post-setup phase D is not inventoried above four
+              levels.  No four-level value changed.
   2026-09-25  mg-fit reports `detail.post_setup_phase_D` -- the resident four-level hierarchy at
               steady-state counts plus the width-1 solver workspace -- BESIDE the fitted setup
               phases A-C, and warns when it exceeds the winning phase.  It is never folded into
@@ -142,7 +147,7 @@ CALIBRATION = {
         "nvec_1=64, default fitted constants, multi-rank Perlmutter A100-40"
     ),
     "mg_unvalidated_extensions": (
-        "two- and three-level phase models, other MG precisions, and custom fitted "
+        "two-, three- and five-level phase models, other MG precisions, and custom fitted "
         "constants are structural extrapolations with no empirical error bound"
     ),
     "cg_population": "12 measurements over fine local volume 5.2e5 to 8.0e6 sites",
@@ -418,25 +423,39 @@ def mg_corpus_fit(
     prec_setup: int = PRECISION["single"],
     setup_ws: float = MG_SETUP_WS_BYTES_PER_SITE,
     copy_factor: float = MG_COARSE_COPY_FACTOR,
+    block3: list[int] | None = None,
+    nvec4: int = 0,
 ) -> Fit:
     """QUDA Device high-water model, with a validated four-level default.
 
-    Levels two and three, non-default precisions, and modified fit constants are
+    Levels two, three and five, non-default precisions, and modified fit constants are
     intentionally available for planning.  They are structural extrapolations with no
     empirical error bound and callers must surface the returned warnings.
+
+    The nvec arguments carry the MILC values of the keys they are named after: at five
+    levels `nvec3` is the third coarse colour and `nvec4` the coarsest-deflation count; at
+    four levels `nvec3` is the deflation count and `nvec4` must be zero.
     """
-    if levels not in (2, 3, 4):
-        raise ModelError("levels must be 2, 3, or 4")
-    if nvec3 < 0:
-        raise ModelError("nvec3 must be nonnegative")
+    if levels not in (2, 3, 4, 5):
+        raise ModelError("levels must be 2, 3, 4, or 5")
+    if nvec3 < 0 or nvec4 < 0:
+        raise ModelError("nvec3 and nvec4 must be nonnegative")
     if levels >= 3 and (nvec1 <= 0 or block1 is None):
-        raise ModelError("three- and four-level MG require positive nvec1 and block1")
-    if levels == 4 and (nvec2 <= 0 or block2 is None):
-        raise ModelError("four-level MG requires positive nvec2 and block2")
+        raise ModelError("three-, four- and five-level MG require positive nvec1 and block1")
+    if levels >= 4 and (nvec2 <= 0 or block2 is None):
+        raise ModelError("four- and five-level MG require positive nvec2 and block2")
+    if levels == 5 and (nvec3 <= 0 or block3 is None):
+        raise ModelError("five-level MG requires positive nvec3 (a coarse colour) and block3")
+    if levels < 5 and (block3 is not None or nvec4):
+        raise ModelError(f"block3 and nvec4 are not used by a {levels}-level hierarchy")
     if levels < 4 and block2 is not None:
         raise ModelError(f"block2 is not used by a {levels}-level hierarchy")
     if levels == 2 and block1 is not None:
         raise ModelError("block1 is not used by a two-level KD-only hierarchy")
+    # The coarsest-deflation count and the coarse colour that MILC's `nvec 3` names at
+    # this level count; everything below reads these two, never the raw arguments.
+    deflation = nvec4 if levels == 5 else nvec3
+    colour3 = nvec3 if levels == 5 else 0
     if prec_null not in PRECISION.values() or prec_setup not in PRECISION.values():
         raise ModelError("unsupported MG precision")
     if setup_ws < 0 or copy_factor <= 0:
@@ -451,14 +470,21 @@ def mg_corpus_fit(
     )
     x3 = (
         validate_effective_block(x2, block2, 2, nvec2, nvec1, 1)
-        if levels == 4 and x2 is not None and block2 is not None
+        if levels >= 4 and x2 is not None and block2 is not None
+        else None
+    )
+    x4 = (
+        validate_effective_block(x3, block3, 3, colour3, nvec2, 1)
+        if levels == 5 and x3 is not None and block3 is not None
         else None
     )
     v0 = volume(dims)
     v2 = volume(x2) if x2 else 0
     v3 = volume(x3) if x3 else 0
+    v4 = volume(x4) if x4 else 0
     nc2 = coarse_nc(nvec1) if levels >= 3 else 0
-    nc3 = coarse_nc(nvec2) if levels == 4 else 0
+    nc3 = coarse_nc(nvec2) if levels >= 4 else 0
+    nc4 = coarse_nc(colour3) if levels == 5 else 0
     n_aos = 2 if use_mma else 0
 
     base = cg_fit(dims)
@@ -485,12 +511,12 @@ def mg_corpus_fit(
         )
 
     def coarsest_deflation(x: list[int], nc: int, nvec_fine: int) -> float:
-        # Inferred and never validated.  B_coarse and the 1.5*nvec3 Krylov estimate
+        # Inferred and never validated.  B_coarse and the 1.5*deflation Krylov estimate
         # are the two private-model bounds; use the larger for capacity screening.
-        if nvec3 == 0:
+        if deflation == 0:
             return 0.0
-        b_coarse = model_spinor_bytes(x, nc, 2, prec_setup, max(nvec_fine, nvec3))
-        n_kr = int(1.5 * nvec3)
+        b_coarse = model_spinor_bytes(x, nc, 2, prec_setup, max(nvec_fine, deflation))
+        n_kr = int(1.5 * deflation)
         krylov = n_kr * (volume(x) // 2) * nvec_fine * 2 * 2 * PRECISION["single"]
         return max(b_coarse, krylov)
 
@@ -517,7 +543,7 @@ def mg_corpus_fit(
             phase_b["deflation_l2_unvalidated"] = coarsest_deflation(x2, nc2, nvec1)
         phases["B"] = phase_b
 
-        if levels == 4:
+        if levels >= 4:
             assert x3 is not None
             phase_c = dict(resident)
             phase_c.update(
@@ -530,13 +556,46 @@ def mg_corpus_fit(
                     "X_l2": x_set(x2, nc2, 2 + n_aos, 0),
                     "Y_l3": y_set(x3, nc3, 4 + n_aos, 2 + n_aos),
                     "X_l3": x_set(x3, nc3, 2 + n_aos, 2),
+                    # At four levels this is the coarsest set and holds the eigenspace; at
+                    # five it is the level-3 near-null set of colour3 vectors.
                     "B_l3": model_spinor_bytes(
-                        x3, nc3, 2, prec_setup, max(nvec2, nvec3)
+                        x3, nc3, 2, prec_setup, max(nvec2, deflation if levels == 4 else colour3)
                     ),
                 }
             )
             phase_c["uv_av"] = 2 * phase_c["V_l2"]
             phases["C"] = phase_c
+
+        if levels == 5:
+            # Phase E: the level-4 build. The letter D is taken by the post-setup phase
+            # reported below, which is a different moment and is never a candidate for the
+            # maximum. E mirrors C one level down -- structural extrapolation, never fitted:
+            # the level-3 Y/X sets drop to their resident counts, the level-3 near-null set
+            # is prolongated into V_l3 and its uv/av temporaries, and the coarsest Y/X sets
+            # and eigenspace appear on the level-4 grid.
+            assert x3 is not None and x4 is not None
+            phase_e = dict(resident)
+            phase_e.update(
+                {
+                    "V_l1": phase_b["V_l1"],
+                    "geomap": phase_b["geomap"],
+                    "B_l2": phases["C"]["B_l2"],
+                    "V_l2": phases["C"]["V_l2"],
+                    "Y_l2": phases["C"]["Y_l2"],
+                    "X_l2": phases["C"]["X_l2"],
+                    "B_l3": model_spinor_bytes(x3, nc3, 2, prec_setup, colour3),
+                    "V_l3": model_spinor_bytes(x3, nc3 * colour3, 2, prec_null),
+                    "Y_l3": y_set(x3, nc3, 2 + n_aos, n_aos),
+                    "X_l3": x_set(x3, nc3, 2 + n_aos, 0),
+                    "Y_l4": y_set(x4, nc4, 4 + n_aos, 2 + n_aos),
+                    "X_l4": x_set(x4, nc4, 2 + n_aos, 2),
+                    "B_l4": model_spinor_bytes(
+                        x4, nc4, 2, prec_setup, max(colour3, deflation)
+                    ),
+                }
+            )
+            phase_e["uv_av"] = 2 * phase_e["V_l3"]
+            phases["E"] = phase_e
 
     totals = {name: sum(terms.values()) for name, terms in phases.items()}
     peak = max(totals, key=totals.get)
@@ -623,32 +682,40 @@ def mg_corpus_fit(
         }
     else:
         post_setup = {
-            "status": "not-modelled-below-four-levels",
+            "status": (
+                "not-modelled-below-four-levels"
+                if levels < 4
+                else "not-modelled-above-four-levels"
+            ),
             "evidence": "the resident and solver inventories are enumerated for four levels only",
         }
     # Does the requested coarsest eigenspace actually reach the reported total?  The
-    # deflation term lives in exactly one phase per level count, and the four-level term
-    # is sized by max(nvec2, nvec3), so a winning phase without it -- or an nvec3 at or
-    # below nvec2 -- leaves the total flat in nvec3.  Silence here reads as "the
-    # eigenspace is free", which is the opposite of the truth.
-    deflation_phase = {2: "A", 3: "B", 4: "C"}[levels]
+    # deflation term lives in exactly one phase per level count, and the four- and
+    # five-level terms are sized by max(coarse colour above, deflation count), so a winning
+    # phase without it -- or a deflation count at or below that colour -- leaves the total
+    # flat in the deflation count.  Silence here reads as "the eigenspace is free", which
+    # is the opposite of the truth.
+    deflation_phase = {2: "A", 3: "B", 4: "C", 5: "E"}[levels]
+    colour_above_coarsest = {4: nvec2, 5: colour3}.get(levels, 0)
     deflation_enters_total = bool(
-        nvec3 > 0 and peak == deflation_phase and (levels != 4 or nvec3 > nvec2)
+        deflation > 0 and peak == deflation_phase and deflation > colour_above_coarsest
     )
     precision_names = {value: name for name, value in PRECISION.items()}
     extrapolations: list[str] = []
-    if nvec3 > 0 and not deflation_enters_total:
+    if deflation > 0 and not deflation_enters_total:
+        deflation_key = f"nvec_{levels - 1}"
         extrapolations.append(
-            f"LOUD WARNING: nvec_3={nvec3} does not enter this total. The high-water "
+            f"LOUD WARNING: {deflation_key}={deflation} does not enter this total. The high-water "
             f"model peaks in phase {peak}; the coarsest eigenspace is carried only in "
             f"phase {deflation_phase}"
             + (
-                f", sized by max(nvec_2, nvec_3)={max(nvec2, nvec3)}"
-                if levels == 4
+                f", sized by max(nvec_{levels - 2}, {deflation_key})="
+                f"{max(colour_above_coarsest, deflation)}"
+                if levels >= 4
                 else ""
             )
             + ". Reported headroom is NOT eigenspace-aware here, so do not rank this "
-            "candidate against one whose total does respond to nvec_3."
+            f"candidate against one whose total does respond to {deflation_key}."
         )
     if post_setup.get("exceeds_setup_peak"):
         extrapolations.append(
@@ -684,8 +751,10 @@ def mg_corpus_fit(
             "V0": v0,
             "V2": v2,
             "V3_local": v3,
+            "V4_local": v4,
             "x2": x2,
             "x3": x3,
+            "x4": x4,
             "mg_levels": levels,
             "phase_model_evidence": (
                 "four-level phase model has corpus calibration; candidate-envelope "
@@ -791,6 +860,8 @@ def prediction_assessment(
             levels < 4 or (len(effective) >= 2 and tuple(effective[1]) in CALIBRATED_BLOCK2)
         ),
     }
+    # The fitted block sets carry no third aggregation, so a five-level candidate never
+    # has an "observed" block3; the tier is already the unvalidated one at five levels.
     failed = [name for name, passed in checks.items() if not passed]
     warnings: list[str] = []
     if levels != 4:
@@ -853,13 +924,15 @@ def build_mg_payload(
     copy_factor: float,
     gpu_gib: float | None = None,
     margin_gib: float | None = None,
+    nvec4: int = 0,
 ) -> dict[str, object]:
     if hierarchy["source_status"] != "pass":
         raise ModelError("decomposition failed source checks; no memory estimate was produced")
     local = hierarchy["local_dims"]
     effective = hierarchy["effective_blocks"]
     block1 = effective[0] if levels >= 3 else None
-    block2 = effective[1] if levels == 4 else None
+    block2 = effective[1] if levels >= 4 else None
+    block3 = effective[2] if levels == 5 else None
     fit = mg_corpus_fit(
         local,
         block1,
@@ -873,6 +946,8 @@ def build_mg_payload(
         prec_setup,
         setup_ws,
         copy_factor,
+        block3,
+        nvec4,
     )
     pool = pool_fit(local, partitioned)
     page_locked = mg_page_locked_host_fit(local, partitioned)
@@ -942,6 +1017,8 @@ def search_mg_decompositions(
     min_nodes: int = 1,
     min_local: int = 1,
     allow_truncation: bool = False,
+    block3: list[int] | None = None,
+    nvec4: int = 0,
 ) -> dict[str, object]:
     """Enumerate every tiling rank geometry below an exclusive Perlmutter node bound."""
     if nodes_lt <= min_nodes:
@@ -951,7 +1028,9 @@ def search_mg_decompositions(
         "estimated_headroom_below_margin": [],
         "estimated_over_capacity": [],
     }
-    build_check = compiled_nvec_check(levels, nvec1, nvec2, compiled_nvecs)
+    build_check = compiled_nvec_check(
+        levels, nvec1, nvec2, compiled_nvecs, nvec3 if levels == 5 else 0
+    )
     source_invalid = 0
     model_incompatible = 0
     total_rank_geometries = 0
@@ -973,6 +1052,8 @@ def search_mg_decompositions(
                 False,
                 allow_truncation,
                 use_mma,
+                block3,
+                nvec4 if levels == 5 else None,
             )
             if hierarchy["source_status"] != "pass":
                 source_invalid += 1
@@ -993,6 +1074,7 @@ def search_mg_decompositions(
                     copy_factor,
                     float(machine["gpu_gib"]),
                     float(machine["advisory_margin_gib"]),
+                    nvec4,
                 )
             except ModelError:
                 # Keep exhaustive rank-grid accounting even when checkerboarded field
@@ -1042,9 +1124,11 @@ def search_mg_decompositions(
             "levels": levels,
             "requested_block1": block1,
             "requested_block2": block2,
+            "requested_block3": block3,
             "nvec1": nvec1,
             "nvec2": nvec2,
             "nvec3": nvec3,
+            "nvec4": nvec4,
             "use_mma": use_mma,
             "null_precision": {value: name for name, value in PRECISION.items()}[prec_null],
             "setup_precision": {value: name for name, value in PRECISION.items()}[prec_setup],
@@ -1117,8 +1201,8 @@ def add_capacity(parser: argparse.ArgumentParser) -> None:
 
 def add_mg_parameters(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--levels", type=int, choices=(2, 3, 4), default=4,
-        help="total QUDA levels; 4 means levels 0, 1, 2, and 3",
+        "--levels", type=int, choices=(2, 3, 4, 5), default=4,
+        help="total QUDA levels; 4 means levels 0, 1, 2, and 3; 5 adds a third aggregation",
     )
     parser.add_argument(
         "--block1", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"),
@@ -1128,11 +1212,22 @@ def add_mg_parameters(parser: argparse.ArgumentParser) -> None:
         "--block2", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"),
         help="MILC geo_block_size 2: aggregate QUDA level 2 into level 3",
     )
+    parser.add_argument(
+        "--block3", nargs=4, type=int, metavar=("BX", "BY", "BZ", "BT"),
+        help="MILC geo_block_size 3: aggregate QUDA level 3 into level 4 (five levels only)",
+    )
     parser.add_argument("--nvec1", type=int, default=0, help="MILC nvec 1 coarse color count")
     parser.add_argument("--nvec2", type=int, default=0, help="MILC nvec 2 coarse color count")
     parser.add_argument(
         "--nvec3", type=int, default=0,
-        help="MILC nvec 3 coarsest-deflation count; not a compiled coarse color",
+        help=(
+            "MILC nvec 3: the coarsest-deflation count at four levels (not a compiled coarse "
+            "color), the third coarse color at five"
+        ),
+    )
+    parser.add_argument(
+        "--nvec4", type=int, default=0,
+        help="MILC nvec 4: the coarsest-deflation count at five levels; not a compiled coarse color",
     )
     mma = parser.add_mutually_exclusive_group(required=True)
     mma.add_argument(
@@ -1193,6 +1288,8 @@ def resolve_mg_hierarchy(args: argparse.Namespace) -> tuple[dict[str, object], l
             args.corpus_advisories,
             args.allow_truncation,
             args.mma,
+            args.block3,
+            args.nvec4 if args.levels == 5 else None,
         )
         partitioned = hierarchy["partitioned"]
     else:
@@ -1210,6 +1307,8 @@ def resolve_mg_hierarchy(args: argparse.Namespace) -> tuple[dict[str, object], l
             args.compiled_nvecs,
             args.allow_truncation,
             args.mma,
+            args.block3,
+            args.nvec3 if args.levels == 5 else 0,
         )
         hierarchy.update(
             {
@@ -1283,7 +1382,7 @@ def parser() -> argparse.ArgumentParser:
 
     mg = commands.add_parser(
         "mg-fit",
-        help="integrated 2/3/4-level MG decomposition and high-water estimate",
+        help="integrated 2/3/4/5-level MG decomposition and high-water estimate",
     )
     mg_geometry = mg.add_mutually_exclusive_group(required=True)
     mg_geometry.add_argument(
@@ -1440,8 +1539,10 @@ def main() -> int:
                 }
             )
         elif args.command == "mg-fit":
-            if args.nvec1 < 0 or args.nvec2 < 0 or args.nvec3 < 0:
+            if args.nvec1 < 0 or args.nvec2 < 0 or args.nvec3 < 0 or args.nvec4 < 0:
                 raise ModelError("nvec values must be nonnegative")
+            if args.levels < 5 and args.nvec4:
+                raise ModelError(f"nvec4 is not used by a {args.levels}-level hierarchy")
             hierarchy, partitioned = resolve_mg_hierarchy(args)
             gpu_gib, margin_gib = args.gpu_gib, args.margin_gib
             if args.machine in MACHINE_PROFILES and gpu_gib is None and margin_gib is None:
@@ -1463,12 +1564,15 @@ def main() -> int:
                 args.coarse_copy_factor,
                 gpu_gib,
                 margin_gib,
+                args.nvec4,
             )
             emit_loud_warnings(payload["warnings"])
             emit(payload)
         else:
-            if args.nvec1 < 0 or args.nvec2 < 0 or args.nvec3 < 0:
+            if args.nvec1 < 0 or args.nvec2 < 0 or args.nvec3 < 0 or args.nvec4 < 0:
                 raise ModelError("nvec values must be nonnegative")
+            if args.levels < 5 and args.nvec4:
+                raise ModelError(f"nvec4 is not used by a {args.levels}-level hierarchy")
             requested_warnings: list[str] = []
             if args.levels != 4:
                 requested_warnings.append(
@@ -1507,6 +1611,8 @@ def main() -> int:
                 args.min_nodes,
                 args.min_local,
                 allow_truncation=args.allow_truncation,
+                block3=args.block3,
+                nvec4=args.nvec4,
             )
             search_warnings: list[str] = []
             for category in (
