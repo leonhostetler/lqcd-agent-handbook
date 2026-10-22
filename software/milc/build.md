@@ -20,7 +20,8 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_imp_rhmc/Make_template
   - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/wilson_flow/Make_template
   - operator's DeltaAI build records for the PR #102 branch
-observed: "2026-10-09"
+  - the dynamic section of a ks_spectrum_hisq linked through NVHPC 26.9's mpicc on Horizon, and a controlled -fopenmp link there, 2026-10-21
+observed: "2026-10-21"
 observed_on:
   software:
     milc:
@@ -86,8 +87,11 @@ OpenMP itself; the DeltaAI Cray wrappers do not (observed 2026-10-07, see
 Name the runtime of the compiler actually behind the wrapper, which `COMPILER`
 does not tell you: `-fopenmp -lgomp` for GCC; `-fopenmp` alone for Intel `icx`, where adding
 `-lgomp` links a second OpenMP runtime (see the
-[Aurora stack notes](../../machines/aurora/stacks/milc-sycl-quda-ks-spectrum-2026q4/notes.md)).
-After linking, `readelf -d` must list exactly one of `libgomp`, `libiomp5` or `libomp`.
+[Aurora stack notes](../../machines/aurora/stacks/milc-sycl-quda-ks-spectrum-2026q4/notes.md));
+`-fopenmp` alone for NVHPC `nvc`, which links its own `libnvomp` (see the
+[Horizon MG stack notes](../../machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q4/notes.md)).
+After linking, `readelf -d` must list exactly one OpenMP runtime: `libgomp`, `libiomp5`,
+`libomp` or `libnvomp`.
 From `d17e9559` (PR #99, 2026-10-06) the Makefile also appends `${OPT}` to `LDFLAGS`, so a
 command-line `LDFLAGS` drops the optimization flags from the link line as well; put them in the
 stack's value when they matter at link time.

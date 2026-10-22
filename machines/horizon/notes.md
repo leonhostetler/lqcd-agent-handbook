@@ -22,7 +22,8 @@ sources:
   - the site's installed ibrun script, read 2026-10-13
   - operator-submitted placement trials and production jobs running concurrent ibrun launches on gpu-gb200 nodes, with their placement probes and scheduler step records, 2026-10-13 to 2026-10-16, reviewed in the working directory
   - operator-submitted jobs cancelled by node failures, and in-job df -T records of node-local /tmp, 2026-10-15, reviewed in the working directory
-observed: "2026-10-16"
+  - Horizon login-node module, package and file-mode checks of cmake, and a gpu-gb200 build job's preflight, 2026-10-21
+observed: "2026-10-21"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -304,10 +305,13 @@ and therefore requires an explicit campaign budget before submission.
 Several CUDA, NVIDIA compiler, and Open MPI versions are installed. Choose them from a
 validated stack, and record exact module versions in the stack, not in the profile.
 
-**The `cmake/4.4.0` module was unusable** when the first stacks were built: its binaries lacked
-execute permission, so `cmake` silently resolved to `/usr/bin/cmake` 3.30.5 `[observed]`. QUDA
-needs 3.18 or newer, so the validated stacks use the system cmake explicitly. Check
-`type -a cmake` before relying on the module.
+**The `cmake/4.4.0` module is unusable, and `module reset` loads it.** Its binaries lack execute
+permission, so `cmake` silently resolves to the system `/usr/bin/cmake` `[reproduced]`. That was
+3.30.5 when the first stacks were built, and 3.31.8 (`cmake-3.31.8-1.el10`) on 2026-10-21 after a
+site package update. QUDA needs 3.18 or newer, so the validated stacks use the system cmake. In a
+build script, `module unload cmake`, assert that the module is no longer loaded, and record the
+live `cmake --version` instead of pinning the version a stack recorded: a guard pinned to 3.30.5
+failed its preflight on 3.31.8 `[observed]`.
 
 **Inside an agent sandbox, unload `xalt` before linking.** XALT's `ld` wrapper writes under a
 hard-coded `/tmp`, which a sandbox that confines writes makes read-only, and every link then

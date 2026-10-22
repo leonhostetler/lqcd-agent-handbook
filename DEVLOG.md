@@ -7243,3 +7243,63 @@ three levels as examples of the rule, not as the supported set: *confirmed*, unc
 depth rule in `tuning.md` (a level appended below an adequate coarsest grid buys per-iteration
 cost only) is unchanged by the tool support and is what a five-level candidate is screened
 against. `ROADMAP.md` 5.6 records the owed validation.
+
+## 2026-10-21 — Horizon: the cmake module is still unusable, and the system cmake moved
+
+A QUDA build job on Horizon pinned the system cmake to 3.30.5, the
+version the 2026q3 and 2026q4 Horizon QUDA stacks record, and failed its preflight in 16 s: the
+compute node's `/usr/bin/cmake` was 3.31.8 (`cmake-3.31.8-1.el10`), as was the login node's.
+The same session found that `module reset` puts `cmake/4.4.0` in the loaded set by default, and
+that the module's `bin/cmake` is still mode `-rw-r--r--`, so `cmake` resolves to the system
+binary. The rebuilt job passed after the guard was moved to 3.31.8, and the build validated as
+`quda-cuda13-mg-staggered-2026q4`.
+
+**Reconciliation.** Statements about Horizon's cmake: `machines/horizon/notes.md` "The
+`cmake/4.4.0` module was unusable" — *amended* to the present tense, with the reset default, the
+version move and the instruction to record rather than pin. The `cmake: 3.30.5` rows of
+`quda-cuda13-milc-cg-2026q3` and `quda-cuda13-milc-cg-mrhs-tile3-2026q4` record what those
+builds ran, as does the 2026q3 notes' sentence that `/usr/bin/cmake` 3.30.5 built that stack —
+*confirmed*, unchanged. `quda-cuda13-mg-staggered-2026q4` records 3.31.8 —
+*confirmed*. `playbooks/build-lqcd-stack.md` names no Horizon cmake version — *confirmed*.
+
+## 2026-10-21 — MILC run-path tag: NVHPC writes `DT_RUNPATH`, and the leaf's summary overclaimed
+
+The `ks_spectrum_hisq` of `milc-cuda13-quda-ks-spectrum-mg-2026q4`, linked through Open MPI
+5.0.11's `mpicc` over NVHPC 26.9, carries `RUNPATH`, not the `DT_RPATH` that
+`software/milc/quda-linkage.md` stated in its summary and opening paragraph without a toolchain
+scope. A controlled link of a one-line OpenMP program on the Horizon login node gave `RUNPATH`
+both with a bare `-Wl,-rpath` and with `-Wl,--disable-new-dtags` added, and `mpicc -dryrun`
+showed the NVHPC driver passing `--enable-new-dtags` itself. Two records already showed the
+same: Vista's NVHPC 26.1 MILC stacks and Aurora's oneAPI QUDA stack.
+
+**Reconciliation.** Statements about the tag in `quda-linkage.md`: the summary and the opening
+paragraph — *amended* to name the toolchain as the deciding factor. The Mechanism paragraph's
+"confirm the tag rather than assuming either behaviour" — *confirmed*, and the observed-tag table
+and the NVHPC driver finding added after it. "precedes `QUDA_HOME/lib` in `DT_RPATH`" —
+*amended* to "the run path, whichever tag carries it". "no environment escape, because the tag is
+`RPATH`" — *amended* to apply where the tag is `RPATH`. Consequence 1 (two builds, two
+executables) — *amended* to its `DT_RPATH` scope with the `DT_RUNPATH` counterpart. Consequence 2
+— *amended* with the pre-launch `ldd` check. Consequence 3 ("expect exactly one of `RPATH` or
+`RUNPATH`") — *confirmed*. The `RPATH` sample under "Confirm it rather than deriving it" —
+*confirmed*, unchanged, as a Cray example. The Scope paragraph — *amended* to name the controlled
+link and the Horizon observation. Elsewhere: the Perlmutter MG and DeltaAI MILC notes state
+`DT_RPATH` for their Cray-wrapper builds — *confirmed*. The Vista MILC notes and the Aurora QUDA
+notes state `RUNPATH` — *confirmed*. `software/milc/build.md` and
+`software/quda/interface-layers.md` only link the leaf — *confirmed*.
+
+## 2026-10-21 — MILC OpenMP runtime: NVHPC links `libnvomp`
+
+`software/milc/build.md` required `readelf -d` to list exactly one of `libgomp`, `libiomp5` or
+`libomp` after linking. The Horizon `ks_spectrum_hisq` of
+`milc-cuda13-quda-ks-spectrum-mg-2026q4`, linked with `LDFLAGS=-g -fopenmp -lcuda -lnvidia-ml`
+through NVHPC 26.9's `mpicc`, lists `libnvomp.so` and none of the three, and a controlled
+`-fopenmp` link of a one-line program there did the same. A literal check therefore reported zero
+runtimes for a correct build.
+
+**Reconciliation.** Statements about the OpenMP runtime in `build.md`: the per-compiler list
+("name the runtime of the compiler actually behind the wrapper") — *amended* with NVHPC; the
+one-runtime check — *amended* to include `libnvomp`. The `OMP=true`/`COMPILER=gnu` `-lgomp`
+append and the DeltaAI Cray observation — *confirmed*, unchanged; the Horizon build overrides
+`LDFLAGS` on the command line, so the append never reached its link. The Aurora two-runtime
+notes and the DeltaAI `openmp_runtime: libgomp.so.1` row — *confirmed*. Whether `-lgomp` beside
+NVHPC's `-fopenmp` would link a second runtime was not tested, and the leaf does not claim it.

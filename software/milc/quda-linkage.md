@@ -1,6 +1,6 @@
 ---
 title: MILC binds its QUDA installation at link time
-summary: MILC emits -Wl,-rpath without --enable-new-dtags, so an executable carries an absolute DT_RPATH that LD_LIBRARY_PATH cannot override; a composed USQCD install then puts a second libquda.so ahead of the linked one, and changing either requires relinking.
+summary: MILC emits -Wl,-rpath without --enable-new-dtags, so the toolchain decides the tag; through the Cray GNU wrappers an executable carries an absolute DT_RPATH that LD_LIBRARY_PATH cannot override, while NVHPC and oneAPI write a DT_RUNPATH it can; a composed USQCD install then puts a second libquda.so ahead of the linked one.
 scope: [software:milc, software:quda]
 load_when: Keeping more than one QUDA installation, building QUDA with a composed USQCD prefix, redirecting a MILC executable at a different QUDA, or recording which library a MILC run actually used.
 evidence: experiment
@@ -9,7 +9,8 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Make_template_scidac
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt#L516-L520
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt#L529-L532
-observed: "2026-10-07"
+  - a controlled NVHPC 26.9 link through Open MPI 5.0.11's mpicc on Horizon, and the dynamic section of a ks_spectrum_hisq linked there, 2026-10-21
+observed: "2026-10-21"
 observed_on:
   software:
     milc:
@@ -24,11 +25,12 @@ observed_on:
 
 # MILC binds its QUDA installation at link time
 
-A MILC executable does not resolve QUDA at run time in the way an environment variable can
-influence. It carries the **absolute path** of the QUDA installation it was linked against in
-a `DT_RPATH` entry, and `DT_RPATH` takes precedence over `LD_LIBRARY_PATH`. Pointing an
-existing executable at a different QUDA build is therefore not possible by environment:
-**it requires relinking.**
+A MILC executable carries the **absolute path** of the QUDA installation it was linked against,
+in a `DT_RPATH` or a `DT_RUNPATH` entry, and the toolchain decides which. `DT_RPATH` takes
+precedence over `LD_LIBRARY_PATH`: pointing such an executable at a different QUDA build is not
+possible by environment, and **it requires relinking.** `DT_RUNPATH` yields to `LD_LIBRARY_PATH`:
+the executable can be redirected, and an inherited `LD_LIBRARY_PATH` can redirect it without
+anyone intending to.
 
 ## Mechanism
 
@@ -48,6 +50,18 @@ The distinction is the whole fact. `DT_RUNPATH` is consulted **after** `LD_LIBRA
 `RUNPATH`-tagged binary can be redirected by environment; `DT_RPATH` is consulted **before** it
 and cannot. A toolchain whose linker defaults to new dtags will produce the redirectable form
 from the same MILC source, so confirm the tag rather than assuming either behaviour.
+
+The tag observed so far, by toolchain:
+
+| Toolchain | Tag |
+|---|---|
+| Cray wrappers over GNU (Perlmutter, DeltaAI) | `DT_RPATH` |
+| NVHPC through Open MPI's `mpicc` (26.1 on Vista, 26.9 on Horizon) | `DT_RUNPATH` |
+| oneAPI (Aurora) | `DT_RUNPATH` |
+
+On NVHPC the driver itself passes `--enable-new-dtags` to the linker, as `-dryrun` shows. A
+controlled link with `-Wl,--disable-new-dtags` added still produced `RUNPATH` (NVHPC 26.9,
+2026-10-21), so on that toolchain a `-Wl` flag does not restore the `RPATH` form.
 
 ## A default-prefix QUDA install leaves a second `libquda.so`, and MILC prefers it
 
@@ -77,8 +91,9 @@ and they reach the link line **before** QUDA does, through
 `LIBSCIDAC = ${LIBQOP} ${LIBQDP} ${LIBQIO} ${LIBQMP}` and
 `ILIB = ${LIBSCIDAC} ${LMPI} ${LIBADD}`, where `LIBADD` is what carries `LIBQUDA`. In a
 composed build `QMPLIBDIR` and `QIOLIBDIR` both name the composed prefix, so **the composed
-prefix precedes `QUDA_HOME/lib` in `DT_RPATH`** and the loader resolves `libquda.so` from the
-install — not from the `-L` directory the link line named for QUDA.
+prefix precedes `QUDA_HOME/lib` in the run path**, whichever tag carries it, and the loader
+resolves `libquda.so` from the install — not from the `-L` directory the link line named for
+QUDA.
 
 Confirm it rather than deriving it. `readelf -d` shows the order and `ldd` shows the choice:
 
@@ -96,19 +111,23 @@ copy resolves QMP, QIO and LIME from the composed prefix, while the build-tree c
 entries pointing into their separate build trees. Loading the other one is not a no-op.
 
 **The failure this creates is a partial rebuild.** Refresh one copy and not the other and the
-executable's loaded QUDA is no longer its linked QUDA, with no warning and no environment
-escape, because the tag is `RPATH`. Nothing crashes; the binary runs code its own records do
+executable's loaded QUDA is no longer its linked QUDA, with no warning, and where the tag is
+`RPATH` with no environment escape. Nothing crashes; the binary runs code its own records do
 not describe.
 
 ## Actionable consequences
 
-1. **Two QUDA builds mean two executables.** There is no environment-variable path to
-   sharing one binary between them. Budget the relink, and give each executable a name that
-   says which library it carries.
+1. **On a `DT_RPATH` toolchain, two QUDA builds mean two executables.** There is no
+   environment-variable path to sharing one binary between them. Budget the relink, and give
+   each executable a name that says which library it carries. On a `DT_RUNPATH` toolchain
+   `LD_LIBRARY_PATH` can redirect one binary, but its records then describe a library it did
+   not load; keep one executable per QUDA build there too.
 2. **An executable's identity is incomplete without its library's, and the library to record
    is the resolved one.** A recorded build hash does not say which QUDA was used, and the run
    cannot be reconstructed from it alone. Record the library `ldd` resolves, never the `-L`
-   target the build script intended — in a composed stack they are different paths.
+   target the build script intended — in a composed stack they are different paths. On a
+   `DT_RUNPATH` toolchain, check before launch that `ldd` resolves `libquda.so` from the
+   intended install: the installed library's hash does not show which file the loader picks.
 3. **Verify with `readelf -d <executable>`** rather than reasoning from the build script.
    Expect exactly one of `RPATH` or `RUNPATH`, and read the path it names.
 4. **A rebuild that changes the QUDA install invalidates prior executables**, even when the
@@ -121,8 +140,10 @@ not describe.
 
 ## Scope
 
-The link experiment ran at MILC `6b9b8a06` through the Cray wrappers; the lines that emit the
-flags in `Makefile` and `Make_template_scidac` are unchanged at `a5f8f9fa`, read 2026-10-07.
+The controlled `RPATH` link ran at MILC `6b9b8a06` through the Cray wrappers; the lines that
+emit the flags in `Makefile` and `Make_template_scidac` are unchanged at `a5f8f9fa`, read
+2026-10-07, and a `ks_spectrum_hisq` link at `a5f8f9fa` on Horizon still emits a bare
+`-Wl,-rpath`.
 The emission of a bare `-Wl,-rpath` is a property of MILC's build files and is expected to
 transfer; **which tag results is a
 linker-default property and is not.**
