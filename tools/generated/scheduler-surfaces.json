@@ -88,6 +88,7 @@
       "https://slurm.schedmd.com/sstat.html",
       "PBS Professional 2026.1 qsub(1B), qstat(1B) and pbs_job_attributes(7B) manual pages, as installed with the PBS client",
       "Slurm 25.11.8 srun(1) manual page, as installed",
+      "Slurm 25.11.8 sacct(1) manual page, as installed",
       "https://centers.hpc.mil/users/docs/advancedTopics/Job_Arrays.html"
     ]
   }

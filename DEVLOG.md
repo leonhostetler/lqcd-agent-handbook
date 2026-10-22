@@ -7303,3 +7303,42 @@ append and the DeltaAI Cray observation — *confirmed*, unchanged; the Horizon 
 `LDFLAGS` on the command line, so the append never reached its link. The Aurora two-runtime
 notes and the DeltaAI `openmp_runtime: libgomp.so.1` row — *confirmed*. Whether `-lgomp` beside
 NVHPC's `-fopenmp` would link a second runtime was not tested, and the leaf does not claim it.
+
+## 2026-10-22 — `sacct --state` moves the default time window
+
+Before a submission, a session listed live jobs with
+`sacct --local -X -P -s PENDING,RUNNING -S <a past date>` and received a header with no rows while
+eight jobs were pending. The query ran bare, so this was not the sandbox. sacct(1), DEFAULT TIME
+WINDOW (Slurm 25.11.8): with `--state` and no `--endtime`, the end time defaults to the start
+time, so a past start time asks which jobs were in that state at that instant. Reproduced on
+25.11.8, each form bare: `-s PENDING` alone listed the pending jobs; adding `-S <past>` returned
+the header only, with or without `--local`; adding `-E now` as well listed every job of the window,
+completed ones included, since each had been pending at some point in it. A comment on
+`accounting_command` in `conventions/scheduler-surfaces.yaml` now says so, with the man page as a
+source.
+
+**Reconciliation.** Statements about the accounting query and live-job listings:
+`scheduler-surfaces.yaml` `query_command`, `accounting_command`, `accounting_job_option` and
+`accounting_format_option` — *confirmed*. `agent-sandbox.md`: the invocation-shape table —
+*confirmed*, since it governs the shape of a query and this is its semantics; "the dangerous shape
+is the one that half-works" and its data-row check — *confirmed*, with the note that a header-only
+answer here is a correct answer to the question asked, so that check cannot catch it, which is why
+the rule sits on the surface; "select your own jobs with `--me`" — *confirmed*. `running.md`'s "a
+single empty result is never evidence of termination" — *confirmed*; this is its sibling for a
+live-job listing. `batch-scripts.md`'s teardown accounting record and its re-query once the job
+has left the queue — *confirmed*; both query by job id, the form the new comment names.
+
+## 2026-10-22 — Two more faces of a sandbox that fails to start
+
+In one session the sandbox failed before running the command five times, with two messages the
+leaf did not record: that it could not find the source path of a tooling file it was to bind (an
+absent `.mcp.json`), and that it could not create a `.claude` entry, permission denied. Each time
+the command had not run, and the identical command re-run succeeded. `conventions/agent-sandbox.md`'s
+bullet on the sandbox failing to start now records both, the re-run, and that nothing the command
+would have written exists afterwards.
+
+**Reconciliation.** In `agent-sandbox.md`: the bullet "The sandbox itself can fail to start" —
+*amended* as above, its earlier observation (the change to a scratch directory) kept; "retry bare
+before concluding anything" — *confirmed*; the placeholder section's other bullets — *confirmed*.
+`ARCHITECTURE.md` §freshness-model rule 3a, which declares `.mcp.json` and `.claude/*` as tooling
+paths — *confirmed*; both messages name those paths.

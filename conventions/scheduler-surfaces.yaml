@@ -59,6 +59,13 @@ surfaces:
     control_command: scontrol
     job_record_option: "show job"
     accounting_command: sacct
+    # A state filter moves the default time window (sacct, DEFAULT TIME WINDOW): with
+    # --state and no --endtime, the end time defaults to the start time. So a past
+    # --starttime asks which jobs were in that state at that instant, and returns a
+    # header with no rows -- indistinguishable from "nothing live". To list live jobs,
+    # give the state filter with no start time (the window is then now), or query by
+    # job id. Adding --endtime now selects every job in that state at any point in the
+    # window, including jobs that have since completed.
     live_step_command: sstat
     accounting_job_option: "--jobs"
     accounting_job_option_short: "-j"
@@ -115,4 +122,5 @@ sources:
   - https://slurm.schedmd.com/sstat.html
   - PBS Professional 2026.1 qsub(1B), qstat(1B) and pbs_job_attributes(7B) manual pages, as installed with the PBS client
   - Slurm 25.11.8 srun(1) manual page, as installed
+  - Slurm 25.11.8 sacct(1) manual page, as installed
   - https://centers.hpc.mil/users/docs/advancedTopics/Job_Arrays.html

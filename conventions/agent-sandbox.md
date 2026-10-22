@@ -155,8 +155,13 @@ existence check. Three consequences seen in practice:
   already held placeholders, commands intermittently failed before running anything, the
   sandbox reporting that it could not create the parents of a placeholder path, a
   `.gitconfig` or `.claude` entry in that directory, on a read-only file system. The same
-  command preceded by a change to a scratch directory ran `[observed]`. An error from the
-  sandbox's own setup is not an error from the command.
+  command preceded by a change to a scratch directory ran `[observed]`. It has also
+  reported that it could not find the source path of a tooling file it was to bind (an
+  absent `.mcp.json`), or could not create a `.claude` entry, permission denied; in one
+  session that happened five times, the command had not run at all each time, and the
+  identical command re-run succeeded `[observed]`. Nothing the command would have written
+  exists afterwards, so confirm a capture exists before reading it as made. An error from
+  the sandbox's own setup is not an error from the command.
 
 ## A full home filesystem stops every command
 
