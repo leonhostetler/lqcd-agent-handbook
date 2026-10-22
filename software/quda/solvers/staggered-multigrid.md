@@ -281,8 +281,13 @@ hierarchy, generated coarse-color set, QMP backend, and `sm_80` target; it does 
 a linked MILC executable, other hierarchy shapes, `gpu-a100-80`, or production performance.
 The linked MILC layer is recorded separately in
 [`milc-cuda13-quda-ks-spectrum-mg-2026q3`](../../../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md),
-which is itself narrow. Require a stack whose scope matches the intended run rather than
-generalizing from either bounded validation.
+which is itself narrow. On Horizon `gpu-gb200` the pair is
+[`quda-cuda13-mg-staggered-2026q4`](../../../machines/horizon/stacks/quda-cuda13-mg-staggered-2026q4/notes.md),
+the same native test on one board, and
+[`milc-cuda13-quda-ks-spectrum-mg-2026q4`](../../../machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q4/notes.md),
+one four-level hierarchy built from scratch at one and two boards, with solves checked only at a
+heavy mass on a synthetic field. Require a stack whose scope matches the intended run rather than
+generalizing from any bounded validation.
 
 ## Geometry and decomposition constraints
 

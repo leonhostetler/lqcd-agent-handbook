@@ -52,18 +52,24 @@ cover the path and a machine stack whose runtime validation covers the behavior 
 claimed. Distinguish linked-application validation, narrower native-harness validation,
 and compiled-only capability; evidence from one layer does not silently satisfy another.
 
-Two multigrid stacks now exist and they validate different layers. The
+Two pairs of multigrid stacks exist, and each pair validates two layers. On Perlmutter, the
 [`mg-staggered` stack](../../../machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/notes.md)
-covers QUDA's own native Perlmutter path on a synthetic unit-gauge system. The
+covers QUDA's own native path on a synthetic unit-gauge system. The
 [linked-MILC MG stack](../../../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md)
 covers one hierarchy on a production gauge configuration through the MILC caller, with a
-predeclared cross-solver correctness criterion against plain CG at the same placement.
+predeclared cross-solver correctness criterion against plain CG at the same placement. On
+Horizon, the [`mg-staggered` stack](../../../machines/horizon/stacks/quda-cuda13-mg-staggered-2026q4/notes.md)
+repeats the same native test on one board. The
+[linked-MILC MG stack](../../../machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q4/notes.md)
+builds one four-level hierarchy from scratch through the MILC caller at one and two boards,
+and checks MG against UML correlators. It checks them at a heavy mass on a synthetic field only,
+so it covers no light-mass convergence.
 
-Neither licenses a different hierarchy, placement, level count, or node type, and neither is
-benchmark evidence: the native run populated a fresh tunecache and the linked run reused a
-warm one. The linked stack additionally loaded stored near-null and eigenvector sets, so
-hierarchy setup from scratch is not what it validates, and its repeatability gate was met by
-an operator-accepted substitute rather than by a repeat.
+None licenses a different hierarchy, placement, level count, or node type, and none is
+benchmark evidence: the native runs populated fresh tunecaches, and the linked runs reused warm
+ones. The Perlmutter linked stack additionally loaded stored near-null and eigenvector
+sets, so hierarchy setup from scratch is not what it validates, and its repeatability gate was
+met by an operator-accepted substitute rather than by a repeat.
 
 Deflated CG has path evidence on DeltaAI only, again in two layers. The native
 [`quda-cuda12-milc-cg-2026q4` stack](../../../machines/deltaai/stacks/quda-cuda12-milc-cg-2026q4/notes.md)

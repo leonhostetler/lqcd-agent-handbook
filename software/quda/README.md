@@ -29,6 +29,9 @@ CG as compiled capabilities in the same library. Its Perlmutter `quda-cuda13-mg-
 stack validates QUDA's native GCR-MG harness only. Linked MILC multigrid is validated
 separately, for one hierarchy, by the
 [linked-MILC MG stack](../../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md).
+Horizon has the same pair:
+[`quda-cuda13-mg-staggered-2026q4`](../../machines/horizon/stacks/quda-cuda13-mg-staggered-2026q4/notes.md)
+and [`milc-cuda13-quda-ks-spectrum-mg-2026q4`](../../machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q4/notes.md).
 
 Use `project.yaml` for intrinsic capabilities and option meanings,
 `build-profiles.yaml` for named option sets, and `build.md` for the software-specific build

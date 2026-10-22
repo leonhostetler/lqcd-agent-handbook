@@ -78,7 +78,11 @@ is a native GCR-MG reproduction seed. For a MILC workload it establishes bounded
 feasibility, not linked-application validation. That layer is supplied separately by the
 [linked-MILC MG stack](../machines/perlmutter/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q3/notes.md)
 for its one recorded hierarchy and placement; read its `scope_limits` before treating it as
-coverage for a different hierarchy, node count, or a cold-tunecache run.
+coverage for a different hierarchy, node count, or a cold-tunecache run. Horizon's
+[`mg-staggered`](../machines/horizon/stacks/quda-cuda13-mg-staggered-2026q4/notes.md) and
+[linked-MILC MG](../machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q4/notes.md)
+stacks are the same two layers on `gpu-gb200`. The linked one checked its solves only at a heavy
+mass on a synthetic field, so it is no evidence of light-mass convergence.
 
 ## 3. Freeze the measurement contract
 
