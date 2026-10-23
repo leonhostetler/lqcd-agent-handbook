@@ -14,6 +14,22 @@ Entries are grouped by scoped software project.
 | [HISQ smearing in the Grid fork, and its slow stencil setup on GPUs](grid/hisq-smearing.md) | What the fork's HISQ smearing computes and its limits, why it is slow on GPUs at the HadronsMILC 0.3.0 pin, and the one-header fix that is a drop-in. | Smearing HISQ links with Grid or HadronsMILC (MGauge::HISQSmear), checking smeared links, or diagnosing slow smearing or slow GeneralLocalStencil construction on a GPU. |
 | [Validating a Grid GPU build for staggered and HadronsMILC work](grid/validation.md) | Which Grid test programs check a non-unified GPU build for staggered work, how to read them, the failures that are test defects rather than build defects, and how to prove a header override took effect. | Choosing or reading the first-run checks of a new Grid build, or judging a failed Grid test on a GPU build. |
 
+## hadrons
+
+| Knowledge | Summary | Load when |
+|---|---|---|
+| [Building Hadrons](hadrons/build.md) | Bootstrap, out-of-tree configure against an installed Grid, recording the Hadrons commit, and the test and benchmark programs that do not compile on the milc-qcd fork. | Configuring, compiling, installing or test-building Hadrons, including as the base of a HadronsMILC stack. |
+| [Hadrons](hadrons/README.md) | Role of Hadrons as the module framework under HadronsMILC, the milc-qcd fork that HadronsMILC pins, and routing to Hadrons build guidance. | Selecting or building Hadrons, or deciding between upstream Hadrons and the milc-qcd fork for HadronsMILC work. |
+
+## hadronsmilc
+
+| Knowledge | Summary | Load when |
+|---|---|---|
+| [Building HadronsMILC](hadronsmilc/build.md) | Configure against installed Grid and Hadrons with strict pin checking, carry header-only fixes as an include-path overlay and prove they took effect, the link step, and the provenance a build should end with. | Configuring, compiling, linking or installing HadronsMILC, or adding a header-only Grid fix to a HadronsMILC build. |
+| [HadronsMILC](hadronsmilc/README.md) | Role of HadronsMILC, how its releases pin Grid, Hadrons and pyfm, how a run reports its own provenance, and the 0.3.0 fixes that bear on outputs made with older versions. | Selecting, building or auditing HadronsMILC, or judging whether outputs made with an older HadronsMILC are trustworthy. |
+| [HadronsMILC low-mode-improvement (LMI) application guide](hadronsmilc/applications/lmi.md) | How the light-quark g-2 LMI workflow is generated with pyfm and executed by HadronsMILC — the module chain, mass and residual conventions, Lanczos sizing and the Chebyshev bound, legal decompositions, and how to check a build or a decomposition. | Generating, sizing, launching, validating or interpreting a HadronsMILC LMI job (pyfm task_type lmi or lma_new), including choosing Lanczos parameters and an MPI decomposition. |
+| [Validating a HadronsMILC build with its own test suite](hadronsmilc/validation.md) | What HadronsMILC 0.3.0's test suite contains, the stale parameter files and script defaults to correct first, why a run must not be judged by its exit code, and how to read the sib check that fails on every build. | Running or interpreting HadronsMILC's test/ suite, or checking that a HadronsMILC parameter file matches the module schemas before a run. |
+
 ## milc
 
 | Knowledge | Summary | Load when |
@@ -69,6 +85,12 @@ Entries are grouped by scoped software project.
 | [Staggered-MG coarse deflation guidance](quda/solvers/staggered-multigrid/coarse-deflation.md) | Corpus-scoped coarse-spectrum calibration, filter-window feedback, restart diagnostics, and solve-count-based deflation scheduling. | Configuring or diagnosing the coarsest staggered-MG eigensolve, deflation window, requested vector count, or mass-dependent deflation schedule. |
 | [The staggered-CG throughput probe](milc/probes/staggered-cg-throughput.md) | A portable probe of staggered CG throughput on one device, one node, two and four nodes, with a MILC leg and QUDA's own invert test at every point, so a machine's stacks compare across machines and a drop localizes; its parameters live in tools/milc-quda-cg-probe.py. | Measuring, comparing or checking solver throughput on a machine, preparing or analyzing a probe run, or writing performance.yaml probe rows. |
 | [Where staggered-MG setup memory actually goes](quda/internals/staggered-mg-setup-allocation.md) | Six source-exact facts about which fields QUDA allocates while building a staggered multigrid hierarchy, including a 16x setup-workspace step set by a divisibility test no input file exposes. | Sizing, auditing, or explaining device memory during staggered-MG setup, or reasoning about which fields a coarse level allocates. |
+
+## pyfm
+
+| Knowledge | Summary | Load when |
+|---|---|---|
+| [HadronsMILC low-mode-improvement (LMI) application guide](hadronsmilc/applications/lmi.md) | How the light-quark g-2 LMI workflow is generated with pyfm and executed by HadronsMILC — the module chain, mass and residual conventions, Lanczos sizing and the Chebyshev bound, legal decompositions, and how to check a build or a decomposition. | Generating, sizing, launching, validating or interpreting a HadronsMILC LMI job (pyfm task_type lmi or lma_new), including choosing Lanczos parameters and an MPI decomposition. |
 
 ## qio
 

@@ -1,0 +1,51 @@
+schema_version: 2
+name: hadrons
+summary: Grid-based workflow framework that runs lattice-QCD measurements as a dependency graph of modules described in an XML parameter file.
+repository: https://github.com/aportelli/Hadrons.git
+default_branch: develop
+forks:
+  - repository: https://github.com/milc-qcd/Hadrons.git
+    branch: feature/LMI-develop
+    purpose: >-
+      The Hadrons that HadronsMILC releases pin (HadronsMILC 0.3.0 pins 3a098015 on this line);
+      carries MILC-workflow changes and drops some upstream modules (the baryon contractions).
+documentation:
+  - https://github.com/aportelli/Hadrons/blob/develop/README.md
+build_systems:
+  - Autotools
+dependencies:
+  - name: Grid
+    purpose: >-
+      The installed Grid; configure needs its grid-config on PATH and takes the compiler, flags
+      and libraries from it. Hadrons constructs z-Mobius operators, so Grid must keep its z-Mobius
+      instantiations (software/grid/build.md).
+    required: true
+  - name: SQLite amalgamation
+    purpose: Results and schedule database; bootstrap.sh downloads it and checks its sha256.
+    required: true
+interfaces:
+  - HadronsMILC
+capabilities:
+  - Module graph scheduling with memory-aware garbage collection
+  - Wilson, domain-wall, staggered and z-Mobius actions, solvers, sources, sinks and contractions
+  - HDF5 and SQLite result output
+build_options:
+  --with-grid:
+    meaning: Grid installation prefix; adds its include and library paths. grid-config must also be on PATH (configure stops otherwise). Upstream and fork.
+    type: path
+evidence: source
+observed: "2026-10-23"
+observed_on:
+  software:
+    hadrons:
+      commit: 3a0980157914dd54e96744fccaf0fbf88620b5a5
+      branch: feature/LMI-develop
+      forked_from_default: 28d2806401806592f9caddc8eeedd4277efd341d
+    grid:
+      commit: d67dd2079bea125138502a13120858aa58997379
+      branch: feature/LMI-develop
+      forked_from_default: 87baaf1d378f92fc8729c4f05a6836d3c764ee87
+sources:
+  - https://github.com/milc-qcd/Hadrons/blob/3a0980157914dd54e96744fccaf0fbf88620b5a5/configure.ac#L13-L89
+  - https://github.com/milc-qcd/Hadrons/blob/3a0980157914dd54e96744fccaf0fbf88620b5a5/bootstrap.sh
+  - https://github.com/milc-qcd/Hadrons/blob/3a0980157914dd54e96744fccaf0fbf88620b5a5/hadrons-config.in

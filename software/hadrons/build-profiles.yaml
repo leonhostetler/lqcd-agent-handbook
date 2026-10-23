@@ -1,0 +1,40 @@
+schema_version: 1
+software: hadrons
+profiles:
+  hadronsmilc-base:
+    summary: >-
+      Hadrons library and utilities configured against an installed Grid with no further
+      options, with the commit stamped through GIT_DIR; the base of a HadronsMILC stack.
+    options:
+      --with-grid: <grid prefix>
+    capabilities:
+      dirac:
+        - wilson
+        - domain-wall
+        - zmobius
+        - staggered
+        - improved-staggered
+      io:
+        - hdf5
+        - sqlite
+    composes:
+      grid:
+        profile: cuda-hadrons-staggered
+        also_accepts: [cpu-gen16-reference]
+        required_capabilities:
+          dirac: [zmobius, staggered, improved-staggered]
+          io: [hdf5]
+    notes:
+      - Run configure with GIT_DIR=<source>/.git so hadrons-config --git records the commit (software/hadrons/build.md); HadronsMILC's strict pin check depends on it.
+      - Compiler, flags and libraries come from grid-config; the composed Grid profile decides GPU or CPU.
+      - Build tests and benchmarks with make -k; on the milc-qcd fork three baryon tests and Benchmark_meson_field do not compile (software/hadrons/build.md).
+evidence: source
+observed: "2026-10-23"
+observed_on:
+  software:
+    hadrons:
+      commit: 3a0980157914dd54e96744fccaf0fbf88620b5a5
+      branch: feature/LMI-develop
+      forked_from_default: 28d2806401806592f9caddc8eeedd4277efd341d
+sources:
+  - https://github.com/milc-qcd/Hadrons/blob/3a0980157914dd54e96744fccaf0fbf88620b5a5/configure.ac

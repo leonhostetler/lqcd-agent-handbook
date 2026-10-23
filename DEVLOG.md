@@ -7409,3 +7409,28 @@ Elsewhere: `conventions/batch-scripts.md`'s binding rules (bind CPUs per rank; f
 restrict device visibility) — *confirmed and not in conflict*: Grid always selects the first
 visible device, so for Grid the per-rank `CUDA_VISIBLE_DEVICES` restriction is required, which
 that leaf already says is an application-specific decision.
+
+## 2026-10-23 — `software/hadrons/`, `software/hadronsmilc/`, `software/pyfm/`; LMI application guide
+
+Third change from the same campaign: Hadrons (milc-qcd fork, under `forks:`), HadronsMILC and
+pyfm, at the HadronsMILC 0.3.0 release set, built for CUDA and as a CPU reference, run through
+HadronsMILC's own test suite on both, and through a pyfm-generated LMI input on 1 and 4 GPUs.
+Added project records for all three; Hadrons `README.md`, `build.md` and a `hadronsmilc-base`
+profile composing Grid's; HadronsMILC `README.md` (release pairing, the banner, and the 0.3.0
+fixes that bear on older outputs), `build.md` (strict pins, header overlays and how to prove
+them, the link step), `build-profiles.yaml` (`lmi-cuda`, `lmi-cpu-reference`), `validation.md`
+(the test suite, its stale inputs, and the sib check whose expectation is wrong), and
+`applications/lmi.md`.
+
+The application guide records the conventions a reader most often gets wrong (MILC mass in
+`mass`; mixed-precision CG's 1e-7 inner floor; two different "true residual" lines), the
+double-precision Lanczos basis (about 101 TB for the 0.04 fm example, not 50 TB), the
+Chebyshev-bound requirement, the decompositions a 64-byte GPU build allows, and how to compare
+runs (contractions, not meson fields). The operator decided that the validated stack's use of
+the gold linker is recorded without its unverified rationale.
+
+**Reconciliation.** `software/grid/build.md` (z-Mobius kept for Hadrons, `Version.h` stamp,
+overlay mechanism), `software/grid/runtime-environment.md` (local-extent rule) and
+`software/grid/solvers/staggered.md` (`ImportGaugeSimple`, mixed-precision CG, Lanczos) —
+*confirmed* and referenced rather than restated. No other leaf mentions Hadrons, HadronsMILC
+or pyfm — *none to reconcile*.

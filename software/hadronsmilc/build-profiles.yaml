@@ -1,0 +1,78 @@
+schema_version: 1
+software: hadronsmilc
+profiles:
+  lmi-cuda:
+    summary: >-
+      HadronsMILC and HadronsContractor for the LMI workflow on a CUDA Grid and Hadrons, with
+      strict dependency-pin checking and an include-path overlay for header-only Grid fixes.
+    application_guide: software/hadronsmilc/applications/lmi.md
+    options:
+      --with-grid: <grid prefix>
+      --with-hadrons: <hadrons prefix>
+      --enable-strict-pins: true
+      CXXFLAGS: -I<overlay prefix>/include
+    capabilities:
+      dirac:
+        - improved-staggered
+      solvers:
+        - cg
+        - mixed-precision-cg
+        - lanczos
+        - lma
+      gauge_operations:
+        - hisq-smearing
+      contractions:
+        - a2a-meson-field
+        - meson-two-point
+    composes:
+      hadrons:
+        profile: hadronsmilc-base
+        required_capabilities:
+          dirac: [staggered, improved-staggered]
+          io: [hdf5]
+    notes:
+      - For the 0.3.0 pin the overlay carries Grid e57b352ec's GeneralLocalStencil.h (fast HISQ-smearing stencil setup on GPUs) and dee6224b7's StagGamma.h (checkerboard fix); prove both took effect from the .Po dependency records (software/hadronsmilc/build.md).
+      - The validated stack linked HadronsMILC and HadronsContractor with gold (LDFLAGS plus -Xcompiler -fuse-ld=gold); the default linker was not tried.
+      - Grid's installed Version.h must carry the Grid commit and Hadrons must be configured with GIT_DIR, or --enable-strict-pins fails.
+  lmi-cpu-reference:
+    summary: >-
+      The same HadronsMILC configuration on the CPU Grid reference build, for checking GPU
+      results of the same commits.
+    application_guide: software/hadronsmilc/applications/lmi.md
+    options:
+      --with-grid: <grid prefix>
+      --with-hadrons: <hadrons prefix>
+      --enable-strict-pins: true
+      CXXFLAGS: -I<overlay prefix>/include
+    capabilities:
+      dirac:
+        - improved-staggered
+      solvers:
+        - cg
+        - mixed-precision-cg
+        - lanczos
+        - lma
+      gauge_operations:
+        - hisq-smearing
+      contractions:
+        - a2a-meson-field
+        - meson-two-point
+    composes:
+      hadrons:
+        profile: hadronsmilc-base
+        required_capabilities:
+          dirac: [staggered, improved-staggered]
+          io: [hdf5]
+    notes:
+      - Composes the Hadrons profile built on Grid's cpu-gen16-reference; the same overlay is used so that the two builds differ only in target.
+      - Linked with -fuse-ld=gold, as the GPU build.
+      - A correctness reference, not a performance configuration.
+evidence: source
+observed: "2026-10-23"
+observed_on:
+  software:
+    hadronsmilc:
+      commit: 4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e
+      branch: main
+sources:
+  - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/configure.ac

@@ -56,7 +56,7 @@ class SliceThreeProfileTests(unittest.TestCase):
         self.assertEqual(manifest["schema_versions"]["build_profiles"], 1)
         self.assertEqual(self.schema["properties"]["schema_version"]["const"], 1)
         self.assertEqual(
-            {path.parent.name for path in self.profile_paths}, {"grid", "milc", "quda"}
+            {path.parent.name for path in self.profile_paths}, {"grid", "hadrons", "hadronsmilc", "milc", "quda"}
         )
         for path in self.profile_paths:
             with self.subTest(path=path):

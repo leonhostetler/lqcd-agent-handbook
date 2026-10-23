@@ -1,0 +1,66 @@
+schema_version: 2
+name: hadronsmilc
+summary: Staggered/MILC-convention Hadrons modules and executable for all-to-all, low-mode-improved (LMI) and LMA measurements, driven by pyfm-generated inputs.
+repository: https://github.com/Michael628/HadronsMILC.git
+default_branch: main
+documentation:
+  - https://github.com/Michael628/HadronsMILC/blob/main/README.md
+  - https://github.com/Michael628/HadronsMILC/blob/main/CHANGELOG.md
+build_systems:
+  - Autotools
+dependencies:
+  - name: Grid (milc-qcd fork)
+    purpose: >-
+      Library and GridMilc headers; the commit is pinned in the DEPENDENCIES file at each
+      release (0.3.0: d67dd2079bea). The installed Grid/Version.h must carry the commit for
+      the pin check (software/grid/build.md).
+    required: true
+  - name: Hadrons (milc-qcd fork)
+    purpose: >-
+      Module framework and libHadrons; pinned in DEPENDENCIES (0.3.0: 3a0980157914). Its
+      hadrons-config must be on PATH and report the commit (software/hadrons/build.md).
+    required: true
+  - name: pyfm
+    purpose: >-
+      Generates HadronsMILC parameter files and drives jobs. pyfm 0.X pairs with HadronsMILC
+      0.X (MAJOR.MINOR shared); HadronsMILC logs a warning when a generated file's
+      hadronsMilcCompat differs.
+    required: false
+interfaces:
+  - pyfm
+capabilities:
+  - HISQ smearing and MILC-convention improved-staggered actions (single and double precision)
+  - Staggered CG and mixed-precision CG, implicitly restarted Lanczos, LMA low-mode solves
+  - Random-wall and time-diluted noise sources, spin-taste gamma maps
+  - All-to-all meson fields (stencil and legacy implementations) and LMA meson-field propagators
+  - Startup banner and --version reporting the HadronsMILC, Grid and Hadrons commits and pin status
+build_options:
+  --with-grid:
+    meaning: Grid installation prefix (its include path is appended after user CXXFLAGS).
+    type: path
+  --with-hadrons:
+    meaning: Hadrons installation prefix; hadrons-config must also be on PATH (configure stops otherwise).
+    type: path
+  --enable-strict-pins:
+    meaning: >-
+      Fail configure when the Grid commit (from the installed Grid/Version.h) or the Hadrons
+      commit (from hadrons-config --git) differs from DEPENDENCIES or cannot be read. Without it
+      a mismatch only warns, and the binary reports Dependency pins=mismatch.
+    type: boolean
+  CXXFLAGS:
+    meaning: >-
+      Prepended to the include paths configure adds from --with-grid, --with-hadrons and
+      hadrons-config, so a directory given here overrides a Grid or Hadrons header of the same
+      name for every HadronsMILC source.
+    type: string
+evidence: source
+observed: "2026-10-23"
+observed_on:
+  software:
+    hadronsmilc:
+      commit: 4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e
+      branch: main
+sources:
+  - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/configure.ac
+  - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/DEPENDENCIES
+  - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/CHANGELOG.md

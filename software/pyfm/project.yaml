@@ -1,0 +1,36 @@
+schema_version: 2
+name: pyfm
+summary: Python toolkit that generates HadronsMILC parameter files, runs the job nanny, and performs A2A meson-field contractions and data aggregation.
+repository: https://github.com/Michael628/pyfm.git
+default_branch: main
+documentation:
+  - https://github.com/Michael628/pyfm/blob/main/README.md
+  - https://github.com/Michael628/pyfm/blob/main/CHANGELOG.md
+build_systems:
+  - setuptools
+dependencies:
+  - name: Python 3.12 or later
+    purpose: Interpreter (requires-python >= 3.12).
+    required: true
+  - name: numpy, h5py, pandas, tables, pydantic, PyYAML, click, dict2xml, gvar, sympy, opt_einsum, pyrsistent, Cython
+    purpose: Runtime dependencies declared in pyproject.toml.
+    required: true
+  - name: HadronsMILC
+    purpose: Executes the generated inputs; pyfm 0.X pairs with HadronsMILC 0.X.
+    required: true
+interfaces:
+  - HadronsMILC
+capabilities:
+  - HadronsMILC XML generation for LMI, LMA, meson-field and high-mode tasks
+  - A2A meson-field contraction into correlators
+  - Job nanny for Slurm and PBS, output auditing and aggregation
+evidence: source
+observed: "2026-10-23"
+observed_on:
+  software:
+    pyfm:
+      commit: 9282eac110f95e536607ac9acfee26024677cd13
+      branch: main
+sources:
+  - https://github.com/Michael628/pyfm/blob/9282eac110f95e536607ac9acfee26024677cd13/pyproject.toml
+  - https://github.com/Michael628/pyfm/blob/9282eac110f95e536607ac9acfee26024677cd13/README.md
