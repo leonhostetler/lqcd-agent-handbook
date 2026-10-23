@@ -1,0 +1,115 @@
+schema_version: 1
+machine: horizon
+software: hadrons
+profile: hadronsmilc-base
+validated_on:
+  - gpu-gb200
+tested_software:
+  hadrons:
+    commit: 3a0980157914dd54e96744fccaf0fbf88620b5a5
+    branch: feature/LMI-develop
+    forked_from_default: 28d2806401806592f9caddc8eeedd4277efd341d
+    repository: https://github.com/milc-qcd/Hadrons.git
+    selected_by: HadronsMILC 0.3.0 DEPENDENCIES pin
+  grid:
+    commit: d67dd2079bea125138502a13120858aa58997379
+    branch: feature/LMI-develop
+    forked_from_default: 87baaf1d378f92fc8729c4f05a6836d3c764ee87
+    repository: https://github.com/milc-qcd/Grid.git
+tested_dependencies:
+  sqlite:
+    acquisition: amalgamation downloaded and sha256-checked by bootstrap.sh on a login node
+tested_toolchain:
+  modules: [gcc/15.3.0, cuda/13.3, openmpi/5.0.11, ucx/1.22.0, nvpl/26.9]
+  host_compiler:
+    module: gcc/15.3.0
+    version: GCC 15.3.0 through the Open MPI 5.0.11 mpicxx wrapper as nvcc's -ccbin (from grid-config)
+  cuda:
+    module: cuda/13.3
+    compiler_version: 13.3.73
+  driver: 610.57.04 (CUDA user-mode driver 13.3)
+  mpi:
+    module: openmpi/5.0.11
+    transport: UCX 1.22.0 from the loaded ucx module
+build:
+  type: optimized (flags from grid-config, -O3)
+  target: CUDA
+  gpu_arch: sm_100
+  generator: GNU Autotools and Make, out of tree
+  install_layout: <install-prefix>/{lib/libHadrons.a, include/Hadrons, bin/hadrons-config, bin/HadronsXmlRun, bin/HadronsXmlValidate, bin/HadronsContractor, bin/HadronsContractorBenchmark}
+  profile_options_from: software/hadrons/build-profiles.yaml#hadronsmilc-base
+  machine_options:
+    configure_environment: GIT_DIR=<source>/.git, so hadrons-config --git records the commit
+    PATH: <grid-prefix>/bin prepended, for grid-config
+  dependency_acquisition:
+    mode: existing validated Grid stack installation
+    composed_profile: software/grid/build-profiles.yaml#cuda-hadrons-staggered
+    validated_stack: machines/horizon/stacks/grid-cuda13-hadrons-staggered-2026q4/stack.yaml
+    network_required: bootstrap only (SQLite; login node)
+  cost:
+    where: batch
+    command: configure, make -j48, make install, then make -k -j48 tests and benchmarks
+    parallelism: 48
+    wallclock: 8m43s
+    timing_scope: >-
+      Stage times inside one gpu-gb200 job that then built HadronsMILC: configure 92 s,
+      library and utilities 279 s, install 8 s, test programs 127 s (15 of 18 built),
+      benchmarks 17 s (0 of 1 built).
+    maximum_reported_rss_kib: not measured
+    memory_scope: >-
+      Per-process RSS was not recorded; node-wide used memory for the whole job (Hadrons and
+      HadronsMILC) peaked at 131.7 GiB from a 45.2 GiB baseline.
+validation:
+  date: "2026-10-23"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 1
+    accelerator: NVIDIA GB200
+    accelerator_memory_mib: 189471
+    scheduler_node: Early access; one scheduler node is a four-GPU NVL4 board.
+    partition: debug
+    exclusive: true
+    via: the runs recorded in machines/horizon/stacks/hadronsmilc-cuda13-lmi-2026q4/stack.yaml, which link this library
+  runtime:
+    launch: as in the HadronsMILC stack; Hadrons is a static library linked into HadronsMILC
+  tests:
+    - name: commit_stamp
+      check: hadrons-config --git prints HEAD 3a0980157914…, and HadronsMILC's strict pin check and banner read it
+      result: pass
+    - name: consumer_validation
+      check: HadronsMILC built on this library passed its corrected test suite, matched a CPU build, and ran the pyfm lmi chain decomposition-independently (HadronsMILC stack)
+      result: pass
+    - name: baryon_test_programs
+      outcome: Test_hadrons_spectrum, Test_sigma_to_nucleon and Test_xi_to_sigma do not compile; the fork lacks the baryon contraction modules (software/hadrons/build.md)
+      result: fail
+    - name: meson_field_benchmark
+      outcome: benchmarks/Benchmark_meson_field does not compile (DomainWallFermionR no longer exists in Grid); upstream has the same defect
+      result: fail
+  scope_limits:
+    - Validated only through HadronsMILC. Hadrons' own test programs were built (15 of 18) but none was run, and HadronsXmlRun was not run.
+    - Hadrons modules outside the HadronsMILC LMI chain were not exercised.
+    - The build record was not checked by tools/check-stack-build-record.py, which has no autotools configure mode.
+    - One board only; early-access layout.
+evidence: experiment
+observed: "2026-10-23"
+observed_on:
+  machine: horizon
+  node_type: gpu-gb200
+  software:
+    hadrons:
+      commit: 3a0980157914dd54e96744fccaf0fbf88620b5a5
+      branch: feature/LMI-develop
+      forked_from_default: 28d2806401806592f9caddc8eeedd4277efd341d
+    grid:
+      commit: d67dd2079bea125138502a13120858aa58997379
+      branch: feature/LMI-develop
+      forked_from_default: 87baaf1d378f92fc8729c4f05a6836d3c764ee87
+  toolchain:
+    cuda: 13.3.73
+    host_compiler: GCC 15.3.0 through Open MPI 5.0.11 wrappers
+    ucx: 1.22.0
+sources:
+  - https://github.com/milc-qcd/Hadrons/blob/3a0980157914dd54e96744fccaf0fbf88620b5a5/configure.ac
+  - operator-submitted build job reviewed in the working directory; raw scheduler output is not committed

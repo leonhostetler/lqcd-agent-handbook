@@ -1,0 +1,188 @@
+schema_version: 1
+machine: horizon
+software: hadronsmilc
+profile: lmi-cuda
+validated_on:
+  - gpu-gb200
+tested_software:
+  hadronsmilc:
+    commit: 4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e
+    branch: main
+    release: 0.3.0
+  hadrons:
+    commit: 3a0980157914dd54e96744fccaf0fbf88620b5a5
+    branch: feature/LMI-develop
+    forked_from_default: 28d2806401806592f9caddc8eeedd4277efd341d
+    repository: https://github.com/milc-qcd/Hadrons.git
+  grid:
+    commit: d67dd2079bea125138502a13120858aa58997379
+    branch: feature/LMI-develop
+    forked_from_default: 87baaf1d378f92fc8729c4f05a6836d3c764ee87
+    repository: https://github.com/milc-qcd/Grid.git
+  pyfm:
+    commit: 9282eac110f95e536607ac9acfee26024677cd13
+    branch: main
+    role: generated the multi-GPU validation input; installed editable (pip install -e) under Python 3.12
+tested_dependencies:
+  grid_overlay_GeneralLocalStencil.h:
+    source: Grid e57b352ec, Grid/stencil/GeneralLocalStencil.h
+    sha256: c2ce53333287d3fbf0b95a378cd5ce64d86c728884b7f4d93e787140b3d8de97
+    purpose: one bulk lookup-table copy instead of one per entry (software/grid/hisq-smearing.md)
+  grid_overlay_StagGamma.h:
+    source: Grid dee6224b7, GridMilc/spin/StagGamma.h
+    sha256: bdda8905bedab6e744804cb7b4a7e4ff92e73abc29c5ca301591a2d50d50a123
+    purpose: checkerboard fix in applyCoeffsAndPhase (software/grid/validation.md)
+  sqlite:
+    acquisition: amalgamation downloaded and sha256-checked by Hadrons' bootstrap.sh
+tested_toolchain:
+  modules: [gcc/15.3.0, cuda/13.3, openmpi/5.0.11, ucx/1.22.0, nvpl/26.9]
+  host_compiler:
+    module: gcc/15.3.0
+    version: GCC 15.3.0, through the Open MPI 5.0.11 mpicxx wrapper as nvcc's -ccbin (from grid-config)
+  cuda:
+    module: cuda/13.3
+    compiler_version: 13.3.73
+  linker: GNU gold (binutils 2.41) for HadronsMILC and HadronsContractor; the default linker for Hadrons' own utilities
+  driver: 610.57.04 (CUDA user-mode driver 13.3)
+  mpi:
+    module: openmpi/5.0.11
+    transport: UCX 1.22.0 from the loaded ucx module
+build:
+  type: optimized (flags from grid-config, -O3)
+  target: CUDA
+  gpu_arch: sm_100
+  generator: GNU Autotools and Make, out of tree
+  install_layout: >-
+    <hadrons-prefix>/{lib/libHadrons.a, bin/hadrons-config, bin/HadronsXmlRun, ...};
+    <hadronsmilc-prefix>/{bin/HadronsMILC, bin/HadronsContractor, lib/libHadronsMILC.a};
+    <overlay-prefix>/include/{Grid/stencil/GeneralLocalStencil.h, GridMilc/spin/StagGamma.h}
+  profile_options_from: software/hadronsmilc/build-profiles.yaml#lmi-cuda
+  portable_recipe: software/hadronsmilc/applications/lmi.md
+  machine_options:
+    hadrons_configure: GIT_DIR=<hadrons-source>/.git <hadrons-source>/configure --prefix <hadrons-prefix> --with-grid=<grid-prefix>
+    hadronsmilc_configure: <hadronsmilc-source>/configure --prefix <hadronsmilc-prefix> --with-grid=<grid-prefix> --with-hadrons=<hadrons-prefix> --enable-strict-pins CXXFLAGS=-I<overlay-prefix>/include
+    hadronsmilc_link_LDFLAGS: the Makefile's LDFLAGS plus -Xcompiler -fuse-ld=gold, for make HadronsMILC and make -C utilities HadronsContractor
+    PATH: <grid-prefix>/bin and then <hadrons-prefix>/bin prepended
+  dependency_acquisition:
+    mode: existing validated Hadrons stack installation (itself on the Grid stack), plus the two overlay headers copied from their Grid commits
+    composed_profile: software/hadrons/build-profiles.yaml#hadronsmilc-base
+    validated_stack: machines/horizon/stacks/hadrons-cuda13-hadronsmilc-base-2026q4/stack.yaml
+    grid_stack: machines/horizon/stacks/grid-cuda13-hadrons-staggered-2026q4/stack.yaml
+    network_required: false
+  cost:
+    where: batch
+    command: configure --enable-strict-pins, make -j48 -C src, make HadronsMILC and make -C utilities HadronsContractor with gold, make install
+    parallelism: 48
+    wallclock: 5m32s
+    timing_scope: >-
+      Stage times inside one gpu-gb200 job that built the Hadrons stack first: configure 73 s,
+      src 77 s, HadronsMILC link 138 s, HadronsContractor 40 s, install 4 s. The whole job,
+      Hadrons included, took 14m37s.
+    maximum_reported_rss_kib: not measured
+    memory_scope: >-
+      Per-process RSS was not recorded. Node-wide used memory (free, every 10 s) peaked at
+      131.7 GiB from a 45.2 GiB baseline; the batch step's sampled MaxRSS (sacct) was 59 GB.
+validation:
+  date: "2026-10-23"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 1
+    accelerator: NVIDIA GB200
+    accelerator_memory_mib: 189471
+    compute_capability: "10.0"
+    scheduler_node: Early access; one scheduler node is a four-GPU NVL4 board.
+    partition: debug
+    exclusive: true
+    scheduler_elapsed: 1m52s, 1m48s and 1m28s for the three validation jobs, and 1m37s for the CPU-reference comparison job
+    lattices:
+      - {name: test_suite, global_lattice: [4, 4, 4, 4], fixture: HadronsMILC test/lat/lat.sample.l4444.ildg.20}
+      - {name: lmi_chain, global_lattice: [8, 8, 8, 8], configuration: "MILC binary_samples lat.sample.l8888 (pure gauge, beta 6.0, MILC v5)"}
+    legs:
+      - {name: one_gpu, mpi_ranks: 1, node_geometry: [1, 1, 1, 1]}
+      - {name: one_board_time_split, mpi_ranks: 4, node_geometry: [1, 1, 2, 2], local_lattice: [8, 8, 4, 4]}
+      - {name: one_board_time_whole, mpi_ranks: 4, node_geometry: [2, 2, 1, 1], local_lattice: [4, 4, 8, 8]}
+      - {name: cpu_reference, build: software/hadronsmilc/build-profiles.yaml#lmi-cpu-reference, mpi_ranks: 1, cores: 36}
+  runtime:
+    launch: srun --cpu-bind=none tools/horizon-gb200-bind.sh HadronsMILC <params.xml> --grid <lattice> --mpi <geometry> --accelerator-threads 8 --shm 2048
+    cpu_binding: Local rank n on cores 36n..36n+35 (NUMA n/2)
+    gpu_binding: Per-rank CUDA_VISIBLE_DEVICES=n
+    OMP_NUM_THREADS: 36
+    banner: "HadronsMILC version=0.3.0 git=v0.2.1-62-g4a19a15; Grid git=d67dd2079bea…: (HEAD, origin/feature/LMI-master) clean; Hadrons git=HEAD 3a0980157914…; GridMilc version=GridMilc 0.1.0; Dependency pins=match"
+    input_checks: every parameter file passed a static check for flat SpinTaste options and stale single-timeslice LMA object names; every log was scanned for empty gamma lists and missing dependencies, and every expected output file was counted
+  tests:
+    - name: overlay_in_effect
+      check: dependency records of the build name the overlay headers (40 objects for GeneralLocalStencil.h, 16 for StagGamma.h) and never the installed copies
+      result: pass
+    - name: hisq_smearing_overlay_vs_stock
+      check: MGauge::HISQSmear with the fixed header, saved with MIO::SaveIldg, against Grid's stock Test_fatLinks smearing of the same 4^4 gauge field
+      residuals: {fat: 0, long: 0}
+      result: pass
+    - name: hadronsmilc_test_suite
+      check: >-
+        cb-mesonfield (stencil vs legacy CB meson fields, worst 1.7e-13), lma-file (6.3e-8, with
+        --nnoise 2), lma-weighted (6.3e-8), guess-quality (worst LMA-guess/zero-guess first
+        residual 0.090), setup-error negatives; four 0.3.0 parameter files corrected first
+        (software/hadronsmilc/validation.md)
+      result: pass
+    - name: sib_check_1
+      outcome: >-
+        Fails identically on this stack and the CPU reference (1.371 per timeslice); the
+        time-summed overlaps agree to 4e-8. The check's per-timeslice expectation is wrong
+        (software/hadronsmilc/validation.md); not counted against the stack.
+      result: fail
+    - name: gpu_vs_cpu_reference
+      check: every HDF5 output of the corrected suite, this stack against the CPU reference build of the same commits
+      datasets: 25
+      maximum_relative_difference: 1.8e-8
+      result: pass
+    - name: lmi_chain_decomposition_independence
+      input: pyfm 9282eac, task_type lmi, 69 modules (LoadMilc, HISQSmear, StagFermionIRL Nstop 32, legacy A2A meson fields, 4 random-wall sources, StagLMA and StagMixedPrecisionCG, StagMesonLegacy), then pyfm contract
+      check: all 24 correlators, the eigenvalues and the 3 a2aLL contractions against the one-GPU leg
+      datasets: 134
+      maximum_relative_difference: {one_board_time_split: 4.5e-10, one_board_time_whole: 4.5e-10, cpu_reference: 5.0e-9}
+      lanczos: 32 of 32 converged at the first restart on every leg
+      result: pass
+    - name: lmi_chain_time_split_four_ways
+      outcome: --mpi 1.1.1.4 on 8^4 (local time extent 2) aborts at red-black grid construction; a layout rule (software/grid/runtime-environment.md), not a defect
+      result: fail
+  scope_limits:
+    - One board only; no multi-node run.
+    - Small lattices only (4^4, 8^4); nothing at production volume, and no throughput or memory figure from these runs transfers to it.
+    - task_type lmi (Legacy modules) only; the lma_new chain was not run.
+    - The CPU reference build (lmi-cpu-reference, with Grid cpu-gen16-reference) was built and run for comparison only; it is not a validated stack.
+    - MIO::LoadMilc was exercised on a single-precision MILC v5 sample, not on a production lattice.
+    - StagCGMILC and StagA2AVectors were not exercised.
+    - The default linker was not tried for HadronsMILC; gold is what was validated.
+    - The build record was not checked by tools/check-stack-build-record.py, which has no autotools configure mode; the commands are copied from the build job's own log. This stack carries no performance reference.
+    - Validated on the early-access layout, where one scheduler node is a four-GPU NVL4 board.
+evidence: experiment
+observed: "2026-10-23"
+observed_on:
+  machine: horizon
+  node_type: gpu-gb200
+  software:
+    hadronsmilc:
+      commit: 4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e
+      branch: main
+    hadrons:
+      commit: 3a0980157914dd54e96744fccaf0fbf88620b5a5
+      branch: feature/LMI-develop
+      forked_from_default: 28d2806401806592f9caddc8eeedd4277efd341d
+    grid:
+      commit: d67dd2079bea125138502a13120858aa58997379
+      branch: feature/LMI-develop
+      forked_from_default: 87baaf1d378f92fc8729c4f05a6836d3c764ee87
+    pyfm:
+      commit: 9282eac110f95e536607ac9acfee26024677cd13
+      branch: main
+  toolchain:
+    cuda: 13.3.73
+    host_compiler: GCC 15.3.0 through Open MPI 5.0.11 wrappers
+    ucx: 1.22.0
+sources:
+  - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/DEPENDENCIES
+  - https://github.com/Michael628/pyfm/blob/9282eac110f95e536607ac9acfee26024677cd13/example/params_files/params_l144288.yaml
+  - https://github.com/milc-qcd/milc_qcd/blob/1e11e121b220433c220310b79de03cb3ee6adba0/binary_samples/lat.sample.l8888
+  - operator-submitted build and validation jobs reviewed in the working directory; raw scheduler output is not committed

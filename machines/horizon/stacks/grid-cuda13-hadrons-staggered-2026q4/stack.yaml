@@ -1,0 +1,177 @@
+schema_version: 1
+machine: horizon
+software: grid
+profile: cuda-hadrons-staggered
+validated_on:
+  - gpu-gb200
+tested_software:
+  grid:
+    commit: d67dd2079bea125138502a13120858aa58997379
+    branch: feature/LMI-develop
+    forked_from_default: 87baaf1d378f92fc8729c4f05a6836d3c764ee87
+    repository: https://github.com/milc-qcd/Grid.git
+    selected_by: HadronsMILC 0.3.0 DEPENDENCIES pin
+tested_dependencies:
+  gmp:
+    version: 6.2.1
+    tarball_sha256: fd4829912cddd12f84181c3451cc752be224643e87fac497b69edddadc49b4f2
+    configure: CC=gcc CXX=g++ CFLAGS=-std=gnu17 CXXFLAGS=-std=gnu17
+  mpfr:
+    version: 4.1.0
+    tarball_sha256: 3127fe813218f3a1f0adf4e8899de23df33b4cf4b4b3831a5314f78e65ffa2d6
+    configure: CC=gcc CXX=g++ CFLAGS=-std=gnu17 CXXFLAGS=-std=gnu17 --with-gmp=<deps-prefix>
+  lime:
+    version: 1.3.2
+    tarball_sha256: db5c07a72a152244f94a84c8bcc7395ec6fa084b8979ca1c8788b99a2870c881
+    configure: CC=gcc CXX=g++ CFLAGS=-std=gnu17 CXXFLAGS=-std=gnu17
+  hdf5:
+    version: 1.14.6
+    tarball_sha256: e4defbac30f50d64e1556374aa49e574417c9e72c6b1de7a4ff88c4b1bea6e9b
+    configure: CC=gcc CXX=g++ --enable-cxx --disable-fortran --enable-build-mode=production
+    note: Serial HDF5 with the C++ API; Horizon's phdf5 modules exist only for toolchains nvcc 13.3 does not accept as a host compiler.
+  eigen:
+    version: 3.4.0
+    acquisition: downloaded by Grid's bootstrap.sh
+tested_toolchain:
+  modules: [gcc/15.3.0, cuda/13.3, openmpi/5.0.11, ucx/1.22.0, nvpl/26.9]
+  host_compiler:
+    module: gcc/15.3.0
+    version: GCC 15.3.0, through the Open MPI 5.0.11 mpicxx wrapper as nvcc's -ccbin
+  cuda:
+    module: cuda/13.3
+    compiler_version: 13.3.73
+    math_libraries: the cuBLAS and cuFFT of the NVIDIA HPC SDK 26.9 math_libs tree for CUDA 13.3
+  driver: 610.57.04 (CUDA user-mode driver 13.3)
+  mpi:
+    module: openmpi/5.0.11
+    transport: UCX 1.22.0 from the loaded ucx module; CUDA-aware on compute nodes (machines/horizon/notes.md)
+  environment_note: The nvidia module that module reset loads is unloaded; cmake is unloaded (autotools build).
+build:
+  type: optimized (configure's default -O3; no --enable-debug)
+  target: CUDA
+  gpu_arch: sm_100
+  generator: GNU Autotools and Make, out of tree
+  install_layout: <install-prefix>/{lib/libGrid.a, lib/libGridMilc.a, include/Grid, include/GridMilc, bin/grid-config}
+  profile_options_from: software/grid/build-profiles.yaml#cuda-hadrons-staggered
+  machine_options:
+    CXX: nvcc
+    CXXFLAGS: -ccbin mpicxx -gencode arch=compute_100,code=sm_100 -std=c++17 -I<cuda-math-libs>/include -DEIGEN_DONT_VECTORIZE
+    LIBS: -lcublas
+    LDFLAGS: -L<cuda-math-libs>/lib
+    --with-lime: <deps-prefix>
+    --with-hdf5: <deps-prefix>
+    --with-gmp: <deps-prefix>
+    --with-mpfr: <deps-prefix>
+    post_install: Grid/Version.h stamped from the source tree (software/grid/build.md), because the out-of-tree build installs it empty.
+  dependency_acquisition:
+    mode: GMP, MPFR, LIME and HDF5 built from checksummed tarballs on a login node at -j4; Eigen downloaded by bootstrap.sh on a login node
+    network_required: bootstrap only (login node); the batch build needs none
+  cost:
+    where: batch
+    command: configure, then make -j48 -C Grid, make -j48 -C GridMilc libGridMilc.a, the install targets, make -j48 -C benchmarks
+    parallelism: 48
+    wallclock: 12m11s
+    timing_scope: >-
+      One gpu-gb200 board, early-access debug partition. Configure 237 s, libGrid.a 332 s,
+      libGridMilc.a 52 s, installs 21 s, benchmarks 74 s. The complete test-program set was built
+      in a second job (18m58s, make -k per test directory): 289 of 307 programs compiled; the 18
+      that did not are listed in software/grid/build.md.
+    maximum_reported_rss_kib: not measured
+    memory_scope: >-
+      Per-process RSS was not recorded. Node-wide used memory (free, every 10 s) rose from about
+      61 GiB to a peak of about 113 GiB during the build; the batch step's sampled
+      MaxRSS (sacct) was 28.73 GiB. Neither is a per-process figure.
+validation:
+  date: "2026-10-22"
+  submitted_by: operator
+  reviewed_by: agent
+  result: pass
+  resources:
+    nodes: 1
+    accelerator: NVIDIA GB200
+    accelerator_memory_mib: 189471
+    compute_capability: "10.0"
+    scheduler_node: Early access; one scheduler node is a four-GPU NVL4 board.
+    partition: debug
+    exclusive: true
+    scheduler_elapsed: 38m14s for the validation job (37 legs); 2m05s and 1m15s for the two follow-up jobs
+    global_lattice: "[16, 16, 16, 32] for correctness legs; [32, 32, 32, 32] for throughput and one smearing leg"
+    legs:
+      - {name: one_gpu, mpi_ranks: 1, node_geometry: [1, 1, 1, 1]}
+      - {name: one_board, mpi_ranks: 4, node_geometry: [1, 1, 2, 2], local_lattice: [16, 16, 8, 16]}
+      - {name: one_board_time_whole, mpi_ranks: 4, node_geometry: [2, 2, 1, 1], note: Test_a2a_stencil only}
+      - {name: one_board_alt, mpi_ranks: 4, node_geometry: [1, 2, 2, 1], note: Test_a2a_stencil only}
+  runtime:
+    launch: srun --cpu-bind=none tools/horizon-gb200-bind.sh <program> --grid <lattice> --mpi <geometry> --accelerator-threads 8 --shm 2048
+    cpu_binding: Local rank n on cores 36n..36n+35 (NUMA n/2) by numactl in the wrapper; recorded by an in-job probe.
+    gpu_binding: Per-rank CUDA_VISIBLE_DEVICES=n; Grid then selects its first visible device.
+    nic_binding: UCX_NET_DEVICES=mlx5_0, mlx5_1, mlx5_4, mlx5_5 for local ranks 0-3
+    OMP_NUM_THREADS: 36
+    OMP_PROC_BIND: unset
+    grid_flags: --accelerator-threads 8 --shm 2048; --shm-mpi left at its default (1)
+    accelerator_aware_mpi: device buffers passed to MPI; halo exchange and Cshift ran correctly on four ranks
+    node_communicator: Grid reported Node communicator of size 4 on every four-rank leg
+  tests:
+    - name: staggered_operator
+      program: tests/core/Test_staggered
+      check: hop, even-odd split and adjointness against the Cshift reference, read from the printed norms (the test has no assert)
+      legs_passed: 2
+      result: pass
+    - name: staggered_cg
+      programs: [tests/solver/Test_staggered_cg_prec, Test_staggered_cg_schur, Test_staggered_cg_unprec, Test_staggered_multishift]
+      check: converged with the true residual at the target on 1 and 4 ranks
+      legs_passed: 8
+      result: pass
+    - name: hisq_smearing_smoke
+      program: tests/smearing/Test_fatLinks without --fat/--long
+      check: runs and completes; smoke only, it compares the smearing with itself
+      legs_passed: 3
+      result: pass
+    - name: staggamma_applyg5
+      program: GridMilc/tests/Test_staggamma_applyg5
+      legs_passed: 2
+      result: pass
+    - name: decomposition_consistency
+      check: identical CG iteration counts (within 1) and norms between the 1- and 4-rank legs
+      result: pass
+    - name: general_stencil
+      program: tests/Test_general_stencil
+      outcome: segfault on 1 and 4 ranks; the test reads device-resident stencil entries on the host, which a --disable-unified build forbids (software/grid/validation.md). A test defect, excluded from the stack's claims.
+      result: fail
+    - name: a2a_stencil_at_pin
+      program: GridMilc/tests/Test_a2a_stencil
+      outcome: >-
+        Aborts at the checkerboard-conformance assert on 1 rank and on 4 ranks (2.2.1.1); with fork
+        dee6224b7's StagGamma.h on the include path it passes on 1 rank and on 4 ranks (2.2.1.1,
+        1.2.2.1). On 1.1.2.2 it asserts in its own Cshift reference (dimension 3 decomposed), with
+        or without the fix. Header-only; the HadronsMILC stack carries the fix.
+      result: fail
+    - name: comms_benchmark_threaded_section
+      program: benchmarks/Benchmark_comms
+      outcome: The sequential host- and device-buffer sections completed; the threaded section crashed (eight threads calling MPI under MPI_THREAD_SERIALIZED). A benchmark/configuration mismatch.
+      result: fail
+  scope_limits:
+    - One board only. Multi-node runs were not made with this stack.
+    - The two failing tests and the threaded benchmark section are defects of the tests or of their assumptions, not of the library paths HadronsMILC uses (software/grid/validation.md); the a2a checkerboard abort is a real defect of the pin, fixed by a header the HadronsMILC stack adds.
+    - HISQ smearing was smoke-tested only here; the HadronsMILC stack compares fixed-header smearing with this stack's stock smearing.
+    - The build record was not checked by tools/check-stack-build-record.py, which has no mode for autotools configure options; the configure command is copied from the build job's own log. This stack therefore carries no performance reference.
+    - Throughput figures measured on this stack (Dslash, memory bandwidth, comms) are recorded in its notes as observations, not as performance references.
+    - Validated on the early-access layout, where one scheduler node is a four-GPU NVL4 board.
+evidence: experiment
+observed: "2026-10-23"
+observed_on:
+  machine: horizon
+  node_type: gpu-gb200
+  software:
+    grid:
+      commit: d67dd2079bea125138502a13120858aa58997379
+      branch: feature/LMI-develop
+      forked_from_default: 87baaf1d378f92fc8729c4f05a6836d3c764ee87
+  toolchain:
+    cuda: 13.3.73
+    host_compiler: GCC 15.3.0 through Open MPI 5.0.11 wrappers
+    ucx: 1.22.0
+sources:
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/configure.ac
+  - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/DEPENDENCIES
+  - operator-submitted build, test-build and validation jobs reviewed in the working directory; raw scheduler output is not committed

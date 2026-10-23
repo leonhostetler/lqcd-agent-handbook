@@ -7459,3 +7459,31 @@ limit as infinite, which the QOS limit caps. `UCX_NET_DEVICES` set to all four H
 `srun`. `machine.yaml`'s host-memory comment — *amended* to point at the measurement.
 `conventions/batch-scripts.md`'s binding rules — *confirmed*: the new tool states both halves
 and the CPU arithmetic, as that leaf requires.
+
+## 2026-10-23 — Horizon stacks: Grid, Hadrons and HadronsMILC for the LMI workflow
+
+The three validated stacks behind the Grid, Hadrons and HadronsMILC knowledge, chained as the
+profiles compose: Grid `cuda-hadrons-staggered`, Hadrons `hadronsmilc-base` on it, and
+HadronsMILC `lmi-cuda` on that. The Hadrons stack exists because each composition names one
+dependency stack; it is validated only through HadronsMILC, and says so. The Grid stack
+records the milc-qcd fork at the HadronsMILC 0.3.0 pin, its hand-built dependencies, the
+configure options, the cost of the library and test-program builds, and a one-board validation:
+staggered operator, CG variants and multishift pass on 1 and 4 GPUs with identical results; the
+failures are explained (`software/grid/validation.md`). The HadronsMILC stack adds two overlay
+headers, links with gold, and records three validations: the overlay
+headers in effect, HadronsMILC's own test suite (corrected inputs) agreeing with a CPU build of
+the same commits, and a pyfm-generated `lmi` chain giving the same correlators and contractions
+on one and four GPUs.
+
+No stack's build record could be checked by `tools/check-stack-build-record.py`, which
+has modes for CMake configure commands and Make variables but none for autotools configure
+options; each says so in `scope_limits`, and none carries a performance reference. The Grid
+stack's throughput figures are recorded in its notes as observations. An autotools mode for the
+tool is the obvious follow-up.
+
+**Reconciliation.** `software/grid/build-profiles.yaml`, `software/hadrons/build-profiles.yaml`
+and `software/hadronsmilc/build-profiles.yaml` — *confirmed*: the stacks reference the profiles
+they used, and the composition chain matches the profiles' `composes`. `machines/horizon/notes.md`
+host-memory, `srun` placement and CUDA-aware MPI paragraphs — *confirmed*; the stacks' runtime
+blocks use the same wrapper. The existing Horizon stacks (QUDA, MILC) — *unaffected*; the new
+stacks record a newer driver (610.57.04) than those (595.71.05).
