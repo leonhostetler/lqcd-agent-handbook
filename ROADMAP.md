@@ -24,6 +24,7 @@ belongs in `ARCHITECTURE.md`; this document never restates a decision, only its 
 | 5 | software-local solvers and ensembles | partly landed; acceptance pending |
 | 6 | performance analysis | accepted 2026-09-15, three checks |
 | 7 | automation and enforcement | partly landed — submission guard 2026-09-24, drift triage 2026-10-07 |
+| — | Grid, Hadrons, HadronsMILC and pyfm on Horizon (onboarded as needed) | **in progress** — fork-maintained software decided 2026-10-23 |
 
 `handbook.yaml` owns `phase`, which stays `bootstrap` until Slice 5 is accepted. Machines
 after Frontier are onboarded as needed rather than as slices; the order and its reasoning are

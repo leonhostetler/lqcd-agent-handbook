@@ -7342,3 +7342,20 @@ would have written exists afterwards.
 before concluding anything" — *confirmed*; the placeholder section's other bullets — *confirmed*.
 `ARCHITECTURE.md` §freshness-model rule 3a, which declares `.mcp.json` and `.claude/*` as tooling
 paths — *confirmed*; both messages name those paths.
+
+## 2026-10-23 — Facts from a maintained fork are admissible, labelled
+
+A campaign building HadronsMILC's LMI workflow needs Grid and Hadrons from the `milc-qcd`
+forks: GridMilc, HISQ smearing and the fixes the workflow depends on exist only there, and
+HadronsMILC pins its releases to fork commits. The operator decided that fork-only facts are
+admissible, provided every claim says whether it holds upstream. `ARCHITECTURE.md` §1.3
+records the decision, §version-lifetimes the labelling rule, and `project.yaml` gains an
+optional `forks:` list so a fork branch in `observed_on` resolves to a repository.
+
+**Reconciliation.** Statements about unmerged or non-default code: §version-lifetimes "every
+commit reference records its branch context" and `forked_from_default` — *confirmed*, and
+used as the mechanism; §1.2 "Branch policy: there is none" — *confirmed*; the
+[§deferred-decisions](ROADMAP.md#deferred-decisions) row declining split-grid deflation
+knowledge for `software/quda/solvers/` — *confirmed and unaffected*: that work is a feature
+branch awaiting merge, which the new row leaves under the general caution, not a maintained
+fork that is a production code line.

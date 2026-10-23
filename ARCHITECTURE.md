@@ -71,6 +71,7 @@ state, and a reader who wants to know "is this still open?" needs to look nowher
 | **Calibration accuracy versus refits** | An accuracy observation measured outside a calibration's declared envelope is recorded as a **scoped observation, never folded into a fitted constant**, and no fit is revised while the corpus that validates it lives outside this repository — a revision could then be asserted but not re-checked, trading a verifiable published error for an unverifiable one. Tool changes that only add warnings, legality gates, or reported fields are exempt, because they alter no predicted value ([§validator-not-clearance](#validator-not-clearance)) | A retained validation set makes a fit's published error re-derivable inside the repository ([§deferred-decisions](ROADMAP.md#deferred-decisions)) |
 | **Ensemble identity and spacing defaults** | A suffix-free MILC `l...` label identifies an ensemble; a trailing lowercase letter identifies one generation stream and is not part of the ensemble identity. An unqualified spacing resolves only through `operator_resolution.spacing_defaults`; an explicit name, stream, mass, paper key, or geometry wins. A spacing with no published physical-mass default keeps a null `ensemble` rather than silently selecting or relabeling another ensemble | MILC changes its public naming convention, or the operator adopts a different default-selection policy |
 | **Reference build scripts** | Public upstream sample scripts may be cited and version-pinned as stack `reference_sources`; they are evidence, not canonical instructions. The validated stack notes own the reproducible procedure and explicitly record deviations from the sample ([§stacks](#stacks)) | A project publishes a supported machine recipe whose contract should supersede handbook-owned reproduction notes |
+| **Fork-maintained software** | A project used in production from a **maintained fork** — one that tracks upstream by merges and is the code line its application actually runs, not a feature branch awaiting merge — names the fork under `forks:` in `project.yaml`, beside the upstream `repository`. Facts that hold **only on the fork are admissible**, and each says so: every claim is labelled **upstream and fork** or **fork-only**, and its `observed_on` records the fork's branch and `forked_from_default` ([§version-lifetimes](#version-lifetimes)). Grid and Hadrons under HadronsMILC's LMI workflow are the first case. Unmerged feature branches stay under the general caution ([§deferred-decisions](ROADMAP.md#deferred-decisions)) | The fork stops being maintained, or its work merges upstream — relabel the affected facts **upstream and fork** |
 | **The validator** | Reports what it checked, **never "passed"** ([§validator-not-clearance](#validator-not-clearance)) | — |
 | **Performance references** | A reproduced, stack-linked throughput summary is a **calibration constant**, and admissible; single runs, per-run ledgers and profile numbers stay in the working directory. Rows are canonical in schema-validated `machines/<name>/performance.yaml` and rendered into `performance.md` as a generated table. **Probe rows** come from a versioned portable probe and compare across machines as stacks on machines, never as bare hardware; **campaign rows** compare only with the same workload, and enter only after the operator's class decision ([§performance-references](#performance-references)) | A probe row proves incomparable across machines on a dimension the probe holds fixed, or a reference band raises false alarms on ordinary noise |
 
@@ -695,6 +696,18 @@ project's recorded default branch, where it forked from that default. Where even
 unstable, say so — an observation whose code state cannot be recovered is weaker evidence,
 and [§evidence-vocabulary](#evidence-vocabulary) should grade it accordingly rather than let
 a precise-looking SHA imply a precision that is not there.
+
+**A maintained fork is a code line, not a feature branch.** Some software is used in
+production from a fork that merges upstream regularly but carries work upstream does not
+take: Grid and Hadrons from `milc-qcd` under HadronsMILC. Its commits stay resolvable for as
+long as the fork is maintained, so observations on it are admissible
+([§decisions-knowledge-contract](#decisions-knowledge-contract)). `project.yaml` names the
+fork under `forks:`; an observation on it records the fork's branch and
+`forked_from_default`, the merge-base with upstream's default branch. Because a reader may
+hold either code line, every claim about such software states which it holds on: **upstream
+and fork** when the code it cites is identical on upstream's default branch, or the claim was
+checked there; **fork-only** otherwise, naming the fork branch. An unlabelled claim about
+forked software is a defect, because it reads as upstream knowledge.
 
 <a id="observed-on-completeness"></a>
 #### Complete observation predicates

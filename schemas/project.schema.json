@@ -36,6 +36,34 @@
       "minLength": 1,
       "pattern": "^[^\\s]+$"
     },
+    "forks": {
+      "type": "array",
+      "description": "Maintained forks used in production; facts observed on them are labelled upstream-and-fork or fork-only (ARCHITECTURE.md §version-lifetimes).",
+      "items": {
+        "type": "object",
+        "required": [
+          "repository",
+          "branch",
+          "purpose"
+        ],
+        "properties": {
+          "repository": {
+            "type": "string",
+            "format": "uri"
+          },
+          "branch": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\s]+$"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "documentation": {
       "type": "array",
       "items": {
