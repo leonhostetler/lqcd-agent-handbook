@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, ibrun rank placement on a four-GPU board, concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, srun and ibrun rank placement on a four-GPU board, CUDA-aware MPI, concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -23,7 +23,8 @@ sources:
   - operator-submitted placement trials and production jobs running concurrent ibrun launches on gpu-gb200 nodes, with their placement probes and scheduler step records, 2026-10-13 to 2026-10-16, reviewed in the working directory
   - operator-submitted jobs cancelled by node failures, and in-job df -T records of node-local /tmp, 2026-10-15, reviewed in the working directory
   - Horizon login-node module, package and file-mode checks of cmake, and a gpu-gb200 build job's preflight, 2026-10-21
-observed: "2026-10-21"
+  - operator-submitted Grid, Hadrons and HadronsMILC build and validation jobs on gpu-gb200 nodes, with in-job numactl -H, ompi_info, ucx_info -d and placement probes and their scheduler records, 2026-10-22 and 2026-10-23, reviewed in the working directory
+observed: "2026-10-23"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -81,19 +82,16 @@ NVLink (`NV6`); GPUs 0-1 attach to socket 0 (cores 0-71) and GPUs 2-3 to socket 
 72-143). A rank therefore belongs on the socket of the GPU it drives, which *Launch MPI deliberately*
 below sets up.
 
-**The guide's GB host memory is ambiguous**: its prose gives 120 GiB per Grace CPU and its
-table 240 GiB per node, so the profile records neither. On a board `free` reported 1692 GiB
-and `lscpu` 34 NUMA nodes, of which only 0 and 1 hold CPUs. GPU memory exposed as NUMA memory
-would account for the excess over the documented LPDDR, but that was not verified, so the
-host memory behind each socket remains unresolved. Do not budget host memory from `free`.
-
-**The scheduler's figures point to about 950 GiB of host memory per board** `[observed]`, live
-records read 2026-10-09. `sinfo` reports at least 979,732 MiB (≈957 GiB) of configured memory
-per board. 1692 GiB from `free` less the four GPUs' 740 GiB is about 952 GiB, which fits GPU
-memory exposed as NUMA memory but does not prove it. A whole-node job requesting `--mem=0` is
-nonetheless granted 1562.5 GiB, and TACC's submit filter attaches 200000 MiB per GPU. So the
-grant is not the board's host memory either. Budget a board at the `sinfo` figure until
-`numactl -H` inside a job settles where the rest lives.
+**A board has about 957 GiB of host memory, and `free` also counts the GPUs' memory**
+`[observed]`, `numactl -H` in a job, 2026-10-22. NUMA nodes 0 and 1 (cores 0-71 and 72-143)
+hold 488,985 and 490,747 MiB, together 979,732 MiB: exactly the configured memory `sinfo`
+reports per board. Each GPU's 184 GiB of HBM appears as a CPU-less NUMA node of 188,416 MiB
+(nodes 2, 10, 18 and 26 for GPUs 0-3), and those four account for the rest of the 1692 GiB
+`free` reports. So budget about 957 GiB of host memory per board, about 478 GiB per socket,
+and do not budget from `free`. The guide's 120 GiB (prose) and 240 GiB (table) describe neither.
+A whole-node job requesting `--mem=0` is nonetheless granted 1562.5 GiB, and TACC's submit
+filter attaches 200000 MiB per GPU, so neither grant is the board's host memory either
+`[observed]`, 2026-10-09.
 
 **Do not write `$WORK` into a script.** The shell sets it during early access, but the
 directory does not exist. The profile therefore declares no variable for it.
@@ -143,6 +141,12 @@ case. Before a large submission, sum nodes × time limit over a bare
 charge rate for `debug`. The check appears to belong to TACC's submit filter, which prints
 "Checking available allocation" on every submission, not to the Slurm QOS, which carries no
 `GrpTRESMins` `[inferred]`.
+
+**`sacct` memory figures miss short steps.** The accounting gather interval is
+`JobAcctGatherFrequency=task=120` (`scontrol show config`, 2026-10-22), so a step shorter than
+two minutes shows `MaxRSS` 0 or blank even after the job has left the queue `[reproduced]`, in
+three jobs' records. Record host memory for short steps with the job's own sampler, and report
+an empty field as not measured.
 
 ## Set the OpenMP thread count
 
@@ -205,6 +209,17 @@ concurrent subsets have not been run.
 
 The profile records `ibrun` as `scheduler.site_launcher`, and the batch-script dry-run
 harness stubs it from that record.
+
+**`srun` with a per-rank wrapper places a one-board job correctly** `[observed]`, an in-job
+placement probe and Grid's own start-up lines, 2026-10-22. Slurm here defaults to PMIx
+(`MpiDefault=pmix`) and does not constrain devices or cores (`ConstrainDevices=no`,
+`ConstrainCores=no`), so every rank sees all four GPUs until something narrows them.
+`srun --cpu-bind=none tools/horizon-gb200-bind.sh <app>` with `--ntasks-per-node=4
+--cpus-per-task=36` gave local rank n GPU n, cores 36n..36n+35 and HCA `mlx5_0`, `mlx5_1`,
+`mlx5_4`, `mlx5_5`, and Grid reported `Node  communicator of size 4`; Grid, Hadrons and
+HadronsMILC validation runs on one and four GPUs used it. The script restricts each rank to
+its GPU, as Grid requires; for QUDA it has a mode that leaves all four visible, not run here.
+Multi-node `srun` launches were not tested.
 
 **`ibrun`'s own rank placement is wrong for a four-GPU board.** With several tasks per node it
 passes `--map-by socket:PE=<cores per task>` unless `OPENMPI_AFFINITY` is already set
@@ -274,6 +289,15 @@ GB200 compute nodes carry `mlx5_0`–`mlx5_5`. `nvidia-smi topo -m` places `mlx5
 the NUMA side of GPUs 0–1 and `mlx5_4`–`mlx5_5` on the other. The login node has only `mlx5_0`,
 so a script that checks for these devices fails there and passes on a compute node. UCX 1.22's
 own default `UCX_MAX_RNDV_RAILS` is already 2 (`ucx_info -c`).
+
+**`openmpi/5.0.11` is CUDA-aware on compute nodes only** `[observed]`, 2026-10-22. It was
+configured `--with-cuda` with the CUDA accelerator component built as a loadable module, so
+`ompi_info` lists `accelerator: cuda` on a compute node and only `null` on a login node, which
+has no GPU driver: test CUDA-awareness inside a job. On a compute node `ucx_info -d` lists the
+`cuda_copy`, `cuda_ipc` and `gdr_copy` transports, and Grid's halo exchange passed device
+buffers to this MPI correctly on four ranks. `ompi_info` reports that Open MPI was configured
+against `/opt/apps/ucx/1.21.0` while the `ucx/1.22.0` module is the one loaded; no fault was
+traced to it.
 
 **NVIDIA's HPC-X stack is an alternative MPI with its own traps** `[observed]`:
 - **What it is.** After `module use /home1/apps/nvidia/modulefiles`, the module is

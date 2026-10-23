@@ -130,7 +130,9 @@ node_types:
     sizing:
       installed_nodes: 2000
       physical_cpu_cores: 72
-      # Host memory is omitted: the guide gives 120 GiB in its prose and 240 GiB in its table.
+      # Host memory is omitted from this documented-node record: the guide gives 120 GiB in
+      # its prose and 240 GiB in its table. The live scheduler node (a whole board) has about
+      # 957 GiB, measured with numactl; see notes.md.
       network: InfiniBand XDR, 800 Gb/s
       local_storage_gib: 130
   cpu-vv:

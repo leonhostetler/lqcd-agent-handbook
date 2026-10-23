@@ -7434,3 +7434,28 @@ overlay mechanism), `software/grid/runtime-environment.md` (local-extent rule) a
 `software/grid/solvers/staggered.md` (`ImportGaugeSimple`, mixed-precision CG, Lanczos) —
 *confirmed* and referenced rather than restated. No other leaf mentions Hadrons, HadronsMILC
 or pyfm — *none to reconcile*.
+
+## 2026-10-23 — Horizon: host memory settled, srun placement, CUDA-aware MPI, short-step accounting
+
+From in-job checks during the Grid/Hadrons/HadronsMILC campaign on gpu-gb200 boards.
+`numactl -H` inside a job resolves the open host-memory question: NUMA nodes 0 and 1 hold
+979,732 MiB together — exactly `sinfo`'s configured figure — and each GPU's HBM is a CPU-less
+NUMA node, which accounts for the rest of `free`. Also added: `srun` placement with a per-rank
+wrapper, now `tools/horizon-gb200-bind.sh` (anonymized; its executable lines are the tested
+wrapper's, unchanged); Open MPI 5.0.11's CUDA support showing only on compute nodes; and
+`sacct` recording no memory for steps under two minutes. A claim that `ibrun` hangs multi-node
+starts, from material the operator has not cleared, is left out.
+
+**Reconciliation.** In `machines/horizon/notes.md`: "The guide's GB host memory is ambiguous …
+remains unresolved" and "The scheduler's figures point to about 950 GiB … until `numactl -H`
+inside a job settles where the rest lives" — *amended*: replaced by the measured layout, with
+the `--mem=0` grant and submit-filter observations kept; "Do not budget host memory from
+`free`" — *confirmed* and explained. "Inside a job the board looks like this" (GPUs 0-1 on
+socket 0, NV6 between all pairs) — *confirmed* by `nvidia-smi topo -m`. The early-access table
+(`debug` partitions, no `qlimits`, 2-day QOS limit) — *confirmed*; `sinfo` shows the partition
+limit as infinite, which the QOS limit caps. `UCX_NET_DEVICES` set to all four HCAs by default —
+*confirmed*; the wrapper narrows it to one per rank. "`ibrun`'s own rank placement is wrong" and
+"A subset launch is always unbound" — *confirmed and unaffected*: the new paragraph is about
+`srun`. `machine.yaml`'s host-memory comment — *amended* to point at the measurement.
+`conventions/batch-scripts.md`'s binding rules — *confirmed*: the new tool states both halves
+and the CPU arithmetic, as that leaf requires.
