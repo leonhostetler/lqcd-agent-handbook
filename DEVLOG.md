@@ -7359,3 +7359,26 @@ used as the mechanism; §1.2 "Branch policy: there is none" — *confirmed*; the
 knowledge for `software/quda/solvers/` — *confirmed and unaffected*: that work is a feature
 branch awaiting merge, which the new row leaves under the general caution, not a maintained
 fork that is a production code line.
+
+## 2026-10-23 — `software/grid/`: project record, build guide, two profiles
+
+First Grid knowledge, from a campaign that built the milc-qcd fork at the HadronsMILC 0.3.0
+pin for a CUDA stack and, for comparison, a CPU stack, and validated both. Added
+`project.yaml` (upstream `paboyle/Grid` with the `milc-qcd` fork under `forks:`, dependencies,
+and the meaning of each configure option that matters), `README.md` (the two code lines and
+what the fork adds), `build.md` (bootstrap, configure traps, build and install targets, the
+test programs that do not compile, the out-of-tree `Version.h` stamp, and why `make -n` is
+unsafe in an automake tree), and `build-profiles.yaml` (`cuda-hadrons-staggered`,
+`cpu-gen16-reference`). Every claim carries an upstream-and-fork or fork-only label, checked
+against upstream `develop` 3232b438f. Runtime flags, solvers, HISQ smearing and test-suite
+behaviour follow in a later change; validated combinations go under `machines/`.
+
+The source reading turned up configure defects worth a reader's attention:
+`--enable-fermion-instantiations` disables instantiations whatever its value,
+`--enable-setdevice` is a no-op, a missing GMP is not reported, and a CPU build without FFTW
+cannot compile. All four are present upstream as well as on the fork.
+
+**Reconciliation.** No existing leaf, stack or convention makes a statement about the Grid
+library; every other occurrence of "grid" in the tree means a rank or lattice grid —
+*none to reconcile*. `playbooks/build-lqcd-stack.md`'s rule that the complete test suite is
+built by default — *confirmed*, and `build.md` and both profiles defer to it.

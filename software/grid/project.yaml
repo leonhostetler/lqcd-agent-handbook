@@ -1,0 +1,163 @@
+schema_version: 2
+name: grid
+summary: Data-parallel C++ lattice-QCD library (CPU SIMD and GPU) underlying Hadrons and HadronsMILC.
+repository: https://github.com/paboyle/Grid.git
+default_branch: develop
+forks:
+  - repository: https://github.com/milc-qcd/Grid.git
+    branch: feature/LMI-develop
+    purpose: >-
+      Adds GridMilc (staggered spin-taste and A2A meson-field code), HISQ smearing and
+      MILC-convention utilities used by HadronsMILC's LMI workflow; HadronsMILC releases pin
+      commits on this line (also reachable from feature/LMI-master). Merges upstream develop
+      regularly.
+documentation:
+  - https://github.com/paboyle/Grid/blob/develop/README.md
+build_systems:
+  - Autotools
+dependencies:
+  - name: MPI
+    purpose: Multi-rank communication for --enable-comms=mpi*. GPU builds default to passing device pointers to MPI, which then must be accelerator-aware.
+    required: false
+  - name: CUDA, HIP, or SYCL toolchain
+    purpose: Accelerator target selected by --enable-accelerator; CUDA builds compile every source through nvcc and link cuBLAS and cuFFT.
+    required: false
+  - name: Eigen
+    purpose: Dense linear algebra; bootstrap.sh downloads Eigen 3.4.0 into the source tree.
+    required: true
+  - name: GMP and MPFR
+    purpose: >-
+      Arbitrary-precision arithmetic for the rational approximations. Configure stops if GMP is
+      found without MPFR, but a missing GMP is not reported at all (its check has no
+      not-found action), so confirm HAVE_LIBGMP in Grid/Config.h.
+    required: true
+  - name: LIME (c-lime)
+    purpose: ILDG/SciDAC gauge-field I/O; configure only warns when it is absent.
+    required: false
+  - name: HDF5 with the C++ API
+    purpose: Hdf5IO serialisation, which Hadrons and HadronsMILC use for results; adds Hdf5IO.cc when found.
+    required: false
+  - name: FFTW 3 (double and single precision)
+    purpose: >-
+      Host FFTs. Configure treats it as optional (no FFTW is silent; double without single
+      precision is an error), but a CPU (non-accelerator) build cannot compile without it; see
+      build.md. GPU builds use cuFFT or hipFFT instead.
+    required: false
+  - name: OpenSSL and zlib
+    purpose: Checksums in I/O; configure fails without them.
+    required: true
+interfaces:
+  - Hadrons
+capabilities:
+  - Wilson, clover, twisted-mass, domain-wall, Mobius and z-Mobius, staggered and improved-staggered Dirac operators
+  - Krylov solvers including mixed-precision CG and implicitly restarted Lanczos
+  - Single-precision and double-precision SIMD layouts on CPU and GPU
+  - MPI domain decomposition with intranode device IPC on GPU builds
+  - HISQ smearing and GridMilc A2A meson-field kernels (fork only)
+build_options:
+  --enable-accelerator:
+    meaning: >-
+      cuda, hip, sycl or none (default none). cuda defines GRID_CUDA and links -lcuda -lcublas
+      -lcufft. Upstream and fork.
+    type: string
+  --enable-simd:
+    meaning: >-
+      Vector target; default GEN. GPU selects device vectors whose lane count is
+      GEN_SIMD_WIDTH / sizeof(scalar). Upstream and fork.
+    type: string
+  --enable-gen-simd-width:
+    meaning: >-
+      Bytes per generic or GPU vector; default 64, so passing 64 is redundant. At 64 a GPU build
+      has 4 complex-double and 8 complex-single lanes; on CPU, 16 gives one complex-double lane.
+      A multiple of 16. Upstream and fork.
+    type: integer
+  --enable-comms:
+    meaning: >-
+      none (default) or any value matching mpi* (mpi, mpi3, mpi-auto, mpi3-auto), all of which
+      build the mpi3 communicator; only the -auto forms inject MPI flags, so without them the
+      compiler must already be an MPI wrapper. Upstream and fork.
+    type: string
+  --enable-shm:
+    meaning: >-
+      Intranode shared-memory technique; default no, which defines GRID_MPI3_SHM_NONE and splits
+      the node communicator per rank. On GPU builds every other value takes the same device-buffer
+      and CUDA-IPC path; only none/no/shmnone differs. nvlink additionally enables the fork-only
+      runtime flag --shm-hostname-fallback. Upstream and fork, except that fallback.
+    type: string
+  --enable-unified:
+    meaning: >-
+      Default yes (GRID_UVM, managed memory). --disable-unified uses explicit cudaMalloc device
+      memory behind a software LRU cache of host and device copies, capped by default at 80% of
+      device memory (runtime --device-mem overrides). Host code then cannot dereference device
+      data. Upstream and fork.
+    type: boolean
+  --enable-accelerator-aware-mpi:
+    meaning: >-
+      Default yes: halo exchange and Cshift pass device pointers to MPI. no stages through host
+      buffers and is the only mode in which --enable-checksum-comms (also default yes) has any
+      effect. Upstream and fork.
+    type: boolean
+  --enable-fermion-instantiations:
+    meaning: >-
+      Broken: the action-if-given assigns the wrong shell variable, so passing the flag with any
+      value, yes included, disables every fermion-operator instantiation. Omit it to keep them.
+      Upstream and fork.
+    type: boolean
+  --enable-fermion-reps:
+    meaning: Default yes; adjoint and two-index representation instantiations. Hadrons does not use them. Upstream and fork.
+    type: boolean
+    capabilities:
+      - fermion representations
+  --enable-gparity:
+    meaning: Default yes; G-parity instantiations. Hadrons does not use them. Upstream and fork.
+    type: boolean
+    capabilities:
+      - gparity
+  --enable-zmobius:
+    meaning: >-
+      Default yes; z-Mobius instantiations. Hadrons constructs ZMobiusFermion and needs them,
+      so a Grid built for Hadrons keeps this on (link failure otherwise; inferred from the
+      declaration/definition split, not test-built). Upstream and fork.
+    type: boolean
+    capabilities:
+      - zmobius
+  --enable-setdevice:
+    meaning: >-
+      A no-op: configure reads ${enable_SETDEVICE} while autoconf sets ${enable_setdevice}, so
+      GRID_DEFAULT_GPU is always defined and every rank selects device 0 of the devices it can
+      see. Per-rank GPU binding must come from outside Grid. Upstream and fork.
+    type: boolean
+  --enable-alloc-cache:
+    meaning: Default yes; keeps pools of recently freed host, device and shared allocations. Upstream and fork.
+    type: boolean
+  --enable-log-views:
+    meaning: Default yes; wraps every view in a logger call that returns immediately unless view logging was started. Its cost is not measured. Upstream and fork.
+    type: boolean
+  --with-fftw:
+    meaning: FFTW prefix; required in practice for CPU builds (see build.md). Upstream and fork.
+    type: path
+  --with-hdf5:
+    meaning: HDF5 prefix (there is no --enable-hdf5). Upstream and fork.
+    type: path
+  --with-lime:
+    meaning: LIME prefix. Upstream and fork.
+    type: path
+  --with-gmp:
+    meaning: GMP prefix. Upstream and fork.
+    type: path
+  --with-mpfr:
+    meaning: MPFR prefix. Upstream and fork.
+    type: path
+evidence: source
+observed: "2026-10-23"
+observed_on:
+  software:
+    grid:
+      commit: d67dd2079bea125138502a13120858aa58997379
+      branch: feature/LMI-develop
+      forked_from_default: 87baaf1d378f92fc8729c4f05a6836d3c764ee87
+sources:
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/configure.ac
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/configure.ac#L436-L453
+  - https://github.com/paboyle/Grid/blob/3232b438f2cf729e515c185e2dbf29d7cc276bb7/configure.ac
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/bootstrap.sh#L4-L20

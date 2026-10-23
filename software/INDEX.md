@@ -3,6 +3,13 @@
 
 Entries are grouped by scoped software project.
 
+## grid
+
+| Knowledge | Summary | Load when |
+|---|---|---|
+| [Building Grid](grid/build.md) | Bootstrap, configure traps, what to build and install, the test programs that do not compile, and the post-install version stamp for Grid and its milc-qcd fork. | Configuring, compiling, installing, or test-building Grid, including as the base of a Hadrons or HadronsMILC stack. |
+| [Grid](grid/README.md) | Role of the Grid library, its milc-qcd fork used by HadronsMILC, and routing to Grid build guidance. | Selecting Grid, or deciding between upstream Grid and the milc-qcd fork, for Hadrons or HadronsMILC work. |
+
 ## milc
 
 | Knowledge | Summary | Load when |

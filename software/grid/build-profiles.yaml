@@ -1,0 +1,98 @@
+schema_version: 1
+software: grid
+profiles:
+  cuda-hadrons-staggered:
+    summary: >-
+      CUDA Grid library (non-unified memory, MPI with intranode device IPC) with the
+      instantiation groups Hadrons needs and G-parity and fermion representations omitted; the
+      base of a HadronsMILC staggered/LMI stack.
+    options:
+      --enable-accelerator: cuda
+      --enable-simd: GPU
+      --enable-gen-simd-width: "64"
+      --enable-comms: mpi
+      --enable-shm: nvlink
+      --enable-unified: false
+      --enable-gparity: false
+      --enable-fermion-reps: false
+      --with-lime: <prefix>
+      --with-hdf5: <prefix>
+      --with-gmp: <prefix>
+      --with-mpfr: <prefix>
+    capabilities:
+      dirac:
+        - wilson
+        - clover
+        - domain-wall
+        - mobius
+        - zmobius
+        - staggered
+        - improved-staggered
+      communication:
+        - mpi
+        - device-ipc
+        - accelerator-aware-mpi
+      io:
+        - lime
+        - hdf5
+    excludes:
+      - gparity
+      - fermion-reps
+      - sp
+    notes:
+      - The compiler is nvcc with -ccbin set to the MPI C++ wrapper; CXXFLAGS carry -std=c++17, exactly one -gencode for the target GPU, and the cuBLAS include path, and LIBS/LDFLAGS the cuBLAS library. Those values are machine- and toolchain-owned and live in the stack.
+      - --enable-gen-simd-width=64 restates the default; GPU builds then have 4 complex-double and 8 complex-single lanes, which constrain the local lattice extents a decomposition may use.
+      - --enable-fermion-instantiations is deliberately absent; passing it with any value disables all instantiations (software/grid/build.md).
+      - --enable-zmobius stays at its default (on) because Hadrons links z-Mobius operators.
+      - No FFTW is needed; the CUDA FFT specialisation uses cuFFT.
+      - All Grid test programs are built by default (make -k), as playbooks/build-lqcd-stack.md requires; software/grid/build.md lists the ones that do not compile.
+  cpu-gen16-reference:
+    summary: >-
+      CPU-only Grid with generic 16-byte vectors (one complex-double lane), the same instantiation
+      groups as cuda-hadrons-staggered, and FFTW; a reference build for checking GPU results of
+      the same commit.
+    options:
+      --enable-simd: GEN
+      --enable-gen-simd-width: "16"
+      --enable-comms: mpi
+      --enable-gparity: false
+      --enable-fermion-reps: false
+      --with-lime: <prefix>
+      --with-hdf5: <prefix>
+      --with-gmp: <prefix>
+      --with-mpfr: <prefix>
+      --with-fftw: <prefix>
+    capabilities:
+      dirac:
+        - wilson
+        - clover
+        - domain-wall
+        - mobius
+        - zmobius
+        - staggered
+        - improved-staggered
+      communication:
+        - mpi
+      io:
+        - lime
+        - hdf5
+    excludes:
+      - gparity
+      - fermion-reps
+      - sp
+      - accelerator
+    notes:
+      - FFTW (double and single precision) is required; without it the library does not compile (software/grid/build.md).
+      - The compiler is the MPI C++ wrapper with -O3 -std=c++17; no accelerator options.
+      - Built to compare against a GPU stack of the same commits; it is a correctness reference, not a performance configuration.
+evidence: source
+observed: "2026-10-23"
+observed_on:
+  software:
+    grid:
+      commit: d67dd2079bea125138502a13120858aa58997379
+      branch: feature/LMI-develop
+      forked_from_default: 87baaf1d378f92fc8729c4f05a6836d3c764ee87
+sources:
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/configure.ac
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/Makefile.am#L57-L83
