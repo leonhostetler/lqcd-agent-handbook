@@ -48,4 +48,11 @@ HadronsMILC's LMI workflow needs the fork. HadronsMILC pins its releases to fork
 - [`build.md`](build.md): configure options that matter, their traps, and what to build.
 - [`build-profiles.yaml`](build-profiles.yaml): named option sets and what each provides.
 - [`project.yaml`](project.yaml): dependencies and the meaning of each configure option.
+- [`runtime-environment.md`](runtime-environment.md): flags, GPU binding, rank layout, MPI,
+  device memory, and which local lattice extents a decomposition may use.
+- [`solvers/staggered.md`](solvers/staggered.md): staggered operator conventions, CG,
+  mixed-precision CG, and Lanczos (including how a misplaced Chebyshev bound fails).
+- [`hisq-smearing.md`](hisq-smearing.md): the fork's HISQ smearing and its GPU setup cost.
+- [`validation.md`](validation.md): first-run checks for a GPU build and the failures that are
+  test defects.
 - Validated machine combinations live under `machines/<name>/stacks/`, never here.

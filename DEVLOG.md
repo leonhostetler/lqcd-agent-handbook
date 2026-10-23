@@ -7382,3 +7382,30 @@ cannot compile. All four are present upstream as well as on the fork.
 library; every other occurrence of "grid" in the tree means a rank or lattice grid —
 *none to reconcile*. `playbooks/build-lqcd-stack.md`'s rule that the complete test suite is
 built by default — *confirmed*, and `build.md` and both profiles defer to it.
+
+## 2026-10-23 — `software/grid/`: runtime, staggered solvers, HISQ smearing, validation
+
+Second Grid change, from the same campaign's source reading and its validation runs on one
+GPU node: 1 and 4 GPUs, three decompositions, and a CPU build of the same commits. Added
+`runtime-environment.md` (flag parsing, GPU binding, the node communicator and rank remapping,
+accelerator-aware halos and the MPI thread level, the device-memory budget, the two
+local-extent rules, and start-up order), `solvers/staggered.md` (the two link-import paths,
+the even-odd operator, CG and mixed-precision CG stopping rules, and Lanczos), `hisq-smearing.md`
+(the fork's HISQ chain, the per-entry stencil copies that make it slow on GPUs, and the
+one-header fix), and `validation.md` (a first-run test set, failures that are test defects, the
+checkerboard fix the HadronsMILC 0.3.0 pin lacks, and how to prove a header override). HadronsMILC
+module conventions stay for the HadronsMILC change.
+
+Two findings carry run evidence beyond the source: a Lanczos whose Chebyshev lower bound sits
+below the Nstop-th eigenvalue stalls and then runs on NaN instead of failing, and an 8⁴ lattice
+on four ranks along one dimension aborts at red-black grid construction. Both are stated with
+their mechanisms. The operator cleared measured build and validation figures and an anonymized
+report of the smearing speed-up for publication.
+
+**Reconciliation.** Within `software/grid/`: `build.md`'s `--enable-setdevice` and `make -n`
+statements — *confirmed* and cross-referenced from the new leaves; `project.yaml`'s
+`--enable-shm`, `--enable-unified` and `--enable-accelerator-aware-mpi` meanings — *confirmed*.
+Elsewhere: `conventions/batch-scripts.md`'s binding rules (bind CPUs per rank; for QUDA, do not
+restrict device visibility) — *confirmed and not in conflict*: Grid always selects the first
+visible device, so for Grid the per-rank `CUDA_VISIBLE_DEVICES` restriction is required, which
+that leaf already says is an application-specific decision.
