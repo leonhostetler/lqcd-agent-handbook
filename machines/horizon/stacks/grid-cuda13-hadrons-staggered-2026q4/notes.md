@@ -59,7 +59,7 @@ matters for HadronsMILC, the A2A checkerboard abort, is fixed by a header the Ha
 stack adds.
 
 Throughput seen on this stack, `--accelerator-threads 8`, one run of three repetitions per
-figure, fresh processes. Observations, not performance references (see `stack.yaml`):
+figure, fresh processes. Observations; none has been admitted as a performance reference:
 
 | Measurement | Value |
 |---|---|

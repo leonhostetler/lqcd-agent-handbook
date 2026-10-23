@@ -41,7 +41,7 @@ after adding or removing a module. The fork's bootstrap also accepts `--custom` 
 
 ## Configure out of tree
 
-- Put the installed Grid's `bin/` on `PATH` and pass `--with-grid=<grid prefix>`. Configure
+- Put the installed Grid's `bin/` on `PATH` and pass `--with-grid=<grid-prefix>`. Configure
   stops with `grid-config not found` otherwise, and takes the compiler, flags, linker and
   libraries from `grid-config` (`configure.ac:13-46`) [U+F]. No other option is needed for a
   HadronsMILC stack.

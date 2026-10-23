@@ -43,6 +43,7 @@ tested_toolchain:
     module: cuda/13.3
     compiler_version: 13.3.73
   linker: GNU gold (binutils 2.41) for HadronsMILC and HadronsContractor; the default linker for Hadrons' own utilities
+  configure_environment: <grid-prefix>/bin and then <hadrons-prefix>/bin first on PATH
   driver: 610.57.04 (CUDA user-mode driver 13.3)
   mpi:
     module: openmpi/5.0.11
@@ -59,10 +60,9 @@ build:
   profile_options_from: software/hadronsmilc/build-profiles.yaml#lmi-cuda
   portable_recipe: software/hadronsmilc/applications/lmi.md
   machine_options:
-    hadrons_configure: GIT_DIR=<hadrons-source>/.git <hadrons-source>/configure --prefix <hadrons-prefix> --with-grid=<grid-prefix>
-    hadronsmilc_configure: <hadronsmilc-source>/configure --prefix <hadronsmilc-prefix> --with-grid=<grid-prefix> --with-hadrons=<hadrons-prefix> --enable-strict-pins CXXFLAGS=-I<overlay-prefix>/include
-    hadronsmilc_link_LDFLAGS: the Makefile's LDFLAGS plus -Xcompiler -fuse-ld=gold, for make HadronsMILC and make -C utilities HadronsContractor
-    PATH: <grid-prefix>/bin and then <hadrons-prefix>/bin prepended
+    make_variables:
+      V: "1"
+      LDFLAGS: <makefile-ldflags> -Xcompiler -fuse-ld=gold
   dependency_acquisition:
     mode: existing validated Hadrons stack installation (itself on the Grid stack), plus the two overlay headers copied from their Grid commits
     composed_profile: software/hadrons/build-profiles.yaml#hadronsmilc-base
@@ -82,6 +82,38 @@ build:
     memory_scope: >-
       Per-process RSS was not recorded. Node-wide used memory (free, every 10 s) peaked at
       131.7 GiB from a 45.2 GiB baseline; the batch step's sampled MaxRSS (sacct) was 59 GB.
+  record_checks:
+    - tool: tools/check-stack-build-record.py
+      version: 1.1.0
+      date: "2026-10-23"
+      mode: autotools
+      evidence:
+        - the build's config.log (invocation line and precious-variable cache)
+        - the HadronsMILC source checkout at the tested commit, with its generated configure script
+      errors: 0
+      undecided: 0
+    - tool: tools/check-stack-build-record.py
+      version: 1.1.0
+      date: "2026-10-23"
+      mode: make
+      target: HadronsMILC
+      evidence:
+        - the build script's HadronsMILC link line, copied verbatim
+        - the build's top-level Makefile
+        - the executed link command (make V=1 output), which carries the Makefile's LDFLAGS followed by -Xcompiler -fuse-ld=gold
+      errors: 0
+      undecided: 0
+    - tool: tools/check-stack-build-record.py
+      version: 1.1.0
+      date: "2026-10-23"
+      mode: make
+      target: HadronsContractor
+      evidence:
+        - the build script's HadronsContractor link line, copied verbatim
+        - the build's utilities/Makefile
+        - the executed link command (make V=1 output), which carries the Makefile's LDFLAGS followed by -Xcompiler -fuse-ld=gold
+      errors: 0
+      undecided: 0
 validation:
   date: "2026-10-23"
   submitted_by: operator
@@ -155,7 +187,7 @@ validation:
     - MIO::LoadMilc was exercised on a single-precision MILC v5 sample, not on a production lattice.
     - StagCGMILC and StagA2AVectors were not exercised.
     - The default linker was not tried for HadronsMILC; gold is what was validated.
-    - The build record was not checked by tools/check-stack-build-record.py, which has no autotools configure mode; the commands are copied from the build job's own log. This stack carries no performance reference.
+    - The make -C src line passes only V=1, recorded in make_variables; it was not checked separately.
     - Validated on the early-access layout, where one scheduler node is a four-GPU NVL4 board.
 evidence: experiment
 observed: "2026-10-23"

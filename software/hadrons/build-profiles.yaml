@@ -6,7 +6,7 @@ profiles:
       Hadrons library and utilities configured against an installed Grid with no further
       options, with the commit stamped through GIT_DIR; the base of a HadronsMILC stack.
     options:
-      --with-grid: <grid prefix>
+      --with-grid: <grid-prefix>
     capabilities:
       dirac:
         - wilson

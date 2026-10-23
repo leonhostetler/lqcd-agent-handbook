@@ -7525,3 +7525,29 @@ needs its own design.
 `make_variables` — *updated*. Existing CMake and Make stacks — *unaffected*: their records were
 checked with 1.0.0, and 1.1.0 changes those modes only in `make_variables` handling, which none
 of them uses, and in redaction.
+
+## 2026-10-23 — Horizon Grid, Hadrons and HadronsMILC stacks: build records checked
+
+The three LMI stacks now carry `record_checks` from `check-stack-build-record.py` 1.1.0, all with
+0 errors and 0 undecided: `autotools` on each configure, `make` on the Hadrons make line and on
+the HadronsMILC and HadronsContractor link lines. Getting there took three corrections to the
+records, each a record that said more or less than the build was given:
+
+- Non-arguments filed as options moved out: Grid's `Version.h` stamp into `install_layout`;
+  Hadrons' `GIT_DIR` and both stacks' `PATH` into `tested_toolchain.configure_environment`,
+  being configure's environment, not its arguments or precious variables.
+- The HadronsMILC record's prose copies of both configure commands are gone; its configure is
+  its profile, and the Hadrons configure belongs to the Hadrons stack.
+- `make V=1` and the gold link's `LDFLAGS` were passed to make and were not recorded as such;
+  they are now `make_variables`. The `LDFLAGS` value is recorded as `<makefile-ldflags>
+  -Xcompiler -fuse-ld=gold`; the passed text reads the Makefile's own `LDFLAGS` into a shell
+  variable, so the placeholder match was confirmed against the executed link commands, which
+  carry exactly that.
+
+Profile placeholders written with spaces (`<grid prefix>`) became `<grid-prefix>` and so on, the
+syntax the checker matches; the Hadrons build guide follows.
+
+**Reconciliation.** `software/hadrons/build-profiles.yaml` and
+`software/hadronsmilc/build-profiles.yaml` — *updated* (placeholders only; no option changed).
+The stacks' `scope_limits` no longer say the records are unchecked; the Grid stack's throughput
+figures remain observations in its notes until a performance-reference change admits them.

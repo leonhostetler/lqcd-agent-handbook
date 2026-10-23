@@ -28,6 +28,7 @@ tested_toolchain:
     module: cuda/13.3
     compiler_version: 13.3.73
   driver: 610.57.04 (CUDA user-mode driver 13.3)
+  configure_environment: GIT_DIR=<source>/.git, so hadrons-config --git records the commit; <grid-prefix>/bin first on PATH, for grid-config
   mpi:
     module: openmpi/5.0.11
     transport: UCX 1.22.0 from the loaded ucx module
@@ -39,8 +40,8 @@ build:
   install_layout: <install-prefix>/{lib/libHadrons.a, include/Hadrons, bin/hadrons-config, bin/HadronsXmlRun, bin/HadronsXmlValidate, bin/HadronsContractor, bin/HadronsContractorBenchmark}
   profile_options_from: software/hadrons/build-profiles.yaml#hadronsmilc-base
   machine_options:
-    configure_environment: GIT_DIR=<source>/.git, so hadrons-config --git records the commit
-    PATH: <grid-prefix>/bin prepended, for grid-config
+    make_variables:
+      V: "1"
   dependency_acquisition:
     mode: existing validated Grid stack installation
     composed_profile: software/grid/build-profiles.yaml#cuda-hadrons-staggered
@@ -59,6 +60,25 @@ build:
     memory_scope: >-
       Per-process RSS was not recorded; node-wide used memory for the whole job (Hadrons and
       HadronsMILC) peaked at 131.7 GiB from a 45.2 GiB baseline.
+  record_checks:
+    - tool: tools/check-stack-build-record.py
+      version: 1.1.0
+      date: "2026-10-23"
+      mode: autotools
+      evidence:
+        - the build's config.log (invocation line and precious-variable cache)
+        - the Hadrons source checkout at the tested commit, with its generated configure script
+      errors: 0
+      undecided: 0
+    - tool: tools/check-stack-build-record.py
+      version: 1.1.0
+      date: "2026-10-23"
+      mode: make
+      evidence:
+        - the build script's make line for the library and utilities, copied verbatim
+        - the build's top-level Makefile
+      errors: 0
+      undecided: 0
 validation:
   date: "2026-10-23"
   submitted_by: operator
@@ -90,7 +110,7 @@ validation:
   scope_limits:
     - Validated only through HadronsMILC. Hadrons' own test programs were built (15 of 18) but none was run, and HadronsXmlRun was not run.
     - Hadrons modules outside the HadronsMILC LMI chain were not exercised.
-    - The build record was not checked by tools/check-stack-build-record.py, which has no autotools configure mode.
+    - The test and benchmark builds (make -k, no variables) are outside the record checks.
     - One board only; early-access layout.
 evidence: experiment
 observed: "2026-10-23"

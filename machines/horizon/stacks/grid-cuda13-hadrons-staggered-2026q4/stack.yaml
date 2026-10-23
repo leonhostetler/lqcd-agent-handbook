@@ -51,7 +51,7 @@ build:
   target: CUDA
   gpu_arch: sm_100
   generator: GNU Autotools and Make, out of tree
-  install_layout: <install-prefix>/{lib/libGrid.a, lib/libGridMilc.a, include/Grid, include/GridMilc, bin/grid-config}
+  install_layout: <install-prefix>/{lib/libGrid.a, lib/libGridMilc.a, include/Grid, include/GridMilc, bin/grid-config}; Grid/Version.h stamped from the source tree after install (software/grid/build.md), because the out-of-tree build installs it empty
   profile_options_from: software/grid/build-profiles.yaml#cuda-hadrons-staggered
   machine_options:
     CXX: nvcc
@@ -62,7 +62,6 @@ build:
     --with-hdf5: <deps-prefix>
     --with-gmp: <deps-prefix>
     --with-mpfr: <deps-prefix>
-    post_install: Grid/Version.h stamped from the source tree (software/grid/build.md), because the out-of-tree build installs it empty.
   dependency_acquisition:
     mode: GMP, MPFR, LIME and HDF5 built from checksummed tarballs on a login node at -j4; Eigen downloaded by bootstrap.sh on a login node
     network_required: bootstrap only (login node); the batch build needs none
@@ -81,6 +80,16 @@ build:
       Per-process RSS was not recorded. Node-wide used memory (free, every 10 s) rose from about
       61 GiB to a peak of about 113 GiB during the build; the batch step's sampled
       MaxRSS (sacct) was 28.73 GiB. Neither is a per-process figure.
+  record_checks:
+    - tool: tools/check-stack-build-record.py
+      version: 1.1.0
+      date: "2026-10-23"
+      mode: autotools
+      evidence:
+        - the build's config.log (invocation line and precious-variable cache)
+        - the Grid source checkout at the tested commit, with its generated configure script
+      errors: 0
+      undecided: 0
 validation:
   date: "2026-10-22"
   submitted_by: operator
@@ -154,8 +163,7 @@ validation:
     - One board only. Multi-node runs were not made with this stack.
     - The two failing tests and the threaded benchmark section are defects of the tests or of their assumptions, not of the library paths HadronsMILC uses (software/grid/validation.md); the a2a checkerboard abort is a real defect of the pin, fixed by a header the HadronsMILC stack adds.
     - HISQ smearing was smoke-tested only here; the HadronsMILC stack compares fixed-header smearing with this stack's stock smearing.
-    - The build record was not checked by tools/check-stack-build-record.py, which has no mode for autotools configure options; the configure command is copied from the build job's own log. This stack therefore carries no performance reference.
-    - Throughput figures measured on this stack (Dslash, memory bandwidth, comms) are recorded in its notes as observations, not as performance references.
+    - Throughput figures measured on this stack (Dslash, memory bandwidth, comms) are recorded in its notes as observations; none has been admitted as a performance reference. No make variables were passed, so the record has no make check.
     - Validated on the early-access layout, where one scheduler node is a four-GPU NVL4 board.
 evidence: experiment
 observed: "2026-10-23"

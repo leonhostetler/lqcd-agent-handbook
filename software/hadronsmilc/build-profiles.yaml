@@ -7,10 +7,10 @@ profiles:
       strict dependency-pin checking and an include-path overlay for header-only Grid fixes.
     application_guide: software/hadronsmilc/applications/lmi.md
     options:
-      --with-grid: <grid prefix>
-      --with-hadrons: <hadrons prefix>
+      --with-grid: <grid-prefix>
+      --with-hadrons: <hadrons-prefix>
       --enable-strict-pins: true
-      CXXFLAGS: -I<overlay prefix>/include
+      CXXFLAGS: -I<overlay-prefix>/include
     capabilities:
       dirac:
         - improved-staggered
@@ -40,10 +40,10 @@ profiles:
       results of the same commits.
     application_guide: software/hadronsmilc/applications/lmi.md
     options:
-      --with-grid: <grid prefix>
-      --with-hadrons: <hadrons prefix>
+      --with-grid: <grid-prefix>
+      --with-hadrons: <hadrons-prefix>
       --enable-strict-pins: true
-      CXXFLAGS: -I<overlay prefix>/include
+      CXXFLAGS: -I<overlay-prefix>/include
     capabilities:
       dirac:
         - improved-staggered
