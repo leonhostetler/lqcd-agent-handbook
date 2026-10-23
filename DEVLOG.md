@@ -7487,3 +7487,41 @@ they used, and the composition chain matches the profiles' `composes`. `machines
 host-memory, `srun` placement and CUDA-aware MPI paragraphs — *confirmed*; the stacks' runtime
 blocks use the same wrapper. The existing Horizon stacks (QUDA, MILC) — *unaffected*; the new
 stacks record a newer driver (610.57.04) than those (595.71.05).
+
+## 2026-10-23 — `check-stack-build-record.py` 1.1.0: autotools mode
+
+Grid, Hadrons and HadronsMILC build with autotools, which the checker could not read, so their
+three Horizon stacks carry no record checks and no performance reference. The new `autotools`
+mode reads `config.log`, the only evidence of what configure was given: it keeps the exact
+command line, quoted, and marks each precious variable configure found set. `config.status` is
+not evidence: a toy configure showed it appends environment-set precious variables
+(`CXXFLAGS` from the environment) to the arguments it replays.
+
+The mode checks the invocation's arguments against the record in both directions, with
+`--disable-x` read as `--enable-x=no` and installation directories skipped; a precious variable
+taken from the environment must be recorded; an option configure reported unrecognized (it
+logs that warning only when it succeeds) or that the configure script's `ac_user_opts` does not
+declare is an error; a recorded variable configure saw unset is an error. A recorded
+`--enable-`/`--with-` option that was not passed is undecided: autoconf defaults are shell code
+in `configure.ac`, which the tool does not evaluate. Variables passed to make after configure
+(HadronsMILC's gold link) go under `machine_options.make_variables`, which autotools mode skips
+and `make` mode takes as its whole record.
+
+Against the three real builds, Grid's record was clean apart from a `post_install` note filed
+as an option; Hadrons' and HadronsMILC's records fail on their prose keys and on profile
+placeholders written with spaces (`<grid prefix>`), which the placeholder syntax does not
+match. Those records are corrected in the next change, not here.
+
+The trial run also showed `shown()` printing a path that followed a flag
+(`-I/home/...`): it redacted a path only at the start of a value or after a separator. It now
+redacts any value holding an absolute path after a separator, a quote, or a short flag.
+
+Static libraries stay out of `hashes`. The evidence that a run used a stack is the hash of the
+library it loaded; for a statically linked executable that is the executable's own hash, which
+needs its own design.
+
+**Reconciliation.** `schemas/stack.schema.json` `record_checks.mode` gains `autotools`.
+`ARCHITECTURE.md` §stacks and `playbooks/build-lqcd-stack.md` name the mode and
+`make_variables` — *updated*. Existing CMake and Make stacks — *unaffected*: their records were
+checked with 1.0.0, and 1.1.0 changes those modes only in `make_variables` handling, which none
+of them uses, and in redaction.

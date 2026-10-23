@@ -319,7 +319,8 @@
               "mode": {
                 "enum": [
                   "cmake",
-                  "make"
+                  "make",
+                  "autotools"
                 ]
               },
               "target": {

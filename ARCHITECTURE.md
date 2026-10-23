@@ -542,6 +542,9 @@ itself when the stack is written, by `tools/check-stack-build-record.py`. For a 
 every cache value either matches an option the record lists or equals the default the tested
 commit's CMake files declare, and a default the tool cannot resolve is listed for a person,
 never assumed. For a Make build, the executed variable assignments equal the record exactly.
+For an autotools build, the arguments `config.log` records equal the record, every precious
+variable read from the environment is recorded, and every option is one `configure` declares;
+variables passed to make afterwards sit under `make_variables`, checked as a Make build.
 The build tree is not in the repository, so the check runs when the stack is written and the
 stack records its result. A stack that has not passed it carries no performance reference
 ([§performance-references](#performance-references)).

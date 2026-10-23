@@ -9,7 +9,11 @@ itself before the stack is written.
 
 The executed command is the evidence of what was passed. Neither CMake's cache nor a Make
 build marks which values came from the command line, so the cache and the build log are
-consistency checks on the command, not substitutes for it.
+consistency checks on the command, not substitutes for it. An autotools configure does: its
+config.log keeps the exact command line, quoted, and marks each precious variable (CXX,
+CXXFLAGS, LIBS, ...) it found set, whether on that line or in the environment. config.status
+is not evidence, because it appends environment-set precious variables to the arguments it
+replays.
 
 Subcommands:
 
@@ -28,11 +32,22 @@ Subcommands:
           "<SOFTWARE> commit:" header must name the tested commit, and every target it
           builds must be one the profile lists.
 
+  autotools --stack STACK --config-log CONFIG_LOG [--source CHECKOUT]
+          The configure arguments on config.log's invocation line must equal the record
+          (installation directories such as --prefix excepted); a precious variable configure
+          found set in the environment must be in the record; an option configure reported as
+          unrecognized, or that the source's configure script does not declare, is an error.
+          A recorded --enable-/--with- option that was not passed is undecided, because its
+          default is shell code in configure.ac; a recorded precious variable configure did not
+          see is an error. Variables passed to make after configure are recorded under
+          machine_options.make_variables, which this mode skips and make mode checks.
+
   hashes  --install-prefix DIR
           Print the sha256 of every shared library under the install's lib directories, by
           path relative to the install, for the stack's build.installed_libraries.
 
-FILE may be the build script itself: the tool finds the one configure (cmake) or make
+For make mode on a stack whose machine_options holds make_variables, only that mapping is the
+record. FILE may be the build script itself: the tool finds the one configure (cmake) or make
 invocation that passes variables, joining continued lines. Values that are paths print as
 <path>, so nothing user-specific is copied from the report into a stack.
 
@@ -57,7 +72,7 @@ from typing import Any
 
 import yaml
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 TOOL = "tools/check-stack-build-record.py"
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -65,6 +80,23 @@ CACHE_LINE = re.compile(r"^([^:=#/][^:=]*):([A-Z]+)=(.*)$")
 PLACEHOLDER = re.compile(r"<[^<>\s]+>")
 MAKE_ASSIGNMENT = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.S)
 MAKE_DEFAULT = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*(\?=|:=|::=|=)(.*)$")
+ENV_PRECIOUS = re.compile(r"^ac_cv_env_([A-Za-z_][A-Za-z0-9_]*)_(set|value)=(.*)$")
+UNRECOGNIZED = re.compile(r"WARNING: unrecognized options: (.*)$", re.M)
+USER_OPTS = re.compile(r"^ac_user_opts='\n(.*?)'$", re.M | re.S)
+# Autoconf's installation-directory options: where files go, not what is built.
+CONFIGURE_DIRECTORIES = {
+    "prefix", "exec-prefix", "bindir", "sbindir", "libexecdir", "sysconfdir", "sharedstatedir",
+    "localstatedir", "runstatedir", "libdir", "includedir", "oldincludedir", "datarootdir",
+    "datadir", "infodir", "localedir", "mandir", "docdir", "htmldir", "dvidir", "pdfdir", "psdir",
+}
+# Other built-in options that take a value, possibly as the next word.
+CONFIGURE_VALUED = {
+    "build", "host", "target", "program-prefix", "program-suffix", "program-transform-name",
+    "x-includes", "x-libraries", "srcdir", "cache-file",
+}
+CONFIGURE_QUIET = {"quiet", "silent", "no-create", "no-recursion"}
+OPTION_FORMS = (("enable-", "disable-"), ("with-", "without-"))
+MAKE_VARIABLES = "make_variables"
 TRUE_WORDS = {"ON", "TRUE", "YES", "Y", "1"}
 FALSE_WORDS = {"OFF", "FALSE", "NO", "N", "0"}
 
@@ -86,9 +118,10 @@ class Report:
 
 
 def shown(value: Any) -> str:
-    """A value as it may be printed: paths become <path>."""
+    """A value as it may be printed: a value holding an absolute path, alone or after a separator
+    or a flag such as -I, becomes <path>."""
     text = str(value)
-    if text.startswith(("/", "~")) or re.search(r"(^|[\s=:,])/(home|scratch|work|global|lustre)", text):
+    if re.search(r"(^|[\s=:,'\"]|-[A-Za-z]{1,2})[/~]", text):
         return "<path>"
     return repr(text)
 
@@ -308,7 +341,11 @@ def recorded_options(stack: dict[str, Any], root: Path, report: Report) -> dict[
         else:
             record.update(profiles[profile].get("options", {}) or {})
             report.checked.append(f"profile options from {pointer}")
-    record.update(build.get("machine_options", {}) or {})
+    machine = build.get("machine_options", {}) or {}
+    if report.mode == "make" and isinstance(machine.get(MAKE_VARIABLES), dict):
+        report.checked.append(f"machine_options.{MAKE_VARIABLES} as the record of what make was given")
+        return dict(machine[MAKE_VARIABLES])
+    record.update(machine)
     return record
 
 
@@ -485,6 +522,183 @@ def run_make(args: argparse.Namespace) -> Report:
     return report
 
 
+def configure_invocation(text: str) -> list[str] | None:
+    """The arguments of the configure command line config.log records, without the script."""
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if not line.rstrip().endswith("Invocation command line was"):
+            continue
+        for following in lines[index + 1:index + 4]:
+            if following.strip().startswith("$ "):
+                try:
+                    return shlex.split(following.strip()[2:])[1:]
+                except ValueError:
+                    return None
+    return None
+
+
+def configure_arguments(words: list[str]) -> tuple[dict[str, str], list[str], list[str]]:
+    """Passed options as record keys (--disable-x is --enable-x=no), skipped directories, and
+    words this mode does not interpret."""
+    passed: dict[str, str] = {}
+    skipped: list[str] = []
+    unknown: list[str] = []
+    iterator = iter(words)
+    for word in iterator:
+        if not word.startswith("-") and MAKE_ASSIGNMENT.match(word):
+            name, value = word.split("=", 1)
+            passed[name] = value
+            continue
+        if not word.startswith("--"):
+            unknown.append(word)
+            continue
+        name, equals, value = word[2:].partition("=")
+        if name in CONFIGURE_QUIET:
+            continue
+        if name in CONFIGURE_DIRECTORIES or name in CONFIGURE_VALUED:
+            if not equals:
+                value = next(iterator, "")
+            if name in CONFIGURE_DIRECTORIES:
+                skipped.append(f"--{name}")
+            else:
+                passed[f"--{name}"] = value
+            continue
+        for positive, negative in OPTION_FORMS:
+            if name.startswith(positive):
+                passed[f"--{name}"] = value if equals else "yes"
+                break
+            if name.startswith(negative):
+                passed[f"--{positive}{name[len(negative):]}"] = "no"
+                break
+        else:
+            unknown.append(word)
+    return passed, skipped, unknown
+
+
+def configure_record(record: dict[str, Any]) -> dict[str, Any]:
+    """The record in configure's terms: booleans as yes/no, --disable-x as --enable-x."""
+    normalised: dict[str, Any] = {}
+    for key, value in record.items():
+        key = str(key)
+        if isinstance(value, bool):
+            value = "yes" if value else "no"
+        for positive, negative in OPTION_FORMS:
+            if key.startswith(f"--{negative}"):
+                key = f"--{positive}{key[2 + len(negative):]}"
+                value = {"yes": "no", "no": "yes"}.get(str(value), value)
+        normalised[key] = value
+    return normalised
+
+
+def shell_value(raw: str) -> str:
+    try:
+        words = shlex.split(raw)
+    except ValueError:
+        return raw
+    return words[0] if len(words) == 1 else raw if words else ""
+
+
+def declared_configure_options(source: Path, report: Report) -> set[str] | None:
+    script = source / "configure"
+    if not script.is_file():
+        report.warnings.append("the source has no generated configure script; options were not checked against it")
+        return None
+    match = USER_OPTS.search(script.read_text(errors="replace"))
+    if not match:
+        report.warnings.append("the configure script declares no ac_user_opts; options were not checked against it")
+        return None
+    return set(match.group(1).split())
+
+
+def run_autotools(args: argparse.Namespace) -> Report:
+    report = Report("autotools")
+    stack = load_stack(args.stack)
+    record = configure_record(
+        {k: v for k, v in recorded_options(stack, args.root, report).items() if k != MAKE_VARIABLES}
+    )
+    text = args.config_log.read_text(errors="replace")
+    words = configure_invocation(text)
+    if words is None:
+        report.errors.append("config.log records no readable configure invocation line")
+        return report
+    package = re.search(r"It was created by (.+?) configure (\S+?),", text)
+    if package:
+        report.checked.append(f"config.log of {package.group(1)} configure {package.group(2)}")
+    passed, skipped, unknown = configure_arguments(words)
+    report.checked.append(f"{len(passed)} configure arguments from config.log's invocation line")
+    report.counts = {"installation-directory arguments, not compared": len(skipped)}
+    for word in unknown:
+        report.undecided.append(f"{shown(word)} is a configure argument this mode does not interpret")
+    if "--cache-file" in passed:
+        report.warnings.append("configure read a cache file; values it supplied are not visible to this check")
+        passed.pop("--cache-file")
+    check_commit(stack, args.source, report)
+
+    environment: dict[str, dict[str, str]] = {}
+    for line in text.splitlines():
+        match = ENV_PRECIOUS.match(line)
+        if match:
+            environment.setdefault(match.group(1), {})[match.group(2)] = match.group(3)
+    precious = set(environment)
+    for name, entry in sorted(environment.items()):
+        if entry.get("set") != "set":
+            continue
+        value = shell_value(entry.get("value", ""))
+        if name in passed:
+            if value != passed[name]:
+                report.errors.append(
+                    f"{name}: the invocation passes {shown(passed[name])} but configure recorded {shown(value)}"
+                )
+            continue
+        if name not in record:
+            report.errors.append(
+                f"{name}={shown(value)} was read from the environment, and the stack's record does not list it"
+            )
+        elif recorded_matches(record[name], value, False) is False:
+            report.errors.append(
+                f"{name}: recorded {shown(record[name])} but configure read {shown(value)} from the environment"
+            )
+        else:
+            report.warnings.append(f"{name} came from the environment, not the command line")
+    if precious:
+        report.checked.append(f"{len(precious)} precious variables in config.log's cache section")
+    else:
+        report.warnings.append("config.log has no precious-variable entries; environment values were not checked")
+
+    compare_passed_with_record(passed, record, False, report)
+    declared = declared_configure_options(args.source, report) if args.source else None
+    if declared is not None:
+        report.checked.append(f"{len(declared)} options the configure script declares")
+    for line in UNRECOGNIZED.findall(text):
+        for option in line.split():
+            report.errors.append(f"configure reported {option} as unrecognized; it had no effect")
+
+    def declared_name(key: str) -> str:
+        return key[2:].split("=", 1)[0].replace("-", "_")
+
+    for key in sorted(passed):
+        if declared is not None and key.startswith(("--enable-", "--with-")) and declared_name(key) not in declared:
+            report.errors.append(f"{key} was passed, but the configure script declares no such option")
+    for key, value in sorted(record.items()):
+        if key in passed or (key in environment and environment[key].get("set") == "set"):
+            continue
+        if key.startswith(("--enable-", "--with-")):
+            if declared is not None and declared_name(key) not in declared:
+                report.errors.append(f"{key} is recorded, but the configure script declares no such option")
+            else:
+                report.undecided.append(
+                    f"{key} is recorded as {shown(value)} but was not passed; its default is configure.ac shell "
+                    "code, not compared"
+                )
+        elif key in precious:
+            report.errors.append(f"{key} is recorded as {shown(value)}, but configure saw it unset")
+        else:
+            report.errors.append(
+                f"{key} is recorded but is neither a configure argument that was passed nor a precious variable"
+            )
+    return report
+
+
 def run_hashes(args: argparse.Namespace) -> int:
     prefix = args.install_prefix
     rows = []
@@ -544,12 +758,19 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--makefile", type=Path, required=True)
             p.add_argument("--log", type=Path, action="append")
             p.add_argument("--source", type=Path)
+    autotools = sub.add_parser("autotools")
+    autotools.add_argument("--stack", type=Path, required=True)
+    autotools.add_argument("--config-log", type=Path, required=True)
+    autotools.add_argument("--source", type=Path)
+    autotools.add_argument("--root", type=Path, default=Path(os.environ.get("LQCD_HANDBOOK", ROOT)))
+    autotools.add_argument("--json", action="store_true")
     hashes = sub.add_parser("hashes")
     hashes.add_argument("--install-prefix", type=Path, required=True)
     args = parser.parse_args(argv)
     if args.mode == "hashes":
         return run_hashes(args)
-    report = run_cmake(args) if args.mode == "cmake" else run_make(args)
+    runners = {"cmake": run_cmake, "make": run_make, "autotools": run_autotools}
+    report = runners[args.mode](args)
     print_report(report, args.json)
     return report.status()
 

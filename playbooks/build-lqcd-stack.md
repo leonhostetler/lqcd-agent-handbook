@@ -160,7 +160,9 @@ promoted to integration validation.
 Before proposing a stack record, check that its record of what was passed is complete, with
 `tools/run-check-stack-build-record`: `cmake` mode against the configure command, the build's
 `CMakeCache.txt` and the source at the tested commit; `make` mode against each make command, the
-Makefile and the build log. Record each result under `build.record_checks`; a check with errors is
+Makefile and the build log; `autotools` mode against the build's `config.log` and the source
+checkout, with variables later passed to make recorded under `machine_options.make_variables`
+and checked in `make` mode. Record each result under `build.record_checks`; a check with errors is
 fixed in the record, never recorded. For a library stack, record `build.installed_libraries` from
 the tool's `hashes` mode. A stack whose record has not passed this check carries no performance
 reference.
