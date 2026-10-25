@@ -767,6 +767,13 @@ the job.
   a relative name and let the script create what it points to, for example a link from the
   invocation directory to an output directory outside the job. `[observed]` once: an MG
   parameter file that named its vector-output directory.
+- **Two things the harness passes through untouched.** `--env` and `--module-env` values reach
+  the script verbatim, so a root written there is the real one, not the sandbox mapping: give
+  the rewritten form, or derive the root inside the script from a directive. And a `--stub`
+  prints the same text for every argument, so a guard that queries one command about several
+  objects — the commit of each of two repositories, say — cannot be made to see different answers.
+  Compare such things by exit status (an ancestry test that succeeds or fails) rather than by
+  printed text. `[source]`, harness 1.6.0.
 - **Never wait without a bound on background work the stubs cannot shorten.** Stubs make every
   leg return in seconds, so a closing `wait` on a background whole-file hash, copy or scan
   leaves that work as the only thing running, and in the dry run it does it for real on a login
