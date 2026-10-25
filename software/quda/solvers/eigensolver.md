@@ -25,6 +25,8 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface_internal.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/quda_milc_interface.h
   - operator's screened tuning records
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L186
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L205-L226
 observed: "2026-10-07"
 observed_on:
   software:
@@ -195,20 +197,26 @@ a count that changes mid-run, or a short prefix of invocations, is the observabl
 partially applied space. Absence of the line altogether, in a run that requested
 deflation, means the space was constructed and then not used.
 
-**A block solver can suppress the diagnostics a scalar solver prints.** `block_size > 1`
-selects the block Lanczos variant, and it has been observed to emit no restart-summary line
-at all, where the scalar variant prints per-restart converged-count accounting and a named
-failure giving the request, search space, Krylov space and restart count. Where the block
-variant is silent the restart count must be reconstructed from the `blockLanczosStep`
-sequence, which descends once per restart and so forms a sawtooth — a fallback, not an
-equivalent source. **Prefer `block_size = 1` while diagnosing**, and treat a larger block as
-a later performance choice.
+**The block variant reports as the scalar one does, and only a finished eigensolve reports.**
+`block_size > 1` selects the block Lanczos variant. `[source]` at `f2df42ac`, and present since
+the eigensolvers were split into their own files in 2020: it prints the converged count at each
+restart at `QUDA_VERBOSE`; on convergence, at `QUDA_SUMMARIZE`,
+`BLOCK TRLM computed the requested <N> vectors in <R> restart steps with <b> block size and <K>
+BLOCKED OP*x operations`; and on failure a named warning or error giving the request, search
+space, block size, Krylov space and restart count. On Horizon, every block-TRLM eigensolve of
+one four-level campaign that finished printed the summary, 55 of 55, and the only two without
+one were cut off mid-eigensolve by their time limits `[reproduced]`. An earlier record of a
+silent block eigensolve fits the same reading. **So a missing summary means the eigensolve did
+not finish.** Reconstruct the restart count up to the cut from the
+`blockLanczosStep` sequence, which descends once per restart and so forms a sawtooth — a
+fallback, not an equivalent source. **Prefer `block_size = 1` while diagnosing** for the cost
+reasons in the staggered-MG coarse-deflation leaf, and treat a larger block as a later
+performance choice.
 
 From `f2df42ac4` both variants also print, at `QUDA_DEBUG_VERBOSE` and only during the first
 two restarts, the arrow-matrix coefficients, the first few Ritz values, and the residual
-estimates. That is a debug aid for the opening restarts, not the restart summary the scalar
-variant prints: at `QUDA_VERBOSE` the block variant's silence is unchanged, and the sawtooth
-reconstruction still applies. Read from source.
+estimates. That is a debug aid for the opening restarts, beside the restart summary. Read from
+source.
 
 ## Establishing `a_min` when the spectrum is not yet known
 

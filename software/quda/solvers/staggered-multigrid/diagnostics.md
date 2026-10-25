@@ -8,6 +8,8 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/eig_block_trlm.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/transfer.cpp
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L186
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L205-L226
 observed: "2026-10-07"
 observed_on:
   software:
@@ -107,11 +109,12 @@ tool together. A field the tool reports `unavailable` is missing data, never a z
   before `restart steps`. Current variants include
   `TRLM computed the requested ... vectors in <R> restart steps ...` and
   `BLOCK TRLM ... in <R> restart steps with ...`. An absent summary is missing data,
-  not zero restarts. **Block TRLM (`deflate_block_size > 1`) has been observed to emit no
-  summary line at all**, in which case the count must be reconstructed from the
-  `blockLanczosStep` sequence, which descends once per restart and so forms a sawtooth.
-  That reconstruction is a fallback, not an equivalent source; prefer
-  `deflate_block_size 1` while diagnosing.
+  not zero restarts. Block TRLM (`deflate_block_size > 1`) prints its summary at
+  `QUDA_SUMMARIZE` when it converges, and a named warning or error when it does not
+  ([`../eigensolver.md`](../eigensolver.md)). Where neither appears, the eigensolve did not
+  finish, and the count up to the cut is reconstructed from the `blockLanczosStep` sequence,
+  which descends once per restart and so forms a sawtooth. That reconstruction is a fallback,
+  not an equivalent source.
 
 - **`first_cycle_contraction`:** from the **outer** GCR trace — the lines with no
   `MG level` prefix, `GCR: <k> iterations, <r,r> = <s>, |r|/|b| = <v>` — take `<v>` at

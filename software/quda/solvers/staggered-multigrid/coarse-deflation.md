@@ -298,9 +298,9 @@ do not declare failure from the count alone.
 the MILC multigrid spelling of the eigensolver's `block_size`: **source-exact**, the MILC
 interface selects block TR Lanczos when `deflate_block_size > 1` and plain TR Lanczos
 otherwise, so one key silently chooses between two code paths. `1` or unset is plain TRLM.
-The general consequences — that the block variant may print no restart summary, and that
-the sawtooth reconstruction is a fallback rather than an equivalent source — are in
-[`../eigensolver.md`](../eigensolver.md).
+The general consequences — that the block variant prints its restart summary only when the
+eigensolve finishes, and that the sawtooth reconstruction is a fallback rather than an
+equivalent source — are in [`../eigensolver.md`](../eigensolver.md).
 
 **What is specific to this level is the cost, and it is not source-derived.** Block TRLM
 appears to require substantially more **autotuning** for a small performance gain, so on a
