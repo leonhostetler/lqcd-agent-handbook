@@ -24,6 +24,11 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/dslash.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/dslash_policy.hpp
   - https://github.com/lattice/quda/commit/d96a56f4e04cfe7158a923e06cc706af4e8a36cf
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/tune.cpp#L1206-L1218
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/tune.cpp#L1039
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L232-L237
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/milc_interface_internal.hpp#L348-L363
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/milc_to_quda_utilities.c#L14-L25
 observed: "2026-10-07"
 observed_on:
   software:
@@ -201,6 +206,26 @@ grep -c "Tuned " <log>                      # total, unanchored
 grep -n "Tuned " <log> | tail -1            # last tuning event
 grep -n "<first solve marker>" <log> | head -1
 ```
+
+**A `Tuned` line is printed only at `QUDA_VERBOSE` or above, so the count misses quiet tuning.**
+`[source]` at `00c7ef33`: the line is logged at `QUDA_VERBOSE`, judged against the verbosity in force
+when the kernel tunes. Inside a multigrid level that is the level's `mg_verbosity`, pushed on
+entry, where MILC's `true` means `QUDA_VERBOSE`. Everywhere else — CG, the outer solve, link
+construction, BLAS outside a level — it is the verbosity MILC initialises QUDA with, which is
+`QUDA_SUMMARIZE` unless MILC was built with `SET_QUDA_VERBOSE`. So under MILC defaults a CG
+invocation can tune with no `Tuned` line at all, and an MG invocation prints only the tuning that
+happens inside a level. In one campaign an MG tuning invocation printed over a thousand `Tuned`
+lines while a CG tuning invocation printed none and still added dozens of rows to the cache
+`[observed]`.
+
+**The cache records every tuning event, whatever the verbosity.** Each tuned row's comment ends
+`, tuning took <s> seconds at <time>`, the time in the process's local time zone, and a row the
+tuner did not tune is marked `# default`. So when a log is silent, count new rows from the cache's
+growth, date each one by its comment against the invocation's timeline, and bound its cost by the
+seconds it records. Prefer a `Tuned` line's log position where one exists, because it places the
+event exactly against the solve records; a comment timestamp is only as precise as the timeline
+it is compared with. `[observed]` once: a warm MG invocation gained a tuned BLAS row with no
+`Tuned` line, and its comment placed it within the invocation.
 
 **A nonzero count is not itself disqualifying.** What disqualifies a figure is a tuning event
 *inside the measured region*. In one fourteen-leg run, eight legs had nonzero counts and zero
