@@ -8,6 +8,9 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/transfer.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/block_orthogonalize.in.cu
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/multigrid.cpp
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/solver.cpp#L400-L422
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/milc_interface_internal.cpp#L318
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/multigrid.cpp#L1384-L1412
 observed: "2026-10-07"
 observed_on:
   software:
@@ -211,6 +214,19 @@ completely pinned one. One measured set of five builds spanning 16/32 to 64/64 c
 streams gave mean-to-cap ratios of 0.963, 0.975, 0.982, 1.000 and 1.000 — visually
 identical — where the capped fraction gave 0.500, 0.667, 0.750, 1.000 and 1.000. The
 superseded `rho_setup` was that ratio, and its name also omitted which level it described.
+
+**The streams stop a batch at a time, so a tolerance only matters at a batch's worst stream.**
+`[source]` at `f2df42ac`: through MILC, a level whose `nvec` is a multiple of 16 generates its
+near-null vectors in batches of 16
+([`../../internals/staggered-mg-setup-allocation.md`](../../internals/staggered-mg-setup-allocation.md)),
+and the multi-right-hand-side CG counts a batch converged only when **every** member meets its
+tolerance. So all 16 streams of a batch stop at the same iteration, the capped count moves in
+steps of 16, and a `setup_tol 1` change does nothing unless it crosses some batch's worst residual:
+a tolerance between a batch's best and worst stream leaves the setup unchanged. `[observed]` once:
+a looser tolerance inside that band left a setup bit-identical. Locate the knee against each
+batch's **maximum** `CG:` residual when it stops. Do not read the `CGNR:` line printed for each
+stream: it reports a different residual, about an order of magnitude larger in that run
+`[observed]`, and why it differs has not been read from source.
 
 The retrospective data support one mechanism: changing `setup_tol_1` materially changes
 total setup cost when the solve approaches its iteration ceiling. Well below that knee,
