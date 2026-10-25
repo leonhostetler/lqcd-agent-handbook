@@ -24,6 +24,7 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L185
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L745-L780
   - operator's screened tuning records
+  - operator's screened Horizon benchmark campaign records, 2026-10
 observed: "2026-10-07"
 observed_on:
   software:
@@ -630,6 +631,30 @@ one workspace, one build, and one ensemble, and
 | Plain CG, two local volumes an eight-fold span apart | `corpus-calibrated` | `1.318`, `1.339` |
 | Three-level MG, one hierarchy at three eigenspace sizes | `unvalidated-structural-extrapolation` | `0.902`, `0.923`, `0.980` |
 | Four-level MG, three coarsest-grid shapes | `caveated-extrapolation` | `1.080`, `1.091`, `1.135` |
+
+**On Horizon GB200 the plain-CG fit under-predicts by a near-constant factor of about 1.8.** MILC
+`ks_spectrum_hisq` `inv_type UML` in one-mass `multimass` sets (`precision 2`,
+`QUDA_MILC_HISQ_RECONSTRUCT 13`/`9`), QUDA `ba501e4f`, MILC `a5f8f9fa`, four ranks per board,
+at seven placements on three HISQ ensembles, against the QUDA `Device memory used` counter like
+for like `[reproduced ×7]`:
+
+| Local volume | Fine sites per rank | `cg-fit` (GiB) | QUDA Device (GiB) | Measured / predicted | `nvidia-smi` peak / predicted |
+|---|---|---|---|---|---|
+| `48 48 24 32` | 1.77 M | 5.55 | 9.84 | 1.77 | 2.37 |
+| `36 48 24 48` | 1.99 M | 6.17 | 11.00 | 1.78 | 2.35 |
+| `32 32 32 96` | 3.15 M | 9.40 | 16.85 | 1.79 | 2.23 |
+| `48 48 48 32` | 3.54 M | 10.50 | 18.97 | 1.81 | 2.25 |
+| `36 48 48 48` | 3.98 M | 11.74 | 21.21 | 1.81 | 2.23 |
+| `48 48 48 64` | 7.08 M | 20.40 | 36.90 | 1.81 | 2.14 |
+| `36 48 48 96` | 7.96 M | 22.87 | 41.62 | 1.82 | 2.16 |
+
+The ratio holds within 3 % over a 4.5-fold volume span, which points at a per-site storage term
+the fit lacks on this stack rather than a fixed per-rank overhead, the same shape as the
+Perlmutter shortfall above but larger. Its cause is not established: the machine is outside the
+fit's scope, and the link reconstruction, the `multimass` dispatch and the build are all
+confounded. The `nvidia-smi` peak sits a further 2.6–6.9 GiB above the counter, mostly the
+communication pool, which the fit excludes. **On this stack, treat `cg-fit` as about half of what
+QUDA will report**, and size a CG placement from a measurement or from this table.
 
 Three consequences are worth carrying:
 
