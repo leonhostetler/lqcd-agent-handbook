@@ -1,6 +1,6 @@
 ---
 title: MILC binds its QUDA installation at link time
-summary: MILC emits -Wl,-rpath without --enable-new-dtags, so the toolchain decides the tag; through the Cray GNU wrappers an executable carries an absolute DT_RPATH that LD_LIBRARY_PATH cannot override, while NVHPC and oneAPI write a DT_RUNPATH it can; a composed USQCD install then puts a second libquda.so ahead of the linked one.
+summary: MILC emits -Wl,-rpath without --enable-new-dtags, so the toolchain decides the tag; through the Cray GNU wrappers an executable carries an absolute DT_RPATH that LD_LIBRARY_PATH cannot override, while NVHPC through Open MPI's mpicc, and oneAPI, write a DT_RUNPATH it can; a composed USQCD install then puts a second libquda.so ahead of the linked one.
 scope: [software:milc, software:quda]
 load_when: Keeping more than one QUDA installation, building QUDA with a composed USQCD prefix, redirecting a MILC executable at a different QUDA, or recording which library a MILC run actually used.
 evidence: experiment
@@ -10,6 +10,7 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt#L516-L520
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/CMakeLists.txt#L529-L532
   - a controlled NVHPC 26.9 link through Open MPI 5.0.11's mpicc on Horizon, and the dynamic section of a ks_spectrum_hisq linked there, 2026-10-21
+  - controlled links with nvc and with Open MPI 5.0.11's mpicc over NVHPC 26.9 on Horizon, with -Wl,--disable-new-dtags, and mpicc --showme:link, 2026-10-24
 observed: "2026-10-21"
 observed_on:
   software:
@@ -59,9 +60,13 @@ The tag observed so far, by toolchain:
 | NVHPC through Open MPI's `mpicc` (26.1 on Vista, 26.9 on Horizon) | `DT_RUNPATH` |
 | oneAPI (Aurora) | `DT_RUNPATH` |
 
-On NVHPC the driver itself passes `--enable-new-dtags` to the linker, as `-dryrun` shows. A
-controlled link with `-Wl,--disable-new-dtags` added still produced `RUNPATH` (NVHPC 26.9,
-2026-10-21), so on that toolchain a `-Wl` flag does not restore the `RPATH` form.
+**On Horizon the tag comes from Open MPI's wrapper, not from NVHPC.** `mpicc --showme:link`
+(Open MPI 5.0.11) ends with `-Wl,--enable-new-dtags`, **after** the caller's own flags, so the
+last option wins and a caller's `-Wl,--disable-new-dtags` is overridden: that is why a controlled
+link through `mpicc` with it still produced `RUNPATH`. NVHPC 26.9's `nvc` called directly writes
+`RPATH` for the same `-Wl,-rpath`, and its `-dryrun` passes no dtags option `[experiment]`,
+2026-10-24. So through that wrapper no `-Wl` flag restores `RPATH`. Whether Vista's NVHPC 26.1
+wrapper behaves the same was not re-checked.
 
 ## A default-prefix QUDA install leaves a second `libquda.so`, and MILC prefers it
 

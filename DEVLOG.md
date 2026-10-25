@@ -7582,3 +7582,56 @@ NFS): *confirmed*; the new subsection names the key that row depends on at the c
 to rewritten roots. Its positive-control text on background processes being killed at script end:
 *confirmed*. `agent-sandbox.md` "Some queries have no working shape at all" and "Select your own jobs
 with `--me`": *confirmed*; the new paragraph adds the permission-error face of the same lookup class.
+
+## 2026-10-24 — Backlog batch: tuning visibility, reader checksums, setup batches, block TRLM, CG memory on GB200, linkage tag
+
+Nine facts from one staggered-MG campaign's candidate list. Each was checked against source or a
+controlled test in this session before it was written. Tuning outcomes on named ensembles were
+held back by the operator's class decision, and none appear.
+
+- **`software/quda/internals/autotuning.md`**: `Tuned` lines print only at `QUDA_VERBOSE`, which
+  holds inside an MG level at MILC's `mg_verbosity true` and not elsewhere under MILC's default
+  `QUDA_SUMMARIZE`; the cache comment dates and costs every tuned row whatever the verbosity.
+- **`software/milc/applications/ks-spectrum.md`**: the MILC-format and SciDAC readers announce
+  checksums differently, and the MILC-format reader continues after a violation; `CHECK PLAQ`
+  is not bit-reproducible between invocations.
+- **`software/quda/solvers/staggered-multigrid/hierarchy-and-setup.md`**: near-null streams stop
+  a batch of 16 at a time, so a setup tolerance matters only at a batch's worst stream.
+- **`software/quda/solvers/eigensolver.md`, `staggered-multigrid/diagnostics.md`,
+  `coarse-deflation.md`**: *corrected*. Block TRLM prints a restart summary when it finishes;
+  the "observed to emit no summary" claim is replaced. The source has printed it since 2020, and
+  55 of 55 finished block eigensolves on Horizon printed it, while the two without one were cut
+  off mid-eigensolve.
+- **`conventions/measurement.md`**: a warm-state rule for a one-time figure is stated in its
+  prediction's units, not as "any retune voids it".
+- **`software/quda/solvers/staggered-memory.md`**: on Horizon GB200, `cg-fit` under-predicts
+  QUDA's Device counter by 1.77–1.82 across seven placements. Memory figures were cleared for
+  publication by the operator's class decision.
+- **`conventions/batch-scripts.md`**: `--env` and `--module-env` are not rewritten, and a stub
+  answers every argument the same way.
+- **`software/milc/quda-linkage.md`**: *corrected*. On Horizon the `DT_RUNPATH` tag comes from
+  Open MPI 5.0.11's `mpicc`, which appends `--enable-new-dtags` after the caller's flags, not from
+  the NVHPC driver; plain `nvc` writes `DT_RPATH`.
+
+**Reconciliation.**
+- `autotuning.md` "Counting tuning events" (unanchored `grep -c`): *amended*; the count is a
+  lower bound and the cache is the complete record. Step 5 of the cross-build workflow ("no
+  `Tuned ...` diagnostics, no new cache rows"): *confirmed*; it already requires both.
+- `ks-spectrum.md` "Completion checks" first bullet: *confirmed*; the new paragraph says how to
+  check it. `qio/parallel-singlefile-writes.md` "MILC-format readers print `Checksum violation`
+  and continue": *confirmed* (the same source).
+- `hierarchy-and-setup.md` "Count capped streams": *confirmed*; its 16/32 to 64/64 counts are
+  multiples of the batch width, as the new paragraph predicts. `staggered-mg-setup-allocation.md`
+  batch width: *confirmed*, cited.
+- `diagnostics.md` restart extraction: *amended*. `eigensolver.md` block-variant paragraphs:
+  *amended* (both); the `f2df42ac4` debug-print paragraph is kept. `coarse-deflation.md` pointer
+  sentence: *amended*; its block-size cost paragraph: *confirmed*.
+- `measurement.md` contamination rules: *confirmed*; the new paragraph extends them to one-time
+  figures.
+- `staggered-memory.md` "Independent target measurements" and its "Do not multiply a prediction
+  by any ratio below": *confirmed*; the GB200 table is stated as an accuracy observation with
+  its scope, beside the Perlmutter one.
+- `batch-scripts.md` Step 9 root-rewrite bullet: *confirmed*.
+- `quda-linkage.md` summary and toolchain table: summary *amended*, table *confirmed*; the
+  NVHPC-driver sentence is *deleted* as contradicted.
+
