@@ -257,6 +257,16 @@ So for every recurring figure:
 State the check explicitly rather than asserting a warm state: the comparison is between the last
 tuning event and the first retained sample, and it either holds or it does not.
 
+**A warm-state rule for a one-time figure must be stated in the units of its own prediction.** A
+setup or other one-time figure measured on a warm cache can still see a few small retunes, and a
+prediction record may expect them. A binary rule — "any retune inside the phase voids it" — then
+contradicts the prediction it sits beside. In one study such a rule voided every class it was
+applied to, over retunes orders of magnitude smaller than the differences being measured, all of
+them inside the predicted count `[observed]` once. Write the tolerance as a bound instead: the
+figure stands if the new cache entries fall inside the predicted band **and** their summed tuning
+time, from the cache's own records, is below a stated fraction of the figure; otherwise label it
+`contaminated` and report the sensitivity as above.
+
 **A cumulative profiler total divided by the sample count is not a substitute.** It removes setup
 but leaves the first sample's one-time work in the numerator, so it is biased high — measurably so,
 and worst at small sample counts, which is exactly the regime a short queue class imposes. Use it
