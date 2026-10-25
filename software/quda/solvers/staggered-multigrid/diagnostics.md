@@ -10,6 +10,7 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/transfer.cpp
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L186
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L205-L226
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/solver.cpp#L483-L520
 observed: "2026-10-07"
 observed_on:
   software:
@@ -76,10 +77,19 @@ report `unavailable` or, worse, match something adjacent. Confirm the literal li
 still appear in the log before trusting a field from a new build, and update contract and
 tool together. A field the tool reports `unavailable` is missing data, never a zero.
 
-- **`setup_l1_iters`:** within one hierarchy-build event, read the ordered lines matching
-  `MG level 1 (GPU): CG: <k> iterations, n = <j>, ...`. A reset of `k` to zero starts a
-  new level-1 near-null CG stream. Take the terminal printed `k` before the next reset
-  or the end of the build, then take the arithmetic mean of those terminal values.
+- **`setup_l1_iters`:** within one completed hierarchy-build event, take each level-1
+  near-null stream's final count from its end-of-solve summary,
+  `MG level 1 (GPU): CG: Convergence at <N> iterations, n = <j>, L2 relative residual ...`
+  (without `n = <j>, ` at batch width 1). QUDA prints it once per right-hand side whether the
+  solve converged or hit its cap, so `N` is exact `[source]`. Then take the arithmetic mean of
+  those counts. Under `setup_inv 1 ca-cgnr` the line reads `CA-CG:`. Never read the `CGNR:`
+  summary the wrapper prints beside it. For a build cut off before its summaries, fall back
+  to the trace: read the ordered lines matching
+  `MG level 1 (GPU): CG: <k> iterations, n = <j>, ...` (or `CA-CG:`). A reset of `k` to zero
+  starts a new level-1 near-null CG stream; take the terminal printed `k` before the next
+  reset or the end of the build. The CA trace is printed once per basis block, so its
+  terminal `k` can sit below the true final count, and a capped CA stream can read as
+  uncapped from the trace alone.
   Do not add one to the printed counter and do not substitute solve-side level-1 GCR
   iterations. **The `n = <j>` field appears only when the level generates its near-null
   vectors in batches**, and the batch width is 16 only when the level's `nvec` is divisible

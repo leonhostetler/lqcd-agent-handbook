@@ -29,6 +29,18 @@ report a confident, wrong cap. A missing field is recoverable; a wrongly attribu
 is not. A cap is never borrowed from another level, run, or hierarchy build.
 
 VERSION HISTORY.
+  1.7.0  2026-10-24  Level-1 near-null streams are counted from QUDA's per-stream summary,
+                     `MG level 1 (GPU): CG: Convergence at <N> iterations, [n = <j>, ]L2 ...`,
+                     which Solver::PrintSummary prints once per right-hand side at the end of
+                     every solve, capped or not, so `N` is the exact final count. The trace is
+                     the fallback, for a build cut off before its summaries. Both shapes now
+                     also accept `CA-CG:`, which `setup_inv 1 ca-cgnr` prints: before this
+                     version such a build reported `setup_l1_capped_fraction unavailable`. The
+                     CA trace is printed once per basis block, so its last value sits short of
+                     the stream's final count and a capped CA stream could read as uncapped
+                     from the trace; the summary does not have that error. The `CGNR:` wrapper
+                     summary is never read. New trailing field `setup_l1_count_source`:
+                     `summary` or `trace`.
   1.6.0  2026-10-02  Emits `first_cycle_contraction`, which the contract defines and the tool
                      had never produced: `|r|/|b|` at outer GCR iteration 1, one value per
                      solve in log order, joined with `;` and never combined across solves. The
@@ -97,15 +109,20 @@ import pathlib
 import re
 import sys
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 UNAVAIL = "unavailable"
 
 RE_BLOCK = re.compile(r"MG level (\d+) \(GPU\): Transfer: using block size ((?:\d+ x ){3}\d+)")
 # Level-1 near-null setup streams carry the "n = <j>" field when generated in batches;
 # solve-side calls do not.
-RE_SETUP_CG = re.compile(r"MG level 1 \(GPU\): CG:\s+(\d+) iterations, n = (\d+),")
+# `ca-cgnr` setup prints the same shapes with `CA-CG:`.
+RE_SETUP_CG = re.compile(r"MG level 1 \(GPU\): (?:CA-)?CG:\s+(\d+) iterations, n = (\d+),")
 # A batch width of 1 (nvec % 16 != 0) prints no stream index. Read only during setup.
-RE_SETUP_CG_UNBATCHED = re.compile(r"MG level 1 \(GPU\): CG:\s+(\d+) iterations, <r,r> =")
+RE_SETUP_CG_UNBATCHED = re.compile(r"MG level 1 \(GPU\): (?:CA-)?CG:\s+(\d+) iterations, <r,r> =")
+# Solver::PrintSummary: one line per right-hand side when a solve ends, capped or not, with
+# `n = <j>, ` only in a batch. The final count, exactly. `CGNR:` (the wrapper) never matches.
+RE_SETUP_SUMMARY = re.compile(
+    r"MG level 1 \(GPU\): (?:CA-)?CG: Convergence at (\d+) iterations, (?:n = \d+, )?L2 relative residual")
 # Outer GCR trace: unprefixed, one line per outer iteration.
 RE_OUTER_TRACE = re.compile(r"^GCR:\s+(\d+) iterations, <r,r> = \S+, \|r\|/\|b\| = ([\d.eE+-]+)")
 RE_EVAL = re.compile(
@@ -178,6 +195,11 @@ FIELDS = [
     # solve in log order, joined with ';'. Appended at the end so name-based readers are
     # unaffected.
     "first_cycle_contraction",
+    # Added 2026-10-24 (1.7.0). Which record the level-1 stream counts came from: `summary`
+    # (QUDA's per-stream end-of-solve line, exact) or `trace` (the iteration trace, the
+    # fallback for a build cut off before its summaries). Appended at the end so name-based
+    # readers are unaffected.
+    "setup_l1_count_source",
 ]
 
 
@@ -192,6 +214,7 @@ class Event:
         self.setup_done = False
         self.l1_open = {}         # stream index n -> running printed k
         self.l1_coarsest = []     # coarsest printed k, one per completed stream
+        self.l1_summary = []      # final count from the per-stream summary line, one per stream
         self.evals = {}           # level -> list of (real, residual)
         self.trlm = {}            # level -> restarts
         self.blocked_ops = None
@@ -316,6 +339,12 @@ def parse_log(path, mg):
                 cur.blocks[int(m.group(1))] = m.group(2).replace(" x ", "x")
                 continue
 
+            if not cur.setup_done:
+                m = RE_SETUP_SUMMARY.search(line)
+                if m:
+                    cur.l1_summary.append(int(m.group(1)))
+                    continue
+
             m = RE_SETUP_CG.search(line)
             if m:
                 cur.setup_cg(int(m.group(1)), int(m.group(2)))
@@ -427,8 +456,16 @@ def row_for(path, ev, mg):
     cap = mg.get("setup_maxiter_1")
     if cap:
         r["setup_maxiter_1"] = str(cap)
-    if ev.l1_coarsest:
-        vals = ev.l1_coarsest
+    # Prefer the per-stream summary, the exact final count, once the build has completed.
+    # A build cut off before its summaries falls back to the trace, whose last value can sit
+    # short of the final count (by up to one CA basis block for `ca-cgnr`).
+    if ev.setup_done and ev.l1_summary:
+        vals, r["setup_l1_count_source"] = ev.l1_summary, "summary"
+    elif ev.l1_coarsest:
+        vals, r["setup_l1_count_source"] = ev.l1_coarsest, "trace"
+    else:
+        vals = []
+    if vals:
         r["setup_l1_streams"] = str(len(vals))
         r["setup_l1_iters"] = _fmt(sum(vals) / len(vals))
         if cap:

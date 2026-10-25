@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """quda-mg-observables.py must read level-1 near-null setup streams in BOTH line shapes QUDA
 prints -- batched (`n = <j>`, batch width 16) and unbatched (no stream index, batch width 1) --
+prefer QUDA's per-stream end-of-solve summary to the trace and read `CA-CG:` as well as `CG:`,
 and must emit `first_cycle_contraction` per solve, as the extraction contract in
 software/quda/solvers/staggered-multigrid/diagnostics.md defines. Every negative test first
 proves its perturbation changed the input. The logs are synthetic, written here, in the line
@@ -33,6 +34,18 @@ def batched_stream(n: int, last: int) -> list[str]:
 def unbatched_stream(last: int) -> list[str]:
     return [f"MG level 1 (GPU): CG: {k:5d} iterations, <r,r> = 1.0e+00, |r|/|b| = 1.0e+00"
             for k in range(last + 1)]
+
+
+def ca_batched_stream(n: int, last: int, basis: int = 4) -> list[str]:
+    """`ca-cgnr` setup: a trace line once per basis block, so the last one can sit below `last`."""
+    return [f"MG level 1 (GPU): CA-CG: {k:5d} iterations, n = {n}, <r,r> = 1.0e+00, |r|/|b| = 1.0e+00"
+            for k in range(0, last + 1, basis)]
+
+
+def summary(final: int, n: int | None = None, solver: str = "CG") -> str:
+    index = "" if n is None else f"n = {n}, "
+    return (f"MG level 1 (GPU): {solver}: Convergence at {final} iterations, {index}L2 relative residual: "
+            "iterated = 1.0e-06, true = 1.0e-06 (requested = 1.0e-06)")
 
 
 def outer_solve(first: float) -> list[str]:
@@ -111,6 +124,62 @@ class ObservablesTests(unittest.TestCase):
         self.assertEqual(r["setup_l1_streams"], "unavailable")
         self.assertEqual(r["setup_l1_capped_fraction"], "unavailable")
         self.assertEqual(r["setup_maxiter_1"], str(CAP))
+
+    # -- per-stream summary (1.7.0) ----------------------------------------------------------
+    def test_ca_cg_trace_is_read(self):
+        setup = []
+        for n in range(3):
+            setup += ca_batched_stream(n, 3)
+        r = self.row(log_text(setup))
+        self.assertEqual(r["setup_l1_streams"], "3")
+        self.assertEqual(r["setup_l1_count_source"], "trace")
+
+    def test_summary_gives_the_final_count_the_ca_trace_misses(self):
+        # The CA trace stops one block short of the cap; the summary says the cap was reached.
+        setup = []
+        for n in range(3):
+            setup += ca_batched_stream(n, CAP - 2)
+        base = log_text(setup)
+        self.assertEqual(self.row(base)["setup_l1_capped_fraction"], "0")
+        new = self.perturbed(base, log_text(setup + [summary(CAP, n, "CA-CG") for n in range(3)]))
+        r = self.row(new)
+        self.assertEqual(r["setup_l1_count_source"], "summary")
+        self.assertEqual(r["setup_l1_streams"], "3")
+        self.assertEqual(r["setup_l1_capped_fraction"], "1")
+
+    def test_summary_count_below_cap_is_not_capped(self):
+        setup = []
+        for n in range(3):
+            setup += batched_stream(n, CAP)
+        base = log_text(setup + [summary(CAP, n) for n in range(3)])
+        new = self.perturbed(base, log_text(setup + [summary(CAP, 0), summary(CAP, 1), summary(CAP - 1, 2)]))
+        self.assertEqual(self.row(base)["setup_l1_capped_fraction"], "1")
+        self.assertEqual(self.row(new)["setup_l1_capped_fraction"], "0.666667")
+
+    def test_unbatched_summary_shape_is_read(self):
+        setup = unbatched_stream(CAP) + [summary(CAP)] + unbatched_stream(3) + [summary(3)]
+        r = self.row(log_text(setup))
+        self.assertEqual(r["setup_l1_count_source"], "summary")
+        self.assertEqual(r["setup_l1_streams"], "2")
+        self.assertEqual(r["setup_l1_capped_fraction"], "0.5")
+
+    def test_cgnr_wrapper_summary_is_never_read(self):
+        setup = []
+        for n in range(3):
+            setup += batched_stream(n, 3)
+        base = log_text(setup + [summary(3, n) for n in range(3)])
+        new = self.perturbed(base, log_text(setup + [summary(3, n) for n in range(3)]
+                                            + [summary(CAP, n, "CGNR") for n in range(3)]))
+        self.assertEqual(self.row(base)["setup_l1_capped_fraction"], "0")
+        self.assertEqual(self.row(new)["setup_l1_capped_fraction"], "0")
+        self.assertEqual(self.row(new)["setup_l1_streams"], "3")
+
+    def test_summary_after_setup_is_not_a_setup_stream(self):
+        setup = batched_stream(0, 3) + [summary(3, 0)]
+        base = log_text(setup)
+        new = self.perturbed(base, log_text(setup, after=[summary(CAP, 0)]))
+        self.assertEqual(self.row(new)["setup_l1_streams"], "1")
+        self.assertEqual(self.row(new)["setup_l1_capped_fraction"], "0")
 
     # -- first_cycle_contraction ------------------------------------------------------------
     def test_first_cycle_contraction_is_per_solve_in_order(self):

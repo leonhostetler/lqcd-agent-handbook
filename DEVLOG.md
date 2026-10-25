@@ -7635,3 +7635,23 @@ held back by the operator's class decision, and none appear.
 - `quda-linkage.md` summary and toolchain table: summary *amended*, table *confirmed*; the
   NVHPC-driver sentence is *deleted* as contradicted.
 
+## 2026-10-24 — `quda-mg-observables.py` 1.7.0: level-1 streams from the per-stream summary
+
+Under `setup_inv 1 ca-cgnr` the extractor reported `setup_l1_capped_fraction unavailable`: level 1
+prints `CA-CG:` lines, which its `CG:` patterns did not match. Widening the patterns alone would not
+have been enough. The CA trace is printed once per basis block, and in one observed log its last
+value sat four iterations below the stream's converged count, so a capped CA stream could read as
+uncapped. QUDA's `Solver::PrintSummary` prints `<name>: Convergence at <N> iterations, [n = <j>, ]L2
+...` once per right-hand side at the end of every solve, capped or not. A fully capped `cgnr` build
+printed 64 of them at exactly the cap, and a `ca-cgnr` build printed 64 at its converged counts. The
+tool now reads that line for a completed build and keeps the trace as the fallback for one cut off
+before its summaries. It accepts `CA-CG:` in both, never reads the `CGNR:` wrapper's summary, and
+records which source it used in a new trailing field, `setup_l1_count_source`. Six new tests,
+including a perturbation in which a CA trace stopping below the cap reads `0` while its summaries
+read `1`.
+
+**Reconciliation.** `diagnostics.md` extraction contract, `setup_l1_iters`: *amended* (summary first,
+trace as fallback, `CA-CG:`, the wrapper excluded). Its batch-width and width-1 sentences:
+*confirmed*. `hierarchy-and-setup.md` "Count capped streams" and the batch paragraph: *confirmed*. The
+`setup_l1_capped_fraction` definition: *confirmed*, unchanged. No other tool imports this one.
+
