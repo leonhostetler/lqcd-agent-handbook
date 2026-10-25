@@ -67,6 +67,8 @@ sources:
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/reliable_updates.h#L205-L230
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/check_params.h#L452-L453
   - operator's Horizon production spectroscopy records: correlator staging on node-local storage, its correlator comparison, and two solver early exits (2026-10-13 to 2026-10-16)
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_lat_utils.c#L780-L789
+  - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic/io_scidac_types.c#L501-L511
 observed: "2026-10-09"
 observed_on:
   software:
@@ -592,6 +594,24 @@ Accept an output block for performance analysis only when:
   unexpected entries; and
 - a normal `exit:` marker is present and the application and scheduler exit states are
   successful.
+
+**What "the intended gauge field was loaded" looks like depends on the reader.** `[source]` at
+`a5f8f9fa`. The MILC-format reader (`reload_serial`, `reload_parallel` and `reload_mpiio` of a
+MILC v5 file) compares the file's `sum29 sum31` and prints `Checksums <a> <b> OK`, or
+`Checksum violation` with the computed and read pairs — and then **continues**. The SciDAC
+reader (QIO) prints `Checksums <a> <b>` with no verdict word, and prints it only after
+`QIO_read` has returned success; a QIO checksum mismatch stops the read first. So a check written as
+"the checksum line ends in `OK`" rejects every good SciDAC read, and one written as "a `Checksums`
+line exists" accepts a damaged MILC-format read. Name the reader format the check expects, require
+`OK` for a MILC-format file, and for a SciDAC file require the line and compare its pair with the
+file's own `scidac-checksum` record.
+
+**`CHECK PLAQ` is not bit-reproducible between invocations.** On one stack (MILC `a5f8f9fa`, QUDA
+`ba501e4f`, GB200) the same input on the same rank count printed values about one ulp apart, and
+different rank counts or different inputs on the same gauge configuration differed by one or two ulp
+`[reproduced ×2]` (two campaigns, several gauge configurations). The mechanism is not established; a
+reduction whose order varies between runs would produce it. Compare plaquettes to a relative
+tolerance — 1e-14 has held — never by string equality.
 
 **A normal exit does not mean every solve converged.** QUDA's CG stops a solve that has no
 heavy-quark target once its reliable-update residual has risen more than `max_res_increase`
