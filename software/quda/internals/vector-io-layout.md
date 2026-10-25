@@ -95,6 +95,10 @@ stack and workload if the tradeoff is close.
 - **Choose the save format from the intended lifetime of the field, not from write speed.**
   If a stored field may ever be read at a different decomposition, partfile makes that
   impossible without regeneration, and the constraint is only discovered later.
+- **Through MILC's staggered-MG parameter file the format is set per level, and the coarsest
+  level's key is a different one**: `deflate_vec_partfile`, not `mg_vec_partfile`. The keys
+  and file names are in
+  [`../solvers/staggered-multigrid.md`](../solvers/staggered-multigrid.md#vector-files).
 - **Treat the writing rank geometry as part of a stored partfile field's identity**, and
   record it wherever the artifact is referenced. A stored set whose part count differs from
   the reading job's I/O-node count will not load — and equal counts still do not guarantee

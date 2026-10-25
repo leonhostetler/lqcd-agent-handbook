@@ -32,6 +32,14 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L185
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L745-L780
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/coarse_op_mma_launch.h#L338-L356
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L63-L68
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L104-L105
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L500-L510
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L600-L622
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L1227-L1263
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L1466-L1470
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/vector_io.cpp#L86-L133
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/eigensolve_quda.cpp#L256-L265
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L619-L664
   - https://github.com/milc-qcd/milc_qcd/commit/db6adc7d7bdc58910b58ff6fbca10e055a86c216
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L559-L577
@@ -226,6 +234,33 @@ hierarchy parameters: a set saved in QIO partfile format is readable only under 
 factorization that wrote it. See
 [`../internals/vector-io-layout.md`](../internals/vector-io-layout.md) before reusing saved
 vectors across a placement change.
+
+<a id="vector-files"></a>
+### Saving and loading the hierarchy's vectors
+
+The MG parameter file names the files level by level `[source]` at QUDA `00c7ef33`, and the
+files involved are unchanged at `ba501e4f`:
+
+- `mg_vec_outfile <L> <prefix>` saves level `L`'s near-null vectors when that level's
+  generation ends, to `<prefix>_level_<L>_nvec_<n>`, where `n` is the file's `nvec <L>`.
+  `mg_vec_infile <L> <prefix>` loads that name instead of generating. `L` is the parameter
+  file's level index, the one `nvec <L>` uses. Level 0's transfer is the KD one, not an
+  aggregation, so it has no near-null vectors; QUDA's save and load paths print a warning there.
+- On the coarsest level the same two keys name the **coarsest eigenvectors**, as
+  `<prefix>_level_<L>_defl_<n>` with `n` the coarsest deflation count: `_level_3_defl_2048` for
+  `nvec 3 2048` in a four-level file.
+- **The coarsest level's file format comes from `deflate_vec_partfile`; `mg_vec_partfile` on
+  that level is parsed and ignored.** `mg_vec_partfile <L>` sets the format of every other
+  level. A four-level file that sets `mg_vec_partfile 3 true` and leaves `deflate_vec_partfile`
+  unset writes its eigenvectors single-file, the format a multi-node write damages on NFS
+  ([`../../qio/parallel-singlefile-writes.md`](../../qio/parallel-singlefile-writes.md)).
+- A field below single precision is written in single, so half-precision near-null vectors take
+  twice their device footprint on disk. Before writing, all of the level's vectors are copied to
+  host memory at once on every rank; at a large level 1 that is gigabytes of host memory per rank.
+- Each write prints `Start saving <N> vectors to <file> in PARTFILE format` (or `SINGLEFILE`).
+  Confirm the format from that line, not from the parameter file.
+
+Evidence: read from source only. No saved set has yet been read back on a stack recorded here.
 
 ## Cost structure
 
