@@ -7551,3 +7551,34 @@ syntax the checker matches; the Hadrons build guide follows.
 `software/hadronsmilc/build-profiles.yaml` — *updated* (placeholders only; no option changed).
 The stacks' `scope_limits` no longer say the records are unchecked; the Grid stack's throughput
 figures remain observations in its notes until a performance-reference change admits them.
+
+## 2026-10-24 — MG vector-file keys; two dry-run interactions; a sandbox name lookup
+
+Four facts from preparing a staggered-MG screening job that banks its setup vectors, in
+developer mode.
+
+- **`software/quda/solvers/staggered-multigrid.md`**, new subsection `#vector-files`: the MILC
+  parameter-file keys that save and load near-null vectors and coarsest eigenvectors, the file
+  names QUDA builds from the prefix, the coarsest level's format following
+  `deflate_vec_partfile` and not `mg_vec_partfile`, promotion to single precision with a host
+  copy of the level's vectors, and the `Start saving … format` line. Read at QUDA `00c7ef33` and
+  confirmed byte-identical at `ba501e4f` for the four files cited. No read-back is recorded yet.
+- **`software/quda/internals/vector-io-layout.md`**: a pointer to that subsection under
+  "Consequences".
+- **`conventions/batch-scripts.md`** Step 9: `--rewrite-root` rewrites hashed inputs too, so a
+  checksummed input must not name a rewritten root (observed once, when a parameter file named
+  its vector-output directory and the positive control failed on the script's own hash guard);
+  and a closing `wait` on background whole-file work turns the dry run into real login-node I/O
+  (inferred, avoided before running).
+- **`conventions/agent-sandbox.md`**: a site balance command failed bare with a name lookup of the
+  caller's user id, then `Permission denied` (observed once).
+
+**Reconciliation.** `staggered-multigrid.md`, "Stored near-null vectors carry a further lifecycle
+boundary…": *confirmed*, kept above the new subsection. `staggered-multigrid/tuning.md` §2 on reused
+stored vectors and their decomposition: *confirmed*. `vector-io-layout.md` "Choose the save format…" and
+its NFS warning: *confirmed*. `qio/parallel-singlefile-writes.md`, the QUDA-vectors row (partfile on
+NFS): *confirmed*; the new subsection names the key that row depends on at the coarsest level.
+`batch-scripts.md` "Do not fake anything verified by checksum…": *confirmed*, the new bullet extends it
+to rewritten roots. Its positive-control text on background processes being killed at script end:
+*confirmed*. `agent-sandbox.md` "Some queries have no working shape at all" and "Select your own jobs
+with `--me`": *confirmed*; the new paragraph adds the permission-error face of the same lookup class.

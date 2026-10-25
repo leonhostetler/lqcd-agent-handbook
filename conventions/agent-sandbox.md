@@ -121,6 +121,12 @@ scheduler's administration client failed with the address-family signature even 
 commands, and a filesystem quota query reported `Connection refused` `[observed]`. The operator
 runs these from their own shell. Ask, and record that they did.
 
+**A site command that looks up the caller by name fails with a permission error.** Inside the
+sandbox the process's user id may have no name. A site allocation-balance command run bare
+printed `cannot find name for user ID` from its own `whoami`, then `Permission denied`
+`[observed]` once. That reads as an account or allocation problem. It is the user-database lookup
+class behind the `-u <name>` failure above, and it gets the same treatment.
+
 ## A tool must take site data as an input, not fetch it
 
 Any program that shells out for the scheduler record inherits this failure, because a tool's
