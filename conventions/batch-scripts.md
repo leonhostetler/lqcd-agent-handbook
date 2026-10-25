@@ -759,6 +759,21 @@ the job.
   unexpanded, or outside it rather than creating it. A harness that created stand-ins wherever
   declarations pointed left hundreds of gigabytes of apparent, zero-block files in a workspace
   root.
+- **A root rewrite reaches every text file in the copy, hashed inputs included.** The harness's
+  `--rewrite-root` replaces the real root in each text file under 1 MiB in the job copy, not
+  only in the script. So an input that names a rewritten root no longer matches its frozen
+  checksum, and the script's own hash guard fails the positive control. The guard is right; the
+  input's design is the defect. **Keep absolute roots out of checksummed inputs**: give the input
+  a relative name and let the script create what it points to, for example a link from the
+  invocation directory to an output directory outside the job. `[observed]` once: an MG
+  parameter file that named its vector-output directory.
+- **Never wait without a bound on background work the stubs cannot shorten.** Stubs make every
+  leg return in seconds, so a closing `wait` on a background whole-file hash, copy or scan
+  leaves that work as the only thing running, and in the dry run it does it for real on a login
+  node. Against an input of hundreds of gigabytes that is many minutes of login-node I/O, and
+  then the harness timeout. Where the work normally finishes long before the legs do, test at
+  the end whether it is still running, stop it and log that it did not finish, instead of
+  waiting for it. `[inferred]` from the harness's stubbing and caught before a run.
 - **Positive control:** on correct inputs the script must run to completion, and no launcher
   step may be refused along the way. A script that tolerates a failed leg exits 0 past a refused
   step, while on the machine that step waits for the allocation until the walltime ends. If
