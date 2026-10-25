@@ -13,6 +13,9 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/inv_ca_gcr.cpp
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/milc_interface_internal.cpp
   - operator's screened tuning records
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/multi_blas_quda.cu#L60-L111
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eigensolve_quda.cpp#L810-L845
+  - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L548
 observed: "2026-10-07"
 observed_on:
   software:
@@ -312,6 +315,20 @@ are separate cache identities, as
 operator experience plus one uncontrolled observation** — a cold-cache run at a large block
 size accumulated a full coarse-operator retune and was cut off mid-eigensolve. The
 controlled pair has not been run. Mechanism-plus-caveat, never a fitted band.
+
+**That warm state is paid once per coarsest grid, coarse colour and block size, not once per
+vector count.** `[source]` at `f2df42ac`: the multi-BLAS kernels the eigensolver calls carry in
+their tune key the coarsest local volume, the coarse colour, the precision and the block size,
+and also the sizes of the two vector sets in the call (`Nxz`, `Nyw`). The rotation of the
+Krylov space splits the kept vectors into fixed-width batches plus a remainder whose width
+follows the running kept count, so a new requested count, Krylov size or mass brings only a few
+new remainder widths. `[observed]` once: after one block-8 eigensolve at one vector count and
+Krylov size had warmed the cache from cold, adding about 1 800 rows, the first block-8
+eigensolve at a different count and Krylov size on the same coarsest grid and colour added five.
+All five were multi-BLAS `caxpy` widths. Each later mass added between none and sixteen more, all
+multi-BLAS kernels. So a warm-up invocation for a new vector count is not needed. Do expect a few small
+retunes in later setups, and write any warm-state rule to tolerate them
+([`../../../../conventions/measurement.md`](../../../../conventions/measurement.md)).
 
 The retrospective `deflate_poly_deg` solve-side slowdown has no established mechanism.
 It is excluded as a tuning rule. Adjusting polynomial degree to move the restart count

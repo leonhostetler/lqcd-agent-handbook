@@ -7655,3 +7655,18 @@ trace as fallback, `CA-CG:`, the wrapper excluded). Its batch-width and width-1 
 *confirmed*. `hierarchy-and-setup.md` "Count capped streams" and the batch paragraph: *confirmed*. The
 `setup_l1_capped_fraction` definition: *confirmed*, unchanged. No other tool imports this one.
 
+## 2026-10-24 — Block-TRLM cache warmth is per coarsest grid, colour and block size
+
+`software/quda/solvers/staggered-multigrid/coarse-deflation.md` gains a paragraph after the block-size
+cost paragraph. The multi-BLAS tune key carries the operand-set sizes (`Nxz`, `Nyw`) beside the volume,
+colour, precision and block size, and `rotateVecs` splits the kept vectors into fixed batches plus a
+remainder of `keep % batch_size`. So a new vector count adds only a few remainder-width rows; read from
+source at `f2df42ac`, with the key region identical at `ba501e4f`. Observed in one campaign: about
+1 800 rows at first use, five at the next vector count, all multi-BLAS widths, and 0–16 per later mass.
+
+**Reconciliation.** `coarse-deflation.md` block-size cost paragraph ("once the cache is warm for that
+terminal shape **and** coarse colour"): *confirmed*, now made specific. `autotuning.md` "A sweep over a
+key-bearing parameter introduces one new shape per value": *confirmed*; the vector count is key-bearing
+only through the remainder widths, which the new paragraph says. `conventions/measurement.md` warm-state
+paragraph: *confirmed*, cited.
+
