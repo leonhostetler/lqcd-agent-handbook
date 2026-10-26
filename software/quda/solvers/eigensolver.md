@@ -195,7 +195,9 @@ prefixed with that level, for example `MG level 3 (GPU): Deflating <N> vectors`.
 Assert that `<N>` equals the requested count on **every** invocation, not merely the first:
 a count that changes mid-run, or a short prefix of invocations, is the observable form of a
 partially applied space. Absence of the line altogether, in a run that requested
-deflation, means the space was constructed and then not used.
+deflation, means the space was constructed and then not used. How many lines to expect is set
+by the caller, not the eigensolver: native deflated CG prints one per projection, which is one
+plus its repeated deflations in each solve ([`staggered-deflated-cg.md`](staggered-deflated-cg.md)).
 
 **The block variant reports as the scalar one does, and only a finished eigensolve reports.**
 `block_size > 1` selects the block Lanczos variant. `[source]` at `f2df42ac`, and present since

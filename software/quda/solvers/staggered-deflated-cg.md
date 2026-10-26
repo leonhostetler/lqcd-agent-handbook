@@ -19,6 +19,9 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/generic_ks/eigen_stuff_QUDA.c#L112-L260
   - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/CMakeLists.txt#L207-L265
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/Makefile#L604-L619
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/inv_cg_quda.cpp#L158-L160
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/inv_cg_quda.cpp#L342-L344
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/eigensolve_quda.cpp#L646-L657
 observed: "2026-10-09"
 observed_on:
   software:
@@ -258,6 +261,17 @@ QUDA` and `Time to load deflation space = ...` before the first solve, and one
 `Solving for <n> source(s) with|without deflation for parity <p>` line per call.
 `tools/extract-milc-timings.py solves` counts these markers per input set and judges every
 deflated solve by its true residual and MILC's status line rather than by a `Convergence at` line.
+
+**Count `Deflating <N> vectors` per projection, never per solve.** `[source]` at `00c7ef33`,
+`EigenSolver::deflate` prints the line at `QUDA_VERBOSE`, once per call however many fields the
+call deflates (`lib/eigensolve_quda.cpp:646-657`). Native CG calls it once for the initial
+projection (`lib/inv_cg_quda.cpp:158-160`) and once more at every reliable update that passes
+the repeated-deflation test above (`:342-344`). So a solve prints one line plus one per
+repeated deflation, and that number moves with `tol_restart`, the target residual and the
+source. A check that expects one line per solve, or the same count before and after a
+`tol_restart` change, fails every correctly deflated solve. Read the count as the answer to
+item 4 below, since more than one line in a solve means repeated deflation occurred, and check
+`<N>` on every line as the [eigensolver page](eigensolver.md) requires.
 
 Record:
 

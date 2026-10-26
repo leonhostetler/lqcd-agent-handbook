@@ -7708,3 +7708,22 @@ unchanged. Its completion bullet ("the required action and `ACCEPT`/`REJECT` rec
 Its tuning sentence on "acceptance behavior appropriate to the study": *confirmed*, unchanged. No other leaf,
 tool or test states anything about these records: searched `software/`, `conventions/`, `machines/`,
 `playbooks/`, `modes/`, `tools/` and `tests/` for `ACCEPT`, `REJECT`, `delta S` and `rhmd`.
+
+## 2026-10-26 — Deflated CG prints `Deflating <N> vectors` once per projection, not once per solve
+
+`software/quda/solvers/staggered-deflated-cg.md` (runtime confirmation) gains a paragraph and
+`eigensolver.md` a pointer sentence. Read from source at the leaf's own `observed_on` commit, `00c7ef33`
+on `develop`, fetched from GitHub: `EigenSolver::deflate` logs the line once per call at `QUDA_VERBOSE`
+(`lib/eigensolve_quda.cpp:646-657`); native CG calls it for the initial projection (`lib/inv_cg_quda.cpp:158-160`)
+and again at each reliable update passing `sqrt(r2) < maxr_deflate * tol_restart` (`:342-344`). The same
+lines sit at the same numbers on `f2df42ac`. `observed_on` not bumped. Prompted by a campaign check that
+expected a fixed `Deflating` count per input set and would have failed every leg; that campaign ran a
+feature branch that changes `tol_restart` handling, so its counts are not used as evidence here.
+
+**Reconciliation.** `eigensolver.md` per-invocation `<N>` rule: *confirmed*, gains the pointer.
+`staggered-deflated-cg.md` "Initial and repeated deflation" section: *confirmed*, the new paragraph cites
+it. Its Record item 4 (`tol_restart`, reliable updates, whether repeated deflation occurred): *confirmed*,
+the paragraph says how to answer it. `staggered-multigrid/coarse-deflation.md` count check: *unaffected*,
+it concerns `<N>` per coarsest-level invocation. `tools/quda-mg-observables.py` `RE_DEFLATE`: *unaffected*,
+it parses the MG-prefixed form. Searched `conventions/`, `software/`, `machines/`, `playbooks/`, `modes/`,
+`tools/` and `tests/` for `Deflating`.
