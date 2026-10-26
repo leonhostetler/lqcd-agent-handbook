@@ -7727,3 +7727,24 @@ the paragraph says how to answer it. `staggered-multigrid/coarse-deflation.md` c
 it concerns `<N>` per coarsest-level invocation. `tools/quda-mg-observables.py` `RE_DEFLATE`: *unaffected*,
 it parses the MG-prefixed form. Searched `conventions/`, `software/`, `machines/`, `playbooks/`, `modes/`,
 `tools/` and `tests/` for `Deflating`.
+
+## 2026-10-26 — A step time limit cancels the step but need not make the launcher return
+
+`conventions/batch-scripts.md` (step time limits) is narrowed, and `machines/perlmutter/incidents/` gains its
+first entry. Evidence: one 288-node `gpu-a100-40` job in an operator campaign, read from its job log. A rank
+hit `CUDA_ERROR_CONTAINED` in a QUDA halo exchange about six minutes into the first leg; the node's GPU
+reported "requires reset" thereafter; Slurm cancelled the step at its 40-minute limit and `srun` reported
+its tasks terminated, but `srun` never returned, and the job ran 50 more minutes to its own limit with no
+later leg started. The script followed the leaf: `--kill-on-bad-exit=1` and a per-step `--time`. Mechanism
+inferred (a task blocked in the driver on a faulted device cannot be killed until reset); no step
+accounting state or process state was captured. `evidence: observed`, so an incident, not a rule; the leaf
+edit only withdraws an overclaim and adds the walltime and leg-order consequence, which holds whatever the
+mechanism.
+
+**Reconciliation.** `batch-scripts.md` kill-on-bad-exit paragraph: *confirmed*, unchanged. Its step-time-limit
+paragraph ("a hung leg costs its own limit plus a margin, and the legs after it still run"): *amended* to
+"ordinarily", with the new paragraph stating the exception. Its continue-past-failure policy and results-block
+rule: *confirmed*, unchanged. `conventions/scheduler-surfaces.yaml` `launcher_time_limit_option`:
+*confirmed*, it names the option and claims nothing about its effect. `conventions/diagnostic-rigs.md`,
+`conventions/running.md`, `machines/perlmutter/notes.md` and `machine.yaml`: no statement about step limits
+or launcher hangs; searched for `time limit`, `step limit`, `launcher_time_limit`, `--time` and `hang`.

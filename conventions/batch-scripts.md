@@ -533,9 +533,20 @@ launcher's exit status then reports the failure, and the check above sees it.
 **Give every launcher step its own time limit, set from the leg's measured or predicted
 duration.** Kill-on-bad-exit covers a task that dies, but not one that hangs, and a library's error
 path can hang instead of exiting. With a step time limit (`launcher_time_limit_option`), a hung leg
-costs its own limit plus a margin, and the legs after it still run. Without one, the hang takes the
-rest of the job's walltime and every leg after it. Under the continue-past-failure policy above,
-this is what keeps one bad leg from losing the job. A site launcher recorded as
+ordinarily costs its own limit plus a margin, and the legs after it still run. Without one, the hang
+takes the rest of the job's walltime and every leg after it. Under the continue-past-failure policy
+above, this is what keeps one bad leg from losing the job.
+
+**The step limit cancels the step; it does not make the launcher return.** The scheduler ends a
+step by signalling its tasks, and a task it cannot kill keeps the launcher waiting. In one recorded
+job, a task on an accelerator that had faulted and needed a reset held the launcher past its step
+limit until the job's own walltime ended it, and no later leg ran
+([incident](../machines/perlmutter/incidents/2026-10-20-launcher-outlives-step-limit.md)). The
+mechanism is inferred, and an outer bound that does not wait for the launcher has not been tested.
+Until one has, do not count on the step limit to cap a leg's cost: keep the job's walltime near
+the predicted total of its legs rather than padded, and run first the legs that must survive.
+
+A site launcher recorded as
 `scheduler.site_launcher` has options of its own. Establish its equivalents from its manual page
 before relying on them; an unrecorded equivalent is unknown, not absent.
 
