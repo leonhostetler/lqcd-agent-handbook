@@ -45,6 +45,14 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L559-L577
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L748-L826
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L645-L656
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/milc_interface_internal.cpp#L155-L158
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/milc_interface_internal.cpp#L463-L470
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/multigrid.cpp#L653-L660
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/invert_quda.h#L1381-L1403
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/dirac_coarse.cpp#L570-L579
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/solver.cpp#L262-L306
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/inv_gcr_quda.cpp#L205-L211
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/eigensolve_quda.cpp#L257-L265
 observed: "2026-10-09"
 observed_on:
   software:
@@ -249,6 +257,16 @@ files involved are unchanged at `ba501e4f`:
 - On the coarsest level the same two keys name the **coarsest eigenvectors**, as
   `<prefix>_level_<L>_defl_<n>` with `n` the coarsest deflation count: `_level_3_defl_2048` for
   `nvec 3 2048` in a four-level file.
+- **Under `coarse_solve_type <coarsest> direct-pc` the coarsest eigenvectors are one parity, so
+  their files hold half the coarsest volume.** The MILC interface maps `direct-pc` on a coarse
+  level to a `MATPC` solution. The coarsest solver is then a `PreconditionedSolver` on the
+  even-odd operator, which hands its inner solver a one-parity source. Every deflating QUDA
+  solver clones its deflation space from that source, and the MILC MG path sets
+  `io_parity_inflate` false, so the save writes the vectors as they are. Under `direct` both
+  the space and the file cover both parities. Size a vector bank and its write time from the
+  parity actually solved. Read at `ba501e4f`. Observed once, in a four-level partfile save: the
+  coarsest file was exactly half the both-parity byte count, while levels 1 and 2 matched
+  theirs to within QIO headers.
 - **The coarsest level's file format comes from `deflate_vec_partfile`; `mg_vec_partfile` on
   that level is parsed and ignored.** `mg_vec_partfile <L>` sets the format of every other
   level. A four-level file that sets `mg_vec_partfile 3 true` and leaves `deflate_vec_partfile`

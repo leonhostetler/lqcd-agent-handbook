@@ -504,7 +504,9 @@ where `nvec_(L-1)` is the near-null count on the level above the coarsest — th
 Compute exact bytes with the source-exact object layer above rather than from this
 proportionality; what follows is the ranking consequence.
 
-**This relation predicts stored bytes on disk, not a device-memory peak.** The eigenspace is
+**This relation predicts stored bytes on disk, not a device-memory peak.** It counts the full
+coarsest volume; under `direct-pc` at the coarsest level the stored set is one parity, half
+that ([`staggered-multigrid.md`](staggered-multigrid.md#vector-files)). The eigenspace is
 resident in exactly one allocation phase, and whether that phase is the winner decides
 whether it appears in the high-water figure at all — see the phase model above. Ranking
 candidates by predicted device peak using this relation will silently rank an

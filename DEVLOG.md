@@ -7670,3 +7670,22 @@ key-bearing parameter introduces one new shape per value": *confirmed*; the vect
 only through the remainder widths, which the new paragraph says. `conventions/measurement.md` warm-state
 paragraph: *confirmed*, cited.
 
+## 2026-10-26 — Coarsest eigenvectors are single-parity under `direct-pc`
+
+`software/quda/solvers/staggered-multigrid.md` (vector files) gains a bullet: with `coarse_solve_type
+<coarsest> direct-pc`, the saved coarsest eigenvectors are one parity, half the coarsest volume. Read from
+source at `ba501e4f`: the MILC interface maps `direct-pc` on a coarse level to `QUDA_MATPC_SOLUTION`; the
+coarsest solver is a `PreconditionedSolver` on `matCoarseSmoother`, whose `DiracCoarsePC::prepare` aliases
+a one-parity source; `Solver::constructDeflationSpace` clones the space from that source; the MILC MG path
+sets `io_parity_inflate` false, so `EigenSolver` saves the vectors uninflated. Observed once in a campaign:
+a four-level partfile save whose coarsest file was exactly half the both-parity count, with levels 1 and 2
+matching theirs to within QIO headers. Upstream drift for both amended leaves at `ba501e4f`: none.
+`observed_on` not bumped, since only the cited lines were re-read.
+
+**Reconciliation.** `staggered-multigrid.md` `_defl_` file-name bullet: *confirmed*. Its
+`deflate_vec_partfile` bullet: *confirmed*. Its half-precision on-disk bullet: *confirmed*.
+`staggered-memory.md` coarsest storage relation ("predicts stored bytes on disk"): *amended*, it counted the
+full coarsest volume and now points to the parity rule. `internals/vector-io-layout.md`: *unaffected*, it
+concerns layout binding and makes no parity statement. The device-memory model in
+`tools/quda-staggered-memory.py`: *not touched*, it is an unvalidated fit and this entry makes no
+device-memory claim.
