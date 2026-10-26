@@ -7689,3 +7689,22 @@ full coarsest volume and now points to the parity rule. `internals/vector-io-lay
 concerns layout binding and makes no parity statement. The device-memory model in
 `tools/quda-staggered-memory.py`: *not touched*, it is an unvalidated fit and this entry makes no
 device-memory claim.
+
+## 2026-10-26 — `ks_imp_rhmc` guide: RHMD targets print `CHECK: delta S`, never `ACCEPT`/`REJECT`
+
+`software/milc/applications/ks-imp-rhmc.md` gains the RHMD half of the update record. Read from source at
+`ab5011f5`: in `Make_template` each standard RHMC target differs from its RHMD twin only by `-DHMC`
+(`su3_rhmc`/`su3_rhmd`, `su3_rhmc_hisq`/`su3_rhmd_hisq`), every `su3_rhmc*` target defines it, and no
+`su3_rhmd*` target nor `su3_leapfrog` does; in `update_rhmc.c` the `HMC` branch copies the starting links,
+restores them on rejection and prints `ACCEPT:`/`REJECT: delta S`, while the other branch keeps the evolved
+field and prints `CHECK: delta S`. The three other update routines in the directory print the same pattern.
+The cited files are byte-identical on `develop` at `551dc479`; upstream drift for the leaf: none.
+`observed_on` not bumped, since only the cited lines were re-read. Prompted by an RHMD production output
+whose every trajectory the guide's completion check would have reported as missing its update record.
+
+**Reconciliation.** `ks-imp-rhmc.md` output paragraph ("`ACCEPT` or `REJECT` with an action difference"):
+*amended* to "one update record". Its sentence "`REJECT` alone is not an application failure": *confirmed*,
+unchanged. Its completion bullet ("the required action and `ACCEPT`/`REJECT` records"): *amended* per target.
+Its tuning sentence on "acceptance behavior appropriate to the study": *confirmed*, unchanged. No other leaf,
+tool or test states anything about these records: searched `software/`, `conventions/`, `machines/`,
+`playbooks/`, `modes/`, `tools/` and `tests/` for `ACCEPT`, `REJECT`, `delta S` and `rhmd`.

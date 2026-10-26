@@ -1,11 +1,15 @@
 ---
 title: MILC ks_imp_rhmc application guide
-summary: Source-backed input, trajectory, acceptance, completion, and timing structure for MILC RHMC generation.
+summary: Source-backed input, trajectory, acceptance, completion, and timing structure for MILC RHMC and RHMD generation, including the update record an RHMD build prints in place of ACCEPT/REJECT.
 scope: [software:milc]
-load_when: Compiling, preparing, tuning, benchmarking, or interpreting a ks_imp_rhmc run.
+load_when: Compiling, preparing, tuning, benchmarking, or interpreting a ks_imp_rhmc run, from an su3_rhmc* or an su3_rhmd* target.
 evidence: source
 sources:
   - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_imp_rhmc/Make_template
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_imp_rhmc/Make_template#L162-L168
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_imp_rhmc/Make_template#L224-L240
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_imp_rhmc/update_rhmc.c#L305-L308
+  - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/ks_imp_rhmc/update_rhmc.c#L723-L742
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/setup.c#L108-L700
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/control.c#L27-L195
   - https://github.com/milc-qcd/milc_qcd/blob/32e18069cc5e13d5a2f380dab3cb1ed5a3ebc839/ks_imp_rhmc/ks_imp_includes.h#L37-L43
@@ -31,6 +35,10 @@ The application directory is `ks_imp_rhmc`, and its upstream targets are defined
 `ks_imp_rhmc/Make_template`. `su3_rhmc` selects the generic Asqtad RHMC target, while
 `su3_rhmc_hisq` selects the standard HISQ RHMC target; other targets change the action,
 integrator, equation-of-state or susceptibility terms, or experimental force construction.
+Both standard RHMC targets have an RHMD twin built from the same options without `-DHMC`:
+`su3_rhmd` beside `su3_rhmc`, and `su3_rhmd_hisq` beside `su3_rhmc_hisq`. That define is the only
+difference within each pair, and it decides whether a trajectory ends in a Metropolis test, as the
+output section below describes.
 Resolve the shared invocation in `../build.md` only after matching those compile-time choices
 to the intended rational-function and trajectory contract.
 
@@ -79,7 +87,7 @@ class, not a proofread.
 
 The application performs the declared warmup trajectories, emits `WARMUPS COMPLETED`, then runs
 the declared measured trajectories. Each trajectory can emit initial and final action records,
-`ACCEPT` or `REJECT` with an action difference, plaquettes, solver records, and force/link
+one update record carrying the action difference (below), plaquettes, solver records, and force/link
 diagnostics. Gauge and fermionic measurements occur at the declared trajectory interval.
 
 One successful input set emits `RUNNING COMPLETED`, an average-CG-iteration summary when
@@ -97,6 +105,20 @@ With `PRTIME`, application phases use `Aggregate time to ...` records for setup,
 trajectories, gauge measurements, and chiral-condensate measurements. Component macros add
 solve, fermion-force, fermion-link, gauge-force, remapping, and I/O records as supported by the
 compiled paths. Parent trajectory times overlap their component timers.
+
+### An RHMD build never accepts or rejects
+
+The update record depends on whether the target defines `HMC`. Every `su3_rhmc*` target does: the
+starting links are copied before the molecular dynamics, restored on rejection, and the record is
+`ACCEPT: delta S = …` or `REJECT: delta S = …`. The RHMD targets, `su3_rhmd*` and `su3_leapfrog`, do not:
+no test is made, the evolved field is always kept, and the record is `CHECK: delta S = …`. An RHMD output
+contains no `ACCEPT` or `REJECT` line at all.
+
+- Count an RHMD output's trajectories by its `CHECK: delta S` records. `ACCEPT` plus `REJECT` is zero
+  there.
+- An RHMD `delta S` measures integration error and decides nothing. However large it is, the run keeps
+  the field, saves it on schedule and continues from it. Whether a value is acceptable is the
+  campaign's judgement against its step size and its own history; the application flags nothing.
 
 ## Tuning and benchmarking interpretation
 
@@ -126,7 +148,8 @@ steady measured trajectories. These costs have different recurrence and scientif
 An input set is acceptable benchmark evidence only when:
 
 - the expected warmup and measured trajectory counts are present;
-- every measured trajectory has the required action and `ACCEPT`/`REJECT` records;
+- every measured trajectory has its action records and one update record: `ACCEPT` or `REJECT`
+  from an `su3_rhmc*` target, `CHECK: delta S` from an RHMD target;
 - solver, force, and link paths match the intended candidate and satisfy the numerical
   contract;
 - all measurements required by the cadence are present;

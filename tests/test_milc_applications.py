@@ -177,6 +177,15 @@ class MILCApplicationGuideTests(unittest.TestCase):
             text = (ROOT / "modes" / f"{mode}.md").read_text()
             self.assertIn("application guide", text)
 
+    def test_ks_imp_rhmc_states_rhmd_update_record(self):
+        rhmc = (
+            ROOT / "software/milc/applications/ks-imp-rhmc.md"
+        ).read_text()
+        for marker in ("su3_rhmd_hisq", "`-DHMC`", "`CHECK: delta S = …`",
+                       "contains no `ACCEPT` or `REJECT` line at all"):
+            self.assertIn(marker, rhmc)
+        self.assertNotIn("the required action and `ACCEPT`/`REJECT` records", rhmc)
+
 
 if __name__ == "__main__":
     unittest.main()
