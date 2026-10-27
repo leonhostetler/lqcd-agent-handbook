@@ -13,8 +13,16 @@ sources:
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/color_spinor_field.cpp
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/check_params.h
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/interface_quda.cpp
+  - https://github.com/lattice/quda/commit/01c0fb8839f22ed3b1d32af52aa164bd734758c8
+  - https://github.com/lattice/quda/pull/1604
+  - https://github.com/lattice/quda/issues/1665
+  - https://github.com/lattice/quda/commit/d4257aa1e7a959ee378c55a0a12c9fd7275b0a00
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/quda_ptr.cpp
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/lattice_field.h
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp
+  - https://github.com/milc-qcd/milc_qcd/blob/6b9b8a06eec5746187bbfd197eac2629ab8d8e72/generic_ks/ks_multicg_offset_quda.c
   - operator's screened memory-model records
-observed: "2026-10-07"
+observed: "2026-10-27"
 observed_on:
   software:
     quda:
@@ -23,6 +31,18 @@ observed_on:
 ---
 
 # QUDA device memory, pooled reuse, and what the counters miss
+
+> **WARNING — open upstream defect.** Tracked as
+> [lattice/quda#1665](https://github.com/lattice/quda/issues/1665). Since QUDA `01c0fb883`
+> (2026-03-25, merged into `develop` with PR #1604 on 2026-04-22), a native gauge field's ghost
+> buffers are separate pooled allocations. A resident gauge load right after a HISQ link build
+> therefore captures the link build's multi-GB cached blocks (below). On 2026-10-27 every QUDA
+> stack in this catalogue contains the commit. A run sized to the pre-commit footprint can fail
+> with a device out-of-memory at the first solve after the link build, while QUDA's counter
+> gives no sign why. **Remedies that need no QUDA change:** `QUDA_ENABLE_DEVICE_MEMORY_POOL=0`,
+> or `flushPoolQuda(QUDA_MEMORY_DEVICE)` between the link build and the next gauge load.
+> **Keep this warning until the issue is fixed upstream and a build containing the fix, with
+> the pool on, is shown to hold the pre-commit footprint after a link build.**
 
 [`../solvers/staggered-memory.md`](../solvers/staggered-memory.md) treats `Device memory used`
 as the measured quantity that a computed field total is checked against. That comparison has two
@@ -65,11 +85,23 @@ owning field is destroyed. For a field that lives for the job — a resident gau
 instance — that is `endQuda`.
 
 The shape to look for is **a small, frequently allocated object requested just after a large one
-was freed.** Every native gauge field with `ghostExchange == QUDA_GHOST_EXCHANGE_PAD` allocates its
-own per-dimension ghost arrays through this same pool (`lib/gauge_field.cpp`, via `quda_ptr`,
-which pools by default — `include/quda_ptr.h`), and those arrays are orders of magnitude smaller
-than the extended gauge fields a link build leaves in the cache on its way out. A link build
-followed by a gauge load is therefore the canonical instance, not a special case.
+was freed.** Since `01c0fb883`, every native gauge field with
+`ghostExchange == QUDA_GHOST_EXCHANGE_PAD` allocates its own ghost arrays through this same pool,
+in every dimension whether or not it is partitioned (`lib/gauge_field.cpp`, via `quda_ptr`, which
+pools by default — `include/quda_ptr.h`). Before that commit the ghost zone was inlined into the
+field's padded allocation and made no allocation of its own. The ghost arrays are orders of magnitude
+smaller than the extended gauge fields a link build leaves in the cache on its way out. A link
+build followed by a gauge load is therefore the canonical instance, not a special case. The cost
+is more than the captured blocks themselves. The solver's own allocations after the load are
+about the size of those blocks, so they can no longer reuse them and go to the driver instead.
+
+**How it shows up.** The request that fails is an ordinary one, such as a gauge copy or the next
+field after the link build, and the same job fits with the pool off or with a flush at the point
+below, with identical iteration counts. It reproduces without an application on one GPU:
+QUDA's `staggered_invert_test --dslash-type asqtad --compute-fat-long true`, with `--partition 14`
+so that Y, Z and T communicate as if partitioned, run once as is and once with
+`QUDA_ENABLE_DEVICE_MEMORY_POOL=0`, comparing the `Device memory used` line it prints at exit. The
+issue records the full command, one such measurement, and a bisection to the commit.
 
 **It is invisible in the counter, which is the reason it survives review.** `Device memory used`
 tracks block sizes, so a run in which this happens is perfectly self-consistent with itself and
@@ -81,14 +113,52 @@ merely disagrees with the field arithmetic.
   API inside `quda.h`'s `extern "C"` block, so an application can call it without a QUDA change.
   Place it after the **last** producer of the large blocks and before the consumer that would take
   them: flushing between two producers is correct and pointless, because the second producer simply
-  reuses what the first left.
-- **Bounding the reuse mismatch recovers nothing on its own.** Refusing an oversized block does not
-  free it. What bounding does is convert *trapped* waste into *reclaimable* cache, which is a real
-  improvement only when it is paired with a flush or with sacrificing the refused block. A proposal
-  to bound reuse that does not say which of those it pairs with has not yet saved anything.
+  reuses what the first left. Two costs come with it:
+  - **It is cheap only where the producer runs rarely.** `[observed]` once, in an analysis run that
+    builds its links once per process, a flush after the build moved solve time by less than the
+    run's resolution. In gauge generation the links are rebuilt every molecular-dynamics step, so a
+    flush there makes the solver re-allocate its working set every step. Keep such a call opt-in.
+  - **It needs a build-time guard.** `flushPoolQuda` first appeared in `d4257aa1e` (2025-01-02)
+    with no change to QUDA's version macro, so an application cannot test for it by version. Guard
+    the call with a build-time option, or the application fails to link against an older QUDA.
+- **Bounding the reuse mismatch turns trapped waste into cache, which saves memory only if
+  something reclaims it.** Refusing an oversized block does not free it. The block stays cached,
+  and the saving is real when a later request reuses it, a flush releases it, or it is sacrificed
+  to the driver. The ghost capture above is the case where a later request reuses it: the solver's
+  allocations after the gauge load are the size of the blocks the ghosts would have taken.
+  Allocating the ghosts outside the pool has the same effect for that one object. In the
+  measurement the issue records, it removed nearly all of the commit's increase with no flush. A
+  proposal to bound reuse should name the reclaimer it relies on.
 - **Disabling the pool is a different lever with its own cost.** It removes the trapping by removing
   the reuse, so every allocation goes to the driver. Price it as a throughput change and measure it,
   rather than treating it as a free memory remedy.
+
+**Taking an object out of the pool trades memory for allocation calls.** The direct repair for
+the ghosts is `quda_ptr(mem_type, nbytes, false)` at their two allocation lines.
+`quda_ptr::destroy()` frees through the path that allocated, so a non-pooled ghost never re-enters
+the cache (`lib/quda_ptr.cpp`). Every padded-ghost field then makes 4 unpooled device allocations,
+or 8 for coarse geometry, and the same number of frees, and a driver free synchronizes the device.
+How often that happens depends on the workload, which the source settles for MILC's RHMC path
+`[source]`:
+
+- **Only `loadGaugeQuda` creates such fields on that path.** The link build, the HISQ and gauge
+  forces, the gauge update, unitarization, the momentum calls and the force kernels' temporaries all
+  use `QUDA_GHOST_EXCHANGE_NO` or `QUDA_GHOST_EXCHANGE_EXTENDED`. A field built from a
+  `QudaGaugeParam` defaults to `NO` (`include/lattice_field.h`).
+- **One load of fat and long links creates 2 to 7 of them.** The count depends on how many of the
+  sloppy, preconditioner, refinement and eigensolver copies differ from the precise field in
+  precision or reconstruct. A MILC `MAX_MIXED` build whose precise and sloppy long-link
+  reconstructs differ makes 7: fat precise, sloppy and half-precision refinement, and long
+  precise, sloppy, refinement and eigensolver.
+- **Loads recur.** MILC forces one at every link rebuild and whenever the Naik index changes
+  (`generic_ks/ks_multicg_offset_quda.c`), and QUDA reloads whenever the solve precision differs
+  from the resident field's (`lib/milc_interface.cpp`). With a charm term that is at least two
+  loads per fermion-force evaluation.
+
+That is of order a hundred unpooled allocation-and-free pairs per molecular-dynamics step. It is a
+count, not a measurement. Where the links are loaded once per process, the same repair costs
+nothing measurable. A bound on reuse in the allocator itself would avoid both the capture and the
+calls.
 
 **A modelled saving in a pooled object is an upper bound, not a prediction.** Where the pool may
 recycle the blocks a change was meant to free, the change can return less than its arithmetic says
@@ -183,7 +253,8 @@ allocation shape, so they re-tune the affected keys and need the iteration-count
 Every mechanism above was read in the source at the revision in `observed_on` and is present in
 upstream `develop`, not only on a feature branch. **This leaf records mechanisms, not magnitudes.**
 What any of them costs in a particular run is a property of that run's geometry, vector count and
-driver, and belongs in that run's working directory. The one measured quantity quoted — the 2 MiB
+driver, and belongs in that run's working directory; the one public measurement of the ghost
+capture is in [lattice/quda#1665](https://github.com/lattice/quda/issues/1665). The one measured quantity quoted — the 2 MiB
 allocation granularity — is labelled `[observed]` because it came from a single system and is not a
 QUDA property at all.
 

@@ -25,6 +25,7 @@ sources:
   - https://github.com/lattice/quda/commit/79af44a6fe6d258de260c1dc0293af524f1c4d7b
   - https://github.com/lattice/quda/pull/1644
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/gauge_backup.h
+  - https://github.com/lattice/quda/commit/321f728fb59bbf963814dc5f6941312b26b56310
   - operator's screened prior QUDA development records
   - https://github.com/llvm/llvm-project/blob/main/clang/tools/clang-format/git-clang-format
 observed: "2026-10-07"
@@ -147,6 +148,13 @@ combination at runtime. Validate every affected precision and representation pat
   examples are guidance, not a minimum for every change.
 - Record the build configuration, commands, results, and untested scope in the review or
   handoff.
+- **Size host memory for an older test harness when a bisection runs it at production volume.**
+  Before `321f728fb` (2026-08-28), QUDA's tests held one `std::mt19937_64` per local site for
+  their host random numbers. That is 2504 bytes a site, outside QUDA's own host counters, so
+  about 10 GB at four million local sites. `[observed]` once: the resident-set excess of an older
+  build over a current one matched that figure to about a percent. A leg run on a pre-August-2026
+  test at production local volume needs that headroom, or the scheduler's memory limit kills it
+  before the observable is reached.
 
 **Iteration counts are the right invariant for a transport or data-movement change.** Such a change
 is not a numerical one, so counts must be bit-identical solve for solve against the unmodified path;

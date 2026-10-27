@@ -3,9 +3,10 @@
 
 A warning deleted in a tidy-up is the failure this guards: the defect is still live, and the
 next session writes a corrupt file with nothing to stop it. Each entry names the files that
-must carry the warning and the issue links it must cite. Remove an entry only on the trigger
-recorded in ROADMAP.md's deferred-decision register, with a DEVLOG entry naming the fix and
-its validation.
+must carry the warning and the issue links it must cite. Remove an entry only on its recorded
+trigger: ROADMAP.md's deferred-decision register where it has a row, otherwise the "Keep this
+warning until" sentence in the canonical leaf. Record the fix and its validation in a DEVLOG
+entry.
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 QIO_19 = "https://github.com/usqcd-software/qio/issues/19"
 QUDA_1655 = "https://github.com/lattice/quda/issues/1655"
+QUDA_1665 = "https://github.com/lattice/quda/issues/1665"
 
 # defect -> (canonical leaf, issue links, files that must point to the canonical leaf)
 OPEN_DEFECTS = {
@@ -33,6 +35,14 @@ OPEN_DEFECTS = {
             "machines/vista/stacks/milc-cuda13-quda-ks-spectrum-2026q3/stack.yaml",
             "machines/horizon/stacks/quda-cuda13-milc-cg-2026q3/stack.yaml",
             "machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-2026q3/stack.yaml",
+        ),
+    ),
+    "quda-pooled-gauge-ghosts-capture-link-build-blocks": (
+        "software/quda/internals/device-memory-pool.md",
+        (QUDA_1665,),
+        (
+            "software/quda/solvers/staggered-memory.md",
+            "software/milc/development.md",
         ),
     ),
 }

@@ -7925,3 +7925,63 @@ at build and proofread time. `software/milc/quda-linkage.md` item 2 (check befor
 `libquda.so`) and `machines/horizon/notes.md`'s HPC-X `ldd` check: *confirmed*; they are the guards this keeps
 intact. Searched for `module-env`, `libcuda`, `ldd`, `driver` and `stubs/` across `conventions/`, `machines/horizon/`,
 `software/milc/`, `software/quda/` and `playbooks/`.
+
+## 2026-10-27 — QUDA's pooled gauge ghosts: an open upstream defect, its HMC cost, and the `cg-fit` under-prediction it may explain
+
+`software/quda/internals/device-memory-pool.md` gains a `WARNING — open upstream defect` block for
+[lattice/quda#1665](https://github.com/lattice/quda/issues/1665), version-scopes its ghost-capture paragraph to
+`01c0fb883` and later, and adds how the defect shows up, a one-GPU QUDA-only reproducer, two costs of the flush
+remedy, and a source count of what taking the ghosts out of the pool costs on MILC's RHMC path.
+`software/quda/solvers/staggered-memory.md` gains an `[inferred]` paragraph on `cg-fit` under-predicting on
+post-commit builds, and names the defect as the leading candidate for the two recorded CG under-predictions.
+`software/quda/development.md` gains the pre-`321f728fb` test-harness host-memory note. The defect is pinned in
+`tests/test_open_upstream_defects.py`. Its removal trigger is the warning's own "Keep this warning until" sentence:
+`ROADMAP.md` has 95 bytes of headroom under the developer-document limit, and a deferred-decision row would not fit.
+
+Evidence: one operator campaign on Perlmutter A100-40, captured in ordinary use, not mined:
+- a two-node MILC replica of a 27-node placement, three legs (pool on fails, flush fits, pool off fits);
+- QUDA's own `staggered_invert_test` on two nodes and on one GPU;
+- a one-GPU bisection job building the parent, the commit and the commit with the `pool=false` patch.
+
+The ancestry checks were made against `develop`. The RHMC count is `[source]` at `00c7ef33d` plus MILC `6b9b8a06`,
+and nothing was measured for it. No campaign magnitude is restated: the one public measurement is the operator's
+issue. Job identifiers, the account, paths and ensemble figures are left out. The `cg-fit` paragraph states one
+campaign comparison qualitatively, a pre-commit 27-node peak reproduced to a fraction of a percent. Which builds
+the fit population came from was not checked, which is why the paragraph says the fit "behaves as" a pre-commit
+fit.
+
+**Reconciliation.** In `device-memory-pool.md`:
+- "Pooled reuse charges the caller the whole block": *confirmed* at `00c7ef33d`.
+- "The two combine into waste that no flush can reach": *confirmed*.
+- The ghost-capture "shape to look for": *amended*. It is version-scoped to `01c0fb883`, the every-dimension
+  allocation is stated, and the solver-reuse consequence is added.
+- "A pool flush at the right point recovers it": *confirmed*, with the generation-loop cost and the link guard
+  added.
+- "Bounding the reuse mismatch recovers nothing on its own": *amended*. It was too strong. A later request that
+  reuses the refused block is a third reclaimer, and the `pool=false` measurement recorded in the issue recovered
+  nearly all of the commit's increase with no flush.
+- "Disabling the pool is a different lever": *confirmed*.
+- "A modelled saving in a pooled object is an upper bound": *confirmed*.
+- "Evidence limits", mechanisms not magnitudes: *confirmed*, with a pointer to the issue added.
+
+In `staggered-memory.md`:
+- The counter-corrections paragraph: *confirmed*.
+- Phase D "requests that fit blocks setup freed cost no new device memory": *confirmed*. The capture is the
+  converse case, a small request taking a large block, which the device-memory-pool leaf owns.
+- The verify-pass pool remark: *confirmed*. It concerns a different object.
+- "Treat a CG device estimate as a lower bound": *confirmed*, and the new paragraph gives a candidate reason.
+- The Perlmutter one-third and Horizon 1.8x under-predictions: *amended*. The ghosts are added as an `[inferred]`
+  candidate with a separating run, and their "not established" status is kept.
+
+Elsewhere:
+- `staggered-multigrid.md`'s verify-cost pool sentence and `eigensolver.md`'s deflation-space pointer:
+  *confirmed*, a different object.
+- `software/milc/development.md`'s pointer to the pool leaf: *confirmed*.
+- `software/quda/runtime-environment.md`: no statement about `QUDA_ENABLE_DEVICE_MEMORY_POOL`. It is
+  deliberately not added as a row, because X.6 would then read it as a variable every QUDA-shaped launcher must
+  export.
+- `tools/quda-staggered-memory.py`: not changed. Its constants are a fit and are not revised here
+  (§decisions-knowledge-contract).
+
+Searched for `pool`, `MEMORY_POOL`, `flushPoolQuda`, `ghost`, `01c0fb883` and `cg-fit` across `software/`,
+`conventions/`, `machines/`, `playbooks/` and `tools/`.

@@ -175,6 +175,14 @@ QUDA host high-water   ~= 625.2 MiB + 5014 B * V0
 These coefficients were fitted to the named Perlmutter A100 corpus. See the companion
 script for the fit population, observed errors, build sensitivity, and exclusions.
 
+**Expect it to under-predict on a QUDA that contains `01c0fb883` when the pool is on and the same
+process builds its links.** `[inferred]` Since that commit, gauge ghost buffers capture the link
+build's cached blocks (open upstream defect, see the warning in
+[`../internals/device-memory-pool.md`](../internals/device-memory-pool.md)). The fit behaves as a
+pre-commit fit. It reproduced one 27-node HISQ CG peak measured on a pre-commit build to within a
+fraction of a percent. The same placement on a post-commit build did not fit the 40 GB device with
+the pool on, and did fit with the pool off or with a flush after the link build.
+
 ```bash
 python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" cg-fit --local 36 36 24 32
 ```
@@ -658,7 +666,8 @@ The ratio holds within 3 % over a 4.5-fold volume span, which points at a per-si
 the fit lacks on this stack rather than a fixed per-rank overhead, the same shape as the
 Perlmutter shortfall above but larger. Its cause is not established: the machine is outside the
 fit's scope, and the link reconstruction, the `multimass` dispatch and the build are all
-confounded. The `nvidia-smi` peak sits a further 2.6–6.9 GiB above the counter, mostly the
+confounded. QUDA `ba501e4f` contains `01c0fb883`, so the pooled-ghost capture is a candidate
+here as well (the Perlmutter bullet below gives the separating run). The `nvidia-smi` peak sits a further 2.6–6.9 GiB above the counter, mostly the
 communication pool, which the fit excludes. **On this stack, treat `cg-fit` as about half of what
 QUDA will report**, and size a CG placement from a measurement or from this table.
 
@@ -670,7 +679,10 @@ Three consequences are worth carrying:
   suggests a missing term that scales with `V0` rather than a fixed per-rank constant.
   Confounds that were not excluded: a `multimass` set dispatch issuing two solver calls
   per checked solve, resident application-side gauge state, and the build's
-  `KS_MULTICG` option. **Treat a predicted plain-CG device figure as a lower bound for a
+  `KS_MULTICG` option. **`[inferred]`, the leading candidate:** the pooled gauge ghosts above.
+  Build `b6998853f` contains `01c0fb883`, and the capture scales with the extended-field
+  volume, which is the missing-`V0` shape. One repeated point with
+  `QUDA_ENABLE_DEVICE_MEMORY_POOL=0` separates it from the rest. **Treat a predicted plain-CG device figure as a lower bound for a
   MILC `ks_spectrum` multimass workload**, and measure before committing to a capacity
   decision inside the advisory band.
 - **The sign of the MG error flipped with level count** — three levels over-predicted,
