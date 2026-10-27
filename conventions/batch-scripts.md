@@ -811,6 +811,16 @@ the job.
   because the harness reads directives from the perturbed copy. The harness refuses a
   working-directory directive that names a missing directory, because it does not model what
   the scheduler does then.
+  **A non-zero exit is not evidence that the targeted guard fired.** Name the message the guard
+  prints and confirm it in the output: a perturbation that breaks the script's own syntax exits
+  non-zero before any guard runs, and the harness refuses one that leaves a shell script
+  unparsable, as it refuses a no-op. Two failures it cannot see. **Perturb what the guard
+  measures, never a constant it shares with the measurement**: a probe that writes `N` bytes and
+  checks for `N`, "tested" by changing `N`, moves both sides and passes. **A stubbed
+  precondition must cross the guard's own threshold**: a free-space stub above the script's
+  minimum changes the stub text and exercises nothing, so derive the stubbed value from the
+  threshold and require the run to fail. `[observed]` each in one operator campaign; the
+  reasoning holds for any guard.
 
 The harness is subject to the same rule it enforces: `tests/test_dry_run_batch_script.py` makes
 it fail on purpose — a refused stand-in, a refused no-op perturbation, and the submission-directory

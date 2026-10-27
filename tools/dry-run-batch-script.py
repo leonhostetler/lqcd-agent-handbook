@@ -44,7 +44,8 @@ and `sleep`. A refused launcher step fails the positive control even when the sc
 tolerates the failed leg and exits 0, because on the machine that step waits for the
 allocation until the walltime runs out. A launcher stub runs nothing; `--launcher-output TEXT` makes every launcher stub
 print TEXT after its log line, for guards that read launched output. Anything else the script
-needs can be stubbed with `--stub NAME=TEXT`, which replaces any stub of that name. The modules
+needs can be stubbed with `--stub NAME=TEXT`, which replaces any stub of that name and prints
+TEXT verbatim, newlines included, so a guard parsing multi-line output can be modelled. The modules
 stub answers `-t list` (on stderr, as Lmod does) and `is-loaded`, both from the same listing,
 so a drift guard written either way can be made to fire.
 
@@ -68,7 +69,8 @@ Three run kinds, one receipt:
 
   positive control   the script must run to completion (exit 0) on correct inputs;
   --negative F EXPR  perturb one input in the sandbox copy with a sed expression and require
-                     a non-zero exit; a no-op expression is an error, not a pass;
+                     a non-zero exit; a no-op expression, or one that leaves a shell
+                     script unparsable by bash, is an error, not a pass;
   --omit-stand-in P  withhold one stand-in and require a non-zero exit (absence guards);
   --short-stand-in P build one stand-in a byte short and require a non-zero exit;
   --module-drift M   omit module M from the stub's list and require a non-zero exit.
@@ -96,7 +98,7 @@ import subprocess
 import sys
 import tempfile
 
-VERSION = "1.6.0"
+VERSION = "1.7.1"
 
 # Frontend tooling paths an agent sandbox materialises as unreadable placeholders in whatever
 # directory the session's shell stands in -- including a job directory. They are never job
@@ -126,6 +128,21 @@ def sha256(path: pathlib.Path) -> str:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def bash_parses(path: pathlib.Path, shell: bool = False) -> bool | None:
+    """Whether bash can parse the file, or None when it is not a shell script. A perturbation
+    that breaks a script's syntax makes it exit non-zero before any guard runs, which a
+    negative run would otherwise record as the guard firing."""
+    if not shell:
+        try:
+            first = path.read_text(errors="replace").split("\n", 1)[0]
+        except OSError:
+            return None
+        if path.suffix not in {".sh", ".bash", ".sbatch", ".pbs"} and not (
+                first.startswith("#!") and "sh" in first):
+            return None
+    return subprocess.run(["bash", "-n", str(path)], capture_output=True).returncode == 0
 
 
 def receipt_path(script: pathlib.Path) -> pathlib.Path:
@@ -363,7 +380,7 @@ exit 0
         name, _, text = spec.partition("=")
         if not name:
             raise Refusal(f"--stub needs NAME=TEXT, got {spec!r}")
-        make_stub(bin_dir, name, f"printf '%s\\n' {json.dumps(text)}\nexit 0\n")
+        make_stub(bin_dir, name, f"printf '%s\\n' {shlex.quote(text)}\nexit 0\n")
 
 
 def rewrite_text_files(root: pathlib.Path, rewrites: list[tuple[str, str]]) -> int:
@@ -498,10 +515,15 @@ def main(argv=None) -> int:
             if not target.is_file():
                 raise Refusal(f"--negative target not in the job directory: {rel}")
             before = sha256(target)
+            parsed_before = bash_parses(target, shell=target == job / script.name)
             subprocess.run(["sed", "-i", expr, str(target)], check=True)
             if sha256(target) == before:
                 raise Refusal(f"--negative expression {expr!r} matched nothing in {rel}; the input "
                               "was never perturbed and the run would prove nothing")
+            if parsed_before and not bash_parses(target, shell=True):
+                raise Refusal(f"--negative expression {expr!r} left {rel} unparsable by bash; a "
+                              "syntax error exits non-zero before any guard runs, so the run "
+                              "would prove nothing")
             kind, detail = "negative", f"{rel}: {expr}"
         elif args.omit_stand_in:
             kind, detail = "omit-stand-in", args.omit_stand_in

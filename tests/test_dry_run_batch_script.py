@@ -124,6 +124,25 @@ class DryRunHarnessTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stdout)
         self.assertIn("matched nothing", result.stdout)
 
+    def test_syntax_breaking_perturbation_is_refused(self):
+        """A perturbation that breaks the script's syntax exits non-zero before any guard runs.
+        Before 1.7.0 the harness recorded that as the guard firing."""
+        script = self.write_script(PWD_RECIPE)
+        result = self.run_harness(script, "--negative", "job.sbatch",
+                                  r"s|^here=\$(pwd -P)$|here=\$(pwd -P|")
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn("unparsable by bash", result.stdout)
+
+    def test_stub_text_is_printed_verbatim(self):
+        """Before 1.7.1 a stub's text went through json.dumps into a double-quoted bash string:
+        newlines printed as a literal backslash-n and `$` expanded."""
+        script = self.write_script(PWD_RECIPE.replace(
+            "\n", "\nn=$(fakedf | wc -l); [ \"$n\" -eq 2 ] || {{ echo \"FATAL: $n lines\"; exit 1; }}\n"
+            "fakedf | grep -qF '$HOME' || {{ echo 'FATAL: expanded'; exit 1; }}\n", 1))
+        result = self.run_harness(script, "--stub", "fakedf=Filesystem $HOME\n/dev/x 10")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("POSITIVE CONTROL PASSED", result.stdout)
+
     def test_negative_on_the_chdir_directive_reaches_the_run(self):
         """A perturbed working-directory directive must move the start directory. Before 1.5.1
         the directives were read from the unperturbed script, so this guard never fired."""
