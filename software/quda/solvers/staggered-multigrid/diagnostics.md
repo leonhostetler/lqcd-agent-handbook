@@ -109,7 +109,10 @@ tool together. A field the tool reports `unavailable` is missing data, never a z
   `2` in a three-level one and `4` in a five-level one. Reading a fixed `MG level 3` prefix
   silently returns nothing at three levels and the wrong level at five. `eval_max` is the
   maximum printed real eigenvalue and `coarsest_res_max` is the maximum printed `Residual`
-  over the same delivered prefix. Count the `Eval[...]` lines
+  over the same delivered prefix; it is measured on the unfiltered operator and is not
+  comparable with `deflate_tol`, which TRLM tests on the filtered one when
+  `deflate_use_poly_acc` is on
+  ([`../eigensolver.md`](../eigensolver.md)). Count the `Eval[...]` lines
   and compare that count with the requested coarsest deflation count — `nvec 3` in a
   four-level MILC parameter file, `nvec 2` in a three-level one, `nvec 4` in a five-level
   one — and the event's
@@ -244,6 +247,29 @@ regenerated in one of them.
    direction, then regenerate any cached near-null vectors.
 
 Do not begin by tuning the coarsest polynomial when the level-1 setup is already capped.
+
+## Negative `<r,r>` lines under `dagger_approximation`
+
+With `dagger_approximation true`, a four-level hierarchy's level-2 near-null generation can print
+CG lines whose `<r,r>` is negative. The key selects an approximate dagger for the Kähler-Dirac
+block inverse that preconditions the operator those levels are built from `[source]` at QUDA
+`00c7ef33d` (`include/quda.h:838-839`, `lib/multigrid.cpp:467-468`). That the negative norms
+come from the resulting operator losing positive-definiteness inside that CG is `[inferred]`,
+not traced.
+
+At one build, one hierarchy and one placement on one ensemble `[reproduced]`, three runs with
+the signature against many without:
+
+- the count depends on the **mass**: nonzero at one of seven, zero at the rest;
+- on the **gauge configuration**: zero on two of three gauge configurations at that mass;
+- and on the **job**: the same parameter file on the same gauge configuration gave counts about a
+  quarter apart in two jobs; and
+- every outer solve still converged to its request, with the true residual checked.
+
+**Actionable consequence.** Count the lines per setup from the raw log, since no summary line
+carries them, and record the count per mass, gauge configuration and job. Do not carry a count from
+one run to another or judge it against a fixed line threshold; decide health on the outer
+solve's convergence and true residual. A clean count at one build says nothing about another.
 
 ## Too few TRLM restarts
 

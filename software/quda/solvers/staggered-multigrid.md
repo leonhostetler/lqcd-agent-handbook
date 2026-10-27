@@ -40,6 +40,16 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L1466-L1470
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/vector_io.cpp#L86-L133
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/eigensolve_quda.cpp#L256-L265
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/milc_interface_internal.hpp#L270-L291
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L52-L84
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L367-L379
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L498
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L540-L548
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L670-L693
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/invert_quda.h#L780-L822
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/invert_quda.h#L641
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/solver.cpp#L80-L155
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/solver.cpp#L262-L282
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c#L619-L664
   - https://github.com/milc-qcd/milc_qcd/commit/db6adc7d7bdc58910b58ff6fbca10e055a86c216
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/ks_spectrum/setup.c#L559-L577
@@ -204,7 +214,26 @@ one thing:
   inverse **while the old one and its sloppy copy are still held**, recreates the smoothers and
   coarse solvers, and re-runs `MG::verify` if enabled. It never regenerates near-null vectors:
   the MILC interface hard-codes `setup_maxiter_refresh` to zero, so the refresh branch is dead.
-  What a full update does with a resident coarsest eigenspace is not characterised here.
+  What it does with a resident coarsest eigenspace depends on the coarsest solver; see below.
+
+**A full update keeps the coarsest eigenspace only when the coarsest solver is not a
+normal-equation wrapper.** `[source]` at QUDA `00c7ef33d`. The MILC interface sets
+`preserve_deflation` true unconditionally (`milc_interface_internal.cpp:498`). On a full update
+`MG::reset` destroys the coarse solver, extracting its deflation space first when
+`deflationSpaceSize()` is nonzero (`multigrid.cpp:540-548`), and the rebuilt solver takes it back
+and recomputes only the eigenvalues in a one-iteration dummy solve (`:670-693`). That size query
+is not virtual: it reads the outer solver object's own vector list (`invert_quda.h:641`). `gcr`,
+`ca-gcr`, `cacg` and `bicgstab-l` are direct solvers and preserve the space. `cgnr`, `ca-cgnr` and
+`cg3nr` are all built as one wrapper that holds an inner solver (`solver.cpp:86-88`, `:153-155`;
+`invert_quda.h:822`), so the query returns zero, nothing is extracted, and the rebuilt solver's
+dummy solve reconstructs the space (`solver.cpp:262-282`): it reloads the coarsest
+`mg_vec_infile` when one is named and otherwise **reruns the whole coarsest eigensolve**. The
+`cgne` forms are built the same way and are affected by the same construction. `[observed]` once
+for `cgnr` with a vector file: the file was read again inside the full update, with no
+extract or transfer line in the log; the no-file rerun is read from source. **Actionable
+consequence:** with a normal-equation coarsest solver, price every full update as a coarsest
+reload or a fresh eigensolve, and prefer a thin-update policy, or a direct coarsest solver, where
+full updates recur.
 
 **The full update's KD rebuild is a memory transient in the steady-solve phase**, sized in
 [`staggered-memory.md`](staggered-memory.md); it has been observed to be the allocation that fails
@@ -588,6 +617,17 @@ taken with it off — the same warm-state discipline as a tunecache change — s
 across any pair being compared. Pricing is in
 [`staggered-memory.md`](staggered-memory.md).
 
+### A misspelled solver name is not rejected when the file is read
+
+`[source]` at QUDA `00c7ef33d`. The MILC-interface parser maps `setup_inv`, `coarse_solver` and
+`smoother` names through one lookup (`milc_interface_internal.cpp:52-84`) whose final branch
+returns `QUDA_INVALID_INVERTER` for any string it does not know, with no message
+(`milc_interface_internal.hpp:270-291`). A misspelled name therefore leaves the parse silently;
+what the setup then does with an invalid type is not established here. **Actionable
+consequence:** check every solver name against the accepted list in that lookup before a run,
+and confirm from QUDA's per-level solver report in the log that each level runs the solver
+the file names.
+
 ### A CA coarse solver's `maxiter` and basis size jointly select its execution mode
 
 `coarse_solver_maxiter` and `coarse_solver_ca_basis_size` are not independent knobs. For a
@@ -616,6 +656,13 @@ lower bound hard-coded to zero. A single parameter-file line therefore changes t
 type, and a solver-name change alone can silently change it too. QUDA emits an
 approximate-lambda-max line only on the Chebyshev branch, so the **absence** of that line
 is how to confirm the power branch actually executed.
+
+**The smoother has the same switch on a different key.** `[source]` at QUDA `00c7ef33d`: a
+`ca-gcr` smoother gets a power basis only while both `nu_pre` and `nu_post` are at most `8`,
+and a Chebyshev basis with its lower bound fixed at zero otherwise
+(`milc_interface_internal.cpp:367-379`). Raising one level's `nu_pre` or `nu_post` past `8`
+therefore changes the smoother's basis as well as its sweep count, which is not visible in a
+parameter-file diff; attribute such a change to the pair.
 
 **Actionable consequence.** When configuring or diagnosing a CA coarse solver, record
 `Nkrylov` and `maxiter` together and state which mode they select. Do not judge a terminal

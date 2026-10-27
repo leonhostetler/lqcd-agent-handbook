@@ -27,6 +27,12 @@ sources:
   - operator's screened tuning records
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L186
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L205-L226
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/eig_trlm.cpp#L128
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/eig_trlm.cpp#L209
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/eig_block_trlm.cpp#L158
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/eig_block_trlm.cpp#L285
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/eigensolve_quda.cpp#L600-L640
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/eigensolve_quda.cpp#L273-L280
 observed: "2026-10-07"
 observed_on:
   software:
@@ -167,6 +173,16 @@ ordering, not a changed user request. TRLM, BlockTRLM, and TRLM3D may negate the
 problems for this ordering, but must restore Ritz-value signs before values cross the solver
 boundary. The common final check applies the original operator to recompute eigenvalues and
 residuals; use those results when deciding whether the requested spectrum was returned.
+
+**The convergence tolerance and the printed residual measure different operators.** `[source]`
+at QUDA `00c7ef33d`, when polynomial acceleration is on: TRLM and block TRLM run their Lanczos
+steps through the filtered operator (`eig_trlm.cpp:209`, `eig_block_trlm.cpp:285`; with
+`use_poly_acc` off the same call is the bare operator, `eigensolve_quda.cpp:273-280`) and
+lock or converge a vector when its Ritz residual estimate there falls below `tol` (`eig_trlm.cpp:128`, `eig_block_trlm.cpp:158`).
+The final `Eval[...] ... Residual =` lines come from re-applying the unfiltered operator
+(`eigensolve_quda.cpp:600-640`). So a printed residual above `tol` on a converged run is not a
+failure, and a residual band compared across runs is only meaningful at matched filter
+parameters.
 
 ## A run that does not converge yields no spectrum at all
 
