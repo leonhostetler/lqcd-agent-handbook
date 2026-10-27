@@ -195,6 +195,19 @@ and tens wide near `3400`. An observable that repeats exactly in a tight regime 
 in a looser one, so a determinism check belongs at the operating point being used, not at a
 convenient one.
 
+**Determinism inside one job is not determinism across jobs, and it can hold at one stage of a
+computation while failing at the next.** In one four-level staggered-multigrid case, a parameter
+file whose setup regenerated identically between repeats inside one job was run again in a
+second job on the same gauge configuration, build and placement, with a different allocation
+and a different warm tunecache. Its first level of near-null vectors matched to the
+quarter-iteration at every mass compared; the next level did not. Coarsest calls per outer
+iteration, the coarsest eigensolve's spectrum and restart count, and a diagnostic line count
+all moved, and the recurring solve cost moved with them, by over ten percent at one mass. So a
+cross-job time difference at fixed inputs is not a pure allocation measurement: compare the
+deterministic observables stage by stage first, and establish determinism across jobs with a
+repeat across jobs. `[observed]` once, one pair of jobs at six masses; mechanism not
+isolated, with reduction order under different autotuned launch parameters the candidate.
+
 ## Compare two implementations on a ladder, not a threshold
 
 When two implementations of the same mathematical solve disagree, the question is whether

@@ -34,6 +34,11 @@ Before preparing, submitting, or analyzing a measured series:
    parameters, input and output definitions, warm-state contract, metrics, repetition plan, and
    correctness checks. Record them in the working directory before observing the measured
    results.
+   Freeze every exclusion or congestion rule with the observable it acts on and its threshold,
+   **per solver class** when the series compares more than one: a rule frozen without its
+   observable has to be completed after the data exist, and the exclusion it makes is then
+   post hoc. Prefer a per-iteration observable to a per-solve one, so that a difference in
+   iteration count is not read as a slow allocation.
 6. Write a prediction record before the first allocation-consuming run. Predict the quantities
    that matter to the decision, including elapsed time, node- or GPU-hours, device and host
    memory, iterations, and relevant component costs, with metric-appropriate tolerances or
