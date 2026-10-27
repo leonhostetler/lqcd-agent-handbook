@@ -385,9 +385,10 @@ inventory does not carry.
 `[experiment]` **The observation that motivates it, at the calibration ensemble, and what the
 field does and does not reproduce.** One four-level run at a placement outside the fitted
 envelope, with `verify_results` on and one node sampled, showed a phase-A plateau
-**over**-predicted by at least twelve percent, and then kept climbing: through level-2
-generation, through the level-3 build and eigensolve, to a peak with the whole hierarchy
-resident some `7.7` GB above its phase-A plateau, before the first solve's full update failed a
+**over**-predicted by about a third and a phase-B plateau within about one percent of its
+prediction, and then kept climbing: through level-2 generation, through the level-3 build
+and eigensolve, to a peak with the whole hierarchy resident some `7.7` GB above its phase-B
+plateau, before the first solve's full update failed a
 further allocation. The model had named phase A the winner. **At that placement the reported D
 sits well below the model's phase A**, so the inventory alone would not have flagged the run:
 what climbed was the pool's retained footprint, fed by allocations the inventory does not hold
@@ -411,9 +412,12 @@ right-hand side at a batch width of `16` when `nvec` divides by `16`
 ([`../internals/staggered-mg-setup-allocation.md`](../internals/staggered-mg-setup-allocation.md)):
 at a fine local volume of order a million sites that is about `4.4` GB at level 1 and a fraction
 of a gigabyte at level 2, against a fitted `setup_ws` term of order five times that for the same
-candidate. `[experiment]` In the run above, the device grew about `12` GB from the post-link
-plateau to the level-1 plateau, of which the level-1 near-null set, the setup solver, the KD
-inverse and its copy account for roughly three quarters before pool rounding. **Recorded as a
+candidate. `[experiment]` In the run above, the device grew about `5.7` GB from the post-link
+plateau to the end of level-1 generation (phase A) and about `12` GB to the end of the level-1
+coarse-operator construction (phase B), of which the level-1 near-null set, the setup solver,
+the KD inverse and its copy account for roughly three quarters before pool rounding. At
+matched phase a loading run of the same hierarchy held about `4.9` GB less in phase B, close to
+the source-exact workspace above. **Recorded as a
 scoped observation, not a refit**, under the same rule as phase D. Two consequences travel: the
 source-exact workspace bounds what the fitted term can legitimately absorb, and **a loading
 run saves at most that workspace and probably less**, because the blocks it frees are the sizes

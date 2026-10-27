@@ -159,7 +159,8 @@ compare iteration counts or nominal FLOP rates across CG and GCR-MG as though th
 represented equal work.
 
 **Count timer lines per delivered propagator, not per line.** MILC's `inv_type CG` and
-`UML` emit two `CONGRAD5` lines per propagator, one per parity, while `inv_type MG` emits one, so a
+`UML` emit two `CONGRAD5` lines per right-hand side, one per parity, while `inv_type MG` emits
+one, and a propagator from a three-colour source is three right-hand sides; so a
 comparison built per line understates CG by about a factor of two and silently favours
 multigrid. See
 [`MILC staggered inverter types`](../../milc/internals/staggered-inverter-types.md).

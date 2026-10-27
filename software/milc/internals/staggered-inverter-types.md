@@ -241,7 +241,8 @@ and block calls. Also record:
 - source parity and whether a zero-source parity reported zero iterations;
 - initial-propagator use and any forced `single`/`CG` substitution;
 - MG rebuild choice and whether the UML fallback ran;
-- **how many `CONGRAD5` timer lines the inverter emitted per delivered propagator**; and
+- **how many `CONGRAD5` timer lines the inverter emitted per right-hand side, and how many
+  right-hand sides each delivered propagator carried**; and
 - backend, precision, convergence, residuals, and elapsed time.
 
 ### The timer-line count differs by inverter type, and a comparison built per line is wrong
@@ -249,7 +250,7 @@ and block calls. Also record:
 The parity structure above has a measurement consequence that the algorithm description
 alone does not make obvious:
 
-> **`inv_type CG` and `UML` emit TWO `CONGRAD5` timer lines per delivered propagator — one
+> **`inv_type CG` and `UML` emit TWO `CONGRAD5` timer lines per right-hand side — one
 > per parity, with unequal iteration counts — while `inv_type MG` emits ONE.** A CG-versus-MG
 > comparison built per timer line therefore mis-states the ratio by about a factor of two,
 > in multigrid's favour. **Build the comparison per delivered propagator**, attributing and
@@ -266,6 +267,17 @@ have to be zero.
 The failure mode is quiet, which is why it belongs here: a benchmarker who divides by timer
 lines does not get an obviously wrong answer, but a plausible one that flatters multigrid
 by roughly `2x`.
+
+**A propagator is not one right-hand side.** `solve_ksprop` inverts each source colour
+separately: `num_src = num_prop*nc`; a `single` set calls `mat_invert_field` once per colour and
+mass, and a `multimass` set calls the multi-mass inverter once per colour
+(`ks_spectrum/make_prop.c:88-89`, `:278-290`, `:301-303` at `6b9b8a06`). A three-colour source,
+point or KS wall, therefore gives `MG` three `CONGRAD5` lines per propagator and `CG` or `UML`
+six. `[observed]` both ways: six wall-source propagators gave eighteen `MG` lines, and two
+three-colour point sources gave six `MG` and twelve `UML` lines per mass. Group lines by the
+set's `Mass= ... source` header rather than by counting them. Batched sets (`multisource`,
+`multicolorsource`) put several right-hand sides into one call and print `srcs = <n>`; their
+per-line count is not covered here.
 
 This source-backed page deliberately makes no universal speed ranking among the
 four choices.
