@@ -7858,3 +7858,32 @@ every argument": *confirmed*. Searched for `preserve_deflation`, `deflate_tol`, 
 directories) and X.20 (a `PMI_process_mapping` length check for rank-order files, which must reproduce the
 communication-defects leaf's two-node points before it is trusted). The 216-node encoded lengths the campaign
 computed by hand stay out until such a tool reproduces them.
+
+## 2026-10-27 — A whole CG job ran 20–30 times slow on nodes the site then drained for failed GPU resets
+
+`machines/horizon/incidents/` gains its first entry, and `machines/horizon/performance.md` points to it. Evidence:
+three jobs in an operator debugging rig on
+`gpu-gb200`, read from their outputs, per-node GPU clock telemetry and the site's drain records. In the first,
+27 nodes, every finished staggered CG solve ran 20–30 times slower than at the same placement elsewhere, with GPUs at
+1–4 % utilisation and full clock on every host and host-only phases at normal speed; `sinfo -R` then gave five of its
+nodes `TACC: GPUs failed to reset`, set 63–72 s after the job ended. Nothing in the job's output mentioned a fault.
+The second changed only the per-node clock sampler (none, every node at 2 s and 10 s, batch node only) on other nodes
+and found no effect beyond a 0.2–0.3 % noise floor, clearing the sampler, which had first been blamed. The third
+reran the first excluding the five nodes and ran within 5 % of the reference speed. The mechanism (stalled ranks
+holding every rank at each iteration's global reduction) is inferred; the fault's nature and onset are unknown.
+`evidence: observed`, so an incident, not a rule. The operator cleared this fact class for publication on
+2026-10-27 ("let's add the incident"). Job identifiers, node names, the account and the lattices are left out.
+
+**Reconciliation.** `machines/horizon/notes.md` "A lost node ends the whole job": *confirmed*, unaffected; it
+concerns a node that stops responding and cancels the job, and here no node was lost and the job completed.
+`machines/horizon/performance.md` "Locating a drop": *amended*; a first sentence sends a many-times-slow job with
+idle GPUs everywhere to the drain record before the probe ladder, and the ladder itself is unchanged. `conventions/batch-scripts.md` "It
+samples one node" ("all-node sampling … has never been done successfully here", "treat it as untested"): *not
+amended*. The incident reports one in-step per-node sampler that ran and, in one one-variable test, cost nothing
+measurable; it prescribes nothing, and amending that section is a separate fact class. The same leaf's step-limit
+paragraph and the Perlmutter launcher incident: *confirmed*, unaffected; here every leg's `timeout` returned.
+`conventions/diagnostic-rigs.md` "Instrumentation that adds work inside the window of interest can mask the fault"
+and `modes/debugging.md`'s detector item: *confirmed*; the sampler was suspected for that reason and cleared by a
+controlled test. `conventions/agent-sandbox.md` on `sinfo` run bare: *confirmed*; the incident's command is bare.
+`conventions/running.md`: no statement about drain records or site node health; searched for `drain`, `sinfo`,
+`reset`, `slow`, `idle`, `full clock` and `nvidia-smi` across `machines/horizon/`, `conventions/` and `modes/`.

@@ -48,7 +48,10 @@ build options are read there, never here. The probe is defined in
   same lattice and placement, on this stack or a later one. They keep only solves long enough to
   measure throughput; solves of a hundred or so iterations swung between 2,700 and 7,800 GFLOP/s
   across identical calls and are left out. Each row's workload says which.
-- **Locating a drop.** Re-run the probe and read its legs as the probe page describes: slower on
+- **Locating a drop.** A multi-node job many times slower than its row, with GPUs nearly idle at
+  full clock on every node, may be paced by a failing node: read the site's drain record for its
+  nodes as soon as it ends ([incident](incidents/2026-10-26-whole-job-slow-on-failed-reset-nodes.md)).
+  Otherwise re-run the probe and read its legs as the probe page describes: slower on
   one GPU points at the device or board; one GPU fine but one board slow, at on-board links or
   binding; one board fine but two or four slow, at the network or the MPI transport.
 
