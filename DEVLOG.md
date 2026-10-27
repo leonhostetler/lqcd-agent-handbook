@@ -7887,3 +7887,41 @@ and `modes/debugging.md`'s detector item: *confirmed*; the sampler was suspected
 controlled test. `conventions/agent-sandbox.md` on `sinfo` run bare: *confirmed*; the incident's command is bare.
 `conventions/running.md`: no statement about drain records or site node health; searched for `drain`, `sinfo`,
 `reset`, `slow`, `idle`, `full clock` and `nvidia-smi` across `machines/horizon/`, `conventions/` and `modes/`.
+
+## 2026-10-27 — Nsight Systems: tracing MPI on only some ranks deadlocks QMP start-up on Horizon
+
+`machines/horizon/notes.md` gains a paragraph in its Nsight Systems section. Evidence: two operator jobs on
+`gpu-gb200`, read from their outputs, in-job stall stacks of the traced ranks and the SQLite exports of their reports.
+The first traced 8 of 108 ranks on 27 boards and stalled. The second, on two boards, moved one variable per leg: every
+leg tracing a subset with `-t mpi` stalled in QMP's first `MPI_Comm_split`, and every leg tracing all ranks, or the
+subset without `-t mpi`, started and ran. `evidence: reproduced ×2`; the mechanism stays labelled inferred. Captured
+during ordinary use, not mined, so no class decision is needed; job identifiers, node names, the account and the
+tracing-cost figures are left out. Scoped to Horizon, not to `conventions/profile-capture.md`, because no other MPI
+library or machine was tried.
+
+**Reconciliation.** `conventions/profile-capture.md`, the Nsight Systems recipe and its `-t mpi` + `--mpi-impl` row:
+*confirmed*, not amended; the recipe wraps every rank (one output per rank) and describes no partial trace.
+`machines/horizon/notes.md` "Nsight Systems needs XALT unloaded": *confirmed*; its four-rank `mpi` trace traced every
+rank. `conventions/profile-capture.md` "A profiler's exit status is not a completion signal": *confirmed*; the new
+start-up gate concerns a launch that never exits, which that section does not cover. Searched for `-t mpi`,
+`mpi-impl`, `subset`, `every rank`, `traced ranks` and `untraced` across `conventions/`, `machines/`, `software/`,
+`playbooks/` and `modes/`.
+
+## 2026-10-27 — Dry run on a GPU-less login node: present the driver's libraries for an `ldd` guard
+
+`conventions/batch-scripts.md` step 9 extends its `module reset` / `--module-env` sentence. Evidence: one operator
+job's dry run on a Horizon login node. Its batch script refuses to launch when `ldd` reports `not found`, and the
+positive control failed on `libcuda.so.1` and `libnvidia-ml.so.1`, which only the driver installs. Linking the CUDA
+toolkit's stubs under those names in a directory outside the job and appending it to `--module-env`'s library path
+let the positive control pass with the guard unchanged, and every negative still fired. `[observed]` once; the rule
+rests on where the driver installs its libraries, so it is written as an inference. The receipt was checked and
+records no harness option, which is why the leaf says to record the stub directory with the job.
+
+**Reconciliation.** `conventions/batch-scripts.md` "A stub also changes what the real command changes": *amended*
+by extension. The same leaf's "Two things the harness passes through untouched": *confirmed*; the appended directory
+is a real path outside the job copy, so verbatim pass-through is what is wanted. The Horizon 2026q3 MILC stack notes
+(no driver `libcuda` on the login node; the proofread tool links the toolkit's stubs): *confirmed*, the same mechanism
+at build and proofread time. `software/milc/quda-linkage.md` item 2 (check before launch that `ldd` resolves
+`libquda.so`) and `machines/horizon/notes.md`'s HPC-X `ldd` check: *confirmed*; they are the guards this keeps
+intact. Searched for `module-env`, `libcuda`, `ldd`, `driver` and `stubs/` across `conventions/`, `machines/horizon/`,
+`software/milc/`, `software/quda/` and `playbooks/`.

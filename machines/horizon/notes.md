@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, srun and ibrun rank placement on a four-GPU board, CUDA-aware MPI, concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, srun and ibrun rank placement on a four-GPU board, CUDA-aware MPI, concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -24,7 +24,9 @@ sources:
   - operator-submitted jobs cancelled by node failures, and in-job df -T records of node-local /tmp, 2026-10-15, reviewed in the working directory
   - Horizon login-node module, package and file-mode checks of cmake, and a gpu-gb200 build job's preflight, 2026-10-21
   - operator-submitted Grid, Hadrons and HadronsMILC build and validation jobs on gpu-gb200 nodes, with in-job numactl -H, ompi_info, ucx_info -d and placement probes and their scheduler records, 2026-10-22 and 2026-10-23, reviewed in the working directory
-observed: "2026-10-23"
+  - operator-submitted Nsight Systems start-up test and profile jobs on gpu-gb200 nodes, with in-job stall stacks and SQLite exports, 2026-10-27, reviewed in the working directory
+  - QMP source, QMP_init.c, QMP_split.c and QMP_topology.c, at the revision QUDA pins for the 2026q4 stacks
+observed: "2026-10-27"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -277,6 +279,27 @@ OK either way, so it does not predict the failure. A missing `TMPDIR` fails with
 message, `temp_directory_path: Not a directory` (`[observed]` on a login node). Validate a
 capture by its `.nsys-rep` files, never by `nsys`'s exit status:
 [`../../conventions/profile-capture.md`](../../conventions/profile-capture.md) owns that rule.
+
+**Trace every rank, or leave `mpi` out of a partial trace.** With Open MPI 5.0.11 under
+`ibrun`, `nsys profile` (2026.4.1) run with `-t mpi --mpi-impl=openmpi` on some ranks of a MILC
+and QUDA job, and not on the others, deadlocks the whole job in QMP's start-up,
+`QMP_init_msg_passing`. `MPI_Init`, QMP's duplicate of the world communicator, its first barrier
+and its first allreduces all complete. The traced rank then waits forever in Open MPI's
+communicator-context agreement, inside QMP's first `MPI_Comm_split`. Tracing every rank starts
+and runs, and so does tracing the same subset without `-t mpi`. Process-tree context-switch
+tracing, a launch wrapper and the node count (two boards or 27) made no difference.
+`[reproduced ×2]`, 2026-10-27: one job tracing 8 of 108 ranks on 27 boards, and one tracing 2
+of 8 ranks on two boards with one variable moved per leg. The mechanism is `[inferred]`. The
+traced rank's report stores the split communicators with cross-rank fields and the duplicate
+without them, which suggests the MPI wrapper does cross-rank work at a split that untraced ranks
+never join; that exchange was not observed. Other MPI libraries, Nsight Systems versions and
+applications are untested.
+
+Two consequences hold whatever the mechanism. **A traced launch can stall silently at start-up
+and spend its whole time limit**, so gate a profiled leg on the application's first start-up
+marker, not on its exit. And **Nsight Systems records an MPI call only when it returns**, so a
+call that hangs is absent from the report; read the hang from the sampled call stack instead,
+here `opal_progress` under `ompi_request_default_wait`.
 
 ## UCX devices, and the HPC-X alternative
 
