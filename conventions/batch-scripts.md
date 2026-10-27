@@ -751,7 +751,17 @@ the job.
   guard written either way can be made to fire. A stub also changes what
   the real command changes: `module reset` rebuilds the job shell's library path, so a script
   that runs a real library check after it needs the site's values supplied at the reset
-  (`--module-env`), not before it (`--env`).
+  (`--module-env`), not before it (`--env`). **On a login node without the accelerator driver
+  those values are not enough for an `ldd` guard.** The driver's own libraries — for CUDA,
+  `libcuda.so.1` and `libnvidia-ml.so.1` — exist only where the driver is installed, so a
+  guard that refuses to launch on `ldd`'s `not found` stops the positive control on a correct
+  script. Present what the compute node provides: link the toolkit's stub libraries under the
+  driver's names in a directory outside the job copy, and append that directory to the library
+  path given at the reset. Never weaken the guard to get past the dry run. The receipt does not
+  record the harness's options, so write the stub directory into the job's own check record,
+  where a later session repeating the dry run will look for it. `[inferred]` from where the
+  driver installs its libraries, and `[observed]` once, 2026-10-27, with a QUDA-linked MILC
+  executable on a GPU-less login node.
 - **Make sure the stubs win.** A shell startup file or an exported shell function can put the
   real command back ahead of them; run with an empty environment, or the run silently tests
   nothing. A command invoked by absolute path bypasses every stub, and a program the script runs
