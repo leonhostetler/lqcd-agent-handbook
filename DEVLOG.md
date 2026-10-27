@@ -7748,3 +7748,113 @@ rule: *confirmed*, unchanged. `conventions/scheduler-surfaces.yaml` `launcher_ti
 *confirmed*, it names the option and claims nothing about its effect. `conventions/diagnostic-rigs.md`,
 `conventions/running.md`, `machines/perlmutter/notes.md` and `machine.yaml`: no statement about step limits
 or launcher hangs; searched for `time limit`, `step limit`, `launcher_time_limit`, `--time` and `hang`.
+
+## 2026-10-27 — One staggered-MG campaign's staged feedback, first batch: negative tests, determinism, exclusion rules, the dagger signature, timer lines per right-hand side
+
+Seven candidates staged in an operator campaign's working directory (0.04 fm, Perlmutter `gpu-a100-40`, QUDA
+`00c7ef33d`, MILC `6b9b8a06`), admitted after a coverage check against the current tree. No ensemble timing, node
+count, job identifier or path travels; the figures kept are counts and ratios that carry the mechanism.
+
+- **Dry-run harness 1.7.0** refuses a `--negative` perturbation that leaves a shell script unparsable by `bash -n`,
+  as 1.6.0 already refused a no-op. In the campaign a `sed` replacement using `\&` turned a launcher into a syntax
+  error and 1.6.0 recorded "NEGATIVE TEST PASSED: the guard fired"; reproduced on 1.6.0 by the new test
+  `test_syntax_breaking_perturbation_is_refused`, which fails there and passes on 1.7.0. Only shell scripts are
+  checked (the launched script, a `.sh`/`.bash`/`.sbatch`/`.pbs` suffix, or a shell shebang), and only when the
+  file parsed before the perturbation.
+- **`conventions/batch-scripts.md` step 9** gains three negative-test rules: name the guard's message rather than
+  trusting a non-zero exit; perturb what a guard measures, never a constant it shares with the measurement (a
+  write-probe "tested" by changing its byte count moved both sides); and a stubbed precondition must cross the
+  guard's own threshold (twice, a free-space stub above the launcher's minimum exercised nothing).
+- **`conventions/measurement.md`**: within-job determinism is not cross-job determinism. Same file, configuration,
+  build and placement in two jobs: level-1 near-null iterations identical at six masses; level-2 and coarsest
+  observables moved (coarsest calls per outer, `eval_max`, restarts, the dagger-line count), recurring cost by over
+  ten percent at one mass. `observed` once.
+- **`modes/benchmarking.md` step 5**: freeze an exclusion or congestion rule with its observable and threshold, per
+  solver class. The campaign's benchmark froze a 1.25x congestion rule; the CG study named seconds per iteration,
+  the MG study named nothing, the three candidate MG observables flagged one, three and five cells, and the
+  operator declined to apply the rule after the data existed. CG per-iteration cost agreed within five percent
+  across three allocations where MG per-outer cost spread twenty-five, so one observable would not serve both.
+- **`staggered-multigrid/diagnostics.md`**: a section on negative `<r,r>` lines under `dagger_approximation`. The
+  source half (the key selects an approximate dagger for the KD block inverse) read at `00c7ef33d`; the link to the
+  negative norms is inferred. Counts: nonzero at one of seven masses, on one of three configurations there, and
+  differing between two jobs on the same file; every outer solve converged.
+- **`staggered-inverter-types.md` and `staggered-solver-selection.md`**: the CG two-lines / MG one-line rule is per
+  right-hand side, not per propagator, because `solve_ksprop` inverts each source colour separately. Read at
+  `6b9b8a06`; observed with six three-colour wall sources (eighteen MG lines) and with point sources (six MG,
+  twelve UML lines per mass for two propagators). Batched sets are left uncovered.
+
+**Reconciliation.** `batch-scripts.md` step 9 "Negative test, one guard at a time" and "A perturbation that changed
+nothing is not a test": *confirmed*, the new sentences extend them; its harness paragraph ("a refused no-op
+perturbation"): *confirmed*. `dry-run-batch-script.py` docstring run-kind list: *amended* for the new refusal; its
+verdict text "the guard fired (non-zero)": *unchanged*, now reached only by a parsable perturbation. `measurement.md`
+"A deterministic-looking observable is not a determinism claim", "Establish the machine's single-measurement
+resolution before ranking on time" and "Prefer deterministic observables": *confirmed*, the new paragraph narrows what a within-job
+repeat establishes. `benchmarking.md` step 5 and Measurement-method item 6 ("Do not drop a slow run without a
+recorded, evidence-backed exclusion reason"): *confirmed*. `running.md`: no statement about congestion or exclusion
+rules. `diagnostics.md`, `staggered-multigrid.md`, `tuning.md`, `hierarchy-and-setup.md`, `coarse-deflation.md`:
+no statement about `dagger_approximation` or negative norms; the Horizon linked-MG stack records
+`dagger_approximation true` as an input, *unaffected*. `staggered-inverter-types.md` record item "how many `CONGRAD5`
+timer lines ... per delivered propagator": *amended*; its quoted rule: *amended* to per right-hand side; "Build the
+comparison per delivered propagator": *confirmed*. `staggered-solver-selection.md` "Count timer lines per delivered
+propagator": *amended*. `ks-spectrum.md` "`srcs = <n>` on every `CONGRAD5` line" from `d17e9559`: *confirmed*,
+unaffected. `extract-milc-timings.py`, `quda-mg-observables.py`: count lines, claim no per-propagator rule,
+*unaffected*. Searched `conventions/`, `software/`, `machines/`, `playbooks/`, `modes/`, `tools/` and `tests/` for
+`dagger`, `deterministic`, `congest`, `CONGRAD5` and the step-9 negative-test wording.
+
+**Not admitted from the same staging file, and why.** Coarsest-volume ordering at a second ensemble (one
+confounded observation, ensemble timings undecided); `setup_tol 2` sign change across masses (one draw per mass,
+ensemble timings undecided); the cold-cache fattening out-of-memory (superseded in the campaign by a QUDA
+pool-regression diagnosis whose bisection is still running — restage from that); the `rebuild_type` MILC to-do
+and the tunecache timestamp timeline (already landed); a phase-A memory geometry term (blocked on evidence).
+Deferred to a second batch, each needing a source re-read or a figure check first: the staggered-memory phase-D
+relabel, three MILC-interface parameter facts, the 216-node rank-order encoding length, the `preserve_deflation`
+no-op under `cgnr`-family coarsest solvers, and two dry-run harness model gaps.
+
+## 2026-10-27 — The same campaign's staged feedback, second batch: coarse-solver parsing and preservation, the eigensolver tolerance, a memory relabel, stub text
+
+Six candidates from the same staging file, each re-read at its source before drafting (QUDA `00c7ef33d`; the
+campaign's own records for the memory figures).
+
+- **`staggered-multigrid.md`, full update and the coarsest eigenspace.** Replaces "not characterised here".
+  `preserve_deflation` is forced true by the MILC interface; the extract on teardown keys on a non-virtual size
+  query that reads the outer solver's own list; `cgnr`, `ca-cgnr` and `cg3nr` are one wrapper class holding an
+  inner solver, so nothing is extracted and the rebuilt solver reloads the coarsest file or reruns the eigensolve.
+  Source-read, plus one observed reload inside a full update with no extract or transfer line (a `cgnr`-coarsest
+  run on a 0.09 fm test bed); the `cgne` forms by the same construction, not observed.
+- **`staggered-multigrid.md`, solver names.** `setup_inv`, `coarse_solver` and `smoother` share one lookup whose
+  fallthrough returns `QUDA_INVALID_INVERTER` silently. What the setup then does with it was not read.
+- **`staggered-multigrid.md`, smoother basis.** A `ca-gcr` smoother's basis switches power to Chebyshev (lower
+  bound zero) when `nu_pre` or `nu_post` exceeds `8`, the smoother-side twin of the coarse-solver rule already on
+  the page.
+- **`eigensolver.md` and the diagnostics contract.** TRLM and block TRLM test `tol` against the Ritz estimate of the
+  filtered operator; the printed `Residual` re-applies the unfiltered one, so `coarsest_res_max` is not comparable
+  with `deflate_tol`.
+- **`staggered-memory.md`, a correction.** The calibration-ensemble run the leaf cites had its plateaus
+  mis-attributed by one phase: re-timed from tunecache timestamps and saved-vector mtimes, the plateau called
+  phase A was the level-1 coarse-operator construction (phase B). Phase A over-predicted by about a third (was
+  "at least twelve percent"), phase B within about one percent, post-link to phase A about `5.7` GB; the
+  `7.7` GB and `12` GB figures stand, now attached to phase B. A matched-phase loading run held about `4.9` GB
+  less, supporting the leaf's workspace bound. Memory figures of this class were cleared for publication on
+  2026-09-25.
+- **Dry-run harness 1.7.1.** `--stub` text went through `json.dumps` into a double-quoted bash string, so newlines
+  printed as a literal backslash-n and `$` and backticks expanded; now `shlex.quote`. The new test fails on 1.7.0
+  and passes on 1.7.1.
+
+**Reconciliation.** `staggered-multigrid.md` "Reuse, updates, and cleanup" full-update bullet: *amended* (its
+last sentence pointed at the gap now filled); its thin/full mechanism, the KD-rebuild transient and the set-type
+paragraphs: *confirmed*. Its CA coarse-solver section and "A second, related trap in the MILC interface":
+*confirmed*, the smoother paragraph sits beside them. `staggered-deflated-cg.md` `preserve_deflation` statements:
+*unaffected*, they concern the deflated-CG path, not an MG teardown. `device-memory-pool.md` "any deflated solve
+with `preserve_deflation` set": *unaffected*, same reason. `eigensolver.md` "The common final check applies the
+original operator": *confirmed*, the new paragraph follows it. `diagnostics.md` extraction contract
+`coarsest_res_max`: *amended* with the comparability note; `coarse-deflation.md` `coarsest_res_max` uses:
+*confirmed*, all compare printed residuals with each other. `staggered-memory.md` the two figures: *amended*; no
+other leaf, tool or test carries "twelve percent", the `7.7` GB or the `12` GB figure (searched `software/`,
+`tools/`, `conventions/`, `machines/`, `playbooks/`). `batch-scripts.md` "a `--stub` prints the same text for
+every argument": *confirmed*. Searched for `preserve_deflation`, `deflate_tol`, `Ritz`, `INVALID_INVERTER`,
+`smoother` with `basis`, and `json.dumps`.
+
+**Recorded as owed, not admitted.** `ROADMAP.md` X.19 (the harness cannot dry-run a launcher that touches sibling
+directories) and X.20 (a `PMI_process_mapping` length check for rank-order files, which must reproduce the
+communication-defects leaf's two-node points before it is trusted). The 216-node encoded lengths the campaign
+computed by hand stay out until such a tool reproduces them.
