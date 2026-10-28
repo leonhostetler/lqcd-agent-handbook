@@ -114,9 +114,11 @@ merely disagrees with the field arithmetic.
   Place it after the **last** producer of the large blocks and before the consumer that would take
   them: flushing between two producers is correct and pointless, because the second producer simply
   reuses what the first left. Two costs come with it:
-  - **It is cheap only where the producer runs rarely.** `[observed]` once, in an analysis run that
-    builds its links once per process, a flush after the build moved solve time by less than the
-    run's resolution. In gauge generation the links are rebuilt every molecular-dynamics step, so a
+  - **It is cheap only where the producer runs rarely.** `[observed]` in one analysis campaign that
+    builds its links once per process: a flush after the build moved solve time by less than a
+    matched timing check's resolution, and at production scale it let a 27-node plain-CG layout that
+    had failed with the pool on fit on three gauge configurations, with `Device memory used`
+    identical across them. In gauge generation the links are rebuilt every molecular-dynamics step, so a
     flush there makes the solver re-allocate its working set every step. Keep such a call opt-in.
   - **It needs a build-time guard.** `flushPoolQuda` first appeared in `d4257aa1e` (2025-01-02)
     with no change to QUDA's version macro, so an application cannot test for it by version. Guard
