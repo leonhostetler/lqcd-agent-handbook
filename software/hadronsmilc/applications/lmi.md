@@ -1,6 +1,6 @@
 ---
 title: HadronsMILC low-mode-improvement (LMI) application guide
-summary: How the light-quark g-2 LMI workflow is generated with pyfm and executed by HadronsMILC — the module chain, mass and residual conventions, Lanczos sizing and the Chebyshev bound, legal decompositions, the meson-field global sum (one host MPI_Allreduce of gigabytes per block), and how to check a build or a decomposition.
+summary: How the light-quark g-2 LMI workflow is generated with pyfm and executed by HadronsMILC — the module chain, mass and residual conventions, Lanczos sizing and the Chebyshev bound, legal decompositions, the meson-field global sum (one host MPI_Allreduce of gigabytes per block), the contract step's host memory and the input files' page cache, and how to check a build or a decomposition.
 scope: [software:hadronsmilc, software:pyfm, fermion:staggered]
 load_when: Generating, sizing, launching, validating or interpreting a HadronsMILC LMI job (pyfm task_type lmi or lma_new), including choosing Lanczos parameters and an MPI decomposition.
 evidence: source
@@ -12,6 +12,9 @@ sources:
   - https://github.com/Michael628/pyfm/blob/9282eac110f95e536607ac9acfee26024677cd13/pyfm/nanny/config.py#L85-L89
   - https://github.com/Michael628/pyfm/blob/9282eac110f95e536607ac9acfee26024677cd13/pyproject.toml#L60-L76
   - https://github.com/Michael628/pyfm/blob/9282eac110f95e536607ac9acfee26024677cd13/example/params_files/params_l144288.yaml
+  - https://github.com/Michael628/pyfm/blob/9282eac110f95e536607ac9acfee26024677cd13/pyfm/a2a/mesonloader.py#L135-L142
+  - https://github.com/Michael628/pyfm/blob/9282eac110f95e536607ac9acfee26024677cd13/pyfm/a2a/contractions.py#L133
+  - operator-submitted pyfm contract jobs on single gpu-gb200 boards, with in-job memory and page-cache samplers, 2026-10-27 and 2026-10-28, reviewed in the working directory
   - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/src/Modules/MAction/ImprovedStaggered.hpp#L117-L121
   - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/src/Modules/MSolver/MixedPrecisionCG.hpp#L137-L194
   - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/src/Modules/MSolver/ImplicitlyRestartedLanczos.hpp#L106-L179
@@ -20,7 +23,7 @@ sources:
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/communicator/Communicator_mpi3.cc#L333-L338
   - https://github.com/Michael628/HadronsMILC/commit/d355c8f
   - https://github.com/Michael628/HadronsMILC/commit/17a20c7
-observed: "2026-10-27"
+observed: "2026-10-28"
 observed_on:
   software:
     hadronsmilc:
@@ -142,6 +145,43 @@ this sum about 20 times slower than the alternative: see
 component and large host-buffer allreduces", before launching a meson-field job there. An MPI
 setting chosen for this step applies to every collective in the process, the Lanczos and the
 solves included.
+
+## The `contract` step holds one gamma's meson fields at twice their file size
+
+pyfm's `contract` step reads the meson fields back on the host and contracts them per gamma
+(source, pyfm `9282eac`):
+
+- `load_meson` reads a gamma's file through h5py as `complex64` and copies it into a new
+  `complex128` array (`mesonloader.py` L135–L142), so the copy is twice the file's size;
+- the meson cache is cleared once per gamma (`contractions.py` L133), so one gamma's arrays are
+  resident at a time;
+- nothing in pyfm releases a file's page cache once the file is read.
+
+A file holds `nt × N²` `complex64` values, with `N` the number of eigenmodes it holds. In
+one-rank runs of the 144³×288 workload, pyfm's peak resident memory was about **four times one
+file's size** `[reproduced ×4]`, measured as the scheduler's maximum resident size. That is more
+than one NUMA node of a Horizon board.
+
+**On Horizon, drop each meson-field file's page cache after it is read**, as
+[`../../../machines/horizon/notes.md`](../../../machines/horizon/notes.md), "Page cache left on
+one NUMA node can push a large process into swap", describes. Without it, the cache of files read
+earlier stayed on one NUMA node, and the contractions that followed ran 1.4 to 9.4 times their
+normal time `[reproduced ×3]`.
+
+- In two of those runs a prefill read the earlier files, and a sampler showed the process swapping.
+- In the third, the earlier files were pyfm's own earlier gammas. No sampler ran, so its swap is
+  inferred from the same shape and from a sampled rerun with eviction.
+
+The outputs were unaffected, bitwise.
+
+With a background `dd iflag=nocache` loop in the batch script, nothing swapped on either of two
+boards `[reproduced ×2]`.
+
+- On one, every contraction of the full seven-gamma `a2aLL` workload ran within 5% of the others.
+- On the other, two gammas after a prefill each came within 6% of an unstalled run's time.
+
+Both runs' outputs were bitwise equal to a run without eviction. Dropping the cache inside pyfm's
+loader was not tested.
 
 ## Checking a build or a decomposition
 

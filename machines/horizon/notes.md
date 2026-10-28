@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, srun and ibrun rank placement on a four-GPU board, CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; not compared for small reductions), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, srun and ibrun rank placement on a four-GPU board, CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; not compared for small reductions), page cache left on one NUMA node pushing a large process into swap (drop input files' cache after reading them), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -28,7 +28,9 @@ sources:
   - QMP source, QMP_init.c, QMP_split.c and QMP_topology.c, at the revision QUDA pins for the 2026q4 stacks
   - operator-submitted MPI_Allreduce diagnostic jobs on 2 to 162 gpu-gb200 boards, with in-job coll_base_verbose and ompi_info output, and a HadronsMILC LMI production-volume run on 162 boards, 2026-10-26 and 2026-10-27, reviewed in the working directory
   - the openmpi/5.0.11 modulefile, read from a login node 2026-10-27
-observed: "2026-10-27"
+  - operator-submitted single-process host-memory jobs on gpu-gb200 boards, with in-job per-NUMA-node meminfo, vmstat and page-cache samplers, a page-cache eviction comparison and two confirmation runs, 2026-10-27 and 2026-10-28, reviewed in the working directory
+  - https://www.gnu.org/software/coreutils/manual/html_node/dd-invocation.html
+observed: "2026-10-28"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -405,6 +407,77 @@ board. Which HAN stage costs the time was not isolated, so the mechanism is
   nor its outputs have been checked.
 - Device buffers, other numbers of ranks per board, HPC-X's Open MPI, and other Open MPI
   versions.
+
+## Page cache left on one NUMA node can push a large process into swap
+
+**Drop a large input file's page cache once it has been read, when the process reading it needs
+more host memory than one NUMA node holds.** Otherwise clean cache can stay resident on one node
+while the kernel swaps the process. Nothing fails; the process just slows down.
+
+**A controlled comparison** `[experiment]`, eviction the one variable moved: one board, a single
+CPU process run as `numactl --cpunodebind=0,1 --interleave=0,1`, reading 147.5 GB HDF5 files from `$SCRATCH` and
+then allocating more than one NUMA node's ~478 GiB. Two legs ran in one job on that board,
+differing only in eviction:
+
+- **No eviction:** about 393 GiB of clean cache stayed on node 0 for the rest of the leg.
+  - Interleaved allocation landed mostly on node 1: 391 against 45 GiB of anonymous memory.
+  - Node 1's own cache was reclaimed, then the process swapped, up to 39 GiB of `VmSwap`.
+- **Eviction every 30 s:** at most 5 MiB was cached after any pass. Anonymous memory split
+  215 / 214 GiB, and nothing swapped.
+
+**The swap has been sampled twice** `[reproduced ×2]`: the leg above, and a diagnostic job on
+another board with the nodes the other way round:
+
+- about 408 GiB of cache stayed on node 1;
+- 444 against 35 GiB of anonymous memory went to node 0;
+- `VmSwap` reached 68 GiB, with about ten threads waiting in `__read_swap_cache_async`.
+
+There was no compaction, transparent-huge-page or NUMA-migration activity in either run.
+
+**With eviction, it did not recur `[reproduced ×2]`.** Two boards ran with the 30 s loop: the full
+workload on one, two allocations after a prefill on the other, nine between them. The most cached after any pass was 12 MiB,
+anonymous memory split within 1 GiB between the nodes, and no run swapped.
+
+**The kernel settings seen on the compute nodes** `[observed]`, read from `/proc` and `/sys` in
+the jobs:
+
+- `vm.swappiness` 60;
+- `vm.zone_reclaim_mode` 0;
+- `kernel.numa_balancing` 1;
+- `vm.min_free_kbytes` 17,301,504;
+- `vm.watermark_scale_factor` 10;
+- transparent huge pages `madvise`;
+- a 100 GiB swap partition;
+- the batch step's task cgroup with `memory.max`, `memory.high` and `memory.swap.max` all `max`.
+
+So the job's memory request does not prevent this: no cgroup limit was in play.
+
+**Mechanism: partly observed, partly inferred.**
+
+- *Observed:* allocation falls back away from the node holding the cache.
+- *Inferred, not established:* reclaim works per NUMA node. With `zone_reclaim_mode` 0 an
+  allocation goes to the other node rather than reclaiming locally, and the node that keeps its
+  cache never runs short enough to have it reclaimed. Which node keeps its cache is not
+  predictable: it differed between the two boards.
+
+**How to drop it.** For each file, after it is read, run `dd if=<file> iflag=nocache count=0`.
+That is coreutils' documented way to drop a whole file's cache, through
+`posix_fadvise(POSIX_FADV_DONTNEED)`. It works from any process on the node, for clean pages
+only. A background loop in the batch script, every 30 s over the input files, is the form that
+was validated. Check the process's `VmSwap` in `/proc/<pid>/status` rather than the job's
+memory record. The application case is pyfm's `contract` step
+([`../../software/hadronsmilc/applications/lmi.md`](../../software/hadronsmilc/applications/lmi.md));
+the incident
+[`incidents/2026-10-27-pyfm-contract-swapped-under-page-cache.md`](incidents/2026-10-27-pyfm-contract-swapped-under-page-cache.md)
+records what it looked like.
+
+**Not tested:**
+
+- dropping the cache inside the reading process;
+- reading with `O_DIRECT`;
+- a NUMA policy other than `--interleave=0,1`;
+- several processes per board;
+- files on other filesystems.
 
 ## Place builds deliberately
 

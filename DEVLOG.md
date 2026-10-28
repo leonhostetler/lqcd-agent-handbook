@@ -8036,3 +8036,64 @@ Elsewhere:
   `software/quda/profiling.md` and `software/milc/applications/ks-spectrum.md`: *confirmed*. They concern other
   reductions, and none names a collective component.
 - `software/hadronsmilc/applications/lmi.md` had no statement about the global sum or MPI collectives.
+
+## 2026-10-28 — Page cache left on one NUMA node pushed a one-rank pyfm contract into swap on Horizon
+
+`machines/horizon/notes.md` gains a section, "Page cache left on one NUMA node can push a large process into swap";
+`machines/horizon/incidents/` gains its third entry; and `software/hadronsmilc/applications/lmi.md` gains "The
+`contract` step holds one gamma's meson fields at twice their file size".
+
+**Evidence.**
+- *Application:* a one-rank pyfm `contract` of seven `a2aLL` gammas on one board ran its last two gammas 7.2 and 9.2×
+  slower than the first five, with correct outputs and no error. It had no memory sampler.
+- *Diagnosis:* a rerun of those two gammas with a per-node VM sampler.
+  - On a fresh board: normal.
+  - After a `cat` prefill of the other five files: 9.4× slower, `VmSwap` 68 GiB.
+  - About 408 GiB of clean cache stayed on node 1, while anonymous memory went 444 against 35 GiB to node 0 under
+    `--interleave=0,1`.
+- *Comparison:* one job, one board, prefill then contract, eviction the only variable.
+  - Without eviction: 39 GiB swapped, the cache-holding node mirrored (node 0).
+  - With `dd iflag=nocache count=0` every 30 s: no swap, anonymous memory split evenly.
+- *Confirmation:* the full seven-gamma step with eviction on a third board ran every contraction within 5% of the
+  others and swapped nothing.
+- All outputs were bitwise equal across every run.
+- *Labels:* the machine fact is `experiment` plus `reproduced ×2`; its mechanism is observed for the fallback and
+  inferred for why the cache survives. The loader facts are `source`, at pyfm `9282eac`. The RSS ratio is
+  `reproduced ×4`. The first job is an `observed` incident, attributed by shape and by the confirmation rerun.
+
+**Not admitted.**
+- The staged claim that several ranks per board raise total memory: never checked.
+- An "evict once after each load" form: proposed, not run.
+- The 25% slowdown of a non-swapping gamma with skewed placement: one observation, cause not established. It is named
+  in the incident as open.
+- Every absolute step timing and memory figure for the ensemble (see below).
+
+**Class decision.**
+- The operator cleared machine-behaviour figures on 2026-10-28: cache, swap and per-node anonymous amounts, and the
+  compute nodes' kernel VM settings.
+- The same day, the operator cleared only dimensionless ratios for the ensemble's step timings and memory.
+- The record is kept in the working directory. Left out: job identifiers, node and rack names, the account, the
+  campaign's predictions and the cost model.
+
+**Reconciliation.** Searched for `interleave`, `localalloc`, `page cache`, `swap`, `swappiness`, `zone_reclaim`,
+`numa_balancing`, `fadvise`, `nocache`, `VmSwap`, `numactl`, `host memory` and `NUMA node` across `software/`,
+`conventions/`, `machines/`, `playbooks/` and `modes/`.
+
+`machines/horizon/notes.md`:
+- "A board has about 957 GiB of host memory … budget about 478 GiB per socket": *confirmed*. The new section relies on
+  it for "more than one NUMA node".
+- "Launch MPI deliberately" (per-rank binding) and the agent-placement and storage sections: *confirmed*. They concern
+  rank placement and file location, not reclaim. The new section names its single-process `numactl` policy as
+  observation context.
+
+Elsewhere:
+- `conventions/batch-scripts.md`, "CPU cores, host memory and the network interface: bind them": *confirmed*. An
+  explicit `--interleave` policy is such a binding, and the new fact narrows what it guarantees under page-cache
+  pressure without contradicting the rule.
+- `conventions/running.md`, the host-memory-kill ceiling: *confirmed*. A different failure: here nothing was killed
+  and no cgroup limit applied.
+- `conventions/profile-metrics.md`, "no file I/O leaves a page-cache confound": *confirmed*, a different object (timing
+  confounds).
+- `software/hadronsmilc/applications/lmi.md`: its only `contract` statement ("pyfm's `contract` step adds the `a2aLL`
+  correlators from the meson fields") is *confirmed*. It had nothing on memory or cache.
+- `software/pyfm/project.yaml` (capability "A2A meson-field contraction into correlators"): *confirmed*, unchanged.
