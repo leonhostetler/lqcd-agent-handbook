@@ -464,6 +464,15 @@ matched placement and substantially more expensive** on the production compariso
 floor kept it off the placement that made its rival cheap. Reporting either number alone is
 defensible; reporting one while implying the other is not.
 
+The disagreement can be one of kind, not only of size. In a second recorded case a solver pair
+whose matched comparison had a crossover at every operating point lost it outright on the
+production comparison at some of them: the constrained candidate's recurring cost alone exceeded
+its rival's, so with its larger one-time cost it was dominated at every solve count. Elsewhere the
+crossover survived but moved up several-fold, while the elapsed-time crossover stayed small
+throughout, because the constrained candidate also ran on more nodes. **Check dominance per
+operating point before reporting a crossover, and name the objective**;
+[`../tools/amortize-cost.py`](../tools/amortize-cost.py) reports both.
+
 **Rules that follow.**
 
 - **The production decision uses the first row.** A candidate cannot be credited with a
