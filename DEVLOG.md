@@ -7985,3 +7985,54 @@ Elsewhere:
 
 Searched for `pool`, `MEMORY_POOL`, `flushPoolQuda`, `ghost`, `01c0fb883` and `cg-fit` across `software/`,
 `conventions/`, `machines/`, `playbooks/` and `tools/`.
+
+## 2026-10-27 — Open MPI's HAN allreduce made an LMI meson-field global sum ~20× slow on Horizon
+
+`machines/horizon/notes.md` gains a section, "Open MPI's HAN component and large host-buffer allreduces";
+`machines/horizon/incidents/` gains its second entry; and `software/hadronsmilc/applications/lmi.md` gains "The
+meson-field global sum is one large host allreduce per block".
+
+**Evidence.**
+- *Application:* a HadronsMILC LMI production-volume run on 162 `gpu-gb200` boards spent 11,397 s of 41,731 s in the
+  per-block meson-field global sum, at about 180 MB/s per rank.
+- *Benchmarks:* two operator diagnostic jobs ran a standalone in-place host `MPI_Allreduce` of the same sizes.
+  - The first job ran on 1–16 boards. The second ran on 16–162 boards and repeated the 16-board point.
+  - With TACC's environment, HAN served the call and took 8–30 s per GB-scale call on 2–162 boards.
+  - With `OMPI_MCA_coll=^hcoll,han` the same calls took 0.67–1.52 s. On 1 board, and on one-rank-per-board
+    communicators, HAN was not slow.
+  - At 162 boards the benchmark's default timings were 1.17–1.19× the application's.
+- *Labels:* the machine fact is `reproduced ×2`, mechanism empirical. The modulefile's `OMPI_MCA_coll=^hcoll` and the
+  meson-field call path are `source`. The application run is an `observed` incident.
+
+**Not admitted.**
+- Forced ring beat `tuned`'s default by 25% at 162 boards, but in one job with four calls per cell and no measured
+  spread between jobs. It stays in the working directory.
+- A 64 KiB no-HAN slowdown with rank count: a side observation.
+
+**Class decision.** The operator cleared absolute call times and per-rank rates on 2026-10-27, and chose "not
+compared" as the wording for CG and multigrid. The record is kept in the working directory. Left out: job identifiers,
+node names, the account, the campaign's predictions and the reference run.
+
+**Reconciliation.** Searched for `allreduce`, `collective`, `HAN`, `hcoll`, `OMPI_MCA`, `global sum`, `GlobalSum` and
+`coll_` across `software/`, `conventions/`, `machines/`, `playbooks/` and `modes/`.
+
+`machines/horizon/notes.md`:
+- The Nsight Systems partial-trace paragraph ("its first allreduces all complete"): *confirmed*, a different
+  object (start-up under a tracer).
+- The HPC-X bullet ("with Open MPI `5.0.10rc2`, UCX 1.21 and HCOLL"): *confirmed*. The new section scopes itself to
+  TACC's `openmpi/5.0.11` and names HPC-X as untested.
+- "`srun` with a per-rank wrapper places a one-board job correctly … Multi-node `srun` launches were not tested":
+  *not amended*. It is now contradicted, because the runs behind this entry used multi-node `srun` on up to 162
+  boards. Multi-node launch facts are a separate class that the operator queued for after the campaign; the new
+  section names `srun` only as observation context.
+
+Elsewhere:
+- `conventions/profile-metrics.md`, "a rank's time inside [a blocking collective] is the wait for the last rank to
+  arrive plus the collective's own cost": *confirmed*. The benchmark brackets each call with a barrier, so its times
+  are the collective's own cost.
+- `software/qio/parallel-singlefile-writes.md`, "the site module sets `OMPI_MCA_io=^ompio`": *confirmed*, a different
+  variable on another machine's module.
+- `software/qmp/binary-reduction.md`, `software/quda/project.yaml` (deterministic reductions),
+  `software/quda/profiling.md` and `software/milc/applications/ks-spectrum.md`: *confirmed*. They concern other
+  reductions, and none names a collective component.
+- `software/hadronsmilc/applications/lmi.md` had no statement about the global sum or MPI collectives.

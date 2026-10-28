@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, srun and ibrun rank placement on a four-GPU board, CUDA-aware MPI, concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, srun and ibrun rank placement on a four-GPU board, CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; not compared for small reductions), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -26,6 +26,8 @@ sources:
   - operator-submitted Grid, Hadrons and HadronsMILC build and validation jobs on gpu-gb200 nodes, with in-job numactl -H, ompi_info, ucx_info -d and placement probes and their scheduler records, 2026-10-22 and 2026-10-23, reviewed in the working directory
   - operator-submitted Nsight Systems start-up test and profile jobs on gpu-gb200 nodes, with in-job stall stacks and SQLite exports, 2026-10-27, reviewed in the working directory
   - QMP source, QMP_init.c, QMP_split.c and QMP_topology.c, at the revision QUDA pins for the 2026q4 stacks
+  - operator-submitted MPI_Allreduce diagnostic jobs on 2 to 162 gpu-gb200 boards, with in-job coll_base_verbose and ompi_info output, and a HadronsMILC LMI production-volume run on 162 boards, 2026-10-26 and 2026-10-27, reviewed in the working directory
+  - the openmpi/5.0.11 modulefile, read from a login node 2026-10-27
 observed: "2026-10-27"
 observed_on:
   machine: horizon
@@ -339,6 +341,70 @@ traced to it.
   outside HPC-X.
 - **No measured gain.** MILC and QUDA rebuilt against it at the same commits gave no measurable
   speed-up over the TACC stack, for a one-board and a two-node spectroscopy run, one run each.
+
+## Open MPI's HAN component and large host-buffer allreduces
+
+**Exclude HAN for a job whose cost is dominated by large host-buffer allreduces at four ranks
+per board.** With TACC's Open MPI it ran those sums about 20 times slower than the `tuned`
+component `[reproduced ×2]`: two diagnostic jobs, 2026-10-27, timing a standalone in-place
+`MPI_Allreduce` of doubles from `malloc` buffers, barrier-bracketed, slowest rank per call.
+The scope is what was measured:
+
+- `openmpi/5.0.11` with `ucx/1.22.0` on `gpu-gb200`;
+- four ranks per board, launched with `srun` and the per-rank binding wrapper;
+- 512 MiB to 4.608 GB per call, on 1 to 162 boards.
+
+| Boards (ranks) | Bytes per call | HAN (default) | HAN excluded |
+|---|---|---|---|
+| 2 (8) | 4.608 GB | 19.10 s | 0.86 s |
+| 16 (64) | 3.456 GB | 20.27 s | 0.76 s |
+| 162 (648) | 3.456 GB | 22.35 s | 1.18 s |
+| 162 (648) | 4.608 GB | 29.64 s | 1.52 s |
+
+Medians of 2–4 timed calls, after an untimed first call. With HAN, each rank moved 150–425 MB/s
+on 2 to 162 boards. Without it, at 3.456 GB and 4.608 GB, 4.4–5.4 GB/s on 2 to 128 boards and
+2.9–3.0 GB/s on 162. Every sum was exact.
+
+**It matches the application.** Inside a HadronsMILC LMI meson-field run on 162 boards, the
+same calls took 18.86 s and 25.28 s per block for those two sizes, and their sum was 27% of the
+job's charge `[observed]`. The incident
+[`incidents/2026-10-26-meson-field-global-sum-slow-under-han.md`](incidents/2026-10-26-meson-field-global-sum-slow-under-han.md)
+records it. The standalone process was 1.17–1.19 times slower than the application, so the
+application adds nothing measurable on top. The software side is in
+[`../../software/hadronsmilc/applications/lmi.md`](../../software/hadronsmilc/applications/lmi.md).
+
+**What selects HAN, and how to exclude it.**
+
+- The `openmpi/5.0.11` modulefile sets `OMPI_MCA_coll=^hcoll` `[source]`: the modulefile, read
+  2026-10-27. With that value, `coll_base_verbose` output shows HAN chosen for the world
+  communicator and running `allreduce`.
+- Export `OMPI_MCA_coll=^hcoll,han` to the ranks. A new value replaces the module's, so keep
+  `hcoll` in the list. `tuned` then picks the algorithm.
+- The setting covers every collective the process makes, not only the large sums.
+
+**Where HAN is not slow.** On one board it disqualifies itself ("only local processes"), and
+the default equals the exclusion. On communicators with one rank per board it is selected and
+fast. A quarter-size sum on four concurrent one-rank-per-board communicators of 162 ranks
+took 0.435 s with HAN and 0.443 s without. The slow path therefore needs several ranks per
+board. Which HAN stage costs the time was not isolated, so the mechanism is
+**empirical**. A fixed cost per 64 KiB pipeline segment explains only part:
+
+- with 4 MiB segments (`OMPI_MCA_coll_han_allreduce_segsize=4194304`), 4–16 boards ran 3.5–6
+  times faster;
+- 2 boards ran no faster with 4 MiB segments;
+- at 162 boards, 4 MiB segments still took 5.0 s per 4.608 GB call.
+
+**Not compared, so do not extend the exclusion to them on this evidence:**
+
+- **Small, latency-bound reductions**, such as the per-iteration sums of CG and multigrid. CG and
+  MG jobs on Horizon have run with HAN at its default, and HAN against `tuned` has not been
+  compared for them. One coarse side cell is not a comparison: a 16-byte sum over 648 ranks took
+  about 0.1 ms either way, over 2–4 calls.
+- **The rest of a job that excludes HAN.** An LMI job's Lanczos and solves run under the same
+  setting. No application run with HAN excluded has been measured, so neither its overall saving
+  nor its outputs have been checked.
+- Device buffers, other numbers of ranks per board, HPC-X's Open MPI, and other Open MPI
+  versions.
 
 ## Place builds deliberately
 

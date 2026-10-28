@@ -1,6 +1,6 @@
 ---
 title: HadronsMILC low-mode-improvement (LMI) application guide
-summary: How the light-quark g-2 LMI workflow is generated with pyfm and executed by HadronsMILC — the module chain, mass and residual conventions, Lanczos sizing and the Chebyshev bound, legal decompositions, and how to check a build or a decomposition.
+summary: How the light-quark g-2 LMI workflow is generated with pyfm and executed by HadronsMILC — the module chain, mass and residual conventions, Lanczos sizing and the Chebyshev bound, legal decompositions, the meson-field global sum (one host MPI_Allreduce of gigabytes per block), and how to check a build or a decomposition.
 scope: [software:hadronsmilc, software:pyfm, fermion:staggered]
 load_when: Generating, sizing, launching, validating or interpreting a HadronsMILC LMI job (pyfm task_type lmi or lma_new), including choosing Lanczos parameters and an MPI decomposition.
 evidence: source
@@ -15,9 +15,12 @@ sources:
   - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/src/Modules/MAction/ImprovedStaggered.hpp#L117-L121
   - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/src/Modules/MSolver/MixedPrecisionCG.hpp#L137-L194
   - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/src/Modules/MSolver/ImplicitlyRestartedLanczos.hpp#L106-L179
+  - https://github.com/Michael628/HadronsMILC/blob/4a19a1515b52bc2590d2c03a4fc62d6e6de61a5e/src/A2AMatrix.hpp#L707
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/GridMilc/a2a/A2AWorker.h#L278-L291
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/communicator/Communicator_mpi3.cc#L333-L338
   - https://github.com/Michael628/HadronsMILC/commit/d355c8f
   - https://github.com/Michael628/HadronsMILC/commit/17a20c7
-observed: "2026-10-23"
+observed: "2026-10-27"
 observed_on:
   software:
     hadronsmilc:
@@ -120,6 +123,25 @@ dimension 8, 16 or 24 ways, nor time 16 or 32 ways. Splitting time is fine other
 GPUs as `1.1.2.2` (time split) and `2.2.1.1` reproduced the 1-GPU results; `1.1.1.4` (local time
 extent 2) aborted at grid construction. One rank per GPU, each bound to its GPU by a wrapper
 (`software/grid/runtime-environment.md`).
+
+## The meson-field global sum is one large host allreduce per block
+
+`StagA2AMesonFieldLegacy` computes each meson-field block on the device, copies it to the host,
+and sums it over every rank with one in-place `MPI_Allreduce` of doubles
+(`GridMilc/a2a/A2AWorker.h` L278–L291, **fork-only**). That call is Grid's `GlobalSumVector`
+(`Communicator_mpi3.cc` L333–L338), and it is the same call on upstream `develop`. The log
+reports each block's sum as `Global Sum Time: <t> us.` (`A2AMatrix.hpp` L707). The buffer is
+the whole block for every time slice and gamma, so at production volume one call moves
+gigabytes: 3.456 GB and 4.608 GB per call, by module, in one 144³×288 run.
+
+Its cost is therefore set by the MPI library's collective algorithm for large host buffers,
+not by the contraction kernel. Read the per-block `Global Sum Time` lines before attributing
+a slow meson-field step to the kernel. On Horizon, Open MPI's default collective component made
+this sum about 20 times slower than the alternative: see
+[`../../../machines/horizon/notes.md`](../../../machines/horizon/notes.md), "Open MPI's HAN
+component and large host-buffer allreduces", before launching a meson-field job there. An MPI
+setting chosen for this step applies to every collective in the process, the Lanczos and the
+solves included.
 
 ## Checking a build or a decomposition
 
