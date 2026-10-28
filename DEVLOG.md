@@ -8097,3 +8097,55 @@ Elsewhere:
 - `software/hadronsmilc/applications/lmi.md`: its only `contract` statement ("pyfm's `contract` step adds the `a2aLL`
   correlators from the meson fields") is *confirmed*. It had nothing on memory or cache.
 - `software/pyfm/project.yaml` (capability "A2A meson-field contraction into correlators"): *confirmed*, unchanged.
+
+## 2026-10-28 — QUDA pool flush: the production-scale observation
+
+`software/quda/internals/device-memory-pool.md`, "A pool flush at the right point recovers it": the "cheap only where
+the producer runs rarely" bullet was `[observed]` once, from a matched two-node timing check. It now also records the
+production-scale outcome in the same campaign. With a flush after the link build, a 27-node plain-CG layout that had run
+out of device memory with the pool on fit on three gauge configurations, and QUDA's `Device memory used` was identical
+across them. Captured in ordinary use, not mined; Perlmutter A100-40, QUDA `00c7ef33d`, MILC `6b9b8a06` plus an
+env-gated flush. No timings, ensemble name, job identifiers or memory figures are restated.
+
+**Reconciliation.** Searched for `flushPool`, `pool flush` and `flush the pool` across `software/`, `conventions/` and
+`machines/`.
+- The warning box ("`flushPoolQuda(QUDA_MEMORY_DEVICE)` between the link build and the next gauge load"): *confirmed*;
+  the observation is an instance of it.
+- The per-molecular-dynamics-step count ("where the links are loaded once per process, the same repair costs nothing
+  measurable"): *confirmed*, consistent with the new observation.
+- The build-time-guard bullet: *confirmed*, unchanged.
+- `software/milc/development.md` (the env-gated flush as its recorded instance): *confirmed*, unchanged.
+
+## 2026-10-28 — Two-comparison rule: the production comparison can remove a crossover outright
+
+`conventions/measurement.md`, "When a constraint bars a candidate from its rival's best placement": a second recorded
+case is added. In it the matched comparison had a crossover at every operating point. The production comparison was
+dominated at some of them, because the constrained candidate's recurring cost alone exceeded its rival's. Elsewhere it
+moved up several-fold, while the elapsed-time crossover stayed small. The rule added: check dominance per operating
+point before reporting a crossover, and name the objective. Source: one operator campaign (staggered multigrid at a
+memory-floor placement against plain CG at its own placement, Perlmutter A100-40), captured in ordinary use. **Class
+decision:** the crossover values, cost ratios and node-second ratios behind it are measurements on one ensemble, a class
+the operator has not cleared, so none is stated. The class record is kept in the working directory.
+
+**Reconciliation.** Searched for `dominat` across `conventions/`, `software/quda/solvers/`, `playbooks/` and `modes/`.
+- `software/quda/solvers/staggered-solver-selection.md` ("a candidate has both greater setup and no lower recurring
+  cost, it is dominated"; decision gate 5): *confirmed*. The new sentence applies that definition per operating point.
+- `playbooks/tune-solver.md` stop rule ("dominated in both one-time and recurring cost"): *confirmed*.
+- The existing first recorded case and the four rules beneath it: *confirmed*, unchanged.
+- The regime vocabulary (setup-dominated, mixed, throughput-dominated): *confirmed*. It is a different sense of the word.
+
+## 2026-10-28 — Campaign records: stamp from the clock
+
+`conventions/campaign-records.md`, "Keep the records true", gains: stamp a record from the clock in the step that writes
+it, and correct a wrong stamp with a note. Mechanism: an agent has no sense of elapsed time, so an estimated or rounded
+stamp can postdate later records and silently reorder an append-only history. `[observed]` once, in an operator campaign:
+an estimated stamp about fifteen minutes ahead of the clock placed an analysis step after the study closure that
+followed it; it was found by reading the clock and corrected with a note.
+
+**Reconciliation.** Searched for `timestamp`, `stamp`, `stamped` and `UTC` across `conventions/`, `modes/` and
+`playbooks/`.
+- `modes/production.md` ("use unambiguous timestamps, preferably UTC"): *confirmed*. It concerns the format; the new
+  sentence concerns the source of the value.
+- `conventions/batch-scripts.md` (sampler period from the samples' own timestamps) and `conventions/profile-metrics.md`
+  (rank clock alignment): *confirmed*. These are instrument timestamps, a different object.
+- The phase-timeline stamper references: a different object (job-written markers).

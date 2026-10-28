@@ -70,6 +70,13 @@ ledger beside it was correct throughout, and each staleness survived until someo
 check. **A summary sentence containing a number is a cache with no invalidation.** Prefer a
 pointer to the ledger, or a generated line, to a number a human retyped.
 
+**Stamp a record from the clock in the step that writes it, never from an estimate.** An agent has
+no sense of elapsed time, so an estimated or rounded stamp can postdate records written after it
+and reorder an append-only history in a way nothing flags. Read the time when writing
+(`date -u +%Y-%m-%dT%H:%M:%SZ`). When a stamp proves wrong, correct it with a note rather than
+silently, because later records may cite it. `[observed]` once: an estimated stamp placed a step
+after the closure that followed it.
+
 **An offline result needs a tool that regenerates it and a check mode that verifies it.** Desk
 computations — a feasibility bound, a memory model evaluated over a candidate space, an
 enumeration of legal placements — are how a campaign answers questions without spending its
