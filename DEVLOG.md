@@ -8149,3 +8149,30 @@ followed it; it was found by reading the clock and corrected with a note.
 - `conventions/batch-scripts.md` (sampler period from the samples' own timestamps) and `conventions/profile-metrics.md`
   (rank clock alignment): *confirmed*. These are instrument timestamps, a different object.
 - The phase-timeline stamper references: a different object (job-written markers).
+
+## 2026-10-28 — QUDA test-harness blind spots, from a pull-request review
+
+`software/quda/development.md` gains "Know what QUDA's own tests cannot see": RELEASE tests build
+with `-w`; `GaugeField::raw_pointer()` returns one static array for pointer-array orders, which made
+`compare_link` self-compare since `13eb7e1d9`; and `computeLinkOrderedOuterProduct` wraps within
+the local volume, so it is a valid reference on one rank only and forced single-rank partitioning
+cannot expose that. All three are `develop` facts read at `00c7ef33d` and unchanged at `e75ee8835`.
+They were found while reviewing lattice/quda#1662, which only exposed them: nothing in the section
+depends on that branch. The boundary-site failure was observed once, at 2 and 4 ranks on one node;
+the figures and reproducers stay in the operator's review workspace. `load_when` now names reviewing
+a change, the situation in which these were needed. Drift triage on the leaf against `e75ee8835`:
+0 leaves to review.
+
+**Reconciliation.** Searched `software/quda/`, `modes/debugging.md`, `conventions/diagnostic-rigs.md`
+and `conventions/code-changes.md` for `-Wall`, `Wextra`, `raw_pointer`, `compare_link`,
+`host reference`, `--partition` and `forced partition`.
+- `modes/debugging.md` step 7 (treat compiler warnings as root causes): *confirmed*. The new
+  bullet says where a RELEASE build hides them.
+- `modes/debugging.md` step 4 (a host reference as an independent oracle): *confirmed*. The new
+  bullet bounds one such oracle to a single rank.
+- `development.md`, "Select the dimensions…" bullet (a non-degenerate partition in which the
+  communication must occur): *confirmed*. Forced single-rank partitioning is the degenerate case
+  it already excludes.
+- `software/quda/internals/device-memory-pool.md` (`--partition 14` on one GPU): *confirmed*. That
+  use measures memory, not correctness against a host reference.
+- No other statement on these objects was found.

@@ -2,7 +2,7 @@
 title: Developing QUDA
 summary: Software-specific rules for modifying QUDA and preparing changes for review.
 scope: [software:quda]
-load_when: Modifying QUDA source, adding tests, or preparing a QUDA change for review.
+load_when: Modifying QUDA source, adding tests, or preparing or reviewing a QUDA change.
 evidence: source
 sources:
   - https://github.com/lattice/quda/wiki/
@@ -26,6 +26,14 @@ sources:
   - https://github.com/lattice/quda/pull/1644
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/gauge_backup.h
   - https://github.com/lattice/quda/commit/321f728fb59bbf963814dc5f6941312b26b56310
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/CMakeLists.txt#L7-L11
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/gauge_field.h#L479-L488
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/utils/host_utils.cpp#L1100-L1113
+  - https://github.com/lattice/quda/commit/13eb7e1d901604e87d4c3a3d6249e97ce0d3885f
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/host_reference/hisq_force_reference.cpp#L18-L41
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/utils/index_utils.cpp#L56-L72
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/hisq_paths_force_test.cpp#L330-L382
+  - https://github.com/lattice/quda/pull/1662
   - operator's screened prior QUDA development records
   - https://github.com/llvm/llvm-project/blob/main/clang/tools/clang-format/git-clang-format
 observed: "2026-10-07"
@@ -162,6 +170,49 @@ any drift means the operators being compared disagree, which is a defect rather 
 question. Pair it with an output comparison at printed precision and with a check that the timers
 the change was meant to move are the only ones that moved — if a solver-internal count or maximum
 shifts, the change leaked out of the layer it was scoped to.
+
+## Know what QUDA's own tests cannot see
+
+Three properties of QUDA's test harness make a check silent instead of failing it. Each is read
+from `develop` at `00c7ef33d` and is unchanged at `e75ee8835` `[source]` unless tagged otherwise.
+
+- **A RELEASE build compiles QUDA's tests with every warning suppressed.** `tests/CMakeLists.txt`
+  gives the `quda_test` support library `$<IF:$<CONFIG:RELEASE>,-w,-Wall -Wextra>` as a `PUBLIC`
+  compile option, so every test executable that links it inherits `-w`; the default `DEVEL` build
+  type gets `-Wall -Wextra` instead. The recipe in [`build.md`](build.md) builds `RELEASE`, so a
+  clean build log there says nothing about test code. To check a change's test code for warnings,
+  recompile each test translation unit it touches with the build's own command, `-w` removed and
+  `-Wall -Wextra -fsyntax-only` added — and first make one deliberate warning fire under that same
+  command, because a check that cannot fire reads exactly like a clean one. The option belongs to
+  the test library, so it is no evidence either way about warnings in `lib/`.
+- **`GaugeField::raw_pointer()` returns the same array on every call for a pointer-array field.**
+  For a per-dimension (QDP-style) order it fills a function-static `void *data_array[8]` and
+  returns it (`include/gauge_field.h:479-488`), so the next call on *any* field overwrites what an
+  earlier call returned. A function passed `a.raw_pointer()` and `b.raw_pointer()` as two
+  arguments receives `b`'s pointers twice. That is why
+  `compare_link(const GaugeField &, const GaugeField &)` (`tests/utils/host_utils.cpp:1100-1113`)
+  has compared its second field with itself since `13eb7e1d9` (2023-05); its only caller,
+  `hisq_paths_force_test`, ignores the result, so only its printed agreement table is vacuous,
+  reporting zero differences down to 1e-16 between a host and a device computation `[observed]`
+  once. A fix is proposed in lattice/quda#1662, unmerged at this writing. Where code needs two
+  fields' per-dimension pointers at once, take them with `data<T>(d)`, or copy each returned array
+  before the next call. Exact agreement between independently computed floating-point fields is
+  itself the signal to check that two different buffers reached the comparison.
+- **QUDA's host outer-product reference is correct only on one rank.**
+  `computeLinkOrderedOuterProduct` (`tests/host_reference/hisq_force_reference.cpp:18-41`) takes
+  each site's 1- or 3-hop neighbour through `neighborIndexFullLattice`, whose `neighborIndex`
+  wraps modulo the local extents and reads no ghost zone (`tests/utils/index_utils.cpp:56-72`).
+  On a rank grid split in some direction, its value at each site whose neighbour lies on another
+  rank is built from this rank's opposite face, where QUDA's device code reads the neighbour rank.
+  `hisq_paths_force_test` builds its outer products this way and copies the same host field to the
+  device (`tests/hisq_paths_force_test.cpp:330-382`), so its host–device comparison is unaffected
+  `[inferred]`; on more than one rank it exercises the force on an input that is not the lattice's
+  outer product. A test that compares a device outer product against this reference fails at
+  exactly those boundary sites on a real rank grid `[observed]` once, at 2 and 4 ranks on one node.
+  A single-rank run with forced partitioning (`--partition`) cannot show this: the neighbour rank
+  is the rank itself, so the wrap and the exchange agree. Before relying on a host reference beyond
+  one rank, check how it finds neighbours, and validate a test that compares against one on a real
+  rank grid split in the directions it checks.
 
 ## Preserve solver semantics when changing execution
 
