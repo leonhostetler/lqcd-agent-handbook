@@ -219,13 +219,15 @@ python3 "$LQCD_HANDBOOK/tools/quda-staggered-memory.py" mrhs-cg-delta \
   --local 36 36 24 24 --reference-width 1 --width 3
 ```
 
-Here `w` is the active MILC `block_solver_batch_size`, not necessarily the total
-application source count. Three matched Perlmutter A100 width-1 to width-3 cells,
-spanning a factor of 10.7 in local volume, validate the per-additional-RHS device term to
-at most 0.04%. One cell records QUDA `d61517229`; the relevant field structure remains
-at the current `b6998853f` anchor. The other two cells widen the geometry check but omit
-their source revision. Older unversioned cells form a different source/path regime and
-are excluded rather than fitted into this law.
+Here `w` is the number of right-hand sides in one `qudaInvertMsrc` call — the source count
+of one MILC block solve, not the application's total — since QUDA applies no further
+batching on the CG path; the multigrid parameter file's `block_solver_batch_size` does not
+reach it. Three matched Perlmutter A100 width-1 to width-3 cells, spanning a factor of 10.7
+in local volume, validate the per-additional-RHS device term to at most 0.04%. One cell
+records QUDA `d61517229`; the relevant field structure remains at the current `b6998853f`
+anchor. The other two cells widen the geometry check but omit their source revision. Older
+unversioned cells form a different source/path regime and are excluded rather than fitted
+into this law.
 
 This is an increment to add to an appropriate one-RHS device estimate, not a replacement
 base fit. It excludes deflation-space storage, equal-precision alias changes, other

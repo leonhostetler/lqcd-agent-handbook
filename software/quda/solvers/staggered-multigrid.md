@@ -22,6 +22,9 @@ sources:
   - https://github.com/milc-qcd/milc_qcd/blob/ab5011f5722dd423c9c459dea312ad0b6d565f45/CMakeLists.txt#L207-L265
   - https://github.com/milc-qcd/milc_qcd/blob/a5f8f9fa2b473abb2cf2b4465a34ae4b71c5e785/generic_ks/mat_invert.c
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2405-L2434
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2329-L2343
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface.cpp#L2440-L2460
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/milc_interface_internal.hpp#L42
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/interface_quda.cpp#L2957-L3058
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L72-L197
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L199-L232
@@ -356,6 +359,15 @@ shape must be represented in
 `use_mma` switch. The QUDA defaults are not proof that an arbitrary MILC `nvec` or batch
 size was instantiated. A batch padded up to an instantiated width can stall at QUDA
 `00c7ef33d`; see [the padded-batch stall](staggered-multigrid/diagnostics.md#padded-batch-stall).
+
+**The active width is the parameter file's `block_solver_batch_size`, and a value of `1` silently
+unblocks.** `[source]` at QUDA `00c7ef33d`, unchanged at `2e7dd818`: `qudaInvertMsrcMG` solves a
+multi-source set in consecutive batches of that many right-hand sides, and `-1`, the default when
+the line is absent, means the whole set in one batch (`lib/milc_interface.cpp`,
+`include/milc_interface_internal.hpp`). The single-source entry point calls the same function with
+one source, so a file tuned only on one-RHS solves can carry any value with no visible effect —
+and then runs a `multicolorsource` set as one-RHS solves. Before using such a file for a blocked
+solve, set the line to the intended width or `-1`, and record it with the width actually run.
 
 The `mg-staggered` build profile and
 `machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/stack.yaml` record one validated
