@@ -389,23 +389,41 @@ never the allocation's maximum. Say so wherever the figure is used; it does not 
 useful number, but it stops being the number people assume it is.
 
 Sampling every node would remove that limitation, and it is the obvious thing to reach for
-when a question genuinely requires attributing a peak to a particular node. **This handbook
-does not prescribe how, because it has never been done successfully here.** What is known is
-the shape of the problem: it needs a second job step, which is the failure above, so both the
-monitor step and the application step must opt into sharing the allocation — the option name
-belongs in [`scheduler-surfaces.yaml`](scheduler-surfaces.yaml), not in prose — and a step
-launched at one task per node **inherits the job's per-task accelerator allocation**, so with
-one accelerator per task the device cgroup hides the rest and the sampler sees ordinal 0 only.
-Relaxing *binding* does not relax the *allocation*, and the resulting file looks entirely
-healthy: right field order, right period, full node coverage, three quarters of the devices
-missing.
+when a question genuinely requires attributing a peak to a particular node. **As a separate job
+step it has never been done successfully here.** It needs a second job step, which is the
+failure above, so both the monitor step and the application step must opt into sharing the
+allocation — the option name belongs in [`scheduler-surfaces.yaml`](scheduler-surfaces.yaml),
+not in prose — and a step launched at one task per node **inherits the job's per-task
+accelerator allocation**, so with one accelerator per task the device cgroup hides the rest and
+the sampler sees ordinal 0 only. Relaxing *binding* does not relax the *allocation*, and the
+resulting file looks entirely healthy: right field order, right period, full node coverage,
+three quarters of the devices missing.
+
+**From inside the application's own step it has worked on one machine** `[experiment]`.
+- **The arrangement:** a per-rank wrapper in the launch line. On the rank with local rank 0 of
+  each node, it starts the sampler in the background before exec'ing the application, with a
+  watchdog that stops it when the application exits. There is no second step, so nothing needs
+  sharing, and the sampler sees whatever devices the application's step sees. There, that was
+  all four GPUs per node, because the scheduler did not constrain devices and the application
+  ranks left every device visible.
+- **The evidence:** on 27 nodes, one job moved only the sampler: none, every node at 2 s and at
+  10 s, the batch node only. No leg moved beyond the 0.2–0.3 % noise floor. Several more
+  27-node jobs then sampled every node and every device with no failure.
+- **The limits:** it is scoped to that machine, launcher and device policy. Where the scheduler
+  constrains each step's devices, or the ranks narrow their own visible devices, check the
+  ordinals as below; one task per node still sees only its own allocation.
+- **Before relying on it:** prove the expected number of distinct device ordinals on every node
+  before the application starts, and gate the rest of the job on that check. The rig's clock
+  gate did exactly that. Keep the sampler's exit work short, for the reason in
+  [`diagnostic-rigs.md`](diagnostic-rigs.md), "A teardown marker can also fail the other way".
 
 `tools/gpu-memory-sampler.sh` remains in the tree as the fixed-field sampler that arrangement
 would use. The script itself runs; what has never completed successfully is the arrangement
-around it. **Treat all-node sampling as untested work to be designed and negative-tested on
-its own merits, not as a documented option to switch on** — and prove the expected number of
-distinct device ordinals appears before the application starts, because discovering otherwise
-at reconciliation wastes the whole allocation.
+around it. **Treat all-node sampling by a separate step as untested work to be designed and
+negative-tested on its own merits, not as a documented option to switch on.** For any
+arrangement, prove the expected number of distinct device ordinals appears before the
+application starts, because discovering otherwise at reconciliation wastes the whole
+allocation.
 
 ### An instrument is a script plus a way to read it
 

@@ -4,8 +4,8 @@ summary: How sandbox restrictions present as machine, scheduler, device, or perm
 scope: [universal]
 load_when: A command fails, hangs, or leaves a half-written file in a way that suggests a machine, scheduler, network-service, or permission fault while the session runs under an agent sandbox; or before writing a tool that shells out to a site service.
 evidence: reproduced
-observations: 2
-observed: "2026-10-12"
+observations: 3
+observed: "2026-10-27"
 observed_on:
   requirements: agent-sandbox-constraints
 review_by: "2027-09-21"
@@ -168,6 +168,18 @@ existence check. Three consequences seen in practice:
   identical command re-run succeeded `[observed]`. Nothing the command would have written
   exists afterwards, so confirm a capture exists before reading it as made. An error from
   the sandbox's own setup is not an error from the command.
+
+## A tracer the sandbox blocks writes an empty trace
+
+The sandbox can deny `ptrace`. `strace` then reports `PTRACE_TRACEME: Operation not permitted`
+on stderr and writes an empty trace file `[observed]`, 2026-10-27, on a login node. A test that
+checks the trace for the *absence* of something, such as "no forbidden file was opened", then
+passes because nothing was recorded. In that test, a positive control exposed it: the same trace
+also lacked the opens that had to happen.
+
+Record what the code under test does from inside it instead. For a Python program,
+`sys.addaudithook` receives an `open` event for every path the interpreter opens, and needs no
+`ptrace`. Whatever records it, require the expected opens to appear before trusting an absence.
 
 ## A full home filesystem stops every command
 

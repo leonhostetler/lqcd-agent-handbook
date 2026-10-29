@@ -4,12 +4,13 @@ summary: What to request from a tracer and how to name its per-rank output, then
 scope: [universal]
 load_when: Planning, submitting, or validating a profiled run.
 evidence: reproduced
-observations: 2
+observations: 3
 sources:
   - operator's screened project records
   - vendor tracer documentation for Nsight Systems and ROCm Systems Profiler
   - this repository's extraction tool, tools/gpu_profile/
-observed: "2026-09-16"
+  - operator's screened 108-rank Nsight Systems export records (Horizon, 2026-10-27)
+observed: "2026-10-27"
 observed_on:
   requirements: gpu-profile-capture
 review_by: "2027-09-16"
@@ -53,6 +54,16 @@ nsys profile -t cuda,nvtx,osrt,mpi --mpi-impl=<mpich|openmpi> \
 ```
 nsys export --type sqlite --output <name>.sqlite <name>.nsys-rep
 ```
+
+**Export to node-local disk, then move the finished file.** `[observed]` With the SQLite output
+on a network scratch filesystem (VAST over NFS), one export progressed about 1 % in 18 minutes
+for a report of 28 million events. The same export written to node-local `$TMPDIR` and then
+moved finished in 49–65 s, for reports of 0.5–0.7 GB that became SQLite files of 1.7–2.0 GB.
+Four such exports at a time converted a 108-rank capture in about 30 minutes, so a per-rank
+analysis of every rank is affordable. SQLite's many small synchronous page writes are the
+`[inferred]` cause, so treat any network filesystem as suspect. Move the file only after the
+export has returned success, so that an interrupted export cannot leave a partial file under
+the final name.
 
 ### rocprofv3
 

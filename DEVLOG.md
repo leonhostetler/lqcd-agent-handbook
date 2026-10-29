@@ -8290,3 +8290,64 @@ CUDA-STREAM` across `machines/`, `conventions/`, `software/`, `playbooks/`, `mod
   and points to the notes.
 - `machines/perlmutter/communication-defects.md`, `movl $0x400`: an unrelated buffer size, not this object.
 - No other statement on these objects was found.
+
+## 2026-10-29 — Group 2 of the working project's candidates: profiling, rig and sandbox method facts
+
+Six edits, from candidates screened in the operator's MG campaign:
+- `conventions/profile-capture.md`: export Nsight Systems reports to SQLite on node-local disk.
+- `conventions/profile-metrics.md`: a rare per-rank stall shows up as uniform MPI wait, so find its origin; and
+  cross-node session anchors are not one clock, so use clock-free arrival observables.
+- `conventions/diagnostic-rigs.md`: a teardown marker can fail falsely when the launcher kills an in-step helper.
+- `conventions/agent-sandbox.md`: a `ptrace`-denied `strace` writes an empty trace.
+- `conventions/batch-scripts.md`: per-node sampling from inside the application step has worked on one machine.
+- `machines/horizon/notes.md`: the every-rank Nsight Systems recipe and its costs at 2 and 27 boards.
+
+**Evidence.**
+- *Export:* about 1 % in 18 min to VAST `$SCRATCH`, against 49–65 s to node-local `$TMPDIR` and a move. 216 exports. `observed`.
+- *Uniform wait:* a 108-rank CG profile with every rank traced. Origin episodes of about 3 ms stalled 12–14 % of
+  reductions, and every rank's wait grew +0.63 ms/iter within 1 %. Removed later by excluding NUMA balancing (Horizon
+  incident). `observed`.
+- *Anchors:* the same capture. End-time spread was 487 µs median with raw anchors and 149 µs with a fitted offset, and
+  the last arriver drifted. `observed`.
+- *Teardown marker:* a 27-node rig; 13 of 27 node files were truncated in the final census, at a common watchdog
+  timestamp. The teardown is `[inferred]` from those.
+- *ptrace:* `PTRACE_TRACEME: Operation not permitted` and an empty trace, exposed by a positive control. `observed`.
+- *Per-node sampler:* one job moved only the sampler, with no effect beyond a 0.2–0.3 % floor, and several 27-node jobs
+  then ran it cleanly. `experiment`.
+- *Every-rank recipe:* two jobs (2 and 27 boards). Overhead +14 % and +1.9 % per iteration against untraced legs;
+  reports and finalisation measured. `reproduced ×2`.
+
+**Not admitted.**
+- The candidate's `pipefail` / `grep -q` SIGPIPE pitfall: general shell behaviour, not LQCD or sandbox knowledge, as with
+  the bash `RANDOM` note (ROADMAP settled).
+- A node-set health gate as a rig's first leg: it was dry-run tested and passed on healthy nodes, but it has never fired
+  on a bad node set, so it is unvalidated. It stays a working-project candidate. The failed-reset incident already
+  describes it as a guard that was not triggered.
+- Rank MG hierarchies on timing-free counts: deferred. Its counter is a working-directory tool tied to one log format,
+  and its timing fit was measured on the pre-maintenance Horizon configuration. A later session should decide whether to
+  port the tool.
+
+**Class decision.** Method facts and machine behaviour, with no ensemble numbers. Left out: job identifiers, node names,
+paths and the account.
+
+**Reconciliation.** For each object, searched `software/`, `conventions/`, `machines/`, `playbooks/`, `modes/` and `tools/`.
+- *Export:* `profile-capture.md`'s export command is *confirmed*; the new paragraph follows it.
+  `tools/gpu_profile/detect.py`'s refusal message prints the same command and is *confirmed* (it names no output location).
+- *Session anchors:* `profile-capture.md`'s "Nsight Systems records timestamps relative to session start and carries a UTC
+  anchor" is *confirmed*: true per rank, and the new text bounds it across nodes. `profile-metrics.md`'s "One clock" bullet
+  and end-time gate are *confirmed*; the new paragraph follows them. `tools/gpu_profile/nsys.py`'s anchor reading is
+  *confirmed* (per capture).
+- *Uniform wait:* `profile-metrics.md`, "One rank's profile is one rank's view", is *confirmed*; the new paragraph is an
+  instance of it.
+- *Teardown marker:* `diagnostic-rigs.md`'s "a terminal marker the leg writes in its own teardown" is *amended* by the
+  following paragraph, which limits it to markers the launcher cannot cut off. `running.md`'s "Prefer a marker the job
+  writes itself" (job-level teardown) is *confirmed*, a different object: the batch script's own teardown.
+- *ptrace:* `machines/horizon/notes.md`'s Yama `ptrace_scope` sentence is *confirmed*, a different object (compute-node
+  kernel policy).
+- *Per-node sampling:* `batch-scripts.md`'s "It samples one node" is *amended*. The separate-step arrangement stays
+  untested; the in-step one is added with its scope. "Run it as a plain background process, never as a job step" is
+  *confirmed*: the in-step sampler creates no step. The failed-reset incident's per-node sampler sentences are
+  *confirmed* and are part of the evidence.
+- *Every-rank tracing:* the notes' "Trace every rank, or leave `mpi` out of a partial trace" and its XALT section are
+  *confirmed*; the new paragraph follows them.
+- No other statement on these objects was found.

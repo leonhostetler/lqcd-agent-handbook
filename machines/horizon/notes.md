@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, the GPU driver's memory mode (check every board for NUMA mode before timing; a within-process CG slowdown seen on CDMM-mode boards was absent in NUMA mode), srun and ibrun rank placement on a four-GPU board, MILC and QUDA ranks launched under numactl --localalloc by default (operator policy), CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; not compared for small reductions), page cache left on one NUMA node pushing a large process into swap (drop input files' cache after reading them), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, the GPU driver's memory mode (check every board for NUMA mode before timing; a within-process CG slowdown seen on CDMM-mode boards was absent in NUMA mode), srun and ibrun rank placement on a four-GPU board, MILC and QUDA ranks launched under numactl --localalloc by default (operator policy), CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; not compared for small reductions), page cache left on one NUMA node pushing a large process into swap (drop input files' cache after reading them), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, trace every rank, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -322,6 +322,34 @@ and spend its whole time limit**, so gate a profiled leg on the application's fi
 marker, not on its exit. And **Nsight Systems records an MPI call only when it returns**, so a
 call that hangs is absent from the report; read the hang from the sampled call stack instead,
 here `opal_progress` under `ompi_request_default_wait`.
+
+**Tracing every rank works, and at 27 boards it was cheap** `[reproduced ×2]`, 2026-10-27: 8
+ranks on 2 boards, then all 108 ranks on 27 boards, MILC `ks_spectrum_hisq` with QUDA CG.
+- **The recipe:**
+  - XALT unloaded, as above, and `TMPDIR=/tmp`;
+  - one `nsys profile -t cuda,nvtx,osrt,mpi --mpi-impl=openmpi --sample=process-tree` per
+    rank, inside the launcher (`ibrun <per-rank wrapper> <application>`);
+  - the output named `prof_<rank>` from `OMPI_COMM_WORLD_RANK`, and each rank's `nsys`
+    stderr kept in its own log.
+- **Numerics:** iterations and correlators were bit-identical to an untraced run, and the
+  tunecache was unchanged.
+- **Cost per iteration:** +14 % on 2 boards, but +1.9 % on 27 boards, measured against an
+  untraced leg of the same job. The overhead depends on the per-rank work, so measure it at the
+  scale used.
+- **Reports:** about 8 kB per CG iteration per rank. Two 108-rank legs wrote 55 and 73 GB in
+  all, so size the capture from rank count × iterations.
+- **Finalisation:** on 2 boards, writing the reports after the application exited took about
+  2.5 minutes (0.6–0.8 GB per rank). Include that time in the leg's limit.
+- **A harmless warning, before the late-October 2026 maintenance:** on driver 615.71.09, nsys
+  printed "Installed CUDA driver version (13.4) is not supported by this build of Nsight Systems"
+  and still collected every CUDA kernel, copy and runtime call. The driver now reports CUDA 13.3;
+  whether the warning is gone has not been checked.
+- **Ending a stalled leg:** SIGINT to a running `nsys profile` writes a report of what has run
+  so far, and under `prterun` it then ends the whole job within about 10 s (exit 130). Only the
+  signalled node's ranks get reports.
+
+Export the reports to SQLite on node-local disk
+([`../../conventions/profile-capture.md`](../../conventions/profile-capture.md)).
 
 ## UCX devices, and the HPC-X alternative
 

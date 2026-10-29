@@ -4,10 +4,11 @@ summary: How to build a diagnostic run whose legs are interpretable, what a rig 
 scope: [universal]
 load_when: Designing, scoring, or interpreting a diagnostic run made of several legs, including a bisection of a change across revisions, or adding instrumentation, environment-variable comparisons, or resource sampling to an existing one.
 evidence: reproduced
-observations: 15
+observations: 16
 sources:
   - operator's screened split-grid deflation campaign records
-observed: "2026-09-17"
+  - operator's screened Horizon CG-slowdown rig records (2026-10-27)
+observed: "2026-10-27"
 observed_on:
   requirements: diagnostic-rig-design
 review_by: "2027-09-17"
@@ -138,6 +139,16 @@ So **gate every negative check on a positive completeness assertion first**: an 
 count, a terminal marker the leg writes in its own teardown, or a byte-size floor. A log that fails
 the completeness test is `indeterminate` under [`running.md`](running.md), never a pass. The same
 applies to the absence of an artifact, an empty query result, and a zero count of anything.
+
+**A teardown marker can also fail the other way.** `[observed]` A per-node sampler started inside
+the application's launch step wrote its exit marker after a final census. When the ranks exited,
+the launcher tore the step down while that census was still being written, on 13 of 27 nodes. The
+gate required the marker and failed. It switched the rest of the job to its fallback, although
+every node's samples were complete. So a terminal marker is a sound completeness assertion only
+where the launcher cannot cut it off: the leg's own teardown in the batch script, not a helper
+process killed with the step. For a helper, judge completeness on the data the analysis needs (a
+start record and a sample count), and keep its exit work short. A gate whose failure changes the
+rest of the run needs a positive control on real nodes, as any guard does.
 
 Note the direction. `running.md` covers the mirror failure — an unanchored pattern matching symbol
 and parameter names and reporting failures in every healthy run. Both are live, and a rig usually

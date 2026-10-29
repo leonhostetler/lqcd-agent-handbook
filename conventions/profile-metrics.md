@@ -8,7 +8,8 @@ sources:
   - tools/gpu_profile/metrics.py
   - vendor tracer documentation for Nsight Systems and ROCm Systems Profiler
   - operator's screened four-rank MILC/QUDA Nsight Systems capture analysis (Horizon, 2026-10-12)
-observed: "2026-10-12"
+  - operator's screened 108-rank, 27-node MILC/QUDA Nsight Systems capture analysis (Horizon, 2026-10-27)
+observed: "2026-10-27"
 observed_on:
   requirements: gpu-profile-metric-semantics
 review_by: "2027-09-15"
@@ -384,6 +385,19 @@ waiting.
 Comparing captures taken by two different profilers is not a measurement: the two record
 different things, so a delta across them has no denominator.
 
+**A rare stall on one rank shows up as uniform wait on every rank.** `[observed]` In a staggered
+CG on 108 ranks across 27 nodes, with halo exchange and two all-reduces per iteration, each rank
+had rare episodes of about 3 ms in which it completed no message although its neighbours had
+sent on time. Through the halo chains, these episodes stalled 12–14 % of all reductions. Every
+rank's MPI wait then grew by the same amount (+0.63 ms per iteration, within 1 %), while kernel
+time stayed flat. Each rank's own profile reads "communication got slower", and none of them
+names the cause. **Find the origin before attributing growing wait to the network or the MPI
+library:** look for the rank that completes nothing for the episode although its inputs have
+arrived, and sample host activity in those intervals against control windows. A waiting rank's
+samples show only polling. In that case the episodes went away once the processes were excluded
+from automatic NUMA balancing
+([`../machines/horizon/incidents/2026-10-27-cg-drift-under-numa-balancing-cdmm.md`](../machines/horizon/incidents/2026-10-27-cg-drift-under-numa-balancing-cdmm.md)).
+
 **A whole-profile rank comparison is weaker than a per-phase one, and agreement in it proves
 less than it appears to.** Imbalance confined to one phase can be cancelled by the opposite
 imbalance in another, so ranks whose whole-run totals match are shown only to be free of gross
@@ -425,6 +439,18 @@ the last arriver per call. Three conditions make the match trustworthy:
   per-call collective matched one for one. Matching by index across every size would pair
   unrelated calls; a check that the counts agree refused it, and is worth keeping beside the
   end-time gate.
+
+**Across nodes, the session anchors are not one clock.** `[observed]` On a 108-rank capture over
+27 nodes, adding each rank's session start left a blocking all-reduce's end times spread by a
+median of 487 µs. Fitting a constant offset per rank reduced that only to 149 µs, and the
+apparent last arriver drifted steadily over a ten-minute run. The end-time gate above refuses
+this match, correctly; the fix is a different observable, not a looser gate:
+
+- **Time inside the call needs no shared clock.** Matched by index, the late rank on each call is
+  the one that waited least.
+- **Ranks on one host share a clock**, so their pairs can be compared directly.
+- **A cross-node pair can be aligned** by a sliding median over the pair's ordinary
+  point-to-point messages.
 
 The extraction does not do this yet, so the matching is a hand derivation and is declared as
 one.
