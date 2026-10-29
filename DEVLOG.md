@@ -8176,3 +8176,78 @@ and `conventions/code-changes.md` for `-Wall`, `Wextra`, `raw_pointer`, `compare
 - `software/quda/internals/device-memory-pool.md` (`--partition 14` on one GPU): *confirmed*. That
   use measures memory, not correctness against a host reference.
 - No other statement on these objects was found.
+
+## 2026-10-29 — Horizon GPU memory mode (CDMM vs NUMA) and the CG slowdown under NUMA balancing
+
+`machines/horizon/notes.md` gains a section, "Check each board's GPU memory mode before timing", and its host-memory
+paragraph now names the layout it describes as NUMA mode. `machines/horizon/incidents/` gains its fourth entry,
+`2026-10-27-cg-drift-under-numa-balancing-cdmm.md`. Intake: inbox entries `38e118d2` (incident, revision 2) and
+`df71f503` (machine note) promoted. `6c956da0` (revision 1, superseded by `38e118d2`) discarded: it attributed a 2×
+speedup to the node set, before the maintenance and the change in node configuration were known.
+
+**Evidence.**
+- *CDMM-mode pair:* one 27-board job, default policy against `numactl --localalloc`, the policy the only variable.
+  - The default policy rose +30 % per iteration within the process; `--localalloc` was flat.
+  - The knob was confirmed by per-rank `numactl --show` and per-node PTE updates.
+  - Every rank's `Mems_allowed_list` was `0-1`, and every node ran driver 615.71.09.
+- *Earlier rig jobs:* the same rise on other node sets (+23–39 %). They ran driver 615.71.09 on every node; their
+  memory layout was not recorded.
+- *NUMA-mode pair:* one 144-board job, the first after a site maintenance. Every rank showed `0-2,10,18,26`, and the
+  batch node ran driver 610.57.04.
+  - No CG rise (+3.0 %).
+  - `--localalloc` was still cheaper (CG 0.93×, multigrid solve 0.78×, setup 0.88×).
+  - About 2× faster than the same work before the maintenance, with identical work counts.
+- *The same 27-board case on NUMA-mode boards*, reconciled before commit. This was the first job to read the driver
+  files: `numa` and `N` on 27/27 boards, driver 610.57.04, and all 26 thermal zones per board `disabled`.
+  - The default policy rose +3.3 %; `--localalloc` was flat, at 0.96× (unresolved by its frozen rule).
+  - Otherwise the speed matched healthy pre-maintenance jobs at that placement. So the 144-board 2× is not a general NUMA-mode
+    speedup, and the draft's "MILC/QUDA ran about 2× faster once boards moved to NUMA mode" was rewritten before commit.
+  - `/sys/devices/system/node/online` reads `0-33` in NUMA mode, so it is not a mode signature. The section says so.
+- *Labels:* the incident is `observed`. The section's mode readings are `[observed]` for the `Mems_allowed_list`
+  signature and for the NUMA-mode driver-file readings. The CDMM-mode driver-file readings remain the site's description.
+  Open: which of memory mode, driver and thermal setting removed the slowdown, and what made the large pre-maintenance
+  jobs about 2× slow.
+
+**Not admitted.**
+- Any claim that the memory mode alone caused the speedup, or that it removed the slowdown: the driver changed with it,
+  and the thermal state was never recorded before.
+- Any claim that NUMA mode makes MILC/QUDA about 2× faster in general: at 27 boards it did not.
+- An *empirical* rule to launch with `--localalloc`: two pairs, and on NUMA-mode boards no floor under its benefit.
+  The operator then set it as policy, on 2026-10-29: "until further notice, and unless specifically testing the effect
+  of this flag, --localalloc should be used by default in all future milc and/or quda runs on horizon". It is admitted as
+  `[operator]` in `machines/horizon/notes.md`, "Launch MPI deliberately", and the incident points there.
+- Absolute per-iteration timings and the per-solve sequences (class decision below).
+
+**Class decision.** The operator decided, on 2026-10-29:
+- dimensionless ratios only for solve timings on the two ensembles, which are not named;
+- site staff's memory-mode and thermal-zone guidance may be published, attributed generically and not quoted.
+
+The record is kept in the working directory. Left out: job identifiers, node and rack names, the account, the ensembles' names and spacings, the campaign's
+predictions.
+
+**Reconciliation.** Searched `numa_balancing`, `NUMA balancing`, `localalloc`, `CDMM`, `CoherentGPUMemoryMode`,
+`uvm_disable_sam`, `thermal_zone`, `thermal zone`, `nodes 2, 10`, `2,10,18,26`, `Mems_allowed`, `membind` and
+`--interleave` across `software/`, `conventions/`, `machines/`, `playbooks/`, `modes/` and `tools/`.
+
+`machines/horizon/notes.md`:
+- "A board has about 957 GiB of host memory … nodes 2, 10, 18 and 26": *amended*. It is NUMA mode's layout; a sentence
+  says so and points to the new section. Its figures are unchanged.
+- "Page cache left on one NUMA node …", the kernel-settings list with `kernel.numa_balancing` 1: *confirmed*. The value
+  was read again on every node of both new jobs.
+
+Elsewhere:
+- `machines/horizon/incidents/2026-10-27-pyfm-contract-swapped-under-page-cache.md` (an `--interleave=0,1` single
+  process): *confirmed*, a different object (reclaim under page cache, not balancing scans).
+- `tools/horizon-gb200-bind.sh` (`numactl --membind`, and its note that `Mems_allowed` shows the cpuset, not numactl's
+  policy): *confirmed*. The incident uses `numactl --show` for the policy and `Mems_allowed_list` only for the layout. It
+  notes `[inferred]` that `--membind` is also an explicit policy; not measured.
+- `machines/horizon/incidents/2026-10-26-whole-job-slow-on-failed-reset-nodes.md` (a whole job 20–30× slow): *confirmed*,
+  a different object (failed GPU resets). Its date falls before the maintenance, on boards of unrecorded mode.
+- `conventions/batch-scripts.md`, "CPU cores, host memory and the network interface: bind them": *confirmed*. An
+  explicit memory policy is such a binding.
+- `machines/horizon/notes.md`, "Launch MPI deliberately" (`ibrun` placement, `OPENMPI_AFFINITY`, the srun wrapper):
+  *amended*. The operator's `--localalloc` default is added, with a warning not to wrap `tools/horizon-gb200-bind.sh`,
+  whose inner `--membind` would replace it. The existing statements are confirmed.
+- `software/quda/runtime-environment.md`: *confirmed*. It owns environment variables and says nothing about memory
+  policy. A launch-line policy for one machine belongs in that machine's notes.
+- No other statement on these objects was found.

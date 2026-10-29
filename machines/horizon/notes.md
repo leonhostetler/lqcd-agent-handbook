@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, srun and ibrun rank placement on a four-GPU board, CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; not compared for small reductions), page cache left on one NUMA node pushing a large process into swap (drop input files' cache after reading them), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, the GPU driver's memory mode (check every board for NUMA mode before timing; a within-process CG slowdown seen on CDMM-mode boards was absent in NUMA mode), srun and ibrun rank placement on a four-GPU board, MILC and QUDA ranks launched under numactl --localalloc by default (operator policy), CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; not compared for small reductions), page cache left on one NUMA node pushing a large process into swap (drop input files' cache after reading them), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -30,6 +30,8 @@ sources:
   - the openmpi/5.0.11 modulefile, read from a login node 2026-10-27
   - operator-submitted single-process host-memory jobs on gpu-gb200 boards, with in-job per-NUMA-node meminfo, vmstat and page-cache samplers, a page-cache eviction comparison and two confirmation runs, 2026-10-27 and 2026-10-28, reviewed in the working directory
   - https://www.gnu.org/software/coreutils/manual/html_node/dd-invocation.html
+  - site staff's description of the GPU memory-mode and thermal-zone checks, relayed by the operator, 2026-10
+  - operator-submitted MILC/QUDA CG and staggered-multigrid jobs on 27 and 144 gpu-gb200 boards across a site maintenance, with in-job per-rank memory-policy probes and per-node nvidia-smi records, 2026-10-26 to 2026-10-28, reviewed in the working directory
 observed: "2026-10-28"
 observed_on:
   machine: horizon
@@ -93,8 +95,10 @@ below sets up.
 hold 488,985 and 490,747 MiB, together 979,732 MiB: exactly the configured memory `sinfo`
 reports per board. Each GPU's 184 GiB of HBM appears as a CPU-less NUMA node of 188,416 MiB
 (nodes 2, 10, 18 and 26 for GPUs 0-3), and those four account for the rest of the 1692 GiB
-`free` reports. So budget about 957 GiB of host memory per board, about 478 GiB per socket,
-and do not budget from `free`. The guide's 120 GiB (prose) and 240 GiB (table) describe neither.
+`free` reports. That layout is the GPU driver's **NUMA mode**; a board in CDMM mode shows only
+nodes 0 and 1 (*Check each board's GPU memory mode before timing*, below). So budget about
+957 GiB of host memory per board, about 478 GiB per socket, and do not budget from `free`.
+The guide's 120 GiB (prose) and 240 GiB (table) describe neither.
 A whole-node job requesting `--mem=0` is nonetheless granted 1562.5 GiB, and TACC's submit
 filter attaches 200000 MiB per GPU, so neither grant is the board's host memory either
 `[observed]`, 2026-10-09.
@@ -233,6 +237,20 @@ passes `--map-by socket:PE=<cores per task>` unless `OPENMPI_AFFINITY` is alread
 so local ranks 1 and 2 land on the socket away from their GPU. Export
 `OPENMPI_AFFINITY="--map-by slot:PE=36 --bind-to core"` before `ibrun` at four ranks per node:
 each rank then holds the 36 cores beside its GPU `[reproduced]`, recorded by a per-rank wrapper.
+
+**Launch MILC and QUDA ranks under `numactl --localalloc` by default** `[operator]`, from
+2026-10-29 until further notice, except in a run that tests the flag itself:
+`ibrun numactl --localalloc <executable> <input>`. Each rank gets an explicit local memory
+policy. Placement does not change, but the rank's memory leaves automatic NUMA-balancing scans,
+which are on (`kernel.numa_balancing` 1) on the compute nodes. On CDMM-mode boards that removed
+a within-process CG slowdown of up to about 30 %. On NUMA-mode boards it cost 0.93–0.96× for CG
+and 0.78× for one multigrid solve, with no measured floor. Answers were bitwise identical in every pair
+([`incidents/2026-10-27-cg-drift-under-numa-balancing-cdmm.md`](incidents/2026-10-27-cg-drift-under-numa-balancing-cdmm.md)).
+Check that it reached every rank: a probe launched the same way prints `policy: local` from
+`numactl --show`. `Mems_allowed` shows the cpuset, not the policy. **Do not wrap
+`tools/horizon-gb200-bind.sh` in it.** That script ends in its own `numactl --membind`, whose
+policy replaces the outer one `[inferred]`. `--membind` is also an explicit policy, so it should
+opt out of scanning the same way `[inferred]`, but that was not measured.
 
 **A subset launch is always unbound.** `ibrun -n N -o M` replaces any mapping with
 `--bind-to none` `[source]`, so every rank may use all 144 cores. Several such ranks with
@@ -407,6 +425,63 @@ board. Which HAN stage costs the time was not isolated, so the mechanism is
   nor its outputs have been checked.
 - Device buffers, other numbers of ranks per board, HPC-X's Open MPI, and other Open MPI
   versions.
+
+## Check each board's GPU memory mode before timing
+
+**A GB200 board's GPU driver runs in NUMA mode or in CDMM mode; read it before timing.** Site
+staff named two configurations that make MILC run slow: a board in CDMM mode instead of NUMA mode,
+and a board not booted with its thermal zones disabled. Across a site maintenance in late October
+2026 the boards moved from CDMM to NUMA mode and the driver from 615.71.09 to 610.57.04
+`[observed]`. Every job of one campaign whose memory layout was recorded before it ran on CDMM-mode
+boards, and two jobs after it, of 27 and 144 boards, ran on NUMA-mode boards throughout. Two
+changes followed, and they differ in reach:
+
+- **A within-process CG slowdown seen on CDMM-mode boards (+30 % per iteration) was absent on
+  NUMA-mode boards at both sizes**, the 27-board case rerun on the same inputs and placement
+  ([`incidents/2026-10-27-cg-drift-under-numa-balancing-cdmm.md`](incidents/2026-10-27-cg-drift-under-numa-balancing-cdmm.md)).
+- **The 144-board job ran about 2× faster than 144- and 216-board jobs before the maintenance**:
+  the same staggered-multigrid hierarchy, loaded vectors and placement at 0.50× the recurring
+  solve time and 0.36× the setup time, with identical operator-apply, halo and reduction counts,
+  and light-mass CG on the same lattice about 1.85× faster per site, with no throttling. **At 27
+  boards that did not reproduce.** Apart from the vanished slowdown, the same solves ran at the
+  speed of healthy jobs before the maintenance. A 27-board job on boards all in CDMM mode ran its
+  unaffected solves only 15–20 % slower than NUMA mode now. So NUMA mode is not shown to make
+  MILC/QUDA faster in general. What made the large earlier jobs slow is not established: a few
+  slow boards pacing a large job, or thermal state never recorded before, are candidates
+  `[inferred]`.
+
+Which of the memory mode, the driver and the thermal setting removed the slowdown is not
+separable: they changed together, and no thermal-zone state was recorded before.
+
+**Read it on every board, inside the job** (once per node, before the timed work and again after).
+The NUMA-mode column is `[observed]` on every board of a 27-board job, where all 26 thermal zones
+per board also read `disabled`. In the CDMM column, the first two rows are the site's description
+and the third is `[observed]`:
+
+| Reading | NUMA mode | CDMM mode |
+|---|---|---|
+| `grep -o 'CoherentGPUMemoryMode:.*' /proc/driver/nvidia/params` | `"numa"` | `"driver"` |
+| `cat /sys/module/nvidia_uvm/parameters/uvm_disable_sam_migration` | `N` | `Y` |
+| `grep Mems_allowed_list /proc/self/status`, any process | `0-2,10,18,26` | `0-1` |
+
+The third row needs neither driver file and is free to log from any rank, which makes it the
+cross-check when the files are unreadable `[observed]`: `0-1` on every rank of a 27-board job
+before the maintenance, `0-2,10,18,26` on every rank of the 144-board job after it. Record each
+`/sys/class/thermal/thermal_zone*/mode` too; the site's guidance is that every zone should read
+`disabled`. Record the driver with `nvidia-smi --query-gpu=driver_version --format=csv,noheader`.
+Do not read the mode from `/sys/devices/system/node/online`: in NUMA mode it lists every node
+ID (`0-33`), including those without memory, so it does not show which nodes hold memory
+`[observed]`.
+
+**Gate a timed job on the memory mode and record the rest.** Stop before any timed work when a
+board is not in NUMA mode. The slowdown above appeared only on CDMM-mode boards, and a
+bulk-synchronous job runs at the pace of its slowest board `[inferred]`. A thermal zone not `disabled` labels the
+result rather than stopping it, until its effect has been measured. Before the maintenance the
+fleet was probably mixed (one board showed the NUMA layout on 2026-10-22, above), which would make
+apparently identical jobs differ by node set `[inferred]`.
+
+**Do not compare timings across a change of memory mode or driver** without re-measuring a
+reference on each side.
 
 ## Page cache left on one NUMA node can push a large process into swap
 
