@@ -8544,3 +8544,75 @@ when the monitor was stopped. After the change the module passes 13/13 here.
 - The NVIDIA path of `tools/monitor-gpu.sh` and `tools/gpu-memory-sampler.sh` run awk on one-shot output per poll,
   which always ends: not affected, unchanged.
 - No other statement on this object was found.
+
+## 2026-10-29 — Tunecache header mismatch aborts; it is never a cold start
+
+**Change** (`software/quda/internals/autotuning.md`, "An absent cache and an empty one are not the same file"). One
+paragraph: a present cache whose header differs from the running library aborts through `errorQuda`, so "rejection"
+means a failed process; a cache copied across a rebuild costs the step unless removed or waived; a new-build launcher
+should make its cold state explicit and refuse an inherited `QUDA_TUNE_VERSION_CHECK`. Source line range added.
+
+**Evidence** `[source]`. `lib/tune.cpp` `loadTuneCache` read at `b6998853f`, `00c7ef33d` and `2e7dd818`: identical
+comparisons, each followed by `errorQuda`. Prompted by an operator campaign that moved to `2e7dd818` and had to start
+cold because every cache it held was written by `00c7ef33d`.
+
+**Reconciliation.** Searched `QUDA_TUNE_VERSION_CHECK`, `tunecache`, `version`, `reject`, `cold` across `software/quda/`,
+`machines/` and `conventions/`.
+- `autotuning.md` opening ("Treat QUDA's Git-version rejection as a conservative screen") — *confirmed*, unchanged; the
+  new paragraph defines what rejection costs.
+- `autotuning.md` header table and `QUDA_HASH` paragraph ("a header mismatch can reject a harmless comment-only commit";
+  "a cache tuned by one is rejected by the other") — *confirmed*, unchanged.
+- `autotuning.md` "Setting `QUDA_TUNE_VERSION_CHECK=0` disables all three header comparisons" and the controlled
+  workflow's step 4 — *confirmed*, unchanged.
+- `autotuning.md` absent-versus-empty paragraph — *confirmed*; the new paragraph extends it.
+- `machines/perlmutter/communication-defects.md` ("`QUDA_TUNE_VERSION_CHECK=0` in a submit script will silently reuse
+  a cache written under the newer toolchain") — *confirmed*, unchanged: consistent, the override is what turns the abort
+  into silent reuse.
+- No other statement on this object was found.
+
+## 2026-10-29 — Staggered MG: `block_solver_batch_size` sets the blocked width; the CG width does not use it
+
+**Change.** `software/quda/solvers/staggered-multigrid.md`, "Build and stack requirements": one paragraph — the MG
+parameter file's `block_solver_batch_size` batches a multi-source set (`-1`, the default, is the whole set); the
+single-source entry point passes one source, so a file tuned on one-RHS solves can carry `1` unnoticed and then unblock
+a `multicolorsource` set. Three source lines added. `software/quda/solvers/staggered-memory.md`, plain-CG active width:
+**amended** — it said `w` "is the active MILC `block_solver_batch_size`"; that key is in the MG parameter file and is
+read only by `qudaInvertMsrcMG`, while `qudaInvertMsrc` (CG) takes the call's `num_src` with no batching.
+
+**Evidence** `[source]`. `lib/milc_interface.cpp` (`qudaInvertMG`, `qudaInvertMsrcMG`, `qudaInvertMsrc`) and
+`include/milc_interface_internal.hpp` at `00c7ef33d` and `2e7dd818`; MILC `6b9b8a06` `generic_ks/d_congrad5_fn_quda.c`
+passes the block's `nsrc`. Prompted by an operator campaign whose per-mass MG parameter files, tuned on one-RHS solves,
+carried `block_solver_batch_size 1` into a planned width-6 blocked measurement; caught before any run.
+
+**Reconciliation.** Searched `block_solver_batch_size`, `batch size`, `batch_size` across `software/` and `machines/`.
+- `staggered-multigrid.md` ("multi-source batch size" among the file's controls; "right-hand-side batch size" among the
+  tunables; "batch size" in the memory and recorded-items lists) — *confirmed*, unchanged.
+- `software/milc/internals/staggered-inverter-types.md` ("`block_solver_batch_size` does not apply on that path", the
+  one-mass multimass set) — *confirmed*, unchanged: on that path the call carries one source, so the value has no effect.
+- `staggered-memory.md` plain-CG `w` — *amended*, above. Its MRHS-MG section speaks of active RHS, not the key —
+  *confirmed*, unchanged.
+- `software/quda/internals/milc-deflation-space.md` and `device-memory-pool.md` concern the eigensolver's batch, a
+  different key — not affected.
+- No other statement on this object was found.
+
+## 2026-10-29 — Batch scripts: stop the GPU monitor before teardown reads its file
+
+**Change** (`conventions/batch-scripts.md`, "Run it as a plain background process"). One paragraph: the `EXIT` trap fires
+after the script's last line, so a teardown that copies, hashes or parses the telemetry file must first `kill` and `wait`
+the monitor; the trap stays for paths that never reach teardown.
+
+**Evidence** `[observed]` once, mechanism clear. In an operator campaign's dry run (the shipped harness, stand-in inputs,
+stubbed `sleep`), a launcher derived from an earlier campaign's hardened template — every copy verified by size and
+sha256 — recorded `copy_failed` on the telemetry file and set the job's exit status to failure on an otherwise clean
+run. With the monitor killed and reaped before the copy, the same run passed. The earlier template had run on the
+machine at a 5 s interval with matching copies; the new launcher samples at 2 s.
+
+**Reconciliation.** Searched `monitor`, `trap`, `kill`, `telemetry`, `copy` across `conventions/` and `tools/`.
+- `batch-scripts.md` snippet `trap 'kill "$monitor" 2>/dev/null || true' EXIT` — *confirmed*, unchanged; the paragraph
+  says to keep it.
+- `batch-scripts.md` "It dies with the job ... the `trap` above covers an ordinary exit" — *confirmed*, unchanged: it is
+  about the monitor not outliving the job, which still holds.
+- `batch-scripts.md` "Presence is not periodicity ... Confirm the output exists and spans the run" — *confirmed*,
+  unchanged.
+- `tools/monitor-gpu.sh` and `tools/extract-gpu-telemetry.py` — not affected; the reader runs after the job.
+- No other statement on this object was found.

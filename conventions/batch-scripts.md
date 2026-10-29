@@ -288,6 +288,14 @@ monitor=$!
 trap 'kill "$monitor" 2>/dev/null || true' EXIT
 ```
 
+**The trap stops the monitor only when the script exits, which is after its last line.** A
+teardown that copies, hashes or parses the telemetry file before then reads a file the monitor is
+still appending to, so stop and reap it first — `kill "$monitor"`, then `wait "$monitor"` — and
+keep the trap for the paths that never reach teardown. `[observed]` once, in a dry run whose stubbed
+`sleep` made the monitor write continuously: a launcher that verified each copy by size and checksum
+recorded the telemetry copy, and with it a clean job, as failed. On the machine the race needs a
+sample to land between the copy and the check, which a short interval makes likely rather than rare.
+
 **No parallel launcher appears in that command, and that is the whole point.** Launching a
 sampler across the allocation through the parallel launcher creates a **second job step**, and
 job steps do not share an allocation by default. A launcher that did exactly what an earlier
