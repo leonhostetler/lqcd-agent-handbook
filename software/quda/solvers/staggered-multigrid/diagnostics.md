@@ -415,8 +415,10 @@ chunk of a width above the largest instantiation — are inferred from source an
   MMA off for wider batches, at about `1.7x` the per-iteration cost of MMA on at width 15
   `[observed]`.
 - **Upstream fix:** [lattice/quda#1664](https://github.com/lattice/quda/issues/1664) reports
-  the stall; [lattice/quda#1666](https://github.com/lattice/quda/pull/1666), unmerged at
-  this writing, zero-fills the padding columns in the forward transpose. Applied to
+  the stall; [lattice/quda#1666](https://github.com/lattice/quda/pull/1666) zero-fills the
+  padding columns in the forward transpose and was merged into `develop` on 2026-10-29 as
+  `2e7dd818` (fix commit `de61c2935`). **This section describes QUDA through `00c7ef33d`
+  and `develop` before `2e7dd818`.** Applied to
   `00c7ef33d` on the one-node reproducer, with the unpatched library stalling in the same job,
   it removed the stall at widths 15 and 12 and at width 6 with an 8-wide SVD batch; each
   converged in the one-RHS count `[observed]`. It is not verified at production scale. The
@@ -424,8 +426,8 @@ chunk of a width above the largest instantiation — are inferred from source an
   setup at width 1; do not expect width-1 residual histories to be bit-identical across it.
 
 **Not claimed:** that a working wide block is faster than a narrower one; behaviour on other
-architectures or with a single-precision coarse halo. When #1666 merges, this section is scoped
-to the commits before it.
+architectures or with a single-precision coarse halo; that the merged fix removes the stall in
+a production MILC run (not yet observed).
 
 ## A performance comparison looks surprising
 

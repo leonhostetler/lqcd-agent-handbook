@@ -8501,3 +8501,20 @@ pool mechanism the leaf already states; the absence of the activation term has n
 
 **Not admitted.** A width-6 / width-9 prediction for a 0.042 fm, 216-node hierarchy made from this rule (a prediction,
 not an observation; to be checked when that run returns).
+
+## 2026-10-29 — Padded-batch stall: lattice/quda#1666 merged; the section is version-scoped
+
+**Change** (`software/quda/solvers/staggered-multigrid/diagnostics.md`, padded-batch stall). As the section itself
+required on merge: #1666 merged into `develop` on 2026-10-29 as `2e7dd818` (fix commit `de61c2935`, the PR head the
+one-node reproducer had verified); the section now describes QUDA through `00c7ef33d` and `develop` before `2e7dd818`.
+"Not claimed" adds that the merged fix has not yet been observed removing the stall in a production MILC run.
+
+**Evidence.** The merge state, date and commits from the GitHub API for the public PR (checked 2026-10-29). The
+`00c7ef33d...develop` comparison is 27 commits ahead, 0 behind; only `de61c2935` touches the staggered-MG path.
+
+**Reconciliation.** Searched `#1664`, `#1666`, `padded`, `padding`, `stall`, `MRHS_LIST` across `software/quda/`.
+- `staggered-multigrid.md` ("A batch padded up to an instantiated width can stall at QUDA `00c7ef33d`") — *confirmed*,
+  already version-scoped, unchanged.
+- `diagnostics.md` workarounds (`nvec 3` not a multiple of 16; widths `<= 8`; MMA off) — *confirmed*, unchanged; they
+  apply to the scoped commits.
+- No other statement on this object was found.
