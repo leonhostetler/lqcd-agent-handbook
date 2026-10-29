@@ -24,6 +24,7 @@ sources:
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/include/dslash.h
   - https://github.com/lattice/quda/blob/b6998853f6b605e22d67ea2ddfa3cab0d752679a/lib/dslash_policy.hpp
   - https://github.com/lattice/quda/commit/d96a56f4e04cfe7158a923e06cc706af4e8a36cf
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/tune.cpp#L397-L437
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/tune.cpp#L1206-L1218
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/tune.cpp#L1039
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.cpp#L232-L237
@@ -288,6 +289,16 @@ zero-byte. A run intended to start cold must therefore ship with the file **abse
 truncated, and a guard asserting cold state must test **absence**: a size test such as
 `[[ -s FILE ]]` is satisfied by an empty file and passes exactly the case that aborts. One
 recorded submission was lost to this.
+
+**A cache whose header does not match the running library aborts as well; it is never a cold
+start.** `[source]` at QUDA `00c7ef33d`, unchanged at `b6998853f` and `2e7dd818`: `loadTuneCache`
+compares the header's semantic version, Git descriptor and `QUDA_HASH` with the library's and calls
+`errorQuda` on the first mismatch (`lib/tune.cpp`). Every "rejection" in this leaf is therefore a
+failed process, not an ignored file. A cache copied forward across a rebuild — any new commit, the
+comment-only case above included — costs the step it is loaded in unless it is removed, which
+makes the run cold, or the version check is waived after the audit below. A launcher for a new
+build should make its cold state explicit (the cache absent) and refuse an inherited
+`QUDA_TUNE_VERSION_CHECK`, so the waiver is only ever a recorded decision.
 
 The inverse guard, for a run seeded from a known cache, is the mirror image: require the seed to
 be **present**, verify its checksum against the recorded value, refuse to overwrite an existing
