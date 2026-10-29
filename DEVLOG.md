@@ -8421,3 +8421,50 @@ against `00c7ef33d`: 0 leaves to review; `observed_on` left unchanged on both.
 
 **Not admitted.** The working project's gain measurements for blocked widths (ensemble-scoped timings), and its finding
 that a width-1 residual history is not bit-reproducible run to run on its rig (one non-like-for-like comparison).
+
+## 2026-10-29 — Horizon: free in NUMA mode, the lost-node hold, and newest-match pgrep
+
+Developer mode, operator-approved diff. Three candidates from the working project's reconciliation of one
+162-board HadronsMILC LMI job that ended in a node failure, after the site maintenance. Machine figures are
+published under the operator's class decision of 2026-10-28; no ensemble or physics figure is included.
+
+- **`machines/horizon/notes.md`, host memory, new paragraph:** in NUMA mode `free` counts the GPUs' allocations as
+  used, and `free` used minus each GPU's `memory.used` still reads about 32 GiB above NUMA nodes 0 and 1. Sample host
+  memory as `MemTotal` − `MemFree` of nodes 0 and 1 from sysfs. Summary clause added.
+- **`machines/horizon/notes.md`, "A lost node ends the whole job", new paragraph:** Slurm declares a node down only
+  after `SlurmdTimeout` (600 s here), so a lost node holds the whole allocation for at least ten minutes. Date the
+  failure from per-node telemetry and the application's last line.
+- **`conventions/diagnostic-rigs.md`, "Sampling a process by name", new paragraph:** `pgrep -n -f` returns the newest
+  match, which is a wrapper's forked helper rather than the `exec`'d application. Anchor the pattern to the start of
+  the command line. `observations` 16 → 17; limits sentence added.
+
+**Evidence.**
+- Host memory `[observed]`, one batch node, one job, hundreds of samples per phase: `free` used about 776,600 MiB
+  during the Lanczos while nodes 0 and 1 used 59,755–66,233 MiB and each GPU held about 169,600–169,850 MiB. The
+  `free`-minus-GPUs residual was about 32 GiB in every phase (peak 141,777 against 110,244 MiB). Mechanism of the
+  "used" count inferred from the existing NUMA-mode statement; the residual is unexplained and the text says so.
+  The sysfs path was confirmed on a login node.
+- Lost node: `SlurmdTimeout = 600 sec` from the live `scontrol show config` and `slurm.conf(5)`; `[observed]` once,
+  the dead node's clock sampler's last sample (normal clocks and temperatures) and the application's last log line
+  819 s before the cancellation, while the other 161 nodes kept sampling to within seconds of it. The ~220 s beyond the
+  timeout (ping cadence or detection granularity) is not established, so the text says "at least".
+- pgrep `[experiment]`: in the job, the sampler's unanchored pattern selected a 2.9 MB shell (the per-rank clock
+  wrapper's watchdog subshell) for the whole run; offline, with only the pattern varied against a decoy forked the
+  same way, the unanchored pattern selected the decoy and `^<exe> ` selected the `exec`'d process. Mechanism: procps
+  `-f` and `-n` semantics, and `exec` keeping the wrapper's pid and start time.
+
+**Reconciliation.** Searched `free`, `MemFree`, `meminfo`, `SlurmdTimeout`, `NODE FAILURE`, `pgrep` and
+`exec` across `machines/`, `conventions/`, `software/` and `playbooks/`.
+- `machines/horizon/notes.md`, "A board has about 957 GiB of host memory, and `free` also counts the GPUs' memory …
+  do not budget from `free`": *confirmed*; extended from the total to the "used" figure.
+- `machines/horizon/notes.md`, "Check each board's GPU memory mode before timing": *confirmed*, unchanged.
+- `machines/horizon/notes.md`, "A lost node ends the whole job" `[reproduced ×3]`: *confirmed*; extended with the
+  hold time.
+- `conventions/diagnostic-rigs.md`, "Sampling a process by name" (fifteen-character truncation): *confirmed*;
+  extended with the newest-match failure.
+- `conventions/batch-scripts.md`, the per-rank wrapper with a watchdog: *confirmed*, unchanged; it is the arrangement
+  that creates the decoy, and the new paragraph names the fix on the sampler side.
+- No other statement on these objects was found.
+
+**Not admitted.** Bitwise-equal eigenvalues under the HAN exclusion (cause not established); a transient HDF5 write
+slowdown (one episode, no mechanism); a 1.15× per-solve slowdown on two sources (three causes confounded).

@@ -4,12 +4,13 @@ summary: How to build a diagnostic run whose legs are interpretable, what a rig 
 scope: [universal]
 load_when: Designing, scoring, or interpreting a diagnostic run made of several legs, including a bisection of a change across revisions, or adding instrumentation, environment-variable comparisons, or resource sampling to an existing one.
 evidence: reproduced
-observations: 16
+observations: 17
 sources:
   - operator's screened split-grid deflation campaign records
   - operator's screened Horizon CG-slowdown rig records (2026-10-27)
   - Linux v6.12 kernel/sched/fair.c, task_numa_placement() and task_numa_free()
-observed: "2026-10-27"
+  - operator's screened Horizon LMI benchmark records (2026-10-29)
+observed: "2026-10-29"
 observed_on:
   requirements: diagnostic-rig-design
 review_by: "2027-09-17"
@@ -321,6 +322,17 @@ data for the exact quantity it had been added to capture. Match the truncated fo
 something other than the name — and have the sampler assert it matched at least one process rather
 than writing a placeholder.
 
+**A substring match returns whichever matching process is newest, and a wrapper's helper usually
+is.** `pgrep -n -f <name>` matches the full command line and returns the most recently started
+match. A per-rank wrapper that forks a background helper and then `exec`s the application leaves
+a helper whose command line still carries the application's path and arguments, while the
+application keeps the wrapper's earlier start time, so the helper wins. `[experiment]` One
+host-memory sampler recorded a 3 MB shell as the application for a whole run this way. Offline,
+against a decoy forked the same way, the unanchored pattern selected the decoy and a pattern
+anchored to the start of the command line, `^<absolute executable path> `, selected the
+application. Anchor the pattern, and check the matched process's size or executable before
+trusting its columns.
+
 ## Evidence and limits
 
 Empirical, converted from recorded episodes in one operator campaign rather than argued from
@@ -329,7 +341,8 @@ mechanism is IEEE 754 comparison semantics. It was observed once, in a separate 
 comparison tool scored a NaN-carrying leg as agreement. The bisection section also comes from that
 separate campaign, where it worked once. Its rules rest on stated mechanisms: a single leg
 classifies only under determinism, a scorer must be able to refuse, and a dependency can drift
-between builds. What transfers is the failure mode and the
+between builds. The newest-match rule rests on `pgrep`'s documented `-n` and `-f` selection and on
+one offline reproduction against a decoy. What transfers is the failure mode and the
 guard; no rate, threshold, sampling interval, or cost figure is claimed, and the illustrative
 magnitudes are reported only to convey scale. Each rule above cost something specific in its source
 campaign, which is the only evidence offered that it is worth its space.

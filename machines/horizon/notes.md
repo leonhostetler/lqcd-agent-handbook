@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout, the GPU driver's memory mode (check every board for NUMA mode before timing; a within-process CG slowdown seen on CDMM-mode boards was absent in NUMA mode), srun and ibrun rank placement on a four-GPU board, MILC and QUDA ranks launched under numactl --localalloc by default (operator policy), CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; not compared for small reductions), page cache left on one NUMA node pushing a large process into swap (drop input files' cache after reading them), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, trace every rank, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout (sample host memory per NUMA node, never with free), the GPU driver's memory mode (check every board for NUMA mode before timing; a within-process CG slowdown seen on CDMM-mode boards was absent in NUMA mode), srun and ibrun rank placement on a four-GPU board, MILC and QUDA ranks launched under numactl --localalloc by default (operator policy), CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; not compared for small reductions), page cache left on one NUMA node pushing a large process into swap (drop input files' cache after reading them), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, trace every rank, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -32,6 +32,9 @@ sources:
   - https://www.gnu.org/software/coreutils/manual/html_node/dd-invocation.html
   - site staff's description of the GPU memory-mode and thermal-zone checks, relayed by the operator, 2026-10
   - operator-submitted MILC/QUDA CG and staggered-multigrid jobs on 27 and 144 gpu-gb200 boards across a site maintenance, with in-job per-rank memory-policy probes, per-board memory-mode audits, per-node nvidia-smi records and GPU clock telemetry, 2026-10-26 to 2026-10-29, reviewed in the working directory
+  - an operator-submitted HadronsMILC LMI run on 162 gpu-gb200 boards after the site maintenance, ended by a node failure, with in-job per-NUMA-node meminfo, free and per-node GPU clock samplers, 2026-10-29, reviewed in the working directory
+  - live Slurm controller configuration (scontrol show config), read from a login node 2026-10-29
+  - https://slurm.schedmd.com/slurm.conf.html
 observed: "2026-10-29"
 observed_on:
   machine: horizon
@@ -102,6 +105,16 @@ The guide's 120 GiB (prose) and 240 GiB (table) describe neither.
 A whole-node job requesting `--mem=0` is nonetheless granted 1562.5 GiB, and TACC's submit
 filter attaches 200000 MiB per GPU, so neither grant is the board's host memory either
 `[observed]`, 2026-10-09.
+
+**In NUMA mode `free` also counts the GPUs' allocations as used, so it cannot sample host
+memory** `[observed]`, one 162-board job's batch node, 2026-10-29. With each GPU holding about
+166 GiB, `free` reported about 760 GiB used while NUMA nodes 0 and 1 held about 60 GiB.
+Subtracting each GPU's `memory.used` from `nvidia-smi` does not recover host memory either: the
+result stayed about 32 GiB above nodes 0 and 1 in every phase of that job, for a reason not
+established. Sample host memory per socket instead, as `MemUsed` (`MemTotal` − `MemFree`) of
+nodes 0 and 1 in `/sys/devices/system/node/node<N>/meminfo`, and subtract `FilePages` where page
+cache should not count. A CDMM-mode board's `free` sees only nodes 0 and 1, so a figure taken
+there compares with neither reading.
 
 **Do not write `$WORK` into a script.** The shell sets it during early access, but the
 directory does not exist. The profile therefore declares no variable for it.
@@ -270,6 +283,15 @@ the application finished: judge every run by the application's own completion ma
 its artifacts ([`../../conventions/running.md`](../../conventions/running.md)). A job that
 carries many work units should record each unit's result as it finishes and copy each unit's
 node-local outputs off the node then, so a cancellation costs only the units in flight.
+
+**The job holds every node for at least ten minutes after one dies.** Slurm marks a node down
+only after `SlurmdTimeout` passes with no response from it: 600 s here (`scontrol show config`,
+2026-10-29; [`slurm.conf`](https://slurm.schedmd.com/slurm.conf.html)). In one 162-board job the
+dead node's GPU clock sampler went silent, with normal clocks and temperatures, 819 s before the
+cancellation, and the application logged nothing after that moment `[observed]`. Budget a lost
+node as the work in flight plus at least ten minutes of the whole allocation. When reconciling
+such a job, date the failure from the last sample of per-node telemetry and the application's
+last log line, never from the cancellation time.
 
 ## Nsight Systems needs XALT unloaded on the GB compute nodes
 
