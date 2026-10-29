@@ -31,8 +31,8 @@ sources:
   - operator-submitted single-process host-memory jobs on gpu-gb200 boards, with in-job per-NUMA-node meminfo, vmstat and page-cache samplers, a page-cache eviction comparison and two confirmation runs, 2026-10-27 and 2026-10-28, reviewed in the working directory
   - https://www.gnu.org/software/coreutils/manual/html_node/dd-invocation.html
   - site staff's description of the GPU memory-mode and thermal-zone checks, relayed by the operator, 2026-10
-  - operator-submitted MILC/QUDA CG and staggered-multigrid jobs on 27 and 144 gpu-gb200 boards across a site maintenance, with in-job per-rank memory-policy probes and per-node nvidia-smi records, 2026-10-26 to 2026-10-28, reviewed in the working directory
-observed: "2026-10-28"
+  - operator-submitted MILC/QUDA CG and staggered-multigrid jobs on 27 and 144 gpu-gb200 boards across a site maintenance, with in-job per-rank memory-policy probes, per-board memory-mode audits, per-node nvidia-smi records and GPU clock telemetry, 2026-10-26 to 2026-10-29, reviewed in the working directory
+observed: "2026-10-29"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -469,6 +469,16 @@ cross-check when the files are unreadable `[observed]`: `0-1` on every rank of a
 before the maintenance, `0-2,10,18,26` on every rank of the 144-board job after it. Record each
 `/sys/class/thermal/thermal_zone*/mode` too; the site's guidance is that every zone should read
 `disabled`. Record the driver with `nvidia-smi --query-gpu=driver_version --format=csv,noheader`.
+
+**Before the maintenance, the clock-event reasons also carried bit `0x400`, which NVML's documented
+table does not name** `[reproduced]`. On driver 615.71.09 it appeared in every 27-board job that
+sampled clocks per node (not in one 2-board job) and in up to 91 % of a batch node's samples, with
+the SM clock 0.3–7 % below its maximum.
+After the maintenance it was absent from every sample: three legs on 27 boards, sampled per node,
+and a 144-board job's batch node. Its meaning is not identified. Linking it to the thermal
+management the maintenance disabled is `[inferred]` from the timing alone. A reader that decodes
+`clocks_event_reasons.active` must report unnamed bits rather than count those samples as having
+no reason. A clock 7 % low cannot by itself explain a 2× slower job.
 Do not read the mode from `/sys/devices/system/node/online`: in NUMA mode it lists every node
 ID (`0-33`), including those without memory, so it does not show which nodes hold memory
 `[observed]`.

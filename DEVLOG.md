@@ -8251,3 +8251,42 @@ Elsewhere:
 - `software/quda/runtime-environment.md`: *confirmed*. It owns environment variables and says nothing about memory
   policy. A launch-line policy for one machine belongs in that machine's notes.
 - No other statement on these objects was found.
+
+## 2026-10-29 — Horizon: clock-event bit 0x400 gone after the maintenance; drain timing as evidence
+
+`machines/horizon/notes.md` gains a paragraph in "Check each board's GPU memory mode before timing" on clock-event bit
+`0x400`, and its last source line now names the memory-mode audits and clock telemetry. The failed-reset incident gains a
+"what to capture" bullet on reading a drain's timing. Both come from a review of the working project's open candidates
+against the post-maintenance jobs.
+
+**Evidence.**
+- *0x400:* counted over every campaign job's clock files.
+  - Before the maintenance (driver 615.71.09) the bit was present in every 27-board job that sampled clocks per node, on
+    0.2–9 % of the samples, and on up to 91 % of one batch node's samples. It was absent in one 2-board job.
+  - After it (driver 610.57.04, NUMA mode, all thermal zones `disabled`) the bit was absent: 0 of 59 784 samples from
+    three legs on 27 boards, per node, and 0 of 7 637 on a 144-board job's batch node.
+  - With the bit set, the SM clock was 0.3–7 % below its maximum.
+  - *Labels:* the presence and absence are `reproduced`. The meaning is unidentified. The link to thermal management is
+    `[inferred]` from timing.
+- *Drains:* two healthy 144-board jobs were each followed by about five GPU-fault drains 2–9 h later, and a 27-board job
+  by none. In the incident, the drain came about 1 min after the slow job. *Label:* `observed`, two jobs.
+
+**Not admitted.**
+- The working project's candidate of a second, partial occurrence of the incident (one drain 3.5 min after a job whose
+  coarsest-eigensolve windows idled): there is still no per-rank timing.
+- A claim that `0x400` contributed to the pre-maintenance slowness: the clock effect is far too small.
+
+**Class decision.** Machine telemetry and drain records, with no ensemble numbers. Left out: job identifiers, node and
+rack names, the account.
+
+**Reconciliation.** Searched `0x400`, `clocks_event_reasons`, `clock-event`, `throttle`, `sinfo -R`, `drain` and `FAILED
+CUDA-STREAM` across `machines/`, `conventions/`, `software/`, `playbooks/`, `modes/` and `tools/`.
+- `machines/horizon/notes.md`, the memory-mode section's thermal-zone sentence: *confirmed*. The new paragraph follows it.
+- The failed-reset incident's existing `sinfo -R` bullet: *confirmed*. The new bullet qualifies how to read its output.
+- `conventions/batch-scripts.md` (run instrumentation, clock and memory monitors): *confirmed*. It names no reason bits.
+- `tools/monitor-gpu.sh`: *confirmed*. It samples memory, not clock reasons.
+- The failed-reset incident's observation 2, "An unnamed reason bit, `0x400`, appeared on some hosts, as it also does on
+  healthy nodes": *amended*. Still true of the pre-maintenance boards, it now notes that the bit has not appeared since
+  and points to the notes.
+- `machines/perlmutter/communication-defects.md`, `movl $0x400`: an unrelated buffer size, not this object.
+- No other statement on these objects was found.

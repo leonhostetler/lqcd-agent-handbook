@@ -33,7 +33,8 @@ through QUDA. A GPU clock sampler ran on every node, started from inside the app
    solve. Iteration counts were identical to those of the reference runs.
 2. On **every** host, GPU utilisation sat at 1–4 % during the solves, with the SM clock at its maximum, no thermal or
    power slowdown reason, and temperatures under 45 °C. An unnamed reason bit, `0x400`, appeared on some hosts, as it
-   also does on healthy nodes. No host's telemetry differed from the others'.
+   also did on healthy nodes before the late-October 2026 maintenance; it has not appeared since (`../notes.md`). No
+   host's telemetry differed from the others'.
 3. Phases that ran on the host alone, such as reading the gauge field, ran at normal speed.
 4. About a minute after the job ended, the site drained **5 of its 27 nodes**, all with the reason
    `TACC: GPUs failed to reset`, set by `root`. Nothing in the job's own output mentioned a GPU fault.
@@ -55,6 +56,11 @@ and the slowdown is a correlation with a site-recorded fault: what the fault was
 
 - Right after the job ends, `sinfo -R -o "%E | %U | %H | %N" -n <the job's nodes>`, run bare. Save the output: a drain
   reason disappears when the site returns the node to service, and nothing inside the job records it.
+- **Read the drain's timing against the job's end, not just its reason.** GPU-fault drains hours after a large job are
+  common here. After each of two healthy 144-board MILC/QUDA jobs, about five of the boards were drained with
+  `GPU:<n> FAILED CUDA-STREAM` or GPU memory errors, 2–9 h later, with other jobs on them in between `[observed]`,
+  2026-10-28. Only a drain within minutes of the job's end, as here, goes with a slow job. One hours later is not
+  evidence about it.
 - `nvidia-smi -q` on every node at the start and the end of the job, so a failing node's error and remapping state is
   on record.
 - A second occurrence with that evidence, and a node-by-node timing that singles out the slow host, would turn the
