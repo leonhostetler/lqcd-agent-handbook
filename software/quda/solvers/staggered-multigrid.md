@@ -354,7 +354,8 @@ since the last `nvec` key is a deflation count — while a selected active multi
 shape must be represented in
 `QUDA_MULTIGRID_MRHS_LIST`. These are separate checks from the runtime
 `use_mma` switch. The QUDA defaults are not proof that an arbitrary MILC `nvec` or batch
-size was instantiated.
+size was instantiated. A batch padded up to an instantiated width can stall at QUDA
+`00c7ef33d`; see [the padded-batch stall](staggered-multigrid/diagnostics.md#padded-batch-stall).
 
 The `mg-staggered` build profile and
 `machines/perlmutter/stacks/quda-cuda13-mg-staggered-2026q3/stack.yaml` record one validated

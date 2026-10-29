@@ -155,7 +155,9 @@ the emitted solver records.
 at most two masses or the run has a nonzero eigenvector count. `set_type multicolorsource`
 instead enters a block inversion over all source colors. Confirm the executed path from the
 emitted solver records, including mass and right-hand-side cardinality; the requested set type
-alone is not sufficient evidence.
+alone is not sufficient evidence. Through QUDA multigrid, a block whose width pads up to an
+MMA instantiation can stall; see
+[the padded-batch stall](../../quda/solvers/staggered-multigrid/diagnostics.md#padded-batch-stall).
 
 ### Fields that parse cleanly and then do something else
 

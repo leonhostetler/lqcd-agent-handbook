@@ -34,6 +34,7 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/utils/index_utils.cpp#L56-L72
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/hisq_paths_force_test.cpp#L330-L382
   - https://github.com/lattice/quda/pull/1662
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/utils/command_line_params.cpp#L1000-L1004
   - operator's screened prior QUDA development records
   - https://github.com/llvm/llvm-project/blob/main/clang/tools/clang-format/git-clang-format
 observed: "2026-10-07"
@@ -213,6 +214,14 @@ from `develop` at `00c7ef33d` and is unchanged at `e75ee8835` `[source]` unless 
   is the rank itself, so the wrap and the exchange agree. Before relying on a host reference beyond
   one rank, check how it finds neighbours, and validate a test that compares against one on a real
   rank grid split in the directions it checks.
+
+**One harness option cannot be passed at all.** At `00c7ef33d`, `--mg-eig-save-prec <level>
+<precision>` is registered as a per-level option and then given `->transform(prec_transform)`
+on the whole option (`tests/utils/command_line_params.cpp`), so the level token also goes
+through the precision transform and every value is rejected `[source]`, `[observed]` once.
+Eigenvectors saved by `staggered_invert_test` therefore land in the default precision,
+double, twice a single-precision save: size a test-harness bank for that, or save through the
+application when the precision matters.
 
 ## Preserve solver semantics when changing execution
 

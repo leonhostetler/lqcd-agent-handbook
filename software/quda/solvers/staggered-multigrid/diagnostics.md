@@ -11,6 +11,14 @@ sources:
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L186
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/eig_block_trlm.cpp#L205-L226
   - https://github.com/lattice/quda/blob/f2df42ac4caa0cd51b96b01006a1c25c8d753425/lib/solver.cpp#L483-L520
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/inv_gcr_quda.cpp#L289-L411
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/multigrid.in.hpp#L32-L41
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/dslash_coarse.in.cpp#L105-L121
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/include/field_cache.h#L17-L41
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L133-L134
+  - https://github.com/lattice/quda/issues/1664
+  - https://github.com/lattice/quda/pull/1666
+  - operator's screened tuning records
 observed: "2026-10-07"
 observed_on:
   software:
@@ -128,6 +136,15 @@ tool together. A field the tool reports `unavailable` is missing data, never a z
   finish, and the count up to the cut is reconstructed from the `blockLanczosStep` sequence,
   which descends once per restart and so forms a sawtooth. That reconstruction is a fallback,
   not an equivalent source.
+
+- **Capped coarse solves:** count a coarse GCR solve as capped when its printed iteration
+  count equals that level's `coarse_solver_maxiter`, never by counting
+  `MG level <n> (GPU): WARNING: Exceeded maximum iterations` lines. At `00c7ef33d` GCR tests
+  `k`, the iterations since its last solution update, against `maxiter`, not the running
+  total, and resets `k` at every restart and reliable update, so a solve that updated once
+  before reaching its cap prints no warning (`lib/inv_gcr_quda.cpp`) `[source]`. Observed
+  once: `428` warnings against `430` capped level-2 solves `[observed]`. The warning count
+  is a lower bound only.
 
 - **`first_cycle_contraction`:** from the **outer** GCR trace — the lines with no
   `MG level` prefix, `GCR: <k> iterations, <r,r> = <s>, |r|/|b| = <v>` — take `<v>` at
@@ -359,6 +376,56 @@ So before reporting a boundary in any hierarchy parameter, re-run at least one f
 candidate at a materially larger bound. If it converges, the boundary was the budget. Record
 the bound alongside the result either way; a non-convergence result quoted without it cannot
 be interpreted later, and cannot be compared against a result taken under a different one.
+
+<a id="padded-batch-stall"></a>
+## A blocked solve plateaus a few `1e-8` above the one-RHS trace
+
+**The tell.** A blocked (multi-right-hand-side) solve whose outer residual matches the
+one-RHS trace of the same hierarchy for about ten iterations, then flattens onto a floor
+near `|r|/|b| ~ 2-3e-8` and runs to its outer cap, with the level-1 and level-2 coarse solves
+pinned at their caps on most outer iterations. It is never a silently wrong answer: the outer
+true residual is computed in double, and the solve reports non-convergence.
+
+**Mechanism, at QUDA `00c7ef33d` `[source]`, confirmed by prediction in both directions.**
+With `use_mma` on the coarse dslash, a batch is copied into temporaries of the next
+instantiated width in `QUDA_MULTIGRID_MRHS_LIST` (with `8,16,32,64`, widths 9-15 pad to 16
+and width 6 pads to 8). The temporaries come from QUDA's field cache, which returns a cached field
+with its contents, under a key that does not include the actual batch width
+(`lib/multigrid.in.hpp`, `include/field_cache.h`). The forward block transpose writes only
+the real columns (`lib/dslash_coarse.in.cpp`), so the padding columns keep whatever an
+earlier full-width user wrote. The half-precision block-float coarse halo takes one scale
+per site across all columns, padding included, so `O(1)` stale padding sets the scale and
+quantises the small real residual components. The confirmed earlier user is the coarsest
+eigensolver's SVD, which applies the coarse operator in batches of
+`compute_evals_batch_size`; QUDA's MILC interface sets that batch to `16` when the coarsest
+`nvec` is a multiple of `16` and to `1` otherwise (`lib/milc_interface_internal.cpp`). On a
+one-node reproducer, changing only that batch moved the stall `[observed]`: batch `1` made
+width 15 converge, and batch `8` made width 6 stall at the same floor. Other earlier users —
+near-null generation in batches of 16, a full-width solve before a padded one, the remainder
+chunk of a width above the largest instantiation — are inferred from source and not run.
+
+**What to do.** Each of these was observed at `00c7ef33d` on `gpu-a100-40`:
+
+- **Workaround, no rebuild:** make the coarsest deflation count not a multiple of `16`
+  (`3064` rather than `3072`), so the SVD batches by `1`, and regenerate the coarsest
+  eigenspace at the new count. Through MILC on a multi-node production hierarchy that had
+  stalled at width 15, width 15 then converged in the one-RHS outer iteration count
+  `[observed]` once. The count and the batch change together.
+- Keep blocked widths at or below `8` with the default SVD batch; or turn the coarse-dslash
+  MMA off for wider batches, at about `1.7x` the per-iteration cost of MMA on at width 15
+  `[observed]`.
+- **Upstream fix:** [lattice/quda#1664](https://github.com/lattice/quda/issues/1664) reports
+  the stall; [lattice/quda#1666](https://github.com/lattice/quda/pull/1666), unmerged at
+  this writing, zero-fills the padding columns in the forward transpose. Applied to
+  `00c7ef33d` on the one-node reproducer, with the unpatched library stalling in the same job,
+  it removed the stall at widths 15 and 12 and at width 6 with an 8-wide SVD batch; each
+  converged in the one-RHS count `[observed]`. It is not verified at production scale. The
+  batched SVD reaches the forward transpose at every solve width, so the fix also changes
+  setup at width 1; do not expect width-1 residual histories to be bit-identical across it.
+
+**Not claimed:** that a working wide block is faster than a narrower one; behaviour on other
+architectures or with a single-precision coarse halo. When #1666 merges, this section is scoped
+to the commits before it.
 
 ## A performance comparison looks surprising
 

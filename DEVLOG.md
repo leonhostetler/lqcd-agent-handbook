@@ -8377,3 +8377,47 @@ counter. A per-process `total_numa_faults` is a decayed statistic.
 - `machines/horizon/notes.md`'s kernel-settings list (`kernel.numa_balancing` 1): *confirmed*, a different object.
 - The Horizon NUMA-balancing incident uses `numa_pte_updates` deltas from `/proc/vmstat`, which are counters: *confirmed*.
 - No other statement on these objects was found.
+
+## 2026-10-29 — Padded-batch MMA stall in blocked staggered MG; GCR cap warning; a harness option; Perlmutter GPU requests
+
+Four facts from a working project's blocked-multigrid studies, staged there and admitted directly in developer mode
+at the operator's direction.
+
+- **`staggered-multigrid/diagnostics.md`, new section "A blocked solve plateaus a few `1e-8` above the one-RHS trace"**
+  (anchor `padded-batch-stall`), with one-line pointers from `staggered-multigrid.md` (beside `QUDA_MULTIGRID_MRHS_LIST`)
+  and `milc/applications/ks-spectrum.md` (the `multicolorsource` heads-up). Stale padding in cached MMA temporaries sets
+  the half-precision coarse halo scale. Workaround production-verified once; upstream fix lattice/quda#1666 verified on a
+  one-node reproducer only.
+- **`diagnostics.md` extraction contract, new bullet:** count capped coarse solves from the printed iteration count, not
+  from GCR's `Exceeded maximum iterations` warning, which tests the iterations since the last update.
+- **`quda/development.md`:** `--mg-eig-save-prec` cannot be passed to the test harness.
+- **`machines/perlmutter/notes.md` and `playbooks/build-lqcd-stack.md` section 4:** request GPUs on the allocation and the
+  step; check before creating a build directory. `[empirical]`, one observation.
+
+**Evidence.** Source read at QUDA `00c7ef33d`: `lib/multigrid.in.hpp` (`create_color_spinor_copy` takes a
+`getFieldTmp` cached field), `include/field_cache.h` (key is volume and aux strings), `lib/dslash_coarse.in.cpp`
+(forward transpose of the real columns only), `lib/milc_interface_internal.cpp:133-134` (SVD batch `16` or `1` by
+divisibility), `lib/inv_gcr_quda.cpp` (warning tests `k`, reset after every update),
+`tests/utils/command_line_params.cpp` (transform chained onto a per-level option). Runtime: the working project's
+native reproducer (SVD batch 1 cures width 15, batch 8 breaks width 6), its production verification of the deflation-count
+workaround, and a same-job old/patched comparison of #1666. The staged text said MILC sets the SVD batch; the source shows
+QUDA's MILC interface does, and the admitted text says so. `upstream-drift` on `diagnostics.md` and `development.md`
+against `00c7ef33d`: 0 leaves to review; `observed_on` left unchanged on both.
+
+**Reconciliation.** Searched `compute_evals_batch_size`, `n_vec_batch`, `MRHS_LIST`, `Exceeded maximum`, `save-prec`,
+`gpus-per`, `nvidia-smi` and GPU visibility across `software/`, `machines/`, `conventions/` and `playbooks/`.
+- `internals/staggered-mg-setup-allocation.md`, "The setup batch width is 16 or 1": *confirmed*; the new section's inferred
+  near-null filler rests on it.
+- `internals/milc-deflation-space.md` "Batching" and `internals/device-memory-pool.md` "`computeEvals` grows the
+  eigenvector array": *confirmed*, a different object (MILC's own deflation path and memory growth, not MG coarsest SVD
+  batching).
+- `staggered-multigrid.md`'s `QUDA_MULTIGRID_MRHS_LIST` paragraph: *confirmed*; pointer added.
+- `tools/quda-mg-observables.py` matches the cap warning into a per-level counter that no output field reads: *confirmed*
+  harmless; no field changes.
+- `conventions/batch-scripts.md`, "the scheduler did not constrain devices" on another machine: *confirmed*, a different
+  machine and launch policy. The Perlmutter stack notes' `--gpus-per-task=1` launch lines: *confirmed*, consistent.
+- `machines/perlmutter/notes.md`, "reconcile the declared node type with accelerator telemetry": *confirmed*.
+- No other statement on these objects was found.
+
+**Not admitted.** The working project's gain measurements for blocked widths (ensemble-scoped timings), and its finding
+that a width-1 residual history is not bit-reproducible run to run on its rig (one non-like-for-like comparison).

@@ -109,7 +109,9 @@ command to the operator.
 Before configuring, state the source directory, new out-of-source build directory or exact
 in-tree build paths, install prefix, dependency acquisition method, toolchain, target architecture,
 profile, and exact options. Preserve unrelated working-tree changes and never clean or overwrite
-an existing build directory without explicit authorization.
+an existing build directory without explicit authorization. For a compute-node build, request
+the accelerators the build's checks need on the allocation and on the step, as the machine's
+notes require, and run every check before creating the build directory.
 
 ## 5. Configure and build
 

@@ -47,6 +47,14 @@ profile. Move a long, CPU-intensive, or memory-intensive build to a compute allo
 compute-node build is a scheduler job and therefore requires an explicit campaign budget
 before submission.
 
+**Request the GPUs explicitly, on the allocation and on the step.** On `gpu-a100-40`, an
+interactive allocation made with the GPU constraint but no GPU request, followed by a
+one-task step with none, showed one GPU to `nvidia-smi` inside the step; four per node on the
+allocation and four per task on the step showed all four `[empirical]`, observed once, with the
+site's Slurm defaults not read. This applies to a build whose configure or tests touch the
+GPUs as much as to a run. A build or launch script that needs a GPU count asserts it before
+creating any output, so a failed check leaves nothing to clean up.
+
 ## Rank binding
 
 `tools/perlmutter-quda-bind.sh` is the tested four-rank binding wrapper for GPU nodes **running
