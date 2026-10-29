@@ -8,6 +8,7 @@ observations: 16
 sources:
   - operator's screened split-grid deflation campaign records
   - operator's screened Horizon CG-slowdown rig records (2026-10-27)
+  - Linux v6.12 kernel/sched/fair.c, task_numa_placement() and task_numa_free()
 observed: "2026-10-27"
 observed_on:
   requirements: diagnostic-rig-design
@@ -177,7 +178,7 @@ difference, maximum, or ranking.
 
 ## Reading a sampled resource trace
 
-Six rules, each recorded because getting it wrong produced a written-up conclusion that was later
+Seven rules, each recorded because getting it wrong produced a written-up conclusion that was later
 retracted.
 
 **A null from an instrument that cannot resolve the effect is not a null.** At one sampling
@@ -211,6 +212,18 @@ nodes, and between samples, is at least as high.
 **Failed runs are data.** A leg that exhausts a resource gives a measured *floor* on a footprint no
 successful run has bounded, and the failing request size in the error message sharpens it further.
 Do not discard a failed leg from the analysis merely because it produced no primary result.
+
+**Difference only what is a counter.** A per-process statistic in `/proc` can be a decayed
+average that falls between reads, and a first-to-last delta of it reports nonsense, including
+large negative values. `[observed]` On one compute node, a process's `total_numa_faults` (from
+`/proc/<pid>/sched`) moved by −62,541 over 145 s. `[source]` In Linux v6.12,
+`task_numa_placement()` in `kernel/sched/fair.c` runs once per completed NUMA-balancing scan
+pass. It halves each per-node fault bucket and adds the faults since the last pass, and
+`total_numa_faults` moves by the same amount, so it falls whenever the new faults are fewer than
+half the old total; `task_numa_free()` can also reset it to zero. The node-wide
+`numa_hint_faults`, `numa_pte_updates` and `numa_pages_migrated` in `/proc/vmstat` are event
+counters, and those are the ones to difference. Before differencing any field, check how the
+kernel maintains it. A value that falls is behaving as defined, not being reset.
 
 ## Bisecting a change when builds are free and runs are not
 

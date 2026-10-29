@@ -8351,3 +8351,29 @@ paths and the account.
 - *Every-rank tracing:* the notes' "Trace every rank, or leave `mpi` out of a partial trace" and its XALT section are
   *confirmed*; the new paragraph follows them.
 - No other statement on these objects was found.
+
+## 2026-10-29 — Group 3 of the working project's candidates: a decayed /proc statistic; two already resolved
+
+`conventions/diagnostic-rigs.md`, "Reading a sampled resource trace", gains a seventh rule: difference only what is a
+counter. A per-process `total_numa_faults` is a decayed statistic.
+
+**Evidence.**
+- *Observed:* in a 27-node rig's per-node sampler, deltas of −62 541 and −62 570 over one 145 s window.
+- *Source:* Linux v6.12, `kernel/sched/fair.c`, read at the tag:
+  - `task_numa_placement()` runs when `numa_scan_seq` has advanced. Per node and fault type it computes
+    `diff = membuf − mem / 2`, adds it to `numa_faults[mem]`, and adds it to `total_numa_faults`.
+  - `task_numa_free()` zeroes it on its non-final path.
+
+  The compute nodes ran an EL10 6.12 kernel. Vendor backports were not read, so the citation is the upstream baseline.
+
+**Resolved without a change.**
+- *Coarsest eigenvectors are single-parity under `direct-pc`:* already in `software/quda/solvers/staggered-multigrid.md`
+  since `57194f1`. The working project's status had not recorded it.
+- *`--stub` text could not carry a newline:* fixed in dry-run harness 1.7.1 (`shlex.quote` in place of `json.dumps`).
+  `tests/test_dry_run_batch_script.py::test_stub_text_is_printed_verbatim` pins it.
+
+**Reconciliation.** Searched `numa_faults`, `vmstat`, `decay`, `counter` and `/proc` across `conventions/`, `machines/`,
+`software/`, `playbooks/`, `modes/` and `tools/`.
+- `machines/horizon/notes.md`'s kernel-settings list (`kernel.numa_balancing` 1): *confirmed*, a different object.
+- The Horizon NUMA-balancing incident uses `numa_pte_updates` deltas from `/proc/vmstat`, which are counters: *confirmed*.
+- No other statement on these objects was found.
