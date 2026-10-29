@@ -622,12 +622,32 @@ and `coarsest_global_volume = 64`,
 additional active RHS. A historical build-`7519b9dcf` width-2 to width-3 pair measured
 `1481.4 MiB`, 0.42% above that source slope.
 
-This does **not** define an absolute MRHS-MG capacity model. The matched width-1 to
-width-2 transition also activated an unexplained `5467.3 MiB` fixed high-water term.
-Its source owner, build transfer, and behavior on another hierarchy are unresolved.
-The calculator therefore has no MRHS-MG width option: use the slope only as a scoped
-marginal diagnostic for the named topology, and measure the complete high-water at the
-target widths and stack.
+This does **not** define an absolute MRHS-MG capacity model. On build `7519b9dcf` the
+matched width-1 to width-2 transition also activated an unexplained `5467.3 MiB` fixed
+high-water term; its source owner is unresolved.
+
+`[observed]` **On `00c7ef33d` that term did not appear, and each added right-hand side
+stacked on the measured width-1 footprint, not on the inventory.** The matched topology
+above, on Perlmutter A100-40 at 48 nodes, loaded every level from single-file banks and ran
+width-3 and width-6 `multicolorsource` sets in the same invocation as width-1 solves. QUDA
+`Device memory used` at `endQuda` was `22276.6` MiB at width 1 (a separate job on the same
+build and placement), `25387.4` at width 3 and `29993.5` at width 6. That is `1555` and
+`1543` MiB per extra RHS counted from width 1, and `1535` from width 3 to 6: 4–5 % above
+the source slope, with no fixed step. Ordinal 0's whole-device peak at width 6 was
+`34377` MiB of `40960`. The width-1 counter sat `5.8` GiB above `mg-fit`'s phase D for the
+same candidate (`15.99` GiB), as the phase-D section above expects of an inventory that is a
+floor.
+
+**Predict a width-`w` run from a measured width-1 run, not from the model.** Take the
+width-1 high-water of a run in the same mode (loading or generating), on the same hierarchy,
+build and placement. Add `(w − 1)` times this section's source inventory evaluated at the
+candidate's fine and coarse volumes. Compare the result, as whole-device memory on ordinal 0
+(the transport-carrying device), against the margin below. Starting from phase D
+under-predicts by the pool-retained footprint. Starting from phase A carries setup workspace
+that a loading run never holds. Where no width-1 measurement exists in that mode, measure
+one first. The calculator still has no MRHS-MG width option: use the slope only for the
+topology it was derived for, and measure the complete high-water at the target widths and
+stack.
 
 ## Independent target measurements
 

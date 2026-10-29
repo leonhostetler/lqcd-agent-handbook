@@ -8468,3 +8468,36 @@ published under the operator's class decision of 2026-10-28; no ensemble or phys
 
 **Not admitted.** Bitwise-equal eigenvalues under the HAN exclusion (cause not established); a transient HDF5 write
 slowdown (one episode, no mechanism); a 1.15× per-solve slowdown on two sources (three causes confounded).
+
+## 2026-10-29 — MRHS-MG width memory on `00c7ef33d`: no activation term; predict from a measured width-1 run
+
+**Change** (`software/quda/solvers/staggered-memory.md`, "MRHS-MG: marginal slope only"). The unexplained `5467.3 MiB`
+width-1 → width-2 term is scoped to build `7519b9dcf`. A new `[observed]` paragraph records that on `00c7ef33d`, for the
+matched four-level topology at 48 Perlmutter A100-40 nodes, loading all levels from single-file banks, the QUDA device
+counter rose linearly from the measured width-1 value (`22276.6` → `25387.4` → `29993.5` MiB at widths 1/3/6;
+`1555`/`1543` MiB per extra RHS from width 1, `1535` from 3 to 6, 4–5 % above the source slope) with no fixed step, and
+that the width-1 counter sat `5.8` GiB above `mg-fit`'s phase D (`15.99` GiB). A planning rule follows: a width-`w`
+run is the measured width-1 high-water in the same mode, hierarchy, build and placement plus `(w − 1)` × the source
+inventory, compared as whole-device on ordinal 0; never start from phase D (a floor) or phase A (carries setup workspace
+a loading run lacks).
+
+**Evidence.** `[observed]`, one hierarchy, one build, one placement, in the operator's screened tuning records (descriptive
+source already in the leaf's `sources`). Fact class (device-memory counters of QUDA runs on a MILC ensemble) cleared by
+the operator for this entry, 2026-10-29. Mechanism: the slope is source-exact; phase D as a floor follows from the
+pool mechanism the leaf already states; the absence of the activation term has no mechanism and is labelled observed.
+
+**Reconciliation.** Searched `MRHS`, `multi-RHS`, `active RHS`, `5467`, `1475`, `marginal slope`, `width` across
+`software/quda/`, `tools/quda-staggered-memory.py` and `tests/`.
+- `staggered-memory.md` "MRHS-MG": the `1475.1875` MiB slope and the `7519b9dcf` `1481.4` pair — *confirmed*, unchanged.
+- Same section, the `5467.3 MiB` activation term — *amended*: scoped to `7519b9dcf`, owner still unresolved
+  (the strings `tests/test_slice5_stage5_guidance.py` asserts are kept).
+- Same section, "no MRHS-MG width option … measure the complete high-water" — *confirmed*, restated after the rule.
+- `staggered-memory.md` phase-D section ("D is a lower bound on the post-setup footprint") — *confirmed*; the new
+  observation is an instance of it.
+- `staggered-memory.md` "A loading run and a generating run are not the same capacity problem" — *confirmed*.
+- `staggered-multigrid/tuning.md:444` ("an absolute width model that does not exist") — *confirmed*, unchanged.
+- `software/quda/README.md:62` ("a narrow marginal field slope, not an absolute") — *confirmed*, unchanged.
+- `tools/quda-staggered-memory.py` (no MRHS-MG option; phase D reported, not folded) — unchanged.
+
+**Not admitted.** A width-6 / width-9 prediction for a 0.042 fm, 216-node hierarchy made from this rule (a prediction,
+not an observation; to be checked when that run returns).
