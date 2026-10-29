@@ -51,7 +51,11 @@ devices=$(xpu-smi discovery --dump 1,2,4,16 2>/dev/null | awk -F, '
 [ -n "$devices" ] || exit 0
 
 join_rows() {
-  XPU_DEVICES="$devices" awk -F, '
+  # mawk reads a pipe in blocks unless told otherwise, so a live stream would sit unread
+  # until the block fills, and be lost when the monitor is stopped.
+  local awk_cmd=(awk)
+  case "$(awk -W version 2>&1)" in *mawk*) awk_cmd=(awk -W interactive) ;; esac
+  XPU_DEVICES="$devices" "${awk_cmd[@]}" -F, '
     function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
     BEGIN {
       n = split(ENVIRON["XPU_DEVICES"], lines, "\n")

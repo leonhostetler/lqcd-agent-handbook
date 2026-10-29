@@ -8518,3 +8518,29 @@ one-node reproducer had verified); the section now describes QUDA through `00c7e
 - `diagnostics.md` workarounds (`nvec 3` not a multiple of 16; widths `<= 8`; MMA off) — *confirmed*, unchanged; they
   apply to the scoped commits.
 - No other statement on this object was found.
+
+## 2026-10-29 — Intel memory monitor: mawk held the live xpu-smi stream unread
+
+**Change** (`tools/xpu-smi-memory-rows.sh`, `join_rows`). When `awk` is mawk, the filter now runs as
+`awk -W interactive`; any other awk is unchanged. Detection is `case "$(awk -W version 2>&1)"`, not a pipe into
+`grep -q`, because the script runs under `set -o pipefail` and an early-exiting `grep` could make the test report
+failure on a match.
+
+**Evidence** `[experiment]`. `tests/test_intel_gpu_telemetry.py` failed two tests on a workstation whose `awk` is mawk
+1.3.4 (no gawk installed), and on an untouched copy of HEAD as well: the streaming monitor wrote only its start line.
+With the test's fake `xpu-smi` streaming at 1 s and `timeout` signalling the whole process group, plain `mawk` printed
+0 rows in 2.5 s and `mawk -W interactive` printed 19. Fed the same stream with a clean end of input, both printed 19.
+Mechanism: mawk reads a non-interactive input in blocks and processes it only when a block fills or input ends; the
+filter's `fflush()` governs output only. A sample is a few hundred bytes, so rows waited inside mawk and died with it
+when the monitor was stopped. After the change the module passes 13/13 here.
+
+**Reconciliation.** Searched `xpu-smi`, `monitor-gpu`, `mawk`, `gawk`, `awk` across `machines/`, `conventions/`,
+`software/` and `tools/`.
+- `machines/aurora/notes.md`, the monitor "streams: at a 1 s interval it achieved a 1 s period" `[observed]` —
+  *confirmed*, unchanged: consistent with an awk there that processes pipe input as it arrives; Aurora's `awk` was
+  not checked from here.
+- `conventions/batch-scripts.md`, `intel` monitor "whose one parse of `xpu-smi` is `tools/xpu-smi-memory-rows.sh`" —
+  *confirmed*, unchanged.
+- The NVIDIA path of `tools/monitor-gpu.sh` and `tools/gpu-memory-sampler.sh` run awk on one-shot output per poll,
+  which always ends: not affected, unchanged.
+- No other statement on this object was found.
