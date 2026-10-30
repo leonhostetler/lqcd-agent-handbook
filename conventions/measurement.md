@@ -206,7 +206,13 @@ all moved, and the recurring solve cost moved with them, by over ten percent at 
 cross-job time difference at fixed inputs is not a pure allocation measurement: compare the
 deterministic observables stage by stage first, and establish determinism across jobs with a
 repeat across jobs. `[observed]` once, one pair of jobs at six masses; mechanism not
-isolated, with reduction order under different autotuned launch parameters the candidate.
+isolated, with reduction order under different autotuned launch parameters the candidate. A
+later pair at another build, the same parameter file, gauge configuration and placement shape in
+two jobs on disjoint node sets, the second warm from the first's final tunecache, so that every
+setup kernel ran with the same tuned launch parameters (the first job's new keys were all tuned
+after its setup, `[inferred]` from the tunecache record), repeated every near-null iteration count,
+the diagnostic line count and the coarse-solve counts exactly `[observed]` once. That is what the
+candidate predicts.
 
 ## Compare two implementations on a ladder, not a threshold
 
