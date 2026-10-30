@@ -8616,3 +8616,67 @@ machine at a 5 s interval with matching copies; the new launcher samples at 2 s.
   unchanged.
 - `tools/monitor-gpu.sh` and `tools/extract-gpu-telemetry.py` — not affected; the reader runs after the job.
 - No other statement on this object was found.
+
+## 2026-10-30 — Grid reductions and allocation cache; Horizon NUMA-mode device memory; LMI convention change; cross-build comparison rule
+
+**Changes** (one batch, seven fact classes; operator: "let's do them all. these numbers are publishable", which is the
+class decision for the measured figures below):
+1. `software/grid/solvers/staggered.md`, new section "Scalar global sums are point-to-point plus a broadcast, not
+   `MPI_Allreduce`" `[source]`, upstream and fork.
+2. `software/grid/runtime-environment.md`, new subsection "The freed-block cache is small for a workflow that cycles
+   many fields": cache sizes, `GRID_ALLOC_NCACHE_*` and their range, `--log Memory` lines `[source]`; device
+   allocation as an implicit synchronisation point `[docs]`; per-solve miss counts and the 64-entry result
+   `[observed]`; the slowest-rank hypothesis `[inferred]`.
+3. `machines/horizon/notes.md`, memory-mode section, new subsection "Device memory and allocation on NUMA-mode boards",
+   and the incident `incidents/2026-10-30-occasional-slow-cudamalloc-cudafree.md` `[observed]`.
+4. `conventions/measurement.md`, new section "Judge a cross-build output difference against the statistical error".
+5. `software/hadronsmilc/applications/lmi.md`, Conventions: the vector-correlator convention change across the module
+   rename `[reproduced ×2]`, and one paragraph in the global-sum section pointing to change 1.
+6. `software/hadrons/README.md`, new section "The module order is random unless a schedule file is loaded" `[source]`,
+   with one observation.
+7. `machines/horizon/notes.md`, "Launch MPI deliberately": the stale "Multi-node `srun` launches were not tested" line
+   replaced; HAN section: the "not compared" list and the "no application run with HAN excluded" bullet amended.
+
+**Evidence.** An operator campaign running the HadronsMILC LMI workflow on 162 gpu-gb200 boards across the site
+maintenance, with a repetition after it, three single-board microbenchmark jobs (CUDA primitives, device fill, a Grid
+reproducer of the mixed-precision solve chain on 1 and 2 boards), and the comparison of its outputs with a
+pre-rename reference at the same random sources. Grid and Hadrons source read at the pinned fork commits and compared
+with upstream `develop` (Grid 3232b438f, Hadrons 1d64626aa): the cited files are identical upstream or, where the file
+differs (`Communicator_mpi3.cc`, `configure.ac`, Hadrons `Application.cpp`, `VirtualMachine.cpp`), the cited code was
+checked there line by line.
+
+**Reconciliation.** Searched `HAN`, `small reductions`, `allreduce`, `GlobalSum`, `MPI_Bcast`, `GRID_ALLOC`,
+`MemoryManager`, `cache`, `--log`, `NUMA mode`, `CDMM`, `cudaMalloc`, `inner tolerance`, `convention`, `conj`,
+`schedule`, `srun` across `software/grid/`, `software/hadrons/`, `software/hadronsmilc/`, `machines/horizon/` and
+`conventions/measurement.md`.
+- `machines/horizon/notes.md` HAN section, "Small, latency-bound reductions … HAN against `tuned` has not been compared"
+  — *amended*: scoped to MILC/QUDA, with the Grid path and the Lanczos per-vector cost added beneath it.
+- `machines/horizon/notes.md` HAN section, "The rest of a job that excludes HAN … No application run with HAN excluded
+  has been measured" — *amended*: replaced by the measured run.
+- `machines/horizon/notes.md` HAN section, "The setting covers every collective the process makes" — *confirmed*.
+- `machines/horizon/notes.md` frontmatter `summary` (HAN and memory-mode clauses) — *amended*.
+- `machines/horizon/notes.md` memory-mode section, "So NUMA mode is not shown to make MILC/QUDA faster in general" —
+  *confirmed*; the new Grid paragraph states the Grid case separately.
+- `machines/horizon/notes.md` "Multi-node `srun` launches were not tested" — *amended* (stale since 2026-10-23).
+- `software/hadronsmilc/applications/lmi.md` global-sum section, "An MPI setting chosen for this step applies to every
+  collective in the process, the Lanczos and the solves included" — *confirmed*, with the Grid path added after it.
+- `software/hadronsmilc/applications/lmi.md` Conventions, mixed-precision CG `max(residual, 1e-7)` — *confirmed*,
+  unchanged; it explains the inner-tolerance difference against the pre-rename reference, which is why the reference
+  comparison is stated at solver precision.
+- `software/hadronsmilc/applications/lmi.md` Conventions, "Correlator outputs are written per source time" —
+  *confirmed*; the convention bullet follows it.
+- `software/grid/runtime-environment.md` device memory item 3, "a cache of recently freed blocks (default 8 large,
+  16 small; `GRID_ALLOC_NCACHE_*`)" — *amended*: points to the new subsection; the values are unchanged.
+- `software/grid/runtime-environment.md` "lower `--device-mem` when memory is tight" — *confirmed*; the new
+  subsection's headroom note is consistent with it.
+- `software/grid/solvers/staggered.md` MPCG, "An inner tolerance tighter than 1e-7 costs iterations without accuracy"
+  — *confirmed*, unchanged.
+- `software/hadrons/README.md` — no earlier statement on scheduling was found.
+- `conventions/measurement.md` "Compare two implementations on a ladder" — *confirmed*; the new section is about the
+  statistical yardstick, not the convergence ladder, and sits after it.
+- No other statement on these objects was found.
+
+**Not admitted, and why.** The `GRID_ALLOC_NCACHE_LARGE=64` setting is not written as advice: the at-scale effect is
+untested. The operator will test it when production starts; until then the leaf states the observation and the
+hypothesis only. The vector-convention bullet does not name the reference campaign, and its HadronsMILC commit is
+recorded as unknown.
