@@ -1,6 +1,6 @@
 ---
 title: LQCD measurement and workflow cost accounting
-summary: Shared rules for steady-state solve measurements, exact artifact validation, per-run workflow ledgers, and production-cost projections.
+summary: Shared rules for steady-state solve measurements, comparing outputs across builds or machines against the statistical error, exact artifact validation, per-run workflow ledgers, and production-cost projections.
 scope: [universal]
 load_when: Planning, measuring, comparing, or projecting the cost of tuning and benchmarking runs.
 evidence: operator
@@ -227,6 +227,31 @@ That turns a threshold into a **trend**, and it is falsifiable in a way a thresh
 difference that plateaus above the floor as the tolerance tightens is a structural
 disagreement and a defect report, whatever its absolute size. Fix the ladder and the bound in
 the study record before running, so that neither can be chosen to fit the outcome.
+
+## Judge a cross-build output difference against the statistical error
+
+A workload rerun on another machine, build or code version can be compared sample by sample
+when both sides use the same random draws, for example correlators from the same random
+sources. Two common metrics mislead:
+
+- **A maximum difference divided by the observable's peak** says nothing about where the
+  observable has decayed by orders of magnitude, often the region the analysis weights most.
+- **A pointwise relative difference** blows up wherever a single sample crosses zero. One gauge
+  configuration's average is itself noise-dominated where the signal is small, so even the
+  averages' ratio can look large.
+
+**Compare the source-averaged observable against its own standard error.** At each point,
+divide |mean_A − mean_B| by the standard error of mean_B over its samples. A difference that is
+a fraction f of one gauge configuration's error cannot exceed f·√N of the final error over N
+gauge configurations, even as a fixed bias, because that error shrinks only as 1/√N `[inferred]`.
+Report this beside the numerical-precision comparison. That one answers a different question:
+whether both sides compute the same thing to their solver and eigensolver tolerances.
+
+`[observed]` once, correlators from two machines at the same random sources:
+- the peak-normalised difference was at most 7e-7;
+- the per-point relative difference of the 144-source averages reached 1e-2 at large
+  separations, where one gauge configuration's error was 0.7–1.5 times its mean;
+- against the standard error the difference was at most 1.6e-4 everywhere.
 
 ## Pair a screening rate with the guard that makes it meaningful
 
