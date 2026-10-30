@@ -1,6 +1,6 @@
 ---
 title: HadronsMILC low-mode-improvement (LMI) application guide
-summary: How the light-quark g-2 LMI workflow is generated with pyfm and executed by HadronsMILC — the module chain, mass and residual conventions, Lanczos sizing and the Chebyshev bound, legal decompositions, the meson-field global sum (one host MPI_Allreduce of gigabytes per block), the contract step's host memory and the input files' page cache, and how to check a build or a decomposition.
+summary: How the light-quark g-2 LMI workflow is generated with pyfm and executed by HadronsMILC — the module chain, mass and residual conventions, the vector-correlator convention change at the module rename (do not mix ama/ranLL and a2aLL across it), Lanczos sizing and the Chebyshev bound, legal decompositions, the meson-field global sum (one host MPI_Allreduce of gigabytes per block), the contract step's host memory and the input files' page cache, and how to check a build or a decomposition.
 scope: [software:hadronsmilc, software:pyfm, fermion:staggered]
 load_when: Generating, sizing, launching, validating or interpreting a HadronsMILC LMI job (pyfm task_type lmi or lma_new), including choosing Lanczos parameters and an MPI decomposition.
 evidence: source
@@ -23,6 +23,8 @@ sources:
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/communicator/Communicator_mpi3.cc#L333-L338
   - https://github.com/Michael628/HadronsMILC/commit/d355c8f
   - https://github.com/Michael628/HadronsMILC/commit/17a20c7
+  - https://github.com/Michael628/HadronsMILC/commit/ea0a39b
+  - comparisons of 0.3.0 LMI outputs on the 144³×288 ensemble with outputs of the pre-rename module chain built with Grid 1b33b28e (feature/LMI-develop) at the same random sources, two trials, 2026-10-24 and 2026-10-27, reviewed in the working directory
 observed: "2026-10-28"
 observed_on:
   software:
@@ -98,6 +100,21 @@ input has 69 modules.
   also publishes `<name>_subtract`, the solution minus the guess.
 - **Correlator outputs** are written per source time; pyfm's `contract` step adds the `a2aLL`
   correlators from the meson fields.
+- **The vector point-source correlators changed convention across the module rename.**
+  - Commit ea0a39b moved the pre-rename behaviour of `StagGaugeProp` and `StagMeson` to
+    `StagGaugePropLegacy` and `StagMesonLegacy`, which pyfm's `lmi` chain now emits.
+  - Against outputs of the pre-rename chain, built with Grid 1b33b28e (`feature/LMI-develop`,
+    HadronsMILC commit not recorded), the 0.3.0 `ama` and `ranLL` correlators agree at
+    solver precision under a fixed map: `pion_local` equal, `vec_local` = conj, `vec_onelink` =
+    −conj `[reproduced ×2]`. The map was uniform over all 144 sources and every direction.
+  - The `a2aLL` correlators agree with no map, so the change sits in the point-source
+    contraction, not in the meson fields. Conjugation cannot be tested there, because both sides
+    are real.
+  - Where it entered is not established. The spin-taste gamma code moved from HadronsMILC to
+    GridMilc between the two Grid commits. **Do not combine `ama`/`ranLL` from one side with
+    `a2aLL` from the other:** the LMI combination `a2aLL + (ama − ranLL)` would get
+    `vec_onelink` wrong. Within one build, check that the source-averaged `ranLL` agrees
+    statistically with `a2aLL`.
 
 ## Lanczos: memory and the Chebyshev bound
 
@@ -144,7 +161,10 @@ this sum about 20 times slower than the alternative: see
 [`../../../machines/horizon/notes.md`](../../../machines/horizon/notes.md), "Open MPI's HAN
 component and large host-buffer allreduces", before launching a meson-field job there. An MPI
 setting chosen for this step applies to every collective in the process, the Lanczos and the
-solves included.
+solves included. Under Grid's default reductions the CG and Lanczos make their scalar sums
+point to point, and reach MPI's collectives only through an 8–16-byte `MPI_Bcast`
+(`software/grid/solvers/staggered.md`, "Scalar global sums"). So a collective setting chosen for
+the meson-field sum touches the solves only there.
 
 ## The `contract` step holds one gamma's meson fields at twice their file size
 

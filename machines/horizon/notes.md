@@ -1,6 +1,6 @@
 ---
 title: Working on Horizon
-summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout (sample host memory per NUMA node, never with free), the GPU driver's memory mode (check every board for NUMA mode before timing; a within-process CG slowdown seen on CDMM-mode boards was absent in NUMA mode), srun and ibrun rank placement on a four-GPU board, MILC and QUDA ranks launched under numactl --localalloc by default (operator policy), CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; not compared for small reductions), page cache left on one NUMA node pushing a large process into swap (drop input files' cache after reading them), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, trace every rank, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
+summary: Early-access drift between TACC's Horizon guide and the live scheduler (4-GPU boards, debug partitions, no $WORK), node-target declaration, submission, per-user job limits and the project-wide allocation check at submission, agent placement, the board's host memory and NUMA layout (sample host memory per NUMA node, never with free), the GPU driver's memory mode (check every board for NUMA mode before timing; a within-process CG slowdown seen on CDMM-mode boards was absent in NUMA mode; Grid's mixed-precision solves were 1.15× slower in NUMA mode, mostly in per-solve setup; GPU memory sits in ZONE_MOVABLE with no kernel reclaim at 95% fill, and pageable copies run at the pinned rate), srun and ibrun rank placement on a four-GPU board, MILC and QUDA ranks launched under numactl --localalloc by default (operator policy), CUDA-aware MPI, Open MPI's HAN collective component (exclude it for large host-buffer allreduces at four ranks per board; Grid's scalar sums barely touch it; an LMI job with it excluded reproduced its outputs), page cache left on one NUMA node pushing a large process into swap (drop input files' cache after reading them), concurrent ibrun launches on disjoint nodes, what a lost node does to a job, profiling with Nsight Systems (unload XALT first, trace every rank, and never trace MPI on only some ranks), build, and storage rules for TACC Horizon, including node-local /tmp and the open defect that makes multi-node QIO single-file writes on its VAST filesystems unsafe.
 scope: [machine:horizon]
 load_when: Building software or preparing a job on Horizon.
 evidence: docs
@@ -35,7 +35,9 @@ sources:
   - an operator-submitted HadronsMILC LMI run on 162 gpu-gb200 boards after the site maintenance, ended by a node failure, with in-job per-NUMA-node meminfo, free and per-node GPU clock samplers, 2026-10-29, reviewed in the working directory
   - live Slurm controller configuration (scontrol show config), read from a login node 2026-10-29
   - https://slurm.schedmd.com/slurm.conf.html
-observed: "2026-10-29"
+  - operator-submitted HadronsMILC LMI runs on 162 gpu-gb200 boards with Open MPI's HAN excluded, after the site maintenance, compared with a run before it on the same input, 2026-10-28 to 2026-10-30, reviewed in the working directory
+  - operator-submitted single-board CUDA allocation, copy and device-fill microbenchmarks on gpu-gb200 boards, with in-job /proc/zoneinfo, per-node meminfo and vmstat samplers, and a one- and two-board Grid mixed-precision CG reproducer, 2026-10-30, reviewed in the working directory
+observed: "2026-10-30"
 observed_on:
   machine: horizon
 review_by: "2026-12-31"
@@ -242,7 +244,8 @@ placement probe and Grid's own start-up lines, 2026-10-22. Slurm here defaults t
 `mlx5_4`, `mlx5_5`, and Grid reported `Node  communicator of size 4`; Grid, Hadrons and
 HadronsMILC validation runs on one and four GPUs used it. The script restricts each rank to
 its GPU, as Grid requires; for QUDA it has a mode that leaves all four visible, not run here.
-Multi-node `srun` launches were not tested.
+Multi-node `srun` launches with the same wrapper have since run Grid-based jobs on up to 192
+boards (768 ranks), with in-job placement probes on every rank `[reproduced]`.
 
 **`ibrun`'s own rank placement is wrong for a four-GPU board.** With several tasks per node it
 passes `--map-by socket:PE=<cores per task>` unless `OPENMPI_AFFINITY` is already set
@@ -466,15 +469,30 @@ board. Which HAN stage costs the time was not isolated, so the mechanism is
 
 **Not compared, so do not extend the exclusion to them on this evidence:**
 
-- **Small, latency-bound reductions**, such as the per-iteration sums of CG and multigrid. CG and
-  MG jobs on Horizon have run with HAN at its default, and HAN against `tuned` has not been
-  compared for them. One coarse side cell is not a comparison: a 16-byte sum over 648 ranks took
-  about 0.1 ms either way, over 2–4 calls.
-- **The rest of a job that excludes HAN.** An LMI job's Lanczos and solves run under the same
-  setting. No application run with HAN excluded has been measured, so neither its overall saving
-  nor its outputs have been checked.
+- **Small, latency-bound reductions in MILC/QUDA**, such as the per-iteration sums of CG and
+  multigrid. CG and MG jobs on Horizon have run with HAN at its default, and HAN against `tuned`
+  has not been compared for them. One coarse side cell is not a comparison: a 16-byte sum over
+  648 ranks took about 0.1 ms either way, over 2–4 calls.
+  - **Grid-based codes are largely outside this question.** Under Grid's default reductions the
+    CG and Lanczos scalar sums are point to point, and reach MPI's collectives only through an
+    8–16-byte `MPI_Bcast`
+    ([`../../software/grid/solvers/staggered.md`](../../software/grid/solvers/staggered.md),
+    "Scalar global sums").
+  - Consistent with that: the Lanczos reorthogonalisation makes one such sum per basis vector,
+    and its cost per vector per step was 202 µs with HAN and 196 and 208 µs without, in three
+    162-board LMI runs `[reproduced ×3]`.
 - Device buffers, other numbers of ranks per board, HPC-X's Open MPI, and other Open MPI
   versions.
+
+**An LMI job with HAN excluded reproduced its outputs and saved its global-sum time**
+`[observed]`, one complete 162-board run after the site maintenance, against a run with HAN
+before it, same input and placement:
+- eigenvalues bitwise equal, all 864 correlators within 1.5e-15 relative, and the pion `a2aLL`
+  within 4e-14;
+- the meson-field global sum 701 s against 11,397 s, and the per-configuration charge 1,546.5
+  node-hours against 1,880.9.
+- Its mixed-precision solves were 1.15× slower. The runs straddle the maintenance, and the path
+  above bounds HAN's share below 4%; see "Check each board's GPU memory mode before timing".
 
 ## Check each board's GPU memory mode before timing
 
@@ -542,6 +560,46 @@ apparently identical jobs differ by node set `[inferred]`.
 
 **Do not compare timings across a change of memory mode or driver** without re-measuring a
 reference on each side.
+
+### Device memory and allocation on NUMA-mode boards
+
+**The kernel accounts the GPUs' allocations to their memory nodes, and plain allocation and
+copies stay fast at any fill** `[reproduced ×2]`: two one-board jobs on two boards, 2026-10-30,
+driver 610.57.04. Each ran a standalone CUDA program, four processes per board under the per-rank
+binding wrapper, 20 repetitions per operation, 2 to 128 MiB.
+- Each GPU's memory is a NUMA node of 188,416 MB (nodes 2, 10, 18, 26). It sits in
+  `ZONE_MOVABLE` with a `min` watermark of 128 pages, 8 MiB at the 64 KiB page size
+  (`/proc/zoneinfo`) `[observed]`.
+- `cudaMalloc` lowers that node's `MemFree` by the amount allocated. Filling every GPU to 180,000
+  of 189,471 MiB, leaving 7.5 GiB, moved no kernel reclaim or compaction counter (`compact_*`,
+  `pgscan_*`, `pgsteal_*`, `allocstall_*`). The kernel's reclaim path is reached only within a
+  few MiB of a full node.
+- Medians per 32 MiB:
+  - `cudaMalloc` 0.27 ms, about 8.5 µs per MiB whatever the fill;
+  - `cudaFree` 0.13 ms; first use of a fresh allocation 0.02 ms;
+  - host first touch 1.25 ms (27 GB/s);
+  - pageable and pinned host↔device copies 0.17–0.20 ms (170–200 GB/s). Pageable copies run at
+    the pinned rate (addressing mode `ATS`).
+- Four processes per board doubled the `cudaMalloc` and `cudaFree` medians against one process,
+  still under a millisecond. Initialising MPI (UCX's memory hooks) changed nothing measurable.
+- An occasional `cudaMalloc` or `cudaFree` took 10–200 ms
+  ([`incidents/2026-10-30-occasional-slow-cudamalloc-cudafree.md`](incidents/2026-10-30-occasional-slow-cudamalloc-cudafree.md)).
+
+**Grid's mixed-precision solves ran 1.15× slower after the maintenance, unlike MILC/QUDA's**
+`[reproduced ×2]`: two 162-board HadronsMILC LMI runs on node sets sharing 85 boards, against
+one run before the maintenance, same input and placement (HAN excluded in the later two).
+- Iteration counts were identical, and the Lanczos per-step cost was unchanged within 1%.
+- The CG iterations were 6.7% slower. Per-solve setup was 5–30× slower and carried about 60% of
+  the excess: Grid's CG preamble (field construction and the first two `norm2`) and the
+  mixed-precision outer loop.
+- The plain primitives above are fast, so a slow allocator call alone does not explain it.
+- A Grid reproducer of the same solve chain on one and two boards did not reproduce the size of
+  the excess. It did show Grid's freed-block cache missing about 17 times per solve.
+- Hypothesis, not established: at hundreds of ranks the next reduction waits for the slowest
+  rank's allocator call. That hypothesis, and the cache setting to test it with, are in
+  [`../../software/grid/runtime-environment.md`](../../software/grid/runtime-environment.md),
+  "The freed-block cache is small". Excluding HAN is ruled out as the cause (see "Open MPI's
+  HAN component and large host-buffer allreduces").
 
 ## Page cache left on one NUMA node can push a large process into swap
 
