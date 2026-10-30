@@ -35,6 +35,12 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/hisq_paths_force_test.cpp#L330-L382
   - https://github.com/lattice/quda/pull/1662
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/tests/utils/command_line_params.cpp#L1000-L1004
+  - https://github.com/lattice/quda/blob/2e7dd81894bb75101c86ee63520349fdab03fa74/include/communicator_quda.h#L438-L466
+  - https://github.com/lattice/quda/blob/2e7dd81894bb75101c86ee63520349fdab03fa74/include/communicator_quda.h#L596-L613
+  - https://github.com/lattice/quda/blob/2e7dd81894bb75101c86ee63520349fdab03fa74/include/communicator_quda.h#L638-L660
+  - https://github.com/lattice/quda/blob/2e7dd81894bb75101c86ee63520349fdab03fa74/lib/color_spinor_pack.in.cu#L92-L93
+  - https://github.com/lattice/quda/blob/2e7dd81894bb75101c86ee63520349fdab03fa74/lib/hisq_paths_force_quda.cu#L51
+  - https://github.com/lattice/quda/blob/2e7dd81894bb75101c86ee63520349fdab03fa74/lib/dslash_policy.hpp#L2039
   - operator's screened prior QUDA development records
   - https://github.com/llvm/llvm-project/blob/main/clang/tools/clang-format/git-clang-format
 observed: "2026-10-07"
@@ -132,6 +138,32 @@ combination at runtime. Validate every affected precision and representation pat
   values for coverage without checking that the harness reaches the changed path. For a
   distributed change, include a non-degenerate partition in which the affected communication
   must occur and retain a marker or event count showing that it did.
+
+  **QUDA's tunecache already holds that marker**, written by the run itself, provided each leg has
+  its own fresh tunecache: a shared or reused one mixes runs. Two fields of the tuning keys carry
+  it, read from `include/communicator_quda.h` at `develop` `2e7dd8189` `[source]`:
+
+  - `topo=xyzt` is the rank grid, `comm_dim(d)` for each dimension, and a test's forced
+    partitioning does not change it. Ghost-pack and multi-GPU dslash policy keys carry it, so any
+    leg that exchanged a spinor halo has it. A leg asked for `--gridsize 1 1 2 2` that shows
+    `topo=1122` ran on that grid; one that shows only `topo=1111` did not.
+  - `comm=xyzt` is the set of partitioned dimensions and is on many more keys, the HISQ link and
+    force kernels and the gauge kernels included. A bit is 1 when the rank grid splits that
+    dimension **or** a test forces partitioning there (`comm_dim_partitioned`), so forcing only
+    adds bits: the AND of a leg's `comm=` masks is a lower bound on what it really split, and a
+    single-rank test that forces partitions shows `comm=0000` among its keys. The exception is
+    `comm_dim_partitioned_string` called with an override, which can clear a split dimension's
+    bit, so read the bound only from keys written without one.
+
+  Require the intended split in `topo=` when the leg wrote any key carrying it, otherwise in the
+  AND of its `comm=` masks, and record the masks beside the result. A leg missing an intended
+  dimension did not exercise that dimension's communication, whatever `--gridsize` it was given.
+  This complements an in-job placement probe and does not replace it: neither field records
+  ranks per node. `[observed]` once, on one four-GPU node: `hisq_endtoend_test` at one rank
+  showed `topo=1111` and, under `--all-partitions`, all sixteen `comm=` masks including `0000`;
+  at `--gridsize 1 1 1 2` and `1 1 2 2` it showed `topo=1112` and `topo=1122`, with `comm=` ANDs
+  of `0001` and `0011`. `tools/quda-tunecache-policies.py` reads the policy rows' separate
+  `commDim` field and neither of these.
 
   **A distributed change has two peer kinds, and a run contains only the ones its placement
   created.** Peers on different nodes exchange large messages through a rendezvous handshake that

@@ -8680,3 +8680,37 @@ checked there line by line.
 untested. The operator will test it when production starts; until then the leaf states the observation and the
 hypothesis only. The vector-convention bullet does not name the reference campaign, and its HadronsMILC commit is
 recorded as unknown.
+
+## 2026-10-30 — QUDA tunecache keys as a multi-rank partition marker
+
+`software/quda/development.md`, "Match validation to the impact": the bullet that asks a distributed
+change to retain a marker that its communication occurred gains the marker QUDA already writes. The
+`topo=` field of ghost-pack and dslash-policy keys is the rank grid; the `comm=` field is the set of
+partitioned dimensions, real or forced, so forcing only adds bits and the AND of a leg's masks is a
+lower bound on what it split, except for keys written through the override path. Mechanism read from
+`develop` `2e7dd8189` `[source]`; the 1-, 2- and 4-rank signature observed once on one DeltaAI GH200
+node `[observed]`, from QUDA's own tests at a test-only pull-request head whose diff touches no
+`lib/` or `include/` file, so nothing here depends on that branch. Promoted from the user-mode inbox
+proposal `20261030T142137Z-deltaai-0f08c295-…`, which this removes. The proposal led with the `comm=`
+AND rule; reading the key writers before writing found `topo=`, the direct marker, which the leaf now
+leads with and the proposal did not mention. Leaf `observed_on` is left at `00c7ef33d`: the leaf was
+not re-read at the new commit, and its drift worklist (one moved citation, in
+`hisq_force_reference.cpp`) is untouched.
+
+**Reconciliation.** Searched `software/quda/`, `conventions/`, `modes/` and `machines/deltaai/` for
+`commDim`, `comm=`, `topo=`, `marker or event`, `assert the placement`, `non-degenerate partition`,
+`forced partition` and `--partition`.
+- `development.md`, "Select the dimensions…" bullet ("retain a marker or event count"): *confirmed*;
+  the new text supplies the marker.
+- `development.md`, "validate any change to a device-side communication path with at least two
+  ranks sharing a node … assert the placement from inside the job": *confirmed*; the new text says
+  the tunecache fields do not record ranks per node, so they do not replace the in-job probe.
+- `development.md`, "A single-rank run with forced partitioning (`--partition`) cannot show this":
+  *confirmed*; the `comm=0000` and `topo=1111` signature is how such a run reads.
+- `runtime-environment.md`, `tools/quda-tunecache-policies.py` reads the policy rows' `commDim`
+  masks, and QUDA stamps `gdr=1` on a `commDim=0000` policy: *confirmed*; `commDim` is a different
+  field from `comm=` and `topo=`, which the new text says.
+- `internals/device-memory-pool.md`, `--partition 14` "so that Y, Z and T communicate as if
+  partitioned": *confirmed*; consistent with forcing setting `comm=` bits.
+- `conventions/measurement.md`, "a forced partition": a different object (timer partition terms).
+
