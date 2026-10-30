@@ -1,6 +1,6 @@
 ---
 title: Grid runtime flags, GPU binding, communication and device memory
-summary: How Grid parses its command-line flags, selects a GPU, groups ranks on a node, passes halos to MPI, budgets device memory, and which local lattice extents a decomposition may use.
+summary: How Grid parses its command-line flags, selects a GPU, groups ranks on a node, passes halos to MPI, budgets device memory, sizes its cache of freed blocks (GRID_ALLOC_NCACHE_*; count cache misses with --log Memory), and which local lattice extents a decomposition may use.
 scope: [software:grid]
 load_when: Launching any Grid-based program (Grid tests, Hadrons, HadronsMILC), choosing --mpi/--shm/--device-mem, binding GPUs, or diagnosing a start-up hang, a layout assert, or device out-of-memory.
 evidence: source
@@ -13,7 +13,13 @@ sources:
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/communicator/Communicator_mpi3.cc#L420-L505
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/communicator/SharedMemoryMPI.cc#L183-L319
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/communicator/SharedMemory.cc#L71-L111
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/allocator/MemoryManager.cc#L85
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/allocator/MemoryManager.cc#L89-L147
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/allocator/MemoryManager.cc#L232-L281
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/allocator/MemoryManager.h#L37
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/allocator/MemoryManager.h#L101
+  - https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#implicit-synchronization
+  - an operator-submitted HadronsMILC mixed-precision CG reproducer on 1 and 2 gpu-gb200 boards with --log Memory, 2026-10-30, reviewed in the working directory
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/allocator/MemoryManagerCache.cc#L254-L268
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/cartesian/Cartesian_red_black.h#L205-L216
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/cshift/Cshift_mpi.h#L69-L80
@@ -101,7 +107,7 @@ Per rank, a `--disable-unified` build holds:
 1. the comms buffer, `--shm` MiB, allocated at start-up and never freed;
 2. the field cache, capped at `--device-mem` (default 80% of device memory). The cap counts
    only evictable views; open views are not counted (`MemoryManagerCache.cc:254-268`);
-3. a cache of recently freed blocks (default 8 large, 16 small; `GRID_ALLOC_NCACHE_*`);
+3. a cache of recently freed blocks (default 8 large, 16 small; `GRID_ALLOC_NCACHE_*`; see below);
 4. direct device allocations outside the memory manager.
 
 So the default 80% leaves at most 20% for everything else, and a device can run out while the
@@ -114,6 +120,47 @@ which the memory manager does not check: treat that line as the cause of any lat
 <MB> flag` and asserts. Every communicator reuses the same buffer from its start, so the size
 needed is the largest single-communicator total, not a sum (inferred; it assumes one halo
 exchange in flight at a time). Raise it only when that message appears.
+
+### The freed-block cache is small for a workflow that cycles many fields [U+F]
+
+`AcceleratorAllocate` serves a request from a same-size entry of the freed-block cache when one
+exists, and otherwise calls `acceleratorAllocDevice`, which is `cudaMalloc` on a CUDA build
+(`MemoryManager.cc` L89–L147). `AcceleratorFree` inserts the block and calls `cudaFree` on the
+entry it displaces. The cache holds, per kind, `Ncache[] = {2, 0, 8, 8, 0, 16, 8, 0, 16}`
+(`MemoryManager.cc` L85): 8 large and 16 small (< 4096 B, `MemoryManager.h` L37) device blocks,
+and no huge ones. The banner prints it:
+`MemoryManager::Init() cache pool for recent device allocations: SMALL 16 LARGE 8 Huge 0`.
+
+- **Resize it at start-up with `GRID_ALLOC_NCACHE_LARGE`, `GRID_ALLOC_NCACHE_HUGE` and
+  `GRID_ALLOC_NCACHE_SMALL`** (`MemoryManager.cc` L232–L281). Each takes 0 ≤ N < 128
+  (`NallocCacheMax`, `MemoryManager.h` L101). A value outside that range is ignored without a
+  message. `LARGE` sets the host, device and shared kinds together.
+- **Count the misses with `--log Memory`.** Each miss prints
+  `MemoryManager: acceleratorAllocDevice size <bytes>`, each displaced block
+  `acceleratorFreeDevice size <bytes>`, and each host↔device coherence copy and eviction its own
+  line. Rank 0 only, so the counts are rank 0's.
+- **A device allocation is an implicit synchronisation point**
+  ([CUDA Programming Guide](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#implicit-synchronization)),
+  so a miss can cost more than the allocation itself.
+
+**A HadronsMILC mixed-precision solve chain misses the default cache every solve**
+`[observed]`, one job, 1 and 2 gpu-gb200 boards, the LMI `ama` module chain (three
+propagator gamma sets and their contractions per source) at 24×24×48×48 sites per GPU.
+- In steady state each solve made about 11 `cudaMalloc` and 6 `cudaFree` calls inside the
+  solve, and about 7 and 13 between solves.
+- The blocks were field-sized: 10.6 MB to 191 MB, at 0.4–1 ms per `cudaMalloc` on rank 0. They
+  fell in the CG preamble's field construction and in the mixed-precision outer loop.
+- **With `GRID_ALLOC_NCACHE_LARGE=64` the in-solve calls fell to 0.14 per solve**, and the inner
+  CG's logged `Preamble` from 5.0 ms to 0.3 ms. A cache size changes no arithmetic.
+- From 1 to 2 boards the preamble's `Norm` (its first two reductions) rose 4.2× at equal
+  allocation counts, while the in-loop inner product rose 1.4×.
+
+**Inferred, not tested at scale:** at hundreds of ranks, the first collective after these calls
+may wait for the slowest rank's allocator call, so the cost would grow with rank count and show
+up in the next reduction rather than in field construction. The observation that prompted it is
+on Horizon (`../../machines/horizon/notes.md`, "Check each board's GPU memory mode before
+timing"). **Before raising the cache:** each kind can then keep up to N blocks allocated, which
+counts against the memory left under `--device-mem`, so check the device headroom first.
 
 ## Which local extents a decomposition may use [U+F]
 
