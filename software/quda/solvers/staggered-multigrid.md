@@ -66,6 +66,13 @@ sources:
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/solver.cpp#L262-L306
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/inv_gcr_quda.cpp#L205-L211
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/eigensolve_quda.cpp#L257-L265
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/check_params.h#L1084-L1088
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/milc_interface_internal.hpp#L38-L39
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/milc_interface_internal.cpp#L42-L43
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/milc_interface_internal.cpp#L263-L264
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/multigrid.cpp#L467-L468
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/staggered_kd_build_xinv.cu#L208-L250
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/staggered_kd_reorder_xinv.cu#L82-L86
 observed: "2026-10-09"
 observed_on:
   software:
@@ -126,6 +133,22 @@ For optimized KD, the top transfer has geometric block size one and uses the fin
 count. Coarse KD instead requires `2 x 2 x 2 x 2` blocking and exactly 24 coarse vectors.
 Subsequent aggregation levels generate and block-orthonormalize near-null vectors and
 build coarse link fields.
+
+**`dagger_approximation` changes how the KD block inverse is built, not the hierarchy's shape.**
+With optimized KD the KD-transformed level applies the inverse of the fine operator's
+Kähler–Dirac block (`lib/multigrid.cpp:467-468`), and every coarser operator is built from that
+level. The default is `false` in both QUDA
+(`lib/check_params.h:1084-1088`) and the MILC interface
+(`include/milc_interface_internal.hpp:39`; parsed at `lib/milc_interface_internal.cpp:42-43`,
+passed on at lines 263-264): the inverse is built by a batched matrix inversion in single
+precision (`lib/staggered_kd_build_xinv.cu:208-233`). `dagger_approximation true` copies the block
+`X` in its place, rescaled by `1/(4 (max|X|^2 + m^2))` so that its norm matches the inverse's in
+the free field (`lib/staggered_kd_reorder_xinv.cu:82-86`): a scaled `X^dagger` standing in for
+`X^-1`. The field has the same geometry either way (`lib/staggered_kd_build_xinv.cu:250`), so
+the approximation saves only the one-time inversion in setup. QUDA logs
+`Using the dagger approximation to Xinv` at verbose level when it is on (line 239), which
+confirms the executed path. `[source]` at `ba501e4f8`. Call `false` the true KD inverse, not an
+"exact dagger": setting it restores QUDA's default rather than selecting a special mode.
 
 The parameter file controls level count, preconditioner precision, KD transfer type,
 aggregation sizes, near-null counts and setup solves, smoothers, coarse solvers, MMA

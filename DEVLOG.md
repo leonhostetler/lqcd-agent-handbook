@@ -8714,3 +8714,48 @@ not re-read at the new commit, and its drift worklist (one moved citation, in
   partitioned": *confirmed*; consistent with forcing setting `comm=` bits.
 - `conventions/measurement.md`, "a forced partition": a different object (timer partition terms).
 
+## 2026-10-30 — Staggered MG: negative `<r,r>` is a pipelined-CG recurrence artefact; `dagger_approximation` semantics; setup streams above `setup_tol`
+
+Developer mode (operator). Evidence: QUDA source at `ba501e4f8` and the operator's screened tuning records.
+
+- **`staggered-multigrid/diagnostics.md`, "Negative `<r,r>` lines in batched near-null setup"** (rewritten in
+  place; was "… under `dagger_approximation`"). The old section's mechanism, the approximate KD dagger making the
+  operator indefinite, was `[inferred]` and is refuted: the lines persisted with `dagger_approximation false`.
+  The new mechanism is read at `ba501e4f8` `[source]`: near-null setup forces `pipeline = 4`; the pipelined CG
+  prints the recurrence σ, not a norm; its breakdown fallback tests only `sigma[0]`; a forced reliable update
+  recomputes true norms before exit. The separately quantised `Y(d)`/`Y(d+4)` coarse links as an amplifier are
+  `[inferred]`. Log tests over six runs with the signature and seven traced setups: 73 lines, none at `n = 0`, all
+  transient, no measurable iteration cost. The old section's mass, configuration and job dependence is kept,
+  scoped to "another build".
+- **`staggered-multigrid/diagnostics.md`, "Batched setup streams can finish above `setup_tol`"** (new). The
+  stagnation exit and reliable-update trigger use system 0 only `[source]`; 78 of 672 streams finished above
+  `setup_tol`, all in batches that took the exit or hit `setup_maxiter` `[reproduced]`.
+- **`staggered-multigrid.md`, Hierarchy construction:** what `dagger_approximation` does and that `false` is the
+  default in QUDA and the MILC interface `[source]` at `ba501e4f8`. No leaf said so, and the default had been
+  mistaken for a special "exact dagger" mode.
+- **`conventions/measurement.md`, cross-job determinism:** a second pair at another build with the same tuned
+  launch parameters repeated every count exactly `[observed]` once, as the existing candidate mechanism predicts.
+
+Held, not admitted: that `dagger_approximation true` causes cap saturation on the level above the coarsest for one
+gauge configuration, and the single-precision bundle's effect. One experiment each on one configuration, with no
+clean recurring-cost measurement. Leaf `observed_on` is unchanged for both leaves, because neither was re-read whole
+at `ba501e4f8`. The new claims carry that commit inline. `run-upstream-drift` listed neither leaf.
+
+**Reconciliation.** Searched `software/`, `conventions/`, `modes/`, `machines/` for `dagger_approx`, `<r,r>`,
+`pipelin`, `residual norm increases`, `preconditioner_precision` and `setup_inv`.
+- `diagnostics.md`, old "Negative `<r,r>` lines under `dagger_approximation`": *amended* (rewritten); its
+  count observations *confirmed* and rescoped; its "decide health on the outer solve" *confirmed*.
+- `diagnostics.md`, "Setup pinned at its ceiling" ("A capped setup does not prove that the requested setup
+  tolerance was achieved"): *confirmed*; the new section adds the uncapped early-exit case.
+- `diagnostics.md`, observable extraction contract (`Convergence at <N> iterations, n = <j>` is printed whether the
+  solve converged or hit its cap): *confirmed*; it also prints after the stagnation exit.
+- `ks-spectrum.md`, "A normal exit does not mean every solve converged" (`reliable_break` in MILC propagator CG):
+  *confirmed*, a different scope; cross-linked.
+- `conventions/measurement.md`, "Determinism inside one job is not determinism across jobs": *amended* with the
+  second observation; its rule is unchanged.
+- `staggered-multigrid.md`, `pipeline = 16` in the outer-solve block: *confirmed*, a different solver (outer GCR).
+- `staggered-cg.md`, pipelining and reliable updates: *confirmed*; MILC propagator CG runs with `pipeline 0`, so
+  the system-0 fallback does not apply there.
+- `machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q4/stack.yaml`, `dagger_approximation true` as an
+  input: *unaffected*.
+- `quda-cuda13-mg-staggered-2026q4` and Perlmutter stack notes, `--pipeline 0` test flags: *unaffected*.

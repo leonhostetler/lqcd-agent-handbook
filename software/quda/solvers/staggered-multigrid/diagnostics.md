@@ -18,6 +18,12 @@ sources:
   - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/milc_interface_internal.cpp#L133-L134
   - https://github.com/lattice/quda/issues/1664
   - https://github.com/lattice/quda/pull/1666
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/multigrid.cpp#L1298-L1299
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/inv_cg_quda.cpp#L242-L304
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/inv_cg_quda.cpp#L338-L361
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/solver.cpp#L440-L454
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/kernels/dslash_coarse.cuh#L168-L193
+  - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/include/reliable_updates.h#L205-L221
   - operator's screened tuning records
 observed: "2026-10-07"
 observed_on:
@@ -265,28 +271,98 @@ regenerated in one of them.
 
 Do not begin by tuning the coarsest polynomial when the level-1 setup is already capped.
 
-## Negative `<r,r>` lines under `dagger_approximation`
+<a id="negative-rr-setup"></a>
+## Negative `<r,r>` lines in batched near-null setup
 
-With `dagger_approximation true`, a four-level hierarchy's level-2 near-null generation can print
-CG lines whose `<r,r>` is negative. The key selects an approximate dagger for the Kähler-Dirac
-block inverse that preconditions the operator those levels are built from `[source]` at QUDA
-`00c7ef33d` (`include/quda.h:838-839`, `lib/multigrid.cpp:467-468`). That the negative norms
-come from the resulting operator losing positive-definiteness inside that CG is `[inferred]`,
-not traced.
+The near-null setup CG can print lines such as
+`MG level 2 (GPU): CG:  5953 iterations, n = 8, <r,r> = -2.654982e-03, |r|/|b| = nan` — in a
+four-level hierarchy `MG level 2` is the level above the coarsest, and a five-level hierarchy
+whose first two levels were loaded rather than generated showed them at `MG level 3`, again the
+level above the coarsest. **The printed `<r,r>` is a recurrence
+estimate, not a computed norm, and the line is not a health signal.**
 
-At one build, one hierarchy and one placement on one ensemble `[reproduced]`, three runs with
-the signature against many without:
+Mechanism, `[source]` at QUDA `ba501e4f8`:
 
-- the count depends on the **mass**: nonzero at one of seven, zero at the rest;
-- on the **gauge configuration**: zero on two of three gauge configurations at that mass;
-- and on the **job**: the same parameter file on the same gauge configuration gave counts about a
-  quarter apart in two jobs; and
-- every outer solve still converged to its request, with the true residual checked.
+- Near-null generation forces a pipelined CG for every setup solver except BiCGStab
+  (`solverParam.pipeline = 4`, `lib/multigrid.cpp:1298-1299`) and solves the level's streams in
+  batches, indexed by `n = <j>` (batch width as in the extraction contract above).
+- In the pipelined branch each iteration starts from a true `|r|^2`, but the value carried
+  forward and printed is `sigma = alpha (alpha |Ap|^2 - <p,Ap>)` with `alpha = |r|^2 / <p,Ap>`
+  (`lib/inv_cg_quda.cpp:242-271`). That equals `|r - alpha Ap|^2` only while
+  `<r,Ap> = <p,Ap>`, which needs a Hermitian operator and intact conjugacy. After a step that
+  contracts the residual strongly it is a small difference of large terms and can go negative.
+- The fallback to a true norm tests only the batch's first system,
+  `if (sigma[0] < 0.0 || ...)` (`lib/inv_cg_quda.cpp:265`). Systems `n = 1` and up keep a
+  negative value: it is printed, it makes that system's `beta = sigma / |r_old|^2` negative for
+  one step (line 304), and `convergenceL2` counts it as below tolerance (`lib/solver.cpp:450`).
+- A batch cannot stop on it. When the recurrence makes every system look converged, a reliable
+  update is forced (`lib/inv_cg_quda.cpp:300`) and recomputes every true residual (lines
+  338-340) before the convergence test.
+- The coarse dslash applies `M^dagger` from a separately stored link array: the forward hop
+  reads `Y(d+4)` for `M` and `Y(d)` for `M^dagger` (`include/kernels/dslash_coarse.cuh:168-193`).
+  With fixed-point (half) coarse-link storage the two arrays are quantised separately, so the
+  normal operator the setup CG applies is Hermitian only to storage precision. That breaks the
+  identity above independently of `dagger_approximation` `[inferred]`.
 
-**Actionable consequence.** Count the lines per setup from the raw log, since no summary line
-carries them, and record the count per mass, gauge configuration and job. Do not carry a count from
-one run to another or judge it against a fixed line threshold; decide health on the outer
-solve's convergence and true residual. A clean count at one build says nothing about another.
+Observed at QUDA `ba501e4f8` and MILC `a5f8f9fa` on one ensemble, two gauge configurations,
+four- and five-level hierarchies `[reproduced]`, six runs with the signature, seven batched
+setups traced iteration by iteration:
+
+- 73 negative lines and **none at `n = 0`** (if spread evenly over 16 systems the chance of
+  that is `(15/16)^73`, about 0.009);
+- all transient: 64 were positive at the next iteration, the other 9 were runs of two to four
+  consecutive negatives in one system, then positive;
+- present with `dagger_approximation true` and `false`; 63 lines in one hierarchy with
+  half-precision coarse storage and none with `preconditioner_precision single`, one run each
+  (that key also changes null-vector and smoother-halo precision);
+- more lines where the setup solve runs longer: 63 in a hierarchy whose streams needed 8457 to
+  the 10000 cap on one gauge configuration, none for the same file at about 2700 on the other;
+- **no measurable iteration cost.** A batch of 16 ends when its slowest system converges. In
+  every batch all 16 converged within 161 iterations of one another (at most 2 % of the batch),
+  systems that broke down were not the last (2 of 6 batches in the hierarchy with 63 lines,
+  about what chance gives), and in the 100 iterations around an event the affected system's
+  residual fell faster than the batch median in 34 of 54 cases.
+
+At another build, on one hierarchy and placement, the count depended on the mass (nonzero at one
+of seven), on the gauge configuration (zero on two of three at that mass) and on the job (two
+jobs on one file about a quarter apart) `[reproduced]`. At `ba501e4f8` a second job on the same
+file, gauge configuration and build repeated the count, and every near-null iteration count,
+exactly (see [`measurement.md`](../../../../conventions/measurement.md), "Determinism inside one
+job is not determinism across jobs").
+
+**Actionable consequence.** Do not read the lines as evidence for `dagger_approximation`, an
+indefinite operator or an unhealthy hierarchy, and do not change either key to remove them.
+Judge the setup by its per-stream iteration counts and final residuals ("Setup pinned at its
+ceiling", and the next section) and the solve by outer convergence and the true residual. A
+rising count tracks longer setup solves on a low-precision coarse operator, so it can accompany a
+harder gauge configuration, but it is a symptom and costs nothing measurable by itself. No
+summary line carries the count: take it from the raw log, per job.
+
+<a id="setup-streams-above-tolerance"></a>
+## Batched setup streams can finish above `setup_tol`
+
+In a batched near-null setup the CG takes its reliable-update decisions from the batch's first
+system (`ru.update_rNorm(sqrt(r2[0]))`, `lib/inv_cg_quda.cpp:295`), including the stagnation
+exit `ru.reliable_break(r2[0], stop[0], ...)` (line 361), which logs
+`solver exiting due to too many true residual norm increases` (`include/reliable_updates.h:205-221`)
+and stops the whole batch. The other streams then print their summary,
+`Convergence at <N> iterations, n = <j>, L2 relative residual: iterated = <v>, true = <v>`, with
+`<v>` possibly above the requested `setup_tol`. `[source]` at `ba501e4f8`.
+
+Observed at the same build `[reproduced]`, seven four-level hierarchies on two gauge
+configurations, 672 streams on the level above the coarsest (`MG level 2` in the log): 78
+finished with a true residual above `setup_tol 5e-6`, the largest `1.1e-5`. Every one was in a
+batch that took this exit or reached `setup_maxiter`; no normally ended batch had one. The exit
+ended every batch of one healthy hierarchy, and the hierarchy with the most such streams (38)
+had the healthiest solve of the three runs with its aggregation on its gauge configuration.
+
+**Actionable consequence.** The summary says `Convergence` either way, so read `true =` against
+the requested tolerance and count the level's exit warnings before calling a setup converged to
+`setup_tol`. A stream up to about twice `setup_tol` after this exit is not by itself a failed
+setup; a batch at `setup_maxiter` is the case "Setup pinned at its ceiling" covers. The same
+`reliable_break` stops MILC propagator solves
+([`ks-spectrum.md`](../../../milc/applications/ks-spectrum.md), "A normal exit does not mean every
+solve converged"); there MILC flags the solve, while in setup nothing does.
 
 ## Too few TRLM restarts
 
