@@ -1,12 +1,16 @@
 ---
 title: Hadrons
-summary: Role of Hadrons as the module framework under HadronsMILC, the milc-qcd fork that HadronsMILC pins, and routing to Hadrons build guidance.
+summary: Role of Hadrons as the module framework under HadronsMILC, the milc-qcd fork that HadronsMILC pins, when the module schedule is recomputed (and its order changes between runs), and routing to Hadrons build guidance.
 scope: [software:hadrons]
 load_when: Selecting or building Hadrons, or deciding between upstream Hadrons and the milc-qcd fork for HadronsMILC work.
 evidence: source
 sources:
   - https://github.com/milc-qcd/Hadrons/blob/3a0980157914dd54e96744fccaf0fbf88620b5a5/configure.ac
   - https://github.com/milc-qcd/Hadrons/blob/3a0980157914dd54e96744fccaf0fbf88620b5a5/Makefile.am
+  - https://github.com/milc-qcd/Hadrons/blob/3a0980157914dd54e96744fccaf0fbf88620b5a5/Hadrons/Application.cpp#L201-L227
+  - https://github.com/milc-qcd/Hadrons/blob/3a0980157914dd54e96744fccaf0fbf88620b5a5/Hadrons/VirtualMachine.cpp#L1027-L1033
+  - https://github.com/aportelli/Hadrons/blob/1d64626aaa84052d33880bb028ef28de1d8f3047/Hadrons/Application.cpp#L208-L234
+  - https://github.com/aportelli/Hadrons/blob/1d64626aaa84052d33880bb028ef28de1d8f3047/Hadrons/VirtualMachine.cpp#L871-L877
 observed: "2026-10-23"
 observed_on:
   software:
@@ -27,6 +31,20 @@ contractions, I/O — named in an XML parameter file. It builds a dependency gra
 modules' declared inputs and outputs, schedules them, and frees each object once nothing
 downstream needs it. It is built on Grid. HadronsMILC adds staggered/MILC modules on top and
 links Hadrons' library into its own executable.
+
+## The module order is random unless a schedule file is loaded [upstream and fork]
+
+Hadrons runs modules in the order a scheduler chooses (`Application.cpp` L201–L227).
+- When `scheduleFile` is empty, or `saveSchedule` is true, it computes the order with the
+  genetic scheduler. The scheduler is seeded from `std::random_device` on rank 0 and broadcast
+  (`VirtualMachine.cpp` L1027–L1033), so the order differs from run to run of the same input.
+- When `scheduleFile` names a file and `saveSchedule` is false, it loads that order.
+
+**Consequence:** with no saved schedule, a log's module order, and so where each module's
+time and memory fall, is not comparable between runs. A window defined as "from module X on"
+selects different work in each. Load a saved schedule when comparing runs, or define windows
+by counts the order cannot change, such as the n-th solve. `[observed]` once: four runs of one
+input without a schedule file placed the same source module at steps 1, 4, 11 and 20 of 37.
 
 ## Two code lines
 
