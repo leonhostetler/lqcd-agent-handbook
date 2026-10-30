@@ -1,6 +1,6 @@
 ---
 title: Grid improved-staggered operator, CG, mixed-precision CG and Lanczos
-summary: Operator conventions and the two gauge-import paths, the even-odd operator, CG and mixed-precision CG stopping rules and log lines, and implicitly restarted Lanczos with Chebyshev acceleration, including how a badly placed Chebyshev cut fails.
+summary: Operator conventions and the two gauge-import paths, the even-odd operator, CG and mixed-precision CG stopping rules and log lines, the path a scalar global sum takes (point-to-point plus a small MPI_Bcast, not MPI_Allreduce, by default), and implicitly restarted Lanczos with Chebyshev acceleration, including how a badly placed Chebyshev cut fails.
 scope: [software:grid, solver:cg, solver:eigensolver, fermion:staggered]
 load_when: Configuring, sizing, debugging or reading the logs of a Grid staggered solve or Lanczos eigensolve, directly or through Hadrons/HadronsMILC.
 evidence: source
@@ -13,6 +13,14 @@ sources:
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/lattice/Lattice_transfer.h#L1362-L1530
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/algorithms/iterative/ImplicitlyRestartedLanczos.h#L66-L497
   - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/algorithms/approx/Chebyshev.h#L37-L252
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/configure.ac#L161-L172
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/lattice/Lattice_reduction.h#L202-L334
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/lattice/Lattice_arith.h#L260-L272
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/lattice/Lattice_basis.h#L37-L48
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/communicator/Communicator_base.h#L134-L160
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/communicator/Communicator_mpi3.cc#L268-L290
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/communicator/Communicator_mpi3.cc#L333-L338
+  - https://github.com/milc-qcd/Grid/blob/d67dd2079bea125138502a13120858aa58997379/Grid/communicator/Communicator_mpi3.cc#L888-L896
   - https://github.com/paboyle/Grid/blob/3232b438f2cf729e515c185e2dbf29d7cc276bb7/Grid/algorithms/iterative/ImplicitlyRestartedLanczos.h
 observed: "2026-10-23"
 observed_on:
@@ -79,6 +87,30 @@ eigenvalues of `mass² + D†D`, so Chebyshev bounds must bracket that spectrum.
 - The double↔single conversions use a lane-remapping workspace built once per solve, because the
   two grids have different SIMD layouts [F: `Lattice_transfer.h` differs substantially upstream,
   where this was not checked].
+
+## Scalar global sums are point-to-point plus a broadcast, not `MPI_Allreduce` [U+F]
+
+With the default `--enable-reduction=grid` (`configure.ac` L161–L172, which defines
+`USE_GRID_REDUCTION`), a lattice reduction's scalar global sum does not use MPI's reduction
+collectives:
+
+- `norm2` calls `innerProduct`, which calls `GlobalSumP2P` (`Lattice_reduction.h` L202–L205,
+  L290–L334). `axpy_norm` is compiled as `axpy_norm_fast` (`Lattice_arith.h` L260–L272) and
+  calls `GlobalSum` on a `RealD`, which is `GlobalSumP2P` too under `USE_GRID_REDUCTION`
+  (`Communicator_mpi3.cc` L268–L290).
+- `GlobalSumP2P` sums along each dimension of the processor grid by point-to-point exchanges,
+  then sends the total from rank 0 with `Broadcast`, an `MPI_Bcast` of 8 or 16 bytes
+  (`Communicator_base.h` L134–L160, `Communicator_mpi3.cc` L888–L896).
+- `GlobalSumVector` is an `MPI_Allreduce` (`Communicator_mpi3.cc` L333–L338). Large vector sums
+  use it, the A2A meson-field sum among them. The CG's per-iteration `innerProduct` and
+  `axpy_norm` do not. Nor does the Lanczos reorthogonalisation, which makes one `innerProduct`
+  per basis vector (`basisOrthogonalize`, `Lattice_basis.h` L37–L48).
+
+**Consequence:** an MPI collective setting, such as a choice of Open MPI `coll` component or
+algorithm, reaches a Grid CG or Lanczos only through that small `MPI_Bcast`, while it governs
+every large vector sum. Check which path a reduction takes before attributing a solve's
+slowdown to such a setting. A build configured with `--enable-reduction=mpi` uses
+`MPI_Allreduce` for the scalar sums instead.
 
 ## Implicitly restarted Lanczos [U+F, except `kstart`]
 
