@@ -456,8 +456,10 @@ be interpreted later, and cannot be compared against a result taken under a diff
 <a id="padded-batch-stall"></a>
 ## A blocked solve plateaus a few `1e-8` above the one-RHS trace
 
-**The tell.** A blocked (multi-right-hand-side) solve whose outer residual matches the
-one-RHS trace of the same hierarchy for about ten iterations, then flattens onto a floor
+**The tell.** A blocked (multi-right-hand-side) solve whose outer residual follows the
+one-RHS trace of the same hierarchy — at or a little below it, since a batched coarse solve
+over-solves all but its slowest member ([batched GCR](../staggered-multigrid.md#batched-gcr)) —
+for about ten iterations, then flattens onto a floor
 near `|r|/|b| ~ 2-3e-8` and runs to its outer cap, with the level-1 and level-2 coarse solves
 pinned at their caps on most outer iterations. It is never a silently wrong answer: the outer
 true residual is computed in double, and the solve reports non-convergence.

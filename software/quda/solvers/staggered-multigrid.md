@@ -73,6 +73,9 @@ sources:
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/multigrid.cpp#L467-L468
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/staggered_kd_build_xinv.cu#L208-L250
   - https://github.com/lattice/quda/blob/ba501e4f8c661a84e73ac0f50ab56bfecbcdd28e/lib/staggered_kd_reorder_xinv.cu#L82-L86
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/solver.cpp#L400-L422
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/inv_gcr_quda.cpp#L305
+  - https://github.com/lattice/quda/blob/00c7ef33dacadfb94860e3ca1cc06862926182dc/lib/inv_gcr_quda.cpp#L346-L349
 observed: "2026-10-09"
 observed_on:
   software:
@@ -757,6 +760,20 @@ Confirm all of the following from output or returned state:
 The observed multi-source wrapper reports the last source's residual fields and QUDA's
 block iteration convention. Diagnose per-source failures from QUDA summaries rather
 than assuming the returned scalar describes every right-hand side.
+
+<a id="batched-gcr"></a>
+**A batched GCR iterates until its slowest right-hand side converges, at every level.** `[source]` at QUDA
+`00c7ef33d`, unchanged at `2e7dd818`: `Solver::convergence` returns false while any right-hand side is above its
+tolerance (`lib/solver.cpp:400-422`), GCR iterates on that test (`lib/inv_gcr_quda.cpp:305`), and its solution-update
+and restart decisions read the first system only (`:346-349`). The coarse GCR solves inside a blocked outer solve are
+batched the same way, so every right-hand side is solved to at least its `coarse_solver_tol` and all but the slowest
+past it: a batched coarse call prints one iteration count for every `n = <j>`, with different reached residuals. A
+blocked solve's preconditioner is therefore slightly stronger than the one-RHS one. `[observed]` once, on a four-level
+hierarchy at width 6: each right-hand side's blocked outer residual matched its one-RHS trace for the first iterations
+and then ran a near-constant factor below it, which removed a whole outer iteration only where the one-RHS solve
+finished just above the tolerance. **Actionable consequence:** when comparing a blocked solve with one-RHS solves,
+report the per-iteration ratio beside the per-solve one, and do not carry an outer-iteration saving to another
+tolerance, source set or gauge configuration. The extra inner work is real and belongs in the blocked time.
 
 The `CG` MG-rebuild label in MILC is a bypass: it executes the UML fallback, not this MG
 path and not necessarily the high-level `CG` algorithm. Confirm that no fallback warning

@@ -8759,3 +8759,35 @@ at `ba501e4f8`. The new claims carry that commit inline. `run-upstream-drift` li
 - `machines/horizon/stacks/milc-cuda13-quda-ks-spectrum-mg-2026q4/stack.yaml`, `dagger_approximation true` as an
   input: *unaffected*.
 - `quda-cuda13-mg-staggered-2026q4` and Perlmutter stack notes, `--pipeline 0` test flags: *unaffected*.
+
+## 2026-10-31 — Staggered MG: a batched GCR runs until its slowest right-hand side converges
+
+**Change.** `software/quda/solvers/staggered-multigrid.md`, "Runtime confirmation and correctness": one paragraph
+(anchor `batched-gcr`) — QUDA's GCR continues while any right-hand side is above tolerance and takes its update and
+restart decisions from the first system; inside a blocked MG solve the coarse GCR solves are batched the same way, so
+all but the slowest right-hand side are over-solved and the blocked preconditioner is slightly stronger; compare blocked
+with one-RHS solves per iteration as well as per solve, and do not transfer an outer-iteration saving. Three source
+lines added. `software/quda/solvers/staggered-multigrid/diagnostics.md`, the padded-batch stall's "tell": **amended**
+— "matches the one-RHS trace" now reads "follows … at or a little below it", with a link, so a healthy offset is not
+read against the stall signature.
+
+**Evidence** `[source]`: `lib/solver.cpp:400-422` (`Solver::convergence`), `lib/inv_gcr_quda.cpp:305` and `:346-349`,
+identical at `00c7ef33d` and `2e7dd818`. `[observed]` once: an operator campaign's width-6 `multicolorsource`
+measurement through MILC on a four-level hierarchy, where every batched coarse call printed one iteration count for all
+six right-hand sides with different reached residuals, and each blocked outer trace ran a near-constant factor below
+its one-RHS trace after the first iterations, saving an outer iteration at some masses only. Magnitudes withheld
+(operator, 2026-10-31: no numbers; measured on an unpublished ensemble). Upstream drift on the leaf: one merge,
+`93085f702` (#1638), outside the cited lines and unrelated; left on the worklist, `observed_on` not bumped.
+
+**Reconciliation.** Searched "slowest", "every right-hand side", "per-RHS", "block iteration", "first right-hand side"
+and the blocked-solve statements across `software/` and `conventions/`.
+- `staggered-multigrid.md`, "the observed multi-source wrapper reports the last source's residual fields and QUDA's
+  block iteration convention": *confirmed*, unchanged; the new paragraph follows it.
+- `staggered-cg.md`, "a block solve with a heavy-quark target is steered by its first right-hand side … the final
+  convergence test covers all of them": *confirmed*, unchanged; the same rule for CG.
+- `diagnostics.md`, "Batched setup streams can finish above `setup_tol`" (CG setup, decisions from the first system):
+  *confirmed*, unchanged; a different solver, consistent.
+- `diagnostics.md`, padded-batch stall tell: *amended*, above. Its "Not claimed" list is unchanged: the observation
+  ran at width 6 with default SVD batches, which does not exercise the fixed path.
+- `software/milc/internals/staggered-inverter-types.md`, batched sets print `srcs = <n>`: *confirmed*, unchanged.
+- No other statement on this object was found.
