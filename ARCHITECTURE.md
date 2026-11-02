@@ -205,6 +205,7 @@ lqcd-agent-handbook/
 ├── handbook.yaml              # the repo's own posture: phase (bootstrap|maintenance),
 │                              #   schema versions, tier-budget limits
 ├── README.md                  # for humans arriving on GitHub
+├── LICENSE                    # MIT; covers the handbook's own text, data and tools
 ├── PRIVACY.md                 # what may never be committed; the screening checklist
 ├── CONTRIBUTING.md            # how a fact enters: inbox → review → merge
 ├── .gitignore                 # `session_*.log` from slice 0 — developer-mode sessions

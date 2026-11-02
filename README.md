@@ -102,3 +102,7 @@ The optional Codex link is intended for sessions in other repositories. Inside t
 handbook repository, Codex may show both the repository skill and the same user-scoped
 skill because same-named skills are not merged. The link records the clone's absolute path;
 if the clone moves, remove the obsolete link and rerun the installer.
+
+## License
+
+MIT. See `LICENSE`.
