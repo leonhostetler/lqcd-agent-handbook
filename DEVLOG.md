@@ -8849,3 +8849,47 @@ unchanged. Big Red 200's notes carry the machine-specific exception, and
 `tests/test_open_upstream_defects.py` now requires their warning too. `tests/test_slice1.py`'s
 node-type resolution check — **confirmed**. Big Red 200 is multi-type and carries its own
 explicit-declaration test. Nothing was deleted.
+
+## 2026-11-11 — Big Red 200 GPU node confirmed by one gpu-debug job
+
+The onboarding entry above left five checks to the first GPU job. The operator submitted a
+one-node `gpu-debug` probe (all four GPUs, four tasks of 16 cores; 2 s elapsed), which
+`tools/check-batch-script.py` and `tools/dry-run-batch-script.py` had passed, with two
+negatives fired. It built nothing and ran no application. Its outputs stay in the operator's
+working directory.
+
+**Settled.**
+- **GPU:** four `A100-SXM4-40GB`, 40,960 MiB each, compute capability 8.0, NV4 between every
+  pair. The profile's "unconfirmed" comment is removed.
+- **Cpuset:** a task asking for 16 CPUs received 16 cores with both threads, 32 logical CPUs.
+  The core-counted reading of the scheduler is confirmed.
+- **Node-local tmp:** `SLURM_TMPDIR` is unset in the job, so `node_local_tmp_variable: null`,
+  and the test now pins `null` rather than absence. `/tmp` is a tmpfs of about 252 GB, recorded
+  as RAM-backed. `TMPDIR=/tmp` was set in the job, but whether by the site or inherited from the
+  submitting shell was not separated, so nothing records it.
+- **Host:** four NUMA domains of about 126 GiB, roughly 503 GiB in all. This matches the
+  scheduler's `RealMemory`, not IU's 256 GB.
+- **Network:** two 100 Gb/s `mlx5` high-speed interfaces per GPU node.
+- **Detection:** the compute node's `hostname -f` falls under `bigred200.uits.iu.edu`, and the
+  detector reported `big-red-200` there. Compute-node detection is confirmed. The hostname is
+  not recorded.
+- **Billing:** the whole node at default memory showed `billing=190`, which is the weighted sum.
+
+**New: GPU affinity runs opposite to Slurm's rank order.** `nvidia-smi topo -m` gave GPU *i*
+CPU affinity on NUMA 3 − *i*, while Slurm's default put local rank *i* on NUMA *i*. Recorded as
+`[observed]` on one node, with the topology query named as the check. The cost was not measured,
+and no binding is recommended.
+
+**Reconciliation (§developer-obligations item 11).** This edit is driven by an observation, so
+the existing statements about the objects touched were listed.
+- `software/quda/internals/rank-placement.md`, device chosen by local rank and accelerator
+  binding disabled: **confirmed**, unchanged. The new paragraph cites it.
+- `tools/perlmutter-quda-bind.sh` and `machines/perlmutter/notes.md`, rank *i* on NUMA *i* with
+  an `MPICH_OFI_NIC_MAPPING`: **confirmed** for Perlmutter, unchanged. Big Red 200's notes say
+  that its core and memory indices fit there, and that its OFI NIC variables do not apply under
+  UCX `[inferred]`, not tested.
+- `conventions/batch-scripts.md`, which resolves logical CPUs from the profile's thread
+  multiplier: **confirmed**. The notes state the 2*N* cpuset directly.
+- Big Red 200's own notes and profile: the "not read on a node", "not read inside a job" and "no
+  node-local temporary directory has been established" sentences are **amended**. The test
+  pinning absence of `node_local_tmp_variable` is **amended** to pin `null`. Nothing was deleted.

@@ -7,9 +7,9 @@ public_login_hosts:
   - login2.bigred200.uits.iu.edu
 scheduler:
   type: slurm
-  # node_local_tmp_variable is deliberately absent: Slurm's TmpFS is /tmp and the
-  # scheduler records TmpDisk=0 on every node, but nobody has yet read the job
-  # environment on a compute node. Absent means unestablished, not null.
+  # Read inside a gpu-debug job: SLURM_TMPDIR is unset. /tmp itself exists as a
+  # RAM-backed tmpfs; see filesystems.node_local_tmp.
+  node_local_tmp_variable: null
 filesystems:
   home:
     purpose: Small permanent storage for source, scripts and builds; not for multi-node job I/O.
@@ -27,6 +27,12 @@ filesystems:
     path: /N/scratch/<user>
     type: Lustre, mounted with flock
     quota: 100 TB, 10 million files per user
+  node_local_tmp:
+    purpose: Node-local scratch for small-file I/O within one job.
+    path: /tmp
+    # Read on a gpu-a100-40 node only. RAM-backed, so what a job writes there is
+    # host memory it cannot use otherwise.
+    type: tmpfs, about 252 GB on a gpu-a100-40 node
 site_policy:
   scheduling:
     # Slurm select/cons_tres with CR_CORE_MEMORY: nodes are shared between jobs, and
@@ -142,13 +148,12 @@ node_types:
       hardware_threads_per_core: 2
     accelerator:
       vendor: NVIDIA
-      model: A100
+      model: A100-SXM4-40GB
       arch: sm_80
       per_node: 4
-      # Unconfirmed. IU's GPU comparison page gives 40 GB per A100, but it is no longer
-      # served, and that value is known only from a search-engine summary of it. Read it
-      # from nvidia-smi on a node before sizing a run on it, as notes.md says.
+      # nvidia-smi in a gpu-debug job: 40960 MiB per device, compute capability 8.0.
       memory_gb: 40
+      interconnect: NVLink, four bonded links between every pair of GPUs (NV4)
     queues:
       - name: gpu
       - name: gpu-debug
@@ -161,11 +166,15 @@ node_types:
       installed_nodes: 64
       physical_cpu_cores: 64
       scheduler_cpus_per_node: 64
-      # Slurm RealMemory. IU's knowledge base gives 256 GB per GPU node (as summarised
-      # by a search engine; its pages render in JavaScript and were not read directly).
-      # The scheduler configures twice that.
+      # Slurm RealMemory, matching the roughly 503 GiB the node reports. IU's knowledge
+      # base gives 256 GB per GPU node (as summarised by a search engine; its pages
+      # render in JavaScript and were not read directly).
       schedulable_memory_mb: 512000
-      network: HPE Slingshot-10
+      # NUMA domain d holds cores 16d to 16d+15 and their SMT siblings, about 126 GiB
+      # each. GPU affinity runs the other way; notes.md owns the consequence.
+      numa_domains: 4
+      network: HPE Slingshot-10, two 100 Gb/s interfaces
+      network_interfaces_per_node: 2
 evidence: reproduced
 observations: 2
 observed: "2026-11-11"
@@ -177,5 +186,6 @@ sources:
   - sacctmgr show qos, read twice on 2026-11-11
   - Lmod module list and module avail on a login node, 2026-11-11
   - /proc/mounts and the site quota command on a login node, 2026-11-11
+  - one gpu-debug job on a gpu-a100-40 node, 2026-11-11 (nvidia-smi, numactl -H, per-task cpusets, job environment)
   - https://top500.org/system/179949
   - https://top500.org/system/180020

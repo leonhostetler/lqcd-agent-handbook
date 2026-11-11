@@ -11,7 +11,8 @@
       "login2.bigred200.uits.iu.edu"
     ],
     "scheduler": {
-      "type": "slurm"
+      "type": "slurm",
+      "node_local_tmp_variable": null
     },
     "filesystems": {
       "home": {
@@ -32,6 +33,11 @@
         "path": "/N/scratch/<user>",
         "type": "Lustre, mounted with flock",
         "quota": "100 TB, 10 million files per user"
+      },
+      "node_local_tmp": {
+        "purpose": "Node-local scratch for small-file I/O within one job.",
+        "path": "/tmp",
+        "type": "tmpfs, about 252 GB on a gpu-a100-40 node"
       }
     },
     "site_policy": {
@@ -175,10 +181,11 @@
         },
         "accelerator": {
           "vendor": "NVIDIA",
-          "model": "A100",
+          "model": "A100-SXM4-40GB",
           "arch": "sm_80",
           "per_node": 4,
-          "memory_gb": 40
+          "memory_gb": 40,
+          "interconnect": "NVLink, four bonded links between every pair of GPUs (NV4)"
         },
         "queues": [
           {
@@ -201,7 +208,9 @@
           "physical_cpu_cores": 64,
           "scheduler_cpus_per_node": 64,
           "schedulable_memory_mb": 512000,
-          "network": "HPE Slingshot-10"
+          "numa_domains": 4,
+          "network": "HPE Slingshot-10, two 100 Gb/s interfaces",
+          "network_interfaces_per_node": 2
         }
       }
     },
@@ -217,6 +226,7 @@
       "sacctmgr show qos, read twice on 2026-11-11",
       "Lmod module list and module avail on a login node, 2026-11-11",
       "/proc/mounts and the site quota command on a login node, 2026-11-11",
+      "one gpu-debug job on a gpu-a100-40 node, 2026-11-11 (nvidia-smi, numactl -H, per-task cpusets, job environment)",
       "https://top500.org/system/179949",
       "https://top500.org/system/180020"
     ]

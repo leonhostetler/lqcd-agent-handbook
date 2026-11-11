@@ -1,6 +1,6 @@
 ---
 title: Working on Big Red 200
-summary: Node-target declaration, the scheduler's core-counted CPUs and shared nodes, summed TRES billing, the UCX Cray MPICH default on Slingshot-10, build placement, and storage rules for IU Big Red 200, including why its NFS home must never take a multi-node QIO single-file write.
+summary: Node-target declaration, the scheduler's core-counted CPUs and shared nodes, GPU affinity that runs opposite to Slurm's default rank order, summed TRES billing, the UCX Cray MPICH default on Slingshot-10, build placement, and storage rules for IU Big Red 200, including why its NFS home must never take a multi-node QIO single-file write.
 scope: [machine:big-red-200]
 load_when: Building software or preparing a job on Big Red 200.
 evidence: reproduced
@@ -10,6 +10,7 @@ sources:
   - sacctmgr show qos, read twice on 2026-11-11
   - Lmod module list and module avail on a login node, 2026-11-11
   - /proc/mounts and the site quota command on a login node, 2026-11-11
+  - one gpu-debug job on a gpu-a100-40 node, 2026-11-11 (nvidia-smi, numactl -H, per-task cpusets, job environment)
   - https://top500.org/system/179949
   - https://top500.org/system/180020
   - https://github.com/usqcd-software/qio/issues/19
@@ -45,10 +46,27 @@ Big Red 200 has two node types, `cpu` and `gpu-a100-40`, so select one explicitl
 resolving a build or stack. The login nodes are x86 EPYC hosts with no GPU, so a login host
 looks like a `cpu` node. That says nothing about the intended target.
 
-A `gpu-a100-40` node has one 64-core EPYC 7713 and four A100 GPUs. The A100 model and
-architecture come from public sources, and the 40 GB device memory has not been read on a
-node. Before sizing device memory, confirm model and memory with `nvidia-smi` in the first GPU
-job, and reconcile the resolved node type with that telemetry.
+A `gpu-a100-40` node has one 64-core EPYC 7713 in four NUMA domains and four A100-SXM4-40GB
+GPUs, 40,960 MiB each, connected all-to-all by NVLink. Reconcile the resolved node type with
+`nvidia-smi` once a job runs.
+
+## GPU affinity runs opposite to Slurm's rank order
+
+On a `gpu-a100-40` node, GPU *i*'s CPU affinity is NUMA domain 3 − *i*: GPU 0 sits with cores
+48–63, and GPU 3 with cores 0–15. Slurm's default placement for four tasks of 16 cores put
+local rank *i* on NUMA domain *i*. QUDA selects its device by local rank
+([`../../software/quda/internals/rank-placement.md`](../../software/quda/internals/rank-placement.md)),
+so under that default every rank drives the GPU of another NUMA domain. The same holds for the
+two network interfaces: `mlx5_0` is next to GPU 3 and NUMA 0, and `mlx5_1` is next to GPU 0 and
+NUMA 3. `[observed]` on one node, with `nvidia-smi topo -m` and the tasks' own cpusets; check it
+with `nvidia-smi topo -m` before relying on it on another node.
+
+What this costs has not been measured here. Perlmutter's GPU nodes have the same layout, and its
+tested wrapper, `tools/perlmutter-quda-bind.sh`, also keeps local rank *i* on NUMA *i*. Its core
+and memory indices fit this node, but it steers the network interface with `MPICH_OFI_*`
+variables, which the UCX build of Cray MPICH used here does not read `[inferred]`. Record the
+binding in force with every run, and treat GPU-affine placement as a candidate to measure, not a
+default.
 
 ## Count CPUs in cores, not hardware threads
 
@@ -57,9 +75,10 @@ a `gpu-a100-40` node as 1:64:2 with 64 CPUs. A Slurm CPU here is therefore a **c
 operating system numbers twice as many logical CPUs. So `--cpus-per-task` is in cores, but a
 binding tool's CPU indices run over hardware threads. A rank layout copied from a machine whose
 scheduler counts threads, such as Perlmutter's GPU nodes, requests twice the cores it means.
-How core-counted CPUs map to the cpuset a task receives has not been read inside a job.
-Confirm it with `taskset -cp $$` in a task before writing explicit CPU indices into a binding
-wrapper. The profile records `scheduler_cpus_per_node` and deliberately no
+A task asking for *N* CPUs receives *N* whole cores with both hardware threads, so `nproc`
+reports 2*N* `[observed]` (16 requested, 32 logical CPUs in each task's cpuset). Size the OpenMP
+thread count from that, and make a binding wrapper's CPU indices fit the 2*N* logical CPUs the
+task holds. The profile records `scheduler_cpus_per_node` and deliberately no
 `logical_cpus_per_node`.
 
 ## Shared nodes and billing
@@ -68,7 +87,8 @@ The scheduler allocates cores and memory (`CR_CORE_MEMORY`) and shares nodes bet
 GPU job that does not request memory receives 125,440 MB per GPU. Billing is the **sum** of
 weighted resources, not their maximum: every core, every GB of memory, and every GPU at its
 weight in the profile. A request is billed on everything it reserves, including the default
-memory per GPU, so request memory and cores deliberately. How billing becomes an allocation
+memory per GPU, so request memory and cores deliberately. A whole `gpu-a100-40` node at the
+default memory, 64 cores, 490 GB and four GPUs, bills 190 per hour. How billing becomes an allocation
 charge is not recorded here.
 
 `gpu-interactive` admits one job per user, with one GPU and at most 122.5 GB of host memory.
@@ -97,5 +117,6 @@ resource cap was found in the session's control group.
 `$HOME` (`/N/u/<user>/BigRed200`) is NFS: keep source, scripts and builds there, and never
 multi-node shared-file writes (above). `/N/scratch/<user>` and `/N/slate/<user>` are Lustre
 mounted with `flock`. Scratch is the large-capacity space for job I/O, and Slate is persistent.
-Per-user quotas are in the profile. No scheduler-provided node-local temporary directory has
-been established, and Slurm records no node-local temporary disk.
+Per-user quotas are in the profile. Slurm sets no node-local temporary directory variable.
+`/tmp` on a `gpu-a100-40` node is a tmpfs of about 252 GB: it is RAM-backed, so a job that writes
+there spends host memory the job could otherwise use.

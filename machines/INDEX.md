@@ -15,7 +15,7 @@ Entries are grouped by scoped machine.
 
 | Knowledge | Summary | Load when |
 |---|---|---|
-| [Working on Big Red 200](big-red-200/notes.md) | Node-target declaration, the scheduler's core-counted CPUs and shared nodes, summed TRES billing, the UCX Cray MPICH default on Slingshot-10, build placement, and storage rules for IU Big Red 200, including why its NFS home must never take a multi-node QIO single-file write. | Building software or preparing a job on Big Red 200. |
+| [Working on Big Red 200](big-red-200/notes.md) | Node-target declaration, the scheduler's core-counted CPUs and shared nodes, GPU affinity that runs opposite to Slurm's default rank order, summed TRES billing, the UCX Cray MPICH default on Slingshot-10, build placement, and storage rules for IU Big Red 200, including why its NFS home must never take a multi-node QIO single-file write. | Building software or preparing a job on Big Red 200. |
 
 ## deltaai
 

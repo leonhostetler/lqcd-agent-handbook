@@ -66,11 +66,20 @@ class BigRed200MachineTests(unittest.TestCase):
         self.assertIn("select one explicitly", notes)
         self.assertNotIn("No separate operator declaration is needed", notes)
 
-    def test_node_local_tmp_variable_stays_unestablished(self):
-        # Absent means nobody has read a compute-node job environment; null would claim
-        # the site provides none.
+    def test_node_local_tmp_variable_is_recorded_as_none(self):
+        # Read inside a gpu-debug job: the scheduler exports no node-local temporary
+        # directory variable. null states that; an absent key would mean unestablished.
         profile = yaml.safe_load(PROFILE.read_text())
-        self.assertNotIn("node_local_tmp_variable", profile["scheduler"])
+        self.assertIn("node_local_tmp_variable", profile["scheduler"])
+        self.assertIsNone(profile["scheduler"]["node_local_tmp_variable"])
+
+    def test_gpu_node_records_confirmed_topology(self):
+        gpu = yaml.safe_load(PROFILE.read_text())["node_types"]["gpu-a100-40"]
+        self.assertEqual(gpu["accelerator"]["memory_gb"], 40)
+        self.assertEqual(gpu["sizing"]["numa_domains"], 4)
+        self.assertEqual(gpu["sizing"]["network_interfaces_per_node"], 2)
+        notes = " ".join(NOTES.read_text().split())
+        self.assertIn("GPU affinity runs opposite to Slurm's rank order", notes)
 
     def run_detector(self, hostname: str) -> str:
         env = os.environ.copy()
