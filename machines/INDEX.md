@@ -11,6 +11,12 @@ Entries are grouped by scoped machine.
 | [QUDA SYCL milc-cg stack on Aurora](aurora/stacks/quda-sycl-milc-cg-2026q4/notes.md) | Reproduction commands, the feature/sycl branch requirement, and the runtime placement for the validated Aurora SYCL QUDA stack, including why QUDA_ENABLE_MPS=1 is safe here only together with QUDA_ENABLE_P2P=0. | Rebuilding or validating the quda-sycl-milc-cg-2026q4 stack, or launching QUDA on Aurora. |
 | [Working on Aurora](aurora/notes.md) | Where a PBS job starts and how to reach the job directory, node-target resolution, submission requirements (filesystems resource, place, project directory), where live queues differ from ALCF's table, PALS mpiexec rank and GPU-tile placement, build placement, and storage and network rules for ALCF Aurora. | Building software or preparing a job on Aurora. |
 
+## big-red-200
+
+| Knowledge | Summary | Load when |
+|---|---|---|
+| [Working on Big Red 200](big-red-200/notes.md) | Node-target declaration, the scheduler's core-counted CPUs and shared nodes, summed TRES billing, the UCX Cray MPICH default on Slingshot-10, build placement, and storage rules for IU Big Red 200, including why its NFS home must never take a multi-node QIO single-file write. | Building software or preparing a job on Big Red 200. |
+
 ## deltaai
 
 | Knowledge | Summary | Load when |

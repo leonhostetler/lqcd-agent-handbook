@@ -29,6 +29,9 @@ case "$detected_hostname" in
   aurora.alcf.anl.gov|*.aurora.alcf.anl.gov)
     printf '%s\n' aurora
     ;;
+  bigred200.uits.iu.edu|*.bigred200.uits.iu.edu)
+    printf '%s\n' big-red-200
+    ;;
   *)
     printf '%s\n' unknown
     ;;

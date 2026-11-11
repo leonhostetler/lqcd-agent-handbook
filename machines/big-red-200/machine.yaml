@@ -1,0 +1,181 @@
+schema_version: 2
+name: big-red-200
+summary: Indiana University HPE Cray EX system with CPU-only AMD EPYC nodes and four-way NVIDIA A100 GPU nodes on Slingshot-10.
+public_login_hosts:
+  - bigred200.uits.iu.edu
+  - login1.bigred200.uits.iu.edu
+  - login2.bigred200.uits.iu.edu
+scheduler:
+  type: slurm
+  # node_local_tmp_variable is deliberately absent: Slurm's TmpFS is /tmp and the
+  # scheduler records TmpDisk=0 on every node, but nobody has yet read the job
+  # environment on a compute node. Absent means unestablished, not null.
+filesystems:
+  home:
+    purpose: Small permanent storage for source, scripts and builds; not for multi-node job I/O.
+    environment_variable: HOME
+    path: /N/u/<user>/BigRed200
+    type: NFS version 3, mounted nolock with local_lock=all
+    quota: 100 GB, 500,000 files per user
+  slate:
+    purpose: Persistent high-capacity project and user storage.
+    path: /N/slate/<user>
+    type: Lustre, mounted with flock
+    quota: 800 GB, 6.4 million files per user
+  scratch:
+    purpose: High-capacity temporary storage for active job I/O.
+    path: /N/scratch/<user>
+    type: Lustre, mounted with flock
+    quota: 100 TB, 10 million files per user
+site_policy:
+  scheduling:
+    # Slurm select/cons_tres with CR_CORE_MEMORY: nodes are shared between jobs, and
+    # cores and memory are the allocated resources.
+    model: shared_nodes_with_partitions
+    default_partition: general
+    default_walltime_minutes: 60
+    default_memory:
+      cpu_partitions: 1920 MB per CPU
+      gpu_partitions: 125440 MB per GPU
+    partition_limits:
+      general:
+        node_type: cpu
+        qos: allocated
+        maximum_walltime_hours: 96
+        maximum_nodes_per_job: 200
+        maximum_nodes_per_user: 200
+        maximum_submitted_per_user: 1000
+      debug:
+        node_type: cpu
+        qos: debug
+        maximum_walltime_hours: 1
+        maximum_nodes_per_user: 2
+        maximum_submitted_per_user: 4
+      gpu:
+        node_type: gpu-a100-40
+        qos: allocated-gpu
+        maximum_walltime_hours: 48
+        maximum_nodes_per_job: 36
+        maximum_nodes_per_user: 36
+        maximum_submitted_per_user: 1000
+      gpu-debug:
+        node_type: gpu-a100-40
+        qos: debug
+        maximum_walltime_hours: 1
+        maximum_nodes_per_user: 2
+        maximum_submitted_per_user: 4
+      gpu-interactive:
+        node_type: gpu-a100-40
+        qos: gpu-interactive
+        default_walltime_minutes: 30
+        maximum_walltime_hours: 4
+        maximum_per_job: one GPU and 122.5 GB of host memory
+        maximum_nodes_per_user: 1
+        maximum_submitted_per_user: 1
+  accounting:
+    # The scheduler's billing TRES. How, or whether, IU converts it into an allocation
+    # charge is not established here. PriorityFlags carries no MAX_TRES, so billing is
+    # the weighted SUM of the requested resources, not their maximum.
+    billing_basis: Sum of weighted TRES per job.
+    billing_weights:
+      cpu_partitions: {cpu: 1.0, memory_per_gb: 0.512}
+      gpu_partitions: {cpu: 1.0, memory_per_gb: 0.128, gpu: 16.0}
+build_environment:
+  login:
+    intended_for:
+      - editing
+      - compilation
+      - job submission
+    accelerator_available: false
+  compute:
+    use_for:
+      - GPU builds that run tests
+      - long or highly parallel builds
+  module_system: Lmod
+  compilers:
+    recommended_wrappers:
+      c: cc
+      cxx: CC
+      fortran: ftn
+    default_environment: PrgEnv-gnu
+  # The default Cray MPICH is the UCX build (craype-network-ucx, cray-mpich-ucx), which
+  # matches the Mellanox Slingshot-10 NIC. machines/big-red-200/notes.md owns why.
+  mpi_default: cray-mpich-ucx
+  accelerator_toolchain:
+    cuda_module: cudatoolkit
+    target_module: craype-accel-nvidia80
+    gpu_arch: sm_80
+node_types:
+  cpu:
+    description: HPE Cray EX425 CPU-only compute node.
+    cpu:
+      vendor: AMD
+      model: EPYC 7742
+      sockets: 2
+      cores_per_socket: 64
+      hardware_threads_per_core: 2
+    accelerator: null
+    queues:
+      - name: general
+      - name: debug
+    build_constraints:
+      target: cpu
+      cpu_arch: x86_64
+      craype_cpu_target: x86-rome
+    sizing:
+      installed_nodes: 640
+      physical_cpu_cores: 128
+      # Slurm counts cores, not hardware threads, as CPUs here (CPUTot=128 on a
+      # 2:64:2 node). logical_cpus_per_node is therefore not recorded: the request
+      # unit and the OS CPU index range differ. See notes.md.
+      scheduler_cpus_per_node: 128
+      schedulable_memory_mb: 256000
+      network: HPE Slingshot-10
+      network_interfaces_per_node: 1
+  gpu-a100-40:
+    description: HPE Cray EX235n GPU compute node with four NVIDIA A100 GPUs.
+    cpu:
+      vendor: AMD
+      model: EPYC 7713
+      sockets: 1
+      cores_per_socket: 64
+      hardware_threads_per_core: 2
+    accelerator:
+      vendor: NVIDIA
+      model: A100
+      arch: sm_80
+      per_node: 4
+      # Unconfirmed. IU's GPU comparison page gives 40 GB per A100, but it is no longer
+      # served, and that value is known only from a search-engine summary of it. Read it
+      # from nvidia-smi on a node before sizing a run on it, as notes.md says.
+      memory_gb: 40
+    queues:
+      - name: gpu
+      - name: gpu-debug
+      - name: gpu-interactive
+    build_constraints:
+      target: gpu
+      gpu_arch: sm_80
+      cpu_arch: x86_64
+    sizing:
+      installed_nodes: 64
+      physical_cpu_cores: 64
+      scheduler_cpus_per_node: 64
+      # Slurm RealMemory. IU's knowledge base gives 256 GB per GPU node (as summarised
+      # by a search engine; its pages render in JavaScript and were not read directly).
+      # The scheduler configures twice that.
+      schedulable_memory_mb: 512000
+      network: HPE Slingshot-10
+evidence: reproduced
+observations: 2
+observed: "2026-11-11"
+observed_on:
+  machine: big-red-200
+review_by: "2027-05-11"
+sources:
+  - sinfo, scontrol show partition, scontrol show node and scontrol show config, read twice on 2026-11-11
+  - sacctmgr show qos, read twice on 2026-11-11
+  - Lmod module list and module avail on a login node, 2026-11-11
+  - /proc/mounts and the site quota command on a login node, 2026-11-11
+  - https://top500.org/system/179949
+  - https://top500.org/system/180020

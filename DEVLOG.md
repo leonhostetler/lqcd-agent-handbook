@@ -8791,3 +8791,61 @@ and the blocked-solve statements across `software/` and `conventions/`.
   ran at width 6 with default SVD batches, which does not exercise the fixed path.
 - `software/milc/internals/staggered-inverter-types.md`, batched sets print `srcs = <n>`: *confirmed*, unchanged.
 - No other statement on this object was found.
+
+## 2026-11-11 — Big Red 200 onboarded from live scheduler queries
+
+A developer-mode session on a Big Red 200 login node found `tools/detect-machine.sh`
+reporting `unknown`. Big Red 200 was onboarded as needed. It moves no schema axis: Slurm and
+NVIDIA again, and Perlmutter already has the CPU-plus-A100 split. The name `big-red-200` is the
+one `ARCHITECTURE.md`'s directory tree already lists.
+
+**What the profile rests on, and why not documentation.** Every other profile is
+`evidence: docs`. This one is `evidence: reproduced`, `observations: 2`. IU's knowledge-base
+pages render in JavaScript, so neither the fetch tool nor `curl` returned their text, and IU's
+GPU comparison page returns 404. The operator chose the live system as the basis. `sinfo`,
+`scontrol show partition|node|config` and `sacctmgr show qos` were each read twice on
+2026-11-11, minutes apart, and agreed. The CPU and GPU models and Slingshot-10 come from the
+two public TOP500 system pages. Two values rest only on a search-engine summary of IU pages and
+are labelled so in the profile: 40 GB per A100, and IU's 256 GB per GPU node. The second is
+contradicted by the scheduler's `RealMemory=512000`, which the profile records instead.
+`sizing.installed_nodes` is the scheduler's configured node list (640 CPU, 64 GPU nodes,
+debug and interactive partitions included). That is installed inventory, not idle capacity, so
+it meets `§node-types`. The GPU figure matches IU's published 64.
+
+**Findings worth the profile's space.**
+- The scheduler counts **cores** as CPUs (128 on a 2:64:2 node, 64 on a 1:64:2 node), with
+  `select/cons_tres` and `CR_CORE_MEMORY`. `logical_cpus_per_node` is therefore deliberately
+  absent, because `tools/check-batch-script.py` compares it with a CPU request that is
+  core-counted here. The profile records `scheduler_cpus_per_node`, and a test pins the absence.
+- The default Cray MPICH is the **UCX** build. The high-speed interface is an `mlx5` device at
+  100 Gb/s, consistent with Slingshot-10.
+- `PriorityFlags` is empty, so TRES billing is a weighted **sum**, not a maximum.
+- `$HOME` is NFSv3 mounted `nolock,local_lock=all`. That makes `fcntl` locks client-local, so
+  the QIO NFS defect's escape through a locking MPI-IO driver does not apply on home
+  `[inferred]`, from the mount options and not tested. `/N/slate` and `/N/scratch` are Lustre
+  mounted with `flock`.
+
+**Deliberately left out.**
+- `scheduler.node_local_tmp_variable`: no compute-node job environment was read. Slurm's
+  `TmpFS=/tmp` and `TmpDisk=0` do not settle it. A test pins the absence.
+- Scratch purge policy and filesystem purposes beyond what the mount and quota show: they are
+  in IU's unreadable pages. The quotas are one user's quota command, recorded as per-user.
+- Accelerator telemetry, `profilers:`, GPU-aware MPI, login-node resource caps (none found in
+  the session's control group) and compute-node `hostname -f`. No job ran, because no budget
+  was granted. The detector matches `*.bigred200.uits.iu.edu`, which the scheduler's node
+  addresses fall under, but compute-node detection is unverified. Its test cases use public
+  login names and a placeholder, never the internal compute or management names the node
+  addresses carry.
+- A ROADMAP obligation for the first GPU job's confirmations (GPU model and memory, the
+  cpuset a core-counted task receives, node-local tmp, compute-node detection). The developer
+  documents stand at 249,996 of 250,000 bytes. `machines/big-red-200/notes.md` states each
+  check at the point it binds.
+
+**Reconciliation (§developer-obligations item 11).** Not incident-driven, but the existing
+statements on the objects touched were checked. `ARCHITECTURE.md`'s tree lists `big-red-200` —
+**confirmed**. `software/qio/parallel-singlefile-writes.md` says a locking MPI-IO driver is
+safe on NFS. It is scoped to `machine:vista` and is not contradicted there — **confirmed**,
+unchanged. Big Red 200's notes carry the machine-specific exception, and
+`tests/test_open_upstream_defects.py` now requires their warning too. `tests/test_slice1.py`'s
+node-type resolution check — **confirmed**. Big Red 200 is multi-type and carries its own
+explicit-declaration test. Nothing was deleted.

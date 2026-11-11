@@ -28,6 +28,7 @@ OPEN_DEFECTS = {
             "software/qio/README.md",
             "machines/vista/notes.md",
             "machines/horizon/notes.md",
+            "machines/big-red-200/notes.md",
             "software/quda/internals/vector-io-layout.md",
             "machines/vista/stacks/quda-cuda12-milc-cg-2026q3/stack.yaml",
             "machines/vista/stacks/quda-cuda13-milc-cg-2026q3/stack.yaml",
@@ -72,6 +73,7 @@ class OpenUpstreamDefectTests(unittest.TestCase):
             "software/qio/README.md",
             "machines/vista/notes.md",
             "machines/horizon/notes.md",
+            "machines/big-red-200/notes.md",
         ):
             with self.subTest(path=path):
                 body = (ROOT / path).read_text().split("\n---\n", 1)[1]
